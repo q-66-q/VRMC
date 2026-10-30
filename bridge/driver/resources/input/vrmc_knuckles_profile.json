@@ -50,5 +50,6 @@
       "binding_image_point": [100, 200],
       "order": 8
     }
-  }
+  },
+  "default_bindings": []
 }

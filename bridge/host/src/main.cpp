@@ -20,6 +20,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstddef>
 #include <condition_variable>
 #include <iterator>
 #include <cstring>
@@ -50,6 +51,28 @@ BOOL WINAPI consoleHandler(DWORD type) {
         return TRUE;
     }
     return FALSE;
+}
+
+std::vector<uint8_t> normalizeAnnexB(const std::vector<uint8_t>& input) {
+    // NVENC normally emits Annex-B, but some driver versions/API paths emit 4-byte
+    // length-prefixed NAL units. The client protocol requires Annex-B.
+    if (input.size() >= 3 && input[0] == 0 && input[1] == 0 && input[2] == 1) return input;
+    if (input.size() >= 4 && input[0] == 0 && input[1] == 0 && input[2] == 0 && input[3] == 1) return input;
+    std::vector<uint8_t> output;
+    size_t offset = 0;
+    while (offset + 4 <= input.size()) {
+        const uint32_t length = (static_cast<uint32_t>(input[offset]) << 24) |
+                                (static_cast<uint32_t>(input[offset + 1]) << 16) |
+                                (static_cast<uint32_t>(input[offset + 2]) << 8) |
+                                static_cast<uint32_t>(input[offset + 3]);
+        offset += 4;
+        if (length == 0 || offset + length > input.size()) return input;
+        output.insert(output.end(), {0, 0, 0, 1});
+        output.insert(output.end(), input.begin() + static_cast<ptrdiff_t>(offset),
+                      input.begin() + static_cast<ptrdiff_t>(offset + length));
+        offset += length;
+    }
+    return output.empty() ? input : output;
 }
 
 void logLine(const char* format, ...) {
@@ -312,6 +335,7 @@ private:
             logLine("encode error: %s", error.c_str());
             return;
         }
+        unit.data = normalizeAnnexB(unit.data);
         unit.timestampNs = timestamp;
         video_.push(std::move(unit));
     }

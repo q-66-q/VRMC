@@ -289,11 +289,17 @@ public:
         if (reader_ && reader_->valid()) {
             vrmc::IpcSnapshot snapshot{};
             if (reader_->read(snapshot)) {
-                hmd_->Update(snapshot);
-                left_->Update(snapshot.left);
-                right_->Update(snapshot.right);
-                lastRead_ = Clock::now();
-                valid = true;
+                const uint64_t now = static_cast<uint64_t>(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::steady_clock::now().time_since_epoch()).count());
+                if (snapshot.hostTimeNs == 0 || now < snapshot.hostTimeNs ||
+                    now - snapshot.hostTimeNs <= 500'000'000ULL) {
+                    hmd_->Update(snapshot);
+                    left_->Update(snapshot.left);
+                    right_->Update(snapshot.right);
+                    lastRead_ = Clock::now();
+                    valid = true;
+                }
             }
         }
         if (!valid && std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastRead_).count() > 250) {
