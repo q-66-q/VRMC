@@ -859,3 +859,4 @@ current acceptance audit, and `VERIFY.md` for the authoritative evidence state.
 | Date | Change | Author |
 | --- | --- | --- |
 | 2026-10-29 | Initial governance, architecture, plan, and agent rules | Lead architect |
+| 2026-10-30 | M0 committed; M1 client core + simulator E2E; gesture rearm/calibration/filter; C++ clock/pose/IPC; driver syntax; final audit | Lead architect |
