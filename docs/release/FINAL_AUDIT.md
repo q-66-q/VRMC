@@ -20,7 +20,7 @@ gates are blocked. This page is a summary; [`VERIFY.md`](../../VERIFY.md) is aut
 
 | Milestone | Result |
 | --- | --- |
-| M0 governance/feasibility/skeleton | Complete (commit `660ad30`) |
+| M0 governance/feasibility/skeleton | Complete (commit `454f1a7`) |
 | M1 client core + simulator streaming | Partial — SWIFT/VideoToolbox/C++/simulator E2E pass; secure transport and device/PC integration incomplete |
 | M2 device hand tracking | Blocked — physical Vision Pro required |
 | M3 PC bridge + Vivecraft | Blocked — Windows/SteamVR/Vivecraft required; driver source syntax-checked only |
