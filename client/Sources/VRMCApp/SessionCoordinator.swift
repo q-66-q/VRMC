@@ -62,6 +62,10 @@ public final class SessionCoordinator: @unchecked Sendable {
     private var lastTracking = "none"
     private var lastMediaAt = Timestamp.now()
     private var mediaDegraded = false
+    private var filterLock = NSLock()
+    private var leftFilter = HandFilter()
+    private var rightFilter = HandFilter()
+    private var headVelocity = VelocityEstimator()
     private let headHistory = HeadPoseHistory()
     private var calibration: TrackingCalibration?
     private var userHeight: Float = 1.62
@@ -156,9 +160,15 @@ public final class SessionCoordinator: @unchecked Sendable {
         let transform = calibration
         lock.unlock()
         if calibratedNow { onStatus("Tracking origin calibrated") }
+        filterLock.lock()
+        let filteredLeft = left.map { leftFilter.filter($0) }
+        let filteredRight = right.map { rightFilter.filter($0) }
+        if left == nil { leftFilter.reset() }
+        if right == nil { rightFilter.reset() }
+        filterLock.unlock()
         let mappedHead = transform?.pose(head) ?? head
-        let mappedLeft = left.map { transform?.hand($0) ?? $0 }
-        let mappedRight = right.map { transform?.hand($0) ?? $0 }
+        let mappedLeft = filteredLeft.map { transform?.hand($0) ?? $0 }
+        let mappedRight = filteredRight.map { transform?.hand($0) ?? $0 }
         lock.lock()
         leftSnapshot = mappedLeft
         rightSnapshot = mappedRight
@@ -472,9 +482,12 @@ public final class SessionCoordinator: @unchecked Sendable {
             output.left = IntentInput.released(hand: output.left.hand, quality: .invalid)
             output.right = IntentInput.released(hand: output.right.hand, quality: .invalid)
         }
+        let headMotion = headVelocity.update(pose: head, timestamp: now)
         let headInput = HeadInput(
             quality: headQuality, sampleId: UInt32(now.nanoseconds / 1_000_000),
-            pose: head
+            pose: head,
+            linearVelocity: headMotion.linear,
+            angularVelocity: headMotion.angular
         )
         sendInput(.head(headInput), udp: udp, session: session, sequence: &packetSequence)
         if let left {

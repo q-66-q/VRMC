@@ -44,7 +44,7 @@ Windows PC: virtual SteamVR HMD + two Index-style controllers (driver_vrmc)
 | --- | --- |
 | Governance, feasibility audit, ADRs, plan | Committed (M0) |
 | Protocol v1 + reference codec + vectors | Local tests pass |
-| visionOS client core (tests, gestures, mapping, clock) | Local tests pass (33 core + 3 video) |
+| visionOS client core (tests, gestures, mapping, clock) | Local tests pass (34 core + 3 video) |
 | visionOS immersive app + decoder + renderer | Simulator E2E verified (EV-0003) |
 | Simulator end-to-end demo (mock host) | Working; synthetic hands |
 | PC host + OpenVR virtual-device driver | Source present; **no Windows/SteamVR runtime evidence** |
@@ -55,7 +55,7 @@ Windows PC: virtual SteamVR HMD + two Index-style controllers (driver_vrmc)
 The only acceptable evidence lives in [`VERIFY.md`](VERIFY.md) §9. Simulator screenshots are
 explicitly not evidence for device hand tracking, Vivecraft, or latency.
 
-Local verification (2026-10-30): 33 Swift core tests + 3 VideoToolbox tests + C++ core
+Local verification (2026-10-30): 34 Swift core tests + 3 VideoToolbox tests + C++ core
 (protocol/vectors/clock/pose/IPC) + protocol conformance + docs checks pass; the simulator
 renders a live H.264 SBS stream with synthetic hands/intents (EV-0003). Physical device and
 Windows/SteamVR/Vivecraft runs are **blocked** in this workspace.

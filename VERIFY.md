@@ -450,7 +450,7 @@ Commands: `./scripts/test_all.sh` (all locally runnable), `swift test` in `clien
 | AT-TIME-02 | Clock | drift compensation and re-sync | long-session stability | NOT IMPLEMENTED |
 | AT-TIME-03 | Time | monotonic timestamp arithmetic/overflow | no wraps/misordering | PARTIAL |
 | AT-HAND-01 | Hand | 27-joint snapshot mapping and validation | complete skeleton | PASS (EV-0002) |
-| AT-HAND-02 | Hand | one-euro filter step response/noise | stable tracking | NOT IMPLEMENTED |
+| AT-HAND-02 | Hand | one-euro filter step response/noise | stable tracking | PASS (EV-0002) |
 | AT-HAND-03 | Hand | constant-velocity prediction bounds | predictable extrapolation | PASS (EV-0002) |
 | AT-HAND-04 | Hand | tracking loss hold/release state machine | no stuck poses/buttons | PASS (EV-0002) |
 | AT-GEST-01 | Gesture | pinch hysteresis and debounce | no trigger chatter | PASS (EV-0002) |
@@ -617,7 +617,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 - **Procedure:** `./scripts/test_all.sh` (Swift tests, VideoToolbox fixture, C++ core,
   protocol vectors, docs checks)
 - **Expected:** all local unit/conformance tests pass.
-- **Actual:** PASS. Swift XCTest: 33 core tests + 3 video tests, 0 failures; C++ core: 1/1
+- **Actual:** PASS. Swift XCTest: 34 core tests + 3 video tests, 0 failures; C++ core: 1/1
   passed (protocol, vectors, clock, pose, IPC); protocol vectors verified; docs links/required files pass. Full log:
   `evidence/EV-0002-local-suite/test_all.log`.
 - **Evidence:** `evidence/EV-0002-local-suite/manifest.json`,

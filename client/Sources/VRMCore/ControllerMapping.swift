@@ -188,11 +188,17 @@ public final class ControllerMapper: @unchecked Sendable {
         if pulses(for: role).active(.a, now: now) { buttons.insert(.a) }
         if pulses(for: role).active(.b, now: now) { buttons.insert(.b) }
         if pulses(for: role).active(.stickClick, now: now) { buttons.insert(.stickClick) }
+        let predictedPose = PosePredictor.predict(
+            pose: signals.controllerPose,
+            velocity: PoseVelocity(linear: signals.linearVelocity, angular: signals.angularVelocity),
+            horizonSeconds: 0.020,
+            maxHorizon: 0.050
+        )
         return IntentInput(
             hand: role,
             quality: signals.degraded ? .degraded : .tracked,
             sampleId: sampleCounter,
-            pose: signals.controllerPose,
+            pose: predictedPose,
             linearVelocity: signals.linearVelocity,
             angularVelocity: signals.angularVelocity,
             trigger: signals.trigger,

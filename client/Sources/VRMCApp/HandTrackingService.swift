@@ -91,7 +91,7 @@ final class HandTrackingService: @unchecked Sendable {
 
     private static func snapshot(from anchor: HandAnchor) -> HandSnapshot {
         let chirality: HandChirality = anchor.chirality == .left ? .left : .right
-        let timestamp = Timestamp(seconds: anchor.timestamp)
+        let timestamp = anchor.timestamp > 0 ? Timestamp(seconds: anchor.timestamp) : .now()
         guard let skeleton = anchor.handSkeleton, anchor.isTracked else {
             return .empty(chirality: chirality, timestamp: timestamp, quality: .invalid)
         }

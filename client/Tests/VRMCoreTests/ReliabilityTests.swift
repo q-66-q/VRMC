@@ -55,6 +55,19 @@ final class ReliabilityTests: XCTestCase {
         XCTAssertEqual(mappedHand.joints[Int(HandJointName.wrist.rawValue)].position.y, 1.02, accuracy: 1e-4)
     }
 
+    func testHandFilterPreservesSkeletonAndSmooths() {
+        var filter = HandFilter()
+        let first = SyntheticHand.make(timestamp: t0)
+        let filtered = filter.filter(first)
+        XCTAssertEqual(filtered.joints.count, HandJointName.count)
+        XCTAssertEqual(filtered.joints[Int(HandJointName.wrist.rawValue)].position.x, 0, accuracy: 0.001)
+        var noisy = first
+        noisy.joints[Int(HandJointName.wrist.rawValue)].position.x = 0.1
+        noisy.timestamp = t0.adding(milliseconds: 11)
+        let second = filter.filter(noisy)
+        XCTAssertLessThan(second.joints[Int(HandJointName.wrist.rawValue)].position.x, 0.1)
+    }
+
     func testOneEuroFilterIsBounded() {
         var filter = OneEuroFilter3(minCutoff: 1.5, beta: 0.05)
         var value = Vec3.zero
