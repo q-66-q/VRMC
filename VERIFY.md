@@ -632,7 +632,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 - **Date/time:** 2026-10-30 08:20 UTC
 - **Commit:** `5b4c68a` (clean code; evidence files added after)
 - **Build:** VRMC.app simulator Debug; executable SHA-256
-  `a96a277d5471cfc45bf68cc064a0ad3baa93a0ce0ff2ffc2c3072259784ac904`;
+  `ccb4b6deeb8f78d5631d3b9f39948e6a9ea78b6b0081130facd3d95490992fa6`;
   app-bundle archive SHA-256
   `372eb1a53072b00173e5c3341290dcadb4bda735bf63d312dd9a134b728842a8`
 - **Environment:** D3 (visionOS 27 simulator, VRMC-VP on macOS 27.0.1) + Python mock host on
