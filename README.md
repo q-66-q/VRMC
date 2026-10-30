@@ -109,7 +109,7 @@ See [`AGENT.md`](AGENT.md) §6 for every command and
 - [docs/performance/PERF_REPORT.md](docs/performance/PERF_REPORT.md) — measurement report
   (simulator baseline; hardware pending).
 - [VERIFY.md](VERIFY.md) §9 — evidence log (EV-0002 local suite, EV-0003 simulator stream).
-- [docs/testing/](docs/testing/) — strategy and manual device checklist.
+- [docs/testing/](docs/testing/) — strategy, test report, and manual device checklist.
 
 ## Legal and safety
 

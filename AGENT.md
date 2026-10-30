@@ -476,7 +476,7 @@ excluded from Git; a manifest and hashes are committed).
 - C++20. `-Wall -Wextra -Werror` for core; warnings allowed only with a tracked TODO.
 - No exceptions across the driver ABI. Use `noexcept`, error codes, and fail closed.
 - All shared-memory structs are trivially copyable, fixed-width, explicitly padded, and
-  guarded by the versioned seqlock protocol in `bridge/core/ipc.h`.
+  guarded by the versioned seqlock protocol in `bridge/core/ipc.hpp`.
 - Windows-only code is isolated in `host/win` and `driver/`, behind interfaces testable on
   POSIX. Do not include Windows headers in `core/`.
 - OpenVR API calls are confined to the driver and a thin host adapter; core never depends on

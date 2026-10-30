@@ -33,7 +33,7 @@ public final class TCPControlConnection: @unchecked Sendable {
     private let port: UInt16
     private let lock = NSLock()
     private var fd: Int32 = -1
-    private var sequence: UInt32 = 1
+    private var sequence: UInt32 = 0
     private var running = false
     private var thread: Thread?
     private let onMessage: MessageHandler
