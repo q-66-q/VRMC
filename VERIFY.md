@@ -3,7 +3,7 @@
 > **Authority:** This file is the single source of truth for verification, acceptance, and
 > release sign-off. If it conflicts with `AGENT.md`, this file wins for acceptance decisions.
 > **Last updated:** 2026-10-30.
-> **Baseline commit:** `454f1a724fc2f589c3e35a1487e7b4dac5807fc2` (local); first tagged release TBD.
+> **Baseline commit:** `5b4c68a` (local); first tagged release TBD.
 > **Release candidate:** none.
 
 **Rules**
@@ -611,7 +611,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0002 — Local automated suite baseline
 
 - **Date/time:** 2026-10-30 08:21 UTC
-- **Commit:** `454f1a724fc2f589c3e35a1487e7b4dac5807fc2` (clean)
+- **Commit:** `5b4c68a` (clean)
 - **Build:** client package + C++ core; no device/Windows artifacts
 - **Environment:** macOS 27.0.1, Xcode 27.1, Swift 6.4, clang 21, Python 3
 - **Procedure:** `./scripts/test_all.sh` (Swift tests, VideoToolbox fixture, C++ core,
@@ -630,7 +630,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0003 — Simulator end-to-end stream
 
 - **Date/time:** 2026-10-30 08:20 UTC
-- **Commit:** `454f1a724fc2f589c3e35a1487e7b4dac5807fc2` (clean code; evidence files added after)
+- **Commit:** `5b4c68a` (clean code; evidence files added after)
 - **Build:** VRMC.app simulator Debug; executable SHA-256
   `a96a277d5471cfc45bf68cc064a0ad3baa93a0ce0ff2ffc2c3072259784ac904`;
   app-bundle archive SHA-256
@@ -691,7 +691,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0007 — Secure transport implementation
 
 - **Date/time:** 2026-10-30
-- **Commit:** `454f1a724fc2f589c3e35a1487e7b4dac5807fc2`
+- **Commit:** `5b4c68a`
 - **Environment:** code audit
 - **Procedure:** inspect client/host transport and protocol security requirements.
 - **Expected:** pairing/AEAD/replay protection before release.
