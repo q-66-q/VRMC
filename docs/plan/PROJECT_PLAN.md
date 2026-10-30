@@ -271,8 +271,8 @@ Full detail in `VERIFY.md` and `docs/testing/TEST_STRATEGY.md`.
 
 | Milestone | Date | Commit | Evidence | Status |
 | --- | --- | --- | --- | --- |
-| M0 | 2026-10-30 | `aad28d0` | EV-0001/EV-0002; docs/CI | COMPLETE |
-| M1 | 2026-10-30 | `aad28d0` | EV-0002/EV-0003 | PARTIAL (simulator passes; secure/device/PC incomplete) |
+| M0 | 2026-10-30 | `660ad30` | EV-0001/EV-0002; docs/CI | COMPLETE |
+| M1 | 2026-10-30 | `660ad30` | EV-0002/EV-0003 | PARTIAL (simulator passes; secure/device/PC incomplete) |
 | M2 | — | — | — | BLOCKED (device) |
 | M3 | — | — | — | BLOCKED (Windows/SteamVR) |
 | M4 | — | — | — | BLOCKED |
