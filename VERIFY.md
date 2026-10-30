@@ -611,7 +611,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0002 — Local automated suite baseline
 
 - **Date/time:** 2026-10-30 08:21 UTC
-- **Commit:** `aad28d02cd462cb22d3f8e74007a61d1f5b77735` (clean)
+- **Commit:** `a91c74719961d27bc2a2392868900f4ce3da9aa6` (clean)
 - **Build:** client package + C++ core; no device/Windows artifacts
 - **Environment:** macOS 27.0.1, Xcode 27.1, Swift 6.4, clang 21, Python 3
 - **Procedure:** `./scripts/test_all.sh` (Swift tests, VideoToolbox fixture, C++ core,
@@ -706,7 +706,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0008 — OpenVR driver source syntax check
 
 - **Date/time:** 2026-10-30
-- **Commit:** `c0ea23b` (driver source unchanged)
+- **Commit:** `a91c74719961d27bc2a2392868900f4ce3da9aa6` (driver source; syntax check)
 - **Environment:** macOS 27.0.1, clang 21, OpenVR headers v2.15.6 (fetched, not committed)
 - **Procedure:** `clang++ -std=c++20 -fsyntax-only -I<openvr>/headers -Ibridge/core/include bridge/driver/src/driver.cpp`
 - **Expected:** the platform-neutral driver source compiles against the pinned OpenVR API.
