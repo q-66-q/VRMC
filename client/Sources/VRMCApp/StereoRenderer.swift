@@ -175,8 +175,14 @@ final class StereoRenderer: @unchecked Sendable {
                 let eye = eyeIndex(viewIndex: viewIndex, eyeCount: eyeCount, config: config)
                 let captureProjection = eye == 0 ? config?.leftProjection : config?.rightProjection
                 let drawableProjection = drawable.computeProjection(viewIndex: viewIndex)
-                let presentTangents = ProjectionTangents.from(projectionMatrix: drawableProjection)
-                    ?? captureProjection ?? .symmetric100
+                let extracted = ProjectionTangents.from(projectionMatrix: drawableProjection)
+#if targetEnvironment(simulator)
+                // The simulator drawable FOV differs from a physical Vision Pro; use the
+                // capture projection to show the complete debug test pattern.
+                let presentTangents = captureProjection ?? .symmetric100
+#else
+                let presentTangents = extracted ?? captureProjection ?? .symmetric100
+#endif
                 let captureTangents = captureProjection ?? .symmetric100
                 let uvRect: SIMD4<Float>
                 if eyeCount >= 2 {

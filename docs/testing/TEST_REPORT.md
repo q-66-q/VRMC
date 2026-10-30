@@ -14,7 +14,7 @@
 | Protocol vectors (Python reference ↔ committed vectors) | passed | `scripts/test_protocol.sh` |
 | Docs/link checks | passed | same log |
 | Driver source syntax (OpenVR v2.15.6, clang) | passed | EV-0008 |
-| Simulator E2E | streaming, 152/152 frames decoded, 0 dropped, synthetic intents received | EV-0003 |
+| Simulator E2E | streaming, 163/163 frames decoded, 0 dropped, synthetic intents received | EV-0003 |
 
 The simulator run used a 1280×720 30 fps H.264 loopback stream and synthetic hands. It is not
 evidence for Vivecraft, device hand tracking, 90 Hz, or motion-to-photon latency.

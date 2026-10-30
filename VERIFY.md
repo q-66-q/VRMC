@@ -634,7 +634,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 - **Build:** VRMC.app simulator Debug; executable SHA-256
   `a96a277d5471cfc45bf68cc064a0ad3baa93a0ce0ff2ffc2c3072259784ac904`;
   app-bundle archive SHA-256
-  `9f2bba95a2bb35974ff07d574944434769e31f63e53d89c1e97c5b572e7078c5`
+  `372eb1a53072b00173e5c3341290dcadb4bda735bf63d312dd9a134b728842a8`
 - **Environment:** D3 (visionOS 27 simulator, VRMC-VP on macOS 27.0.1) + Python mock host on
   loopback; synthetic hands at ~90 Hz
 - **Procedure:** start `tools/mock_host/mock_host.py`; install/launch `VRMC.app -
@@ -642,12 +642,12 @@ a correction with a new entry referencing it. Each entry must be backed by files
   screenshot; inspect mock input log.
 - **Expected:** live stereo test pattern, immersive render, decoded frames, synthetic intents
   received, no crash.
-- **Actual:** PASS for simulator scope. State `streaming`; frames `152/152` decoded (0
+- **Actual:** PASS for simulator scope. State `streaming`; frames `163/163` decoded (0
   dropped); tracking origin calibrated; head y=1.62 m; mock host received HELLO and INTENT
   datagrams (pinch/fist/locomotion phases). Screenshot shows the SBS test pattern full-screen
   in the immersive scene and the app's development window with metrics.
 - **Evidence:** `evidence/EV-0003-simulator/simulator.png` (SHA-256
-  `194203e031b88e67d4ba210d8fa2096c810bde1b5260881025bfe051354c6109`), `mock_host.log` (19 INTENT lines), `app.log`, `input.jsonl`, `manifest.json`.
+  `159bd15658281bfbba6993c5a9320d4828a83b1b95641688715815bf01c4e061`), `mock_host.log` (20 INTENT lines), `app.log`, `input.jsonl`, `manifest.json`.
 - **Verdict:** PASS (simulator scope only)
 - **Notes/limits:** This is **not** evidence for hand tracking, Vivecraft, device latency,
   frame rate, or AC-1..AC-5. The window overlay remains visible in this development build.
