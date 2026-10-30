@@ -2,7 +2,7 @@
 
 > **Status:** Active. This is a living document.
 > **Owner:** Lead architect / integration owner.
-> **Last updated:** 2026-10-29.
+> **Last updated:** 2026-10-30.
 > **Companion document:** [`VERIFY.md`](VERIFY.md). `VERIFY.md` is authoritative for
 > acceptance decisions. If the two documents disagree, `VERIFY.md` wins and this document
 > must be corrected in the same change.
@@ -383,7 +383,7 @@ pwsh ./scripts/build_bridge.ps1 -Configuration Release
 ```bash
 ./scripts/test_all.sh               # Swift + C++ core + protocol conformance
 cd client && swift test             # Swift only
-ctest --test-dir build/bridge -V   # C++ core only (after build_bridge.sh)
+ctest --test-dir build/bridge-core -C Debug -V   # C++ core only (after build_bridge.sh)
 ./scripts/test_protocol.sh          # vectors only
 ```
 
@@ -420,8 +420,8 @@ deterministic; do not reformat unrelated files.
 ### 6.6 Package and release
 
 ```bash
-./scripts/package_release.sh --version 1.0.0   # client archive + bridge zip + checksums + notices
-./scripts/verify_release.sh --version 1.0.0    # release checklist automation
+./scripts/package_release.sh 1.0.0   # client archive + bridge zip + checksums + notices
+./scripts/verify_release.sh 1.0.0    # release checklist automation
 ```
 
 Outputs go to `artifacts/<version>/` and are **not** committed. Release candidates require a
@@ -575,7 +575,7 @@ inventory.
 
 **Exit:** documents internally consistent; all high-risk assumptions have a spike plan and
 owner; cost/risk comparison complete; repo builds empty test targets; no product feature is
-claimed.
+claimed. **Status: complete (commit `c0ea23b`).**
 
 ### M1 — Client core + simulator streaming
 
@@ -586,7 +586,8 @@ tests.
 
 **Exit:** simulator connects to mock host, decodes a stereo stream, renders in immersive
 space, sends synthetic input; automated tests pass; frame/latency telemetry exists. No
-device-only claim.
+device-only claim. **Status: PARTIAL — simulator E2E passes (EV-0003); secure transport and
+device/PC integration are incomplete.**
 
 ### M2 — Real hand tracking and intent pipeline (device)
 
@@ -831,18 +832,22 @@ the ADRs/plan, and waiting for a decision rather than silently pivoting.
 
 ## 13. Current status snapshot
 
-**As of 2026-10-29 (M0 in progress):**
+**As of 2026-10-30 (M0 complete; M1 partial):**
 
-- Governing documents created; feasibility audit and ADRs drafted from source inspection.
+- Governance, feasibility audit, ADRs, plan, protocol, hand mapping, streaming spec, test
+  strategy, user/release docs, and the repository skeleton exist and are committed.
 - The prior repository history contains a **native visionOS Minecraft prototype** (Amethyst +
-  a custom stereo mod). It is preserved for reference but is **not** the selected
-  architecture and does not satisfy the Vivecraft requirement. It is archived, not extended.
-- Source inspection confirms Vivecraft 1.3.15 is OpenVR-only and its DUAL mirror mode renders
-  both eyes side by side to the desktop window.
-- No product code has been accepted yet. No device, SteamVR, or Vivecraft runtime evidence
-  exists in this workspace.
-- `VERIFY.md` currently records `NOT RUN`/`BLOCKED` for all hardware acceptance items. This is
-  intentional and must not be reported as success.
+  a custom stereo mod). It is archived outside the new repository history and is **not** the
+  selected architecture; it does not satisfy the Vivecraft requirement.
+- Source inspection confirms Vivecraft 1.3.15 is OpenVR-only and its DUAL mirror renders both
+  eyes side by side to the desktop window.
+- Swift core + VideoToolbox decode + CompositorServices simulator app pass local tests; the
+  mock-host end-to-end stream (H.264 SBS, synthetic hands/intents) is verified in EV-0003.
+- PC-side protocol core, virtual SteamVR driver, and Windows host sources exist but have not
+  been compiled/run on Windows/SteamVR/Vivecraft. Device hand tracking, secure transport,
+  audio, and full M2P are incomplete/blocked.
+- `VERIFY.md` records `PARTIAL`/`BLOCKED` for the remaining acceptance items. Do not report the
+  project as accepted or release-ready.
 
 See `docs/plan/PROJECT_PLAN.md` for the detailed WBS and `VERIFY.md` for the current evidence
 state.

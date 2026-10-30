@@ -28,8 +28,10 @@ Windows PC: virtual SteamVR HMD + two Index-style controllers (driver_vrmc)
   two virtual Index controllers; gestures drive trigger, grip, use, sticks, and buttons. See
   [ADR-0003](docs/adr/0003-hand-input-as-virtual-knuckles.md) and
   [HAND_MAPPING.md](docs/architecture/HAND_MAPPING.md).
-- **Time matters.** Encrypted control/media channels, clock synchronisation, bounded
-  prediction, late latching, and rotation-only reprojection are designed in, not bolted on.
+- **Time matters.** Clock synchronisation, bounded prediction, late latching, and
+  rotation-only reprojection are designed in, not bolted on. The wire protocol defines
+  authenticated/encrypted control and media; the current development build runs an explicitly
+  marked insecure LAN path until the secure transport lands (release blocker).
   See [ADR-0004](docs/adr/0004-transport-and-time.md) and
   [STREAMING.md](docs/architecture/STREAMING.md).
 - **Failures are expected.** Hand occlusion, packet loss, Wi‑Fi outages, SteamVR restarts, and
@@ -40,17 +42,23 @@ Windows PC: virtual SteamVR HMD + two Index-style controllers (driver_vrmc)
 
 | Piece | Status |
 | --- | --- |
-| Governance, feasibility audit, ADRs, plan | Drafted (M0) |
-| Protocol v1 + reference codec | In progress |
-| visionOS client core (tests, gestures, mapping, clock) | In progress |
-| visionOS immersive app + decoder + renderer | In progress |
-| Simulator end-to-end demo (mock host) | In progress |
-| PC host + OpenVR virtual-device driver | Source in progress; **no Windows/SteamVR runtime evidence** |
+| Governance, feasibility audit, ADRs, plan | Committed (M0) |
+| Protocol v1 + reference codec + vectors | Local tests pass |
+| visionOS client core (tests, gestures, mapping, clock) | Local tests pass (27 core + 3 video) |
+| visionOS immersive app + decoder + renderer | Simulator E2E verified (EV-0003) |
+| Simulator end-to-end demo (mock host) | Working; synthetic hands |
+| PC host + OpenVR virtual-device driver | Source present; **no Windows/SteamVR runtime evidence** |
+| Secure pairing/AEAD transport | **Not implemented** — release blocker |
 | Physical Vision Pro hand tracking | **BLOCKED** — no device in this workspace |
 | Full Vivecraft session / gameplay / latency | **BLOCKED** — depends on PC + device |
 
 The only acceptable evidence lives in [`VERIFY.md`](VERIFY.md) §9. Simulator screenshots are
 explicitly not evidence for device hand tracking, Vivecraft, or latency.
+
+Local verification (2026-10-30): 32 Swift core tests + 3 VideoToolbox tests + C++ core
+(protocol/vectors/clock/pose/IPC) + protocol conformance + docs checks pass; the simulator
+renders a live H.264 SBS stream with synthetic hands/intents (EV-0003). Physical device and
+Windows/SteamVR/Vivecraft runs are **blocked** in this workspace.
 
 ## Requirements (baseline)
 
@@ -92,11 +100,14 @@ See [`AGENT.md`](AGENT.md) §6 for every command and
 - [docs/feasibility/FEASIBILITY_AUDIT.md](docs/feasibility/FEASIBILITY_AUDIT.md) — why this
   architecture, with rejected alternatives.
 - [docs/plan/PROJECT_PLAN.md](docs/plan/PROJECT_PLAN.md) — WBS, milestones, risks, fallbacks.
-- [docs/architecture/](docs/architecture/) — protocol, streaming, hand mapping.
+- [docs/architecture/](docs/architecture/) — implementation map, protocol, streaming, hand
+  mapping.
 - [docs/adr/](docs/adr/) — architecture decision records.
 - [docs/user/](docs/user/) — install, run, troubleshoot, known limitations.
 - [docs/performance/PERF_REPORT.md](docs/performance/PERF_REPORT.md) — measurement report
-  (pending hardware).
+  (simulator baseline; hardware pending).
+- [VERIFY.md](VERIFY.md) §9 — evidence log (EV-0002 local suite, EV-0003 simulator stream).
+- [docs/testing/](docs/testing/) — strategy and manual device checklist.
 
 ## Legal and safety
 

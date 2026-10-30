@@ -21,7 +21,6 @@
 		9166BA70C23A540AEEAA45A9 /* StereoReproject.metal in Sources */ = {isa = PBXBuildFile; fileRef = 342DF0ACB8FE372E22CF7F8F /* StereoReproject.metal */; };
 		940CDAE30886AF3FE88124FE /* VRMCApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A694A2A3FF33332A42D0AC44 /* VRMCApp.swift */; };
 		A27FD89D2BECB2760C6EB946 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E2711B2BD9F7B92F666F7BBD /* Metal.framework */; };
-		A84D80E58F2BFBB53E04BA49 /* TrackingCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D7B2D9E7D77F20EA0B177D /* TrackingCalibration.swift */; };
 		AE551A00551A878E7FBA0AF5 /* VRMCore in Frameworks */ = {isa = PBXBuildFile; productRef = DC7A2994AB2F91BD38C88AD9 /* VRMCore */; };
 		B34C591BC91078236DE5A92E /* SessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B7BAB0A561CA098EB72A58 /* SessionCoordinator.swift */; };
 		BE6F9E3F6B617472AD3CBA29 /* SyntheticHands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EDDC2A6637B499E230EFA8 /* SyntheticHands.swift */; };
@@ -41,7 +40,6 @@
 		53EDDC2A6637B499E230EFA8 /* SyntheticHands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticHands.swift; sourceTree = "<group>"; };
 		57F90375DF9F4C6CFBF39DF1 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8C2D22D0390C15263FB60B5D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		A0D7B2D9E7D77F20EA0B177D /* TrackingCalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingCalibration.swift; sourceTree = "<group>"; };
 		A694A2A3FF33332A42D0AC44 /* VRMCApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VRMCApp.swift; sourceTree = "<group>"; };
 		A89CE1C3B03D4DEBCE39430B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		ABABF04EB0C1B4E083616BF9 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -137,7 +135,6 @@
 				367A38661BC3598A75426BAF /* StereoRenderer.swift */,
 				342DF0ACB8FE372E22CF7F8F /* StereoReproject.metal */,
 				53EDDC2A6637B499E230EFA8 /* SyntheticHands.swift */,
-				A0D7B2D9E7D77F20EA0B177D /* TrackingCalibration.swift */,
 				A694A2A3FF33332A42D0AC44 /* VRMCApp.swift */,
 			);
 			path = VRMCApp;
@@ -228,7 +225,6 @@
 				1B44DE18FFBF37812FBBA963 /* StereoRenderer.swift in Sources */,
 				9166BA70C23A540AEEAA45A9 /* StereoReproject.metal in Sources */,
 				BE6F9E3F6B617472AD3CBA29 /* SyntheticHands.swift in Sources */,
-				A84D80E58F2BFBB53E04BA49 /* TrackingCalibration.swift in Sources */,
 				940CDAE30886AF3FE88124FE /* VRMCApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

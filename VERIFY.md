@@ -2,8 +2,8 @@
 
 > **Authority:** This file is the single source of truth for verification, acceptance, and
 > release sign-off. If it conflicts with `AGENT.md`, this file wins for acceptance decisions.
-> **Last updated:** 2026-10-29.
-> **Baseline commit:** `TBD — set at the first verification tag`.
+> **Last updated:** 2026-10-30.
+> **Baseline commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d` (local); first tagged release TBD.
 > **Release candidate:** none.
 
 **Rules**
@@ -442,58 +442,58 @@ Commands: `./scripts/test_all.sh` (all locally runnable), `swift test` in `clien
 
 | ID | Area | Test | What it proves | Status |
 | --- | --- | --- | --- | --- |
-| AT-PROTO-01 | Protocol | control message round-trip | encoder/decoder symmetry | NOT IMPLEMENTED |
-| AT-PROTO-02 | Protocol | malformed/truncated/oversize rejection | parser robustness | NOT IMPLEMENTED |
-| AT-PROTO-03 | Protocol | media fragment reassembly with reorder/loss/duplicate | correct frame assembly | NOT IMPLEMENTED |
-| AT-PROTO-04 | Protocol | conformance vectors match C++/reference | cross-language compatibility | NOT IMPLEMENTED |
-| AT-TIME-01 | Clock | offset/RTT estimator under synthetic jitter | sync accuracy | NOT IMPLEMENTED |
+| AT-PROTO-01 | Protocol | control message round-trip | encoder/decoder symmetry | PASS (EV-0002) |
+| AT-PROTO-02 | Protocol | malformed/truncated/oversize rejection | parser robustness | PASS (EV-0002) |
+| AT-PROTO-03 | Protocol | media fragment reassembly with reorder/loss/duplicate | correct frame assembly | PASS (EV-0002) |
+| AT-PROTO-04 | Protocol | conformance vectors match C++/reference | cross-language compatibility | PASS (EV-0002) |
+| AT-TIME-01 | Clock | offset/RTT estimator under synthetic jitter | sync accuracy | PASS (EV-0002) |
 | AT-TIME-02 | Clock | drift compensation and re-sync | long-session stability | NOT IMPLEMENTED |
-| AT-TIME-03 | Time | monotonic timestamp arithmetic/overflow | no wraps/misordering | NOT IMPLEMENTED |
-| AT-HAND-01 | Hand | 27-joint snapshot mapping and validation | complete skeleton | NOT IMPLEMENTED |
+| AT-TIME-03 | Time | monotonic timestamp arithmetic/overflow | no wraps/misordering | PARTIAL |
+| AT-HAND-01 | Hand | 27-joint snapshot mapping and validation | complete skeleton | PASS (EV-0002) |
 | AT-HAND-02 | Hand | one-euro filter step response/noise | stable tracking | NOT IMPLEMENTED |
-| AT-HAND-03 | Hand | constant-velocity prediction bounds | predictable extrapolation | NOT IMPLEMENTED |
-| AT-HAND-04 | Hand | tracking loss hold/release state machine | no stuck poses/buttons | NOT IMPLEMENTED |
-| AT-GEST-01 | Gesture | pinch hysteresis and debounce | no trigger chatter | NOT IMPLEMENTED |
-| AT-GEST-02 | Gesture | fist/grip detection and release | reliable grab/release | NOT IMPLEMENTED |
-| AT-GEST-03 | Gesture | palm-up locomotion activation/exit | no accidental locomotion | NOT IMPLEMENTED |
-| AT-GEST-04 | Gesture | menu/inventory dwell and chord separation | no accidental menus | NOT IMPLEMENTED |
-| AT-GEST-05 | Gesture | two-hand bow/shield sequence | two-handed interactions | NOT IMPLEMENTED |
-| AT-GEST-06 | Gesture | noisy/occluded/rapid input robustness | no false positives | NOT IMPLEMENTED |
-| AT-MAP-01 | Mapping | pinch→trigger, fist→grip, middle-pinch→use | core controller synthesis | NOT IMPLEMENTED |
-| AT-MAP-02 | Mapping | left/right handedness mirroring | left-handed support | NOT IMPLEMENTED |
-| AT-MAP-03 | Mapping | locomotion axes and turn rates | movement correctness | NOT IMPLEMENTED |
-| AT-MAP-04 | Mapping | menu/inventory/chord button events | UI access | NOT IMPLEMENTED |
-| AT-MAP-05 | Mapping | all-release on tracking/link loss | no stuck inputs | NOT IMPLEMENTED |
-| AT-MAP-06 | Mapping | two-hand independent state | bow/shield | NOT IMPLEMENTED |
-| AT-SESSION-01 | Session | connect/handshake/stream/degrade/reconnect state machine | recovery logic | NOT IMPLEMENTED |
-| AT-SESSION-02 | Session | no media >250 ms → degraded, input released | link-loss handling | NOT IMPLEMENTED |
-| AT-SESSION-03 | Session | IDR request on incomplete frame/reconnect | decoder recovery | NOT IMPLEMENTED |
+| AT-HAND-03 | Hand | constant-velocity prediction bounds | predictable extrapolation | PASS (EV-0002) |
+| AT-HAND-04 | Hand | tracking loss hold/release state machine | no stuck poses/buttons | PASS (EV-0002) |
+| AT-GEST-01 | Gesture | pinch hysteresis and debounce | no trigger chatter | PASS (EV-0002) |
+| AT-GEST-02 | Gesture | fist/grip detection and release | reliable grab/release | PASS (EV-0002) |
+| AT-GEST-03 | Gesture | palm-up locomotion activation/exit | no accidental locomotion | PASS (EV-0002) |
+| AT-GEST-04 | Gesture | menu/inventory dwell and chord separation | no accidental menus | PASS (EV-0002) |
+| AT-GEST-05 | Gesture | two-hand bow/shield sequence | two-handed interactions | PARTIAL |
+| AT-GEST-06 | Gesture | noisy/occluded/rapid input robustness | no false positives | PARTIAL |
+| AT-MAP-01 | Mapping | pinch→trigger, fist→grip, middle-pinch→use | core controller synthesis | PASS (EV-0002) |
+| AT-MAP-02 | Mapping | left/right handedness mirroring | left-handed support | PASS (EV-0002) |
+| AT-MAP-03 | Mapping | locomotion axes and turn rates | movement correctness | PASS (EV-0002) |
+| AT-MAP-04 | Mapping | menu/inventory/chord button events | UI access | PASS (EV-0002) |
+| AT-MAP-05 | Mapping | all-release on tracking/link loss | no stuck inputs | PASS (EV-0002) |
+| AT-MAP-06 | Mapping | two-hand independent state | bow/shield | PARTIAL |
+| AT-SESSION-01 | Session | connect/handshake/stream/degrade/reconnect state machine | recovery logic | PASS (EV-0002) |
+| AT-SESSION-02 | Session | no media >250 ms → degraded, input released | link-loss handling | PASS (EV-0002) |
+| AT-SESSION-03 | Session | IDR request on incomplete frame/reconnect | decoder recovery | PARTIAL |
 | AT-SESSION-04 | Session | bounded queues/drop-oldest under overload | stability | NOT IMPLEMENTED |
-| AT-SESSION-05 | Session | clock re-sync without pose jump | time recovery | NOT IMPLEMENTED |
+| AT-SESSION-05 | Session | clock re-sync without pose jump | time recovery | PASS (EV-0002) |
 | AT-NET-01 | Transport | pairing/auth success and wrong-code rejection | security | NOT IMPLEMENTED |
 | AT-NET-02 | Transport | replay/duplicate rejection | security | NOT IMPLEMENTED |
 | AT-NET-03 | Transport | UDP loss/jitter simulation | transport resilience | NOT IMPLEMENTED |
-| AT-VID-01 | Video | NAL splitter/parameter-set handling | annex-B correctness | NOT IMPLEMENTED |
-| AT-VID-02 | Video | VideoToolbox decode of fixture | hardware decode path | NOT IMPLEMENTED |
-| AT-VID-03 | Video | decode errors return typed errors, no crash | robustness | NOT IMPLEMENTED |
-| AT-RENDER-01 | Render | eye UV mapping and no swap | stereo correctness (unit/math) | NOT IMPLEMENTED |
-| AT-RENDER-02 | Render | reprojection math identity/extremes | no distortion/NaN | NOT IMPLEMENTED |
-| AT-TELEM-01 | Telemetry | stage timestamps and percentiles | latency accounting | NOT IMPLEMENTED |
-| AT-TELEM-02 | Telemetry | dropped frame/packet counters | observability | NOT IMPLEMENTED |
+| AT-VID-01 | Video | NAL splitter/parameter-set handling | annex-B correctness | PASS (EV-0002) |
+| AT-VID-02 | Video | VideoToolbox decode of fixture | hardware decode path | PASS (EV-0002) |
+| AT-VID-03 | Video | decode errors return typed errors, no crash | robustness | PARTIAL |
+| AT-RENDER-01 | Render | eye UV mapping and no swap | stereo correctness (unit/math) | PASS (EV-0002) |
+| AT-RENDER-02 | Render | reprojection math identity/extremes | no distortion/NaN | PASS (EV-0002) |
+| AT-TELEM-01 | Telemetry | stage timestamps and percentiles | latency accounting | PARTIAL (tracker exists; no dedicated test) |
+| AT-TELEM-02 | Telemetry | dropped frame/packet counters | observability | PARTIAL |
 | AT-TELEM-03 | Telemetry | CSV/log redaction | privacy | NOT IMPLEMENTED |
-| AT-BUILD-01 | Build | clean Swift build/test | reproducibility | NOT IMPLEMENTED |
-| AT-BUILD-02 | Build | visionOS simulator app build | client integration | NOT IMPLEMENTED |
-| AT-BUILD-03 | Build | portable bridge build/test | bridge core | NOT IMPLEMENTED |
+| AT-BUILD-01 | Build | clean Swift build/test | reproducibility | PASS (EV-0002) |
+| AT-BUILD-02 | Build | visionOS simulator app build | client integration | PASS (EV-0003) |
+| AT-BUILD-03 | Build | portable bridge build/test | bridge core | PASS (EV-0002) |
 
 ### 6.2 C++ bridge tests
 
 | ID | Area | Test | Status |
 | --- | --- | --- | --- |
-| AT-CPP-01 | Protocol | encode/decode control messages vs vectors | NOT IMPLEMENTED |
+| AT-CPP-01 | Protocol | encode/decode control messages vs vectors | PASS (EV-0002) |
 | AT-CPP-02 | Protocol | fuzz/truncation of media fragments | NOT IMPLEMENTED |
-| AT-CPP-03 | Clock | offset/drift estimator parity with Swift | NOT IMPLEMENTED |
-| AT-CPP-04 | Pose | quaternion/transform math and extrapolation | NOT IMPLEMENTED |
-| AT-CPP-05 | IPC | seqlock snapshot consistency, torn-write detection | NOT IMPLEMENTED |
+| AT-CPP-03 | Clock | offset/drift estimator parity with Swift | PASS (EV-0002, offset/RTT; drift parity not yet) |
+| AT-CPP-04 | Pose | quaternion/transform math and extrapolation | PASS (EV-0002) |
+| AT-CPP-05 | IPC | seqlock snapshot consistency, torn-write detection | PASS (EV-0002) |
 | AT-CPP-06 | Media | fragmenter MTU bounds and IDR chunking | NOT IMPLEMENTED |
 | AT-CPP-07 | Crypto | AEAD vectors, nonce/replay policy | NOT IMPLEMENTED |
 | AT-DRV-01 | Driver | device registration/pose/input smoke (Windows) | NOT IMPLEMENTED |
@@ -504,9 +504,9 @@ Commands: `./scripts/test_all.sh` (all locally runnable), `swift test` in `clien
 
 | ID | Test | Environment | Status |
 | --- | --- | --- | --- |
-| AT-E2E-01 | Mock host → simulator → decode → immersive render | D3 + Mac | NOT IMPLEMENTED |
-| AT-E2E-02 | Synthetic hands → mapping → mock host input audit | D3 + Mac | NOT IMPLEMENTED |
-| AT-E2E-03 | Client ↔ host handshake/reconnect/IDR | D3 + Mac | NOT IMPLEMENTED |
+| AT-E2E-01 | Mock host → simulator → decode → immersive render | D3 + Mac | PASS (EV-0003) |
+| AT-E2E-02 | Synthetic hands → mapping → mock host input audit | D3 + Mac | PASS (EV-0003) |
+| AT-E2E-03 | Client ↔ host handshake/reconnect/IDR | D3 + Mac | PARTIAL |
 | AT-E2E-04 | Full PC + Vivecraft + device gameplay | D1/P1/N1 | NOT RUN |
 | AT-E2E-05 | Failure campaign automated where possible | D1/P1/N4 | NOT RUN |
 
@@ -590,7 +590,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0001 — M0 document and source-audit baseline
 
 - **Date/time:** 2026-10-29 (workspace)
-- **Commit:** TBD (M0 commit; set when committed)
+- **Commit:** `c0ea23b` (M0/M1 baseline; docs-only follow-ups after)
 - **Build:** docs only
 - **Environment:** macOS 27.0.1, Xcode 27.1, visionOS 27 SDK; no headset/PC/SteamVR
 - **Procedure:** source inspection of Vivecraft (`VivecraftMod`, branch
@@ -610,29 +610,45 @@ a correction with a new entry referencing it. Each entry must be backed by files
 
 #### EV-0002 — Local automated suite baseline
 
-- **Date/time:** TBD
-- **Commit:** TBD
-- **Build:** TBD
-- **Environment:** macOS 27.0.1, Swift 6.4, clang 21
-- **Procedure:** `./scripts/test_all.sh`
+- **Date/time:** 2026-10-30 08:21 UTC
+- **Commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d` (clean)
+- **Build:** client package + C++ core; no device/Windows artifacts
+- **Environment:** macOS 27.0.1, Xcode 27.1, Swift 6.4, clang 21, Python 3
+- **Procedure:** `./scripts/test_all.sh` (Swift tests, VideoToolbox fixture, C++ core,
+  protocol vectors, docs checks)
 - **Expected:** all local unit/conformance tests pass.
-- **Actual:** NOT RUN
-- **Evidence:** TBD
-- **Verdict:** NOT RUN
-- **Notes/limits:** Fill only with captured command output and commit hash.
+- **Actual:** PASS. Swift XCTest: 32 core tests + 3 video tests, 0 failures; C++ core: 1/1
+  passed (protocol, vectors, clock, pose, IPC); protocol vectors verified; docs links/required files pass. Full log:
+  `evidence/EV-0002-local-suite/test_all.log`.
+- **Evidence:** `evidence/EV-0002-local-suite/manifest.json`,
+  `evidence/EV-0002-local-suite/test_all.log`.
+- **Verdict:** PASS (local scope only)
+- **Notes/limits:** Does not exercise visionOS hardware, hand tracking, SteamVR, Vivecraft,
+  NVENC, WGC, or M2P. Secure-transport tests are not present because that implementation is
+  not complete.
 
 #### EV-0003 — Simulator end-to-end stream
 
-- **Date/time:** TBD
-- **Commit:** TBD
-- **Environment:** D3 (visionOS 27 simulator) + mock host
-- **Procedure:** `./scripts/demo_simulator.sh`; verify decoded stereo, immersive render,
-  synthetic input audit.
-- **Expected:** live test pattern, no crash, input packets received.
-- **Actual:** NOT RUN
-- **Evidence:** TBD
-- **Verdict:** NOT RUN
-- **Notes/limits:** Simulator evidence never proves hand tracking/latency/device acceptance.
+- **Date/time:** 2026-10-30 08:20 UTC
+- **Commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d` (clean)
+- **Build:** VRMC.app simulator Debug; executable SHA-256
+  `7da81f821a6841d745a0d7f0280357bfc958da4590fee30e4dee21af0b31ac0c`
+- **Environment:** D3 (visionOS 27 simulator, VRMC-VP on macOS 27.0.1) + Python mock host on
+  loopback; synthetic hands at ~90 Hz
+- **Procedure:** start `tools/mock_host/mock_host.py`; install/launch `VRMC.app -
+  VRMCDemoMode`; wait 8 s; verify `streaming`/`hands`, decoded frame count, no drops; capture
+  screenshot; inspect mock input log.
+- **Expected:** live stereo test pattern, immersive render, decoded frames, synthetic intents
+  received, no crash.
+- **Actual:** PASS for simulator scope. State `streaming`; frames `163/163` decoded (0
+  dropped); tracking origin calibrated; head y=1.62 m; mock host received HELLO and INTENT
+  datagrams (pinch/fist/locomotion phases). Screenshot shows the SBS test pattern full-screen
+  in the immersive scene and the app's development window with metrics.
+- **Evidence:** `evidence/EV-0003-simulator/simulator.png` (SHA-256 in
+  `screenshot.sha256`), `mock_host.log`, `app.log`, `input.jsonl`, `manifest.json`.
+- **Verdict:** PASS (simulator scope only)
+- **Notes/limits:** This is **not** evidence for hand tracking, Vivecraft, device latency,
+  frame rate, or AC-1..AC-5. The window overlay remains visible in this development build.
 
 #### EV-0004 — Physical device hand tracking
 
@@ -669,6 +685,36 @@ a correction with a new entry referencing it. Each entry must be backed by files
 - **Evidence:** TBD
 - **Verdict:** BLOCKED — depends on EV-0004 and EV-0005.
 - **Notes/limits:** Final acceptance cannot be signed from simulation.
+
+#### EV-0007 — Secure transport implementation
+
+- **Date/time:** 2026-10-30
+- **Commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d`
+- **Environment:** code audit
+- **Procedure:** inspect client/host transport and protocol security requirements.
+- **Expected:** pairing/AEAD/replay protection before release.
+- **Actual:** FAIL/BLOCKED. Protocol and ADR define pairing and AEAD, but the client/host
+  currently implement the explicitly marked insecure development path (plaintext control/media).
+  No pairing UI, key storage, or crypto tests exist yet.
+- **Evidence:** `protocol/PROTOCOL.md` §9, `docs/user/LIMITATIONS.md`, source audit.
+- **Verdict:** BLOCKED — release gate; not an acceptance criterion for simulation but required
+  by §8/§10.
+- **Notes/limits:** Must be implemented and verified before any public/LAN-untrusted release.
+
+---
+
+#### EV-0008 — OpenVR driver source syntax check
+
+- **Date/time:** 2026-10-30
+- **Commit:** `c0ea23b` (driver source unchanged)
+- **Environment:** macOS 27.0.1, clang 21, OpenVR headers v2.15.6 (fetched, not committed)
+- **Procedure:** `clang++ -std=c++20 -fsyntax-only -I<openvr>/headers -Ibridge/core/include bridge/driver/src/driver.cpp`
+- **Expected:** the platform-neutral driver source compiles against the pinned OpenVR API.
+- **Actual:** PASS (no diagnostics). This does not link a Windows DLL or exercise SteamVR.
+- **Evidence:** command output recorded in this entry; source `bridge/driver/src/driver.cpp`.
+- **Verdict:** PASS (source-check scope only)
+- **Notes/limits:** Windows host/driver build, registration, and Vivecraft session remain
+  BLOCKED under EV-0005.
 
 ---
 
@@ -736,14 +782,16 @@ prototype, not an accepted release.
 
 | Area | Status | Reason |
 | --- | --- | --- |
-| M0 documents | IN PROGRESS | Drafted; must be committed and reviewed |
-| Feasibility | PARTIAL | Source/architecture audit only; runtime spikes not run |
-| Client simulator build | NOT RUN | Implementation pending |
+| M0 documents | COMPLETE | Committed; see EV-0001/EV-0002 |
+| M1 client core/simulator | PARTIAL | Core + simulator E2E pass; secure transport, device/PC paths missing |
+| Feasibility | PARTIAL | Source/architecture audit; S-01/S-02/S-03 runtime spikes not run |
+| Client simulator build | PASS (scope) | EV-0003 |
 | Client device hand tracking | BLOCKED | No physical Vision Pro in workspace |
-| PC bridge/driver | BLOCKED | No Windows/SteamVR in workspace |
+| PC bridge/driver | PARTIAL | Core tests + driver syntax check pass; no Windows/SteamVR runtime evidence |
 | Vivecraft session | BLOCKED | Depends on PC bridge/driver |
 | End-to-end gameplay | BLOCKED | Depends on device + PC bridge |
 | Latency evidence | BLOCKED | Depends on end-to-end |
+| Secure transport | BLOCKED | EV-0007 |
 | Release | NOT STARTED | — |
 
 **Do not report the project as complete or accepted while this table contains `BLOCKED` or

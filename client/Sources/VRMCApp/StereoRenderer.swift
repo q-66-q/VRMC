@@ -121,7 +121,7 @@ final class StereoRenderer: @unchecked Sendable {
         LayerRenderer.Clock().wait(until: timing.optimalInputTime)
         rendererLogger.debug("input time reached")
         frame.startSubmission()
-        guard let drawable = frame.queryDrawable(),
+        guard let drawable = frame.queryDrawables().first,
               let commandBuffer = commandQueue.makeCommandBuffer() else {
             rendererLogger.debug("no drawable/command buffer")
             frame.endSubmission()
@@ -152,8 +152,9 @@ final class StereoRenderer: @unchecked Sendable {
                 rendererLogger.error("CVMetal texture creation failed: \(status)")
             }
         }
+        let retainedTextures = retained
         commandBuffer.addCompletedHandler { _ in
-            _ = retained
+            _ = retainedTextures
         }
 
         let eyeCount = drawable.views.count
@@ -172,9 +173,11 @@ final class StereoRenderer: @unchecked Sendable {
             guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { continue }
             if let sbsTexture, let pipeline, let sampler {
                 let eye = eyeIndex(viewIndex: viewIndex, eyeCount: eyeCount, config: config)
-                let projection = eye == 0 ? config?.leftProjection : config?.rightProjection
-                let presentTangents = projection ?? .symmetric100
-                let captureTangents = projection ?? .symmetric100
+                let captureProjection = eye == 0 ? config?.leftProjection : config?.rightProjection
+                let drawableProjection = drawable.computeProjection(viewIndex: viewIndex)
+                let presentTangents = ProjectionTangents.from(projectionMatrix: drawableProjection)
+                    ?? captureProjection ?? .symmetric100
+                let captureTangents = captureProjection ?? .symmetric100
                 let uvRect: SIMD4<Float>
                 if eyeCount >= 2 {
                     uvRect = eye == 0 ? SIMD4(0, 0, 0.5, 1) : SIMD4(0.5, 0, 0.5, 1)

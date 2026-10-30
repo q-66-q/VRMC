@@ -416,15 +416,35 @@ private:
 
     void inputLoop() {
         uint8_t buffer[65535];
+        auto lastPacket = std::chrono::steady_clock::now();
+        bool markedInvalid = false;
         while (g_running) {
             sockaddr_in from{};
             int fromLength = sizeof(from);
             int count = recvfrom(inputSocket_, reinterpret_cast<char*>(buffer), sizeof(buffer), 0,
                                  reinterpret_cast<sockaddr*>(&from), &fromLength);
+            const auto now = std::chrono::steady_clock::now();
+            if (now - lastPacket > 500ms) {
+                if (!markedInvalid) {
+                    std::lock_guard lock(state_.mutex);
+                    state_.snapshot.hmdQuality = 0;
+                    state_.snapshot.left.quality = 0;
+                    state_.snapshot.right.quality = 0;
+                    state_.snapshot.left.buttons = 0;
+                    state_.snapshot.right.buttons = 0;
+                    state_.snapshot.left.trigger = state_.snapshot.left.grip = 0;
+                    state_.snapshot.right.trigger = state_.snapshot.right.grip = 0;
+                    state_.snapshot.hostTimeNs = nowNs();
+                    ipc_.write(state_.snapshot);
+                    markedInvalid = true;
+                }
+            }
             if (count <= 0) {
                 std::this_thread::sleep_for(2ms);
                 continue;
             }
+            lastPacket = now;
+            markedInvalid = false;
             auto header = vrmc::decodeMediaHeader(std::span<const uint8_t>(buffer, static_cast<size_t>(count)));
             if (!header || header->type != vrmc::MediaType::Input) continue;
             if (header->payloadLength > static_cast<uint16_t>(count - vrmc::kMediaHeaderSize)) continue;

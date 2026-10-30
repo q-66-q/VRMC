@@ -153,6 +153,8 @@ public final class GestureRecognizer: @unchecked Sendable {
         var previousTimestamp: Timestamp?
         var previousRing = false
         var hasTrackedSample = false
+        var needsRearm = false
+        var rearmSamples = 0
     }
 
     private let profile: HandMappingProfile
@@ -212,6 +214,17 @@ public final class GestureRecognizer: @unchecked Sendable {
         } else {
             dt = 0
         }
+        if state.needsRearm {
+            state.rearmSamples += 1
+            if state.rearmSamples < 3 {
+                state.previousFeatures = features
+                state.previousTimestamp = snapshot.timestamp
+                return .released(chirality, timestamp: snapshot.timestamp)
+            }
+            state.needsRearm = false
+            state.rearmSamples = 0
+        }
+
         let linearVelocity: Vec3
         let angularVelocity: Vec3
         if let previous = state.previousFeatures, dt > 0.001 {
@@ -293,6 +306,7 @@ public final class GestureRecognizer: @unchecked Sendable {
 
     private func resetHand(_ state: inout HandState) {
         state = HandState()
+        state.needsRearm = true
     }
 
     private struct ScalarSignal {

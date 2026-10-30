@@ -1,4 +1,6 @@
+#include "vrmc/clock.hpp"
 #include "vrmc/ipc.hpp"
+#include "vrmc/pose.hpp"
 #include "vrmc/protocol.hpp"
 
 #include <cassert>
@@ -197,6 +199,37 @@ int main() {
             auto intent = decodeIntent(payload);
             expect(intent && intent->hand == 1 && intent->buttons == 0x205, "vector intent values");
         }
+    }
+
+    {
+        ClockSyncEstimator estimator;
+        const int64_t offset = 5'000'000'000LL;
+        for (int index = 0; index < 16; ++index) {
+            const uint64_t t0 = static_cast<uint64_t>(index) * 1'000'000'000ULL;
+            const uint64_t t1 = static_cast<uint64_t>(static_cast<int64_t>(t0) + offset + 2'000'000);
+            const uint64_t t2 = t1 + 1'000'000;
+            const uint64_t t3 = t0 + 5'000'000;
+            estimator.add(ClockSample{t0, t1, t2, t3});
+        }
+        auto estimate = estimator.latest();
+        expect(estimate.has_value(), "clock estimate exists");
+        if (estimate) {
+            expect(std::llabs(estimate->offset - offset) < 500'000, "clock offset");
+            expect(estimate->roundTrip == 4'000'000, "clock rtt");
+        }
+        auto mapped = estimator.clientToHost(10'000'000'000ULL);
+        expect(mapped && std::llabs(static_cast<int64_t>(*mapped) - 15'000'000'000LL) < 1'000'000,
+               "clock mapping");
+    }
+
+    {
+        const Quat q = pose_math::fromAxisAngle(Vec3{0, 1, 0}, 1.57079632679f);
+        const Vec3 forward = pose_math::rotate(q, Vec3{0, 0, -1});
+        expect(std::fabs(forward.x + 1) < 1e-4f, "quaternion forward");
+        const Pose predicted = pose_math::predict(
+            Pose{{0, 1, 0}, Quat{}}, Vec3{1, 0, 0}, Vec3{0, 10, 0}, 1.0f);
+        expect(std::fabs(predicted.position.x - 0.05f) < 1e-5f, "pose prediction clamp");
+        expect(std::fabs(pose_math::yaw(q) - 1.57079632679f) < 1e-4f, "yaw");
     }
 
     if (failures == 0) {

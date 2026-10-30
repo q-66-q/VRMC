@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 // MARK: - Vec3
 
@@ -306,6 +307,31 @@ public struct ProjectionTangents: Equatable, Sendable, Codable {
 
     public var verticalFOVDegrees: Float {
         (atan(top) - atan(bottom)) * 180 / .pi
+    }
+
+    /// Extracts tangents from a projection matrix by inverting NDC corner rays. This lets the
+    /// renderer use the actual drawable projection instead of assuming the capture FOV.
+    public static func from(projectionMatrix matrix: simd_float4x4) -> ProjectionTangents? {
+        let inverse = simd_inverse(matrix)
+        func eyeDirection(_ x: Float, _ y: Float) -> Vec3? {
+            let clip = SIMD4<Float>(x, y, 1, 1)
+            let eye = inverse * clip
+            guard abs(eye.w) > 1e-6 else { return nil }
+            let direction = Vec3(eye.x / eye.w, eye.y / eye.w, eye.z / eye.w)
+            guard direction.z < -1e-6, direction.isFinite else { return nil }
+            return direction
+        }
+        guard let left = eyeDirection(-1, 0), let right = eyeDirection(1, 0),
+              let bottom = eyeDirection(0, -1), let top = eyeDirection(0, 1) else {
+            return nil
+        }
+        let result = ProjectionTangents(
+            left: left.x / -left.z,
+            right: right.x / -right.z,
+            top: top.y / -top.z,
+            bottom: bottom.y / -bottom.z
+        )
+        return result.isValid ? result : nil
     }
 
     /// Maps a normalised device coordinate (-1...1) to a direction in eye space.

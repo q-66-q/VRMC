@@ -1,0 +1,8 @@
+{
+  "id": "EV-0003-simulator",
+  "date": "2026-10-30T08:21:00Z",
+  "commit": "ca61c3918da7a12dd1b9c82ddc61103e5768ca9d",
+  "dirty": "no",
+  "host": "Mac-14053.lan",
+  "note": "Mock host -> visionOS simulator stream, decode, immersive render, synthetic input audit"
+}

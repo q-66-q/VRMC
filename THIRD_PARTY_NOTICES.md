@@ -19,7 +19,7 @@ Java runtime, or game-asset binaries are distributed with VRMC.**
 | Component | License | Use |
 | --- | --- | --- |
 | OpenVR SDK v2.15.6 (`headers/openvr_driver.h`, `openvr.h`) | BSD-3-Clause | SteamVR driver and host integration. Fetched/pinned at build time; notice retained. |
-| NVIDIA Video Codec SDK headers | MIT-style NVIDIA license | NVENC encoding headers. No binaries bundled. |
+| NVIDIA Video Codec SDK headers (via FFmpeg nv-codec-headers) | MIT | NVENC encoding headers. No binaries bundled. |
 | Apple Swift / SwiftUI / ARKit / CompositorServices / Metal / VideoToolbox / Network / CryptoKit | Apple SDK terms | visionOS client. |
 | XcodeGen | MIT | Generates the Xcode project from `client/project.yml`. |
 | Python 3 standard library | PSF-2.0 | Mock host, protocol tools, scripts. |
