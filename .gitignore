@@ -1,0 +1,54 @@
+# VRMC generated/build outputs
+build/
+DerivedData/
+artifacts/
+evidence/*/raw/
+*.ipa
+*.xcarchive
+*.xcresult
+*.app
+*.dylib
+*.dll
+*.lib
+*.exp
+*.pdb
+*.o
+*.obj
+*.a
+*.swiftmodule
+*.swiftdoc
+.swiftpm/
+client/.build/
+client/VRMC.xcodeproj/xcuserdata/
+client/VRMC.xcodeproj/project.xcworkspace/xcuserdata/
+bridge/out/
+bridge/build/
+bridge/vcpkg/
+bridge/third_party/openvr/
+
+# Local configuration, secrets, device data
+.env
+.env.*
+!.env.example
+secrets/
+*.p12
+*.mobileprovision
+*.cer
+*.key
+*.pem
+evidence/*/private/
+*.log
+!docs/**/*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+xcuserdata/

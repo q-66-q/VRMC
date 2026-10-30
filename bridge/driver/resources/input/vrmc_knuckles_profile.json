@@ -1,0 +1,54 @@
+{
+  "jsonid": "input_profile",
+  "controller_type": "knuckles",
+  "input_bindingui_mode": "controller_handed",
+  "input_source": {
+    "/input/a": {
+      "type": "button",
+      "touch": true,
+      "binding_image_point": [100, 50],
+      "order": 1
+    },
+    "/input/b": {
+      "type": "button",
+      "touch": true,
+      "binding_image_point": [150, 80],
+      "order": 2
+    },
+    "/input/trigger": {
+      "type": "trigger",
+      "binding_image_point": [250, 30],
+      "order": 3
+    },
+    "/input/grip": {
+      "type": "trigger",
+      "binding_image_point": [40, 100],
+      "order": 4
+    },
+    "/input/thumbstick": {
+      "type": "joystick",
+      "click": true,
+      "touch": true,
+      "binding_image_point": [100, 150],
+      "order": 5
+    },
+    "/input/trackpad": {
+      "type": "trackpad",
+      "click": true,
+      "touch": true,
+      "binding_image_point": [150, 150],
+      "order": 6
+    },
+    "/input/system": {
+      "type": "button",
+      "click": true,
+      "binding_image_point": [200, 120],
+      "order": 7
+    },
+    "/output/haptic": {
+      "type": "vibration",
+      "binding_image_point": [100, 200],
+      "order": 8
+    }
+  }
+}
