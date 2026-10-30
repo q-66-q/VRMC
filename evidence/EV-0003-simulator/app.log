@@ -1,0 +1,5 @@
+getpwuid_r did not find a match for uid 501
+Timestamp               Ty Process[PID:TID]
+2026-10-29 22:20:20.478 I  VRMC[80047:ba5efc] [dev.vrmc.app:renderer] StereoRenderer starting; pipeline=true
+2026-10-29 22:20:20.478 I  VRMC[80047:ba5fe3] [dev.vrmc.app:renderer] render loop waiting for layer
+2026-10-29 22:20:20.480 I  VRMC[80047:ba5fe3] [dev.vrmc.app:renderer] render loop running; state=cp_layer_renderer_state(rawValue: 2)

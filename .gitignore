@@ -39,6 +39,7 @@ secrets/
 evidence/*/private/
 *.log
 !docs/**/*.log
+!evidence/**/*.log
 
 # Python
 __pycache__/
