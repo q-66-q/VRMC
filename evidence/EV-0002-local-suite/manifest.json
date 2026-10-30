@@ -1,8 +1,8 @@
 {
-  "commit": "31b59531a9632095a64bd8aff4c0ee45b0075e74",
-  "date": "2026-10-30T08:22:00Z",
+  "commit": "aad28d02cd462cb22d3f8e74007a61d1f5b77735",
+  "date": "2026-10-30T08:30:00Z",
   "dirty": "no",
   "host": "Mac-14053.lan",
   "id": "EV-0002-local-suite",
-  "note": "Swift 32 core + 3 VideoToolbox + C++ core/vectors/docs"
+  "note": "Swift 33 core + 3 VideoToolbox + C++ core/vectors/docs"
 }
