@@ -32,7 +32,7 @@ struct NvencEncoder::Impl {
     NV_ENC_REGISTERED_PTR registered = nullptr;
     NV_ENC_INPUT_PTR mapped = nullptr;
     NV_ENC_OUTPUT_PTR bitstream = nullptr;
-    NV_ENC_EVENT_HANDLE event = nullptr;
+    void* event = nullptr;
     ID3D11Texture2D* inputTexture = nullptr;
     ID3D11Device* device = nullptr;
     ID3D11DeviceContext* context = nullptr;

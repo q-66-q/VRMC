@@ -374,6 +374,7 @@ private:
             config.displayHz = 90;
             config.bitrateKbps = options_.bitrateKbps;
             config.codec = options_.hevc ? 2 : 1;
+            config.flags = 1; // reprojection enabled
             config.source = options_.videoFile.empty() ? "Vivecraft DUAL (WGC)" : "VRMC file source";
             sendControl(client, vrmc::MessageType::StreamConfig, vrmc::encodeStreamConfig(config, sessionId_));
             sendControl(client, vrmc::MessageType::StartStream, vrmc::encodeStartStream(sessionId_, nowNs()));

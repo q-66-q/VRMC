@@ -1,10 +1,10 @@
 == Swift tests ==
 Building for debugging...
 [1 / 1]
-Build complete! (0.23 sec)
-Test Suite 'All tests' started at 2026-10-30 06:13:19.833.
-Test Suite 'VRMCoreTests.xctest' started at 2026-10-30 06:13:19.834.
-Test Suite 'ConformanceVectorTests' started at 2026-10-30 06:13:19.834.
+Build complete! (0.37 sec)
+Test Suite 'All tests' started at 2026-10-30 06:16:32.908.
+Test Suite 'VRMCoreTests.xctest' started at 2026-10-30 06:16:32.909.
+Test Suite 'ConformanceVectorTests' started at 2026-10-30 06:16:32.909.
 Test Case '-[VRMCoreTests.ConformanceVectorTests testFrameMetaVectorDecodes]' started.
 Test Case '-[VRMCoreTests.ConformanceVectorTests testFrameMetaVectorDecodes]' passed (0.001 seconds).
 Test Case '-[VRMCoreTests.ConformanceVectorTests testHelloVectorReEncodes]' started.
@@ -17,9 +17,9 @@ Test Case '-[VRMCoreTests.ConformanceVectorTests testVideoFragmentVectorDecodes]
 Test Case '-[VRMCoreTests.ConformanceVectorTests testVideoFragmentVectorDecodes]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.ConformanceVectorTests testWelcomeVectorReEncodes]' started.
 Test Case '-[VRMCoreTests.ConformanceVectorTests testWelcomeVectorReEncodes]' passed (0.000 seconds).
-Test Suite 'ConformanceVectorTests' passed at 2026-10-30 06:13:19.836.
+Test Suite 'ConformanceVectorTests' passed at 2026-10-30 06:16:32.911.
 	 Executed 6 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
-Test Suite 'GestureMappingTests' started at 2026-10-30 06:13:19.836.
+Test Suite 'GestureMappingTests' started at 2026-10-30 06:16:32.911.
 Test Case '-[VRMCoreTests.GestureMappingTests testFeaturesForOpenPinchAndFist]' started.
 Test Case '-[VRMCoreTests.GestureMappingTests testFeaturesForOpenPinchAndFist]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.GestureMappingTests testGripAndUseMapping]' started.
@@ -36,22 +36,24 @@ Test Case '-[VRMCoreTests.GestureMappingTests testSessionStateMachineRecovery]' 
 Test Case '-[VRMCoreTests.GestureMappingTests testSessionStateMachineRecovery]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.GestureMappingTests testTrackingLossReleasesEverything]' started.
 Test Case '-[VRMCoreTests.GestureMappingTests testTrackingLossReleasesEverything]' passed (0.000 seconds).
-Test Suite 'GestureMappingTests' passed at 2026-10-30 06:13:19.837.
+Test Suite 'GestureMappingTests' passed at 2026-10-30 06:16:32.912.
 	 Executed 8 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
-Test Suite 'MathTests' started at 2026-10-30 06:13:19.837.
+Test Suite 'MathTests' started at 2026-10-30 06:16:32.912.
 Test Case '-[VRMCoreTests.MathTests testBasisMapsForwardAndUp]' started.
 Test Case '-[VRMCoreTests.MathTests testBasisMapsForwardAndUp]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.MathTests testProjectionCenterRoundTrip]' started.
 Test Case '-[VRMCoreTests.MathTests testProjectionCenterRoundTrip]' passed (0.000 seconds).
+Test Case '-[VRMCoreTests.MathTests testProjectionTangentsFromMatrix]' started.
+Test Case '-[VRMCoreTests.MathTests testProjectionTangentsFromMatrix]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.MathTests testQuaternionMultiplicationAndInverse]' started.
 Test Case '-[VRMCoreTests.MathTests testQuaternionMultiplicationAndInverse]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.MathTests testReprojectionIdentity]' started.
 Test Case '-[VRMCoreTests.MathTests testReprojectionIdentity]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.MathTests testYawConvention]' started.
 Test Case '-[VRMCoreTests.MathTests testYawConvention]' passed (0.000 seconds).
-Test Suite 'MathTests' passed at 2026-10-30 06:13:19.837.
-	 Executed 5 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
-Test Suite 'ProtocolTests' started at 2026-10-30 06:13:19.837.
+Test Suite 'MathTests' passed at 2026-10-30 06:16:32.913.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ProtocolTests' started at 2026-10-30 06:16:32.913.
 Test Case '-[VRMCoreTests.ProtocolTests testAllControlMessagesRoundTrip]' started.
 Test Case '-[VRMCoreTests.ProtocolTests testAllControlMessagesRoundTrip]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.ProtocolTests testClockSyncKnownOffset]' started.
@@ -66,9 +68,9 @@ Test Case '-[VRMCoreTests.ProtocolTests testPredictionBounds]' started.
 Test Case '-[VRMCoreTests.ProtocolTests testPredictionBounds]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.ProtocolTests testReassemblyLossNackAndTimeout]' started.
 Test Case '-[VRMCoreTests.ProtocolTests testReassemblyLossNackAndTimeout]' passed (0.000 seconds).
-Test Suite 'ProtocolTests' passed at 2026-10-30 06:13:19.839.
-	 Executed 7 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
-Test Suite 'ReliabilityTests' started at 2026-10-30 06:13:19.839.
+Test Suite 'ProtocolTests' passed at 2026-10-30 06:16:32.914.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ReliabilityTests' started at 2026-10-30 06:16:32.914.
 Test Case '-[VRMCoreTests.ReliabilityTests testInputDatagramRejectsWrongTypeAndTruncation]' started.
 Test Case '-[VRMCoreTests.ReliabilityTests testInputDatagramRejectsWrongTypeAndTruncation]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.ReliabilityTests testLatencyTrackerPercentiles]' started.
@@ -79,35 +81,35 @@ Test Case '-[VRMCoreTests.ReliabilityTests testReacquireRequiresThreeConsecutive
 Test Case '-[VRMCoreTests.ReliabilityTests testReacquireRequiresThreeConsecutiveSamples]' passed (0.000 seconds).
 Test Case '-[VRMCoreTests.ReliabilityTests testTrackingCalibrationMovesHeadToStandingOrigin]' started.
 Test Case '-[VRMCoreTests.ReliabilityTests testTrackingCalibrationMovesHeadToStandingOrigin]' passed (0.000 seconds).
-Test Suite 'ReliabilityTests' passed at 2026-10-30 06:13:19.840.
+Test Suite 'ReliabilityTests' passed at 2026-10-30 06:16:32.915.
 	 Executed 5 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
-Test Suite 'SmokeTests' started at 2026-10-30 06:13:19.840.
+Test Suite 'SmokeTests' started at 2026-10-30 06:16:32.915.
 Test Case '-[VRMCoreTests.SmokeTests testVersionConstants]' started.
 Test Case '-[VRMCoreTests.SmokeTests testVersionConstants]' passed (0.000 seconds).
-Test Suite 'SmokeTests' passed at 2026-10-30 06:13:19.840.
+Test Suite 'SmokeTests' passed at 2026-10-30 06:16:32.915.
 	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
-Test Suite 'VRMCoreTests.xctest' passed at 2026-10-30 06:13:19.840.
-	 Executed 32 tests, with 0 failures (0 unexpected) in 0.004 (0.006) seconds
-Test Suite 'All tests' passed at 2026-10-30 06:13:19.840.
-	 Executed 32 tests, with 0 failures (0 unexpected) in 0.004 (0.007) seconds
-Test Suite 'All tests' started at 2026-10-30 06:13:19.905.
-Test Suite 'VRMCVideoTests.xctest' started at 2026-10-30 06:13:19.905.
-Test Suite 'VideoDecoderTests' started at 2026-10-30 06:13:19.905.
+Test Suite 'VRMCoreTests.xctest' passed at 2026-10-30 06:16:32.915.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 0.004 (0.006) seconds
+Test Suite 'All tests' passed at 2026-10-30 06:16:32.915.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 0.004 (0.007) seconds
+Test Suite 'All tests' started at 2026-10-30 06:16:32.989.
+Test Suite 'VRMCVideoTests.xctest' started at 2026-10-30 06:16:32.990.
+Test Suite 'VideoDecoderTests' started at 2026-10-30 06:16:32.990.
 Test Case '-[VRMCVideoTests.VideoDecoderTests testAnnexBParserFindsParameterSetsAndFrame]' started.
 Test Case '-[VRMCVideoTests.VideoDecoderTests testAnnexBParserFindsParameterSetsAndFrame]' passed (0.001 seconds).
 Test Case '-[VRMCVideoTests.VideoDecoderTests testVideoToolboxDecodesFixture]' started.
-Test Case '-[VRMCVideoTests.VideoDecoderTests testVideoToolboxDecodesFixture]' passed (0.065 seconds).
-Test Suite 'VideoDecoderTests' passed at 2026-10-30 06:13:19.971.
-	 Executed 2 tests, with 0 failures (0 unexpected) in 0.066 (0.066) seconds
-Test Suite 'VideoSmokeTests' started at 2026-10-30 06:13:19.971.
+Test Case '-[VRMCVideoTests.VideoDecoderTests testVideoToolboxDecodesFixture]' passed (0.063 seconds).
+Test Suite 'VideoDecoderTests' passed at 2026-10-30 06:16:33.054.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.064 (0.064) seconds
+Test Suite 'VideoSmokeTests' started at 2026-10-30 06:16:33.054.
 Test Case '-[VRMCVideoTests.VideoSmokeTests testModuleLoads]' started.
 Test Case '-[VRMCVideoTests.VideoSmokeTests testModuleLoads]' passed (0.000 seconds).
-Test Suite 'VideoSmokeTests' passed at 2026-10-30 06:13:19.972.
+Test Suite 'VideoSmokeTests' passed at 2026-10-30 06:16:33.054.
 	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
-Test Suite 'VRMCVideoTests.xctest' passed at 2026-10-30 06:13:19.972.
-	 Executed 3 tests, with 0 failures (0 unexpected) in 0.066 (0.066) seconds
-Test Suite 'All tests' passed at 2026-10-30 06:13:19.972.
-	 Executed 3 tests, with 0 failures (0 unexpected) in 0.066 (0.067) seconds
+Test Suite 'VRMCVideoTests.xctest' passed at 2026-10-30 06:16:33.054.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.064 (0.064) seconds
+Test Suite 'All tests' passed at 2026-10-30 06:16:33.054.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.064 (0.065) seconds
 ◇ Test run started.
 ↳ Testing Library Version: 2084
 ↳ Target Platform: arm64e-apple-macos14.0
@@ -117,14 +119,14 @@ Test Suite 'All tests' passed at 2026-10-30 06:13:19.972.
 ↳ Target Platform: arm64e-apple-macos14.0
 ✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
 == Bridge core tests ==
--- Configuring done (0.1s)
+-- Configuring done (0.0s)
 -- Generating done (0.0s)
 -- Build files have been written to: /Volumes/Untitled/Projects/VRMC/build/bridge-core
 [ 60%] Built target vrmc_core
 [100%] Built target vrmc_core_tests
 Test project /Volumes/Untitled/Projects/VRMC/build/bridge-core
     Start 1: core
-1/1 Test #1: core .............................   Passed    0.00 sec
+1/1 Test #1: core .............................   Passed    0.01 sec
 
 100% tests passed out of 1
 

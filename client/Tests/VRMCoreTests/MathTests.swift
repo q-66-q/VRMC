@@ -1,4 +1,5 @@
 import XCTest
+import simd
 @testable import VRMCore
 
 final class MathTests: XCTestCase {
@@ -46,6 +47,27 @@ final class MathTests: XCTestCase {
         XCTAssertNotNil(uv)
         XCTAssertEqual(uv!.x, 0.6, accuracy: 1e-5)
         XCTAssertEqual(uv!.y, 0.65, accuracy: 1e-5)
+    }
+
+    func testProjectionTangentsFromMatrix() {
+        let p = ProjectionTangents.symmetric100
+        let m00 = 2 / (p.right - p.left)
+        let m11 = 2 / (p.top - p.bottom)
+        let m20 = (p.right + p.left) / (p.right - p.left)
+        let m21 = (p.top + p.bottom) / (p.top - p.bottom)
+        let near: Float = 0.05
+        let far: Float = 100
+        var matrix = matrix_identity_float4x4
+        matrix.columns.0 = SIMD4(m00, 0, 0, 0)
+        matrix.columns.1 = SIMD4(0, m11, 0, 0)
+        matrix.columns.2 = SIMD4(m20, m21, -(far + near) / (far - near), -1)
+        matrix.columns.3 = SIMD4(0, 0, -2 * far * near / (far - near), 0)
+        let extracted = ProjectionTangents.from(projectionMatrix: matrix)
+        XCTAssertNotNil(extracted)
+        XCTAssertEqual(extracted!.left, p.left, accuracy: 0.001)
+        XCTAssertEqual(extracted!.right, p.right, accuracy: 0.001)
+        XCTAssertEqual(extracted!.top, p.top, accuracy: 0.001)
+        XCTAssertEqual(extracted!.bottom, p.bottom, accuracy: 0.001)
     }
 
     func testYawConvention() {

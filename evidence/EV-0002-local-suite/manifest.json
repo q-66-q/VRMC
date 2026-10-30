@@ -1,8 +1,8 @@
 {
-  "id": "EV-0002-local-suite",
-  "date": "2026-10-30T08:21:00Z",
-  "commit": "ca61c3918da7a12dd1b9c82ddc61103e5768ca9d",
+  "commit": "31b59531a9632095a64bd8aff4c0ee45b0075e74",
+  "date": "2026-10-30T08:22:00Z",
   "dirty": "no",
   "host": "Mac-14053.lan",
-  "note": "Swift 27 tests + VideoToolbox 2 + C++ core + protocol vectors + docs"
+  "id": "EV-0002-local-suite",
+  "note": "Swift 32 core + 3 VideoToolbox + C++ core/vectors/docs"
 }

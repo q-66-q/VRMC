@@ -849,8 +849,8 @@ the ADRs/plan, and waiting for a decision rather than silently pivoting.
 - `VERIFY.md` records `PARTIAL`/`BLOCKED` for the remaining acceptance items. Do not report the
   project as accepted or release-ready.
 
-See `docs/plan/PROJECT_PLAN.md` for the detailed WBS and `VERIFY.md` for the current evidence
-state.
+See `docs/plan/PROJECT_PLAN.md` for the detailed WBS, `docs/release/FINAL_AUDIT.md` for the
+current acceptance audit, and `VERIFY.md` for the authoritative evidence state.
 
 ---
 

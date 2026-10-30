@@ -3,7 +3,7 @@
 > **Authority:** This file is the single source of truth for verification, acceptance, and
 > release sign-off. If it conflicts with `AGENT.md`, this file wins for acceptance decisions.
 > **Last updated:** 2026-10-30.
-> **Baseline commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d` (local); first tagged release TBD.
+> **Baseline commit:** `31b59531a9632095a64bd8aff4c0ee45b0075e74` (local); first tagged release TBD.
 > **Release candidate:** none.
 
 **Rules**
@@ -611,13 +611,13 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0002 — Local automated suite baseline
 
 - **Date/time:** 2026-10-30 08:21 UTC
-- **Commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d` (clean)
+- **Commit:** `31b59531a9632095a64bd8aff4c0ee45b0075e74` (clean)
 - **Build:** client package + C++ core; no device/Windows artifacts
 - **Environment:** macOS 27.0.1, Xcode 27.1, Swift 6.4, clang 21, Python 3
 - **Procedure:** `./scripts/test_all.sh` (Swift tests, VideoToolbox fixture, C++ core,
   protocol vectors, docs checks)
 - **Expected:** all local unit/conformance tests pass.
-- **Actual:** PASS. Swift XCTest: 32 core tests + 3 video tests, 0 failures; C++ core: 1/1
+- **Actual:** PASS. Swift XCTest: 33 core tests + 3 video tests, 0 failures; C++ core: 1/1
   passed (protocol, vectors, clock, pose, IPC); protocol vectors verified; docs links/required files pass. Full log:
   `evidence/EV-0002-local-suite/test_all.log`.
 - **Evidence:** `evidence/EV-0002-local-suite/manifest.json`,
@@ -630,9 +630,9 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0003 — Simulator end-to-end stream
 
 - **Date/time:** 2026-10-30 08:20 UTC
-- **Commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d` (clean)
+- **Commit:** `31b59531a9632095a64bd8aff4c0ee45b0075e74` (clean code; evidence files added after)
 - **Build:** VRMC.app simulator Debug; executable SHA-256
-  `7da81f821a6841d745a0d7f0280357bfc958da4590fee30e4dee21af0b31ac0c`
+  `a96a277d5471cfc45bf68cc064a0ad3baa93a0ce0ff2ffc2c3072259784ac904`
 - **Environment:** D3 (visionOS 27 simulator, VRMC-VP on macOS 27.0.1) + Python mock host on
   loopback; synthetic hands at ~90 Hz
 - **Procedure:** start `tools/mock_host/mock_host.py`; install/launch `VRMC.app -
@@ -640,12 +640,12 @@ a correction with a new entry referencing it. Each entry must be backed by files
   screenshot; inspect mock input log.
 - **Expected:** live stereo test pattern, immersive render, decoded frames, synthetic intents
   received, no crash.
-- **Actual:** PASS for simulator scope. State `streaming`; frames `163/163` decoded (0
+- **Actual:** PASS for simulator scope. State `streaming`; frames `153/153` decoded (0
   dropped); tracking origin calibrated; head y=1.62 m; mock host received HELLO and INTENT
   datagrams (pinch/fist/locomotion phases). Screenshot shows the SBS test pattern full-screen
   in the immersive scene and the app's development window with metrics.
-- **Evidence:** `evidence/EV-0003-simulator/simulator.png` (SHA-256 in
-  `screenshot.sha256`), `mock_host.log`, `app.log`, `input.jsonl`, `manifest.json`.
+- **Evidence:** `evidence/EV-0003-simulator/simulator.png` (SHA-256
+  `9a4db2fa9d9d36c5aff39d601ad533c652046eeb9d4125f4be08f36e4d00d9c4`), `mock_host.log` (20 INTENT lines), `app.log`, `input.jsonl`, `manifest.json`.
 - **Verdict:** PASS (simulator scope only)
 - **Notes/limits:** This is **not** evidence for hand tracking, Vivecraft, device latency,
   frame rate, or AC-1..AC-5. The window overlay remains visible in this development build.
@@ -689,7 +689,7 @@ a correction with a new entry referencing it. Each entry must be backed by files
 #### EV-0007 — Secure transport implementation
 
 - **Date/time:** 2026-10-30
-- **Commit:** `ca61c3918da7a12dd1b9c82ddc61103e5768ca9d`
+- **Commit:** `31b59531a9632095a64bd8aff4c0ee45b0075e74`
 - **Environment:** code audit
 - **Procedure:** inspect client/host transport and protocol security requirements.
 - **Expected:** pairing/AEAD/replay protection before release.

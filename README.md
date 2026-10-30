@@ -44,7 +44,7 @@ Windows PC: virtual SteamVR HMD + two Index-style controllers (driver_vrmc)
 | --- | --- |
 | Governance, feasibility audit, ADRs, plan | Committed (M0) |
 | Protocol v1 + reference codec + vectors | Local tests pass |
-| visionOS client core (tests, gestures, mapping, clock) | Local tests pass (27 core + 3 video) |
+| visionOS client core (tests, gestures, mapping, clock) | Local tests pass (33 core + 3 video) |
 | visionOS immersive app + decoder + renderer | Simulator E2E verified (EV-0003) |
 | Simulator end-to-end demo (mock host) | Working; synthetic hands |
 | PC host + OpenVR virtual-device driver | Source present; **no Windows/SteamVR runtime evidence** |
@@ -55,7 +55,7 @@ Windows PC: virtual SteamVR HMD + two Index-style controllers (driver_vrmc)
 The only acceptable evidence lives in [`VERIFY.md`](VERIFY.md) §9. Simulator screenshots are
 explicitly not evidence for device hand tracking, Vivecraft, or latency.
 
-Local verification (2026-10-30): 32 Swift core tests + 3 VideoToolbox tests + C++ core
+Local verification (2026-10-30): 33 Swift core tests + 3 VideoToolbox tests + C++ core
 (protocol/vectors/clock/pose/IPC) + protocol conformance + docs checks pass; the simulator
 renders a live H.264 SBS stream with synthetic hands/intents (EV-0003). Physical device and
 Windows/SteamVR/Vivecraft runs are **blocked** in this workspace.
@@ -104,6 +104,8 @@ See [`AGENT.md`](AGENT.md) §6 for every command and
   mapping.
 - [docs/adr/](docs/adr/) — architecture decision records.
 - [docs/user/](docs/user/) — install, run, troubleshoot, known limitations.
+- [docs/release/FINAL_AUDIT.md](docs/release/FINAL_AUDIT.md) — current definition-of-done
+  audit (not accepted; blockers).
 - [docs/performance/PERF_REPORT.md](docs/performance/PERF_REPORT.md) — measurement report
   (simulator baseline; hardware pending).
 - [VERIFY.md](VERIFY.md) §9 — evidence log (EV-0002 local suite, EV-0003 simulator stream).

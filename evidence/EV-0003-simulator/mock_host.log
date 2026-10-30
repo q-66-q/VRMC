@@ -1,10 +1,10 @@
 [mock-host] loaded 120 access units from stereo_test.h264
 [mock-host] control listening on 127.0.0.1:48625; UDP input 48627; media 48626
-[mock-host] client connected from 127.0.0.1:56555
+[mock-host] client connected from 127.0.0.1:54678
 [mock-host] HELLO from visionOS 27 version 0.1.0 auth=3
 [mock-host] sent WELCOME/AUTH_OK/STREAM_CONFIG/START_STREAM (insecure dev)
 [mock-host] SESSION_STATE phase=3 reason=0 detail='client ready'
-[mock-host] client UDP port learned: 127.0.0.1:59560
+[mock-host] client UDP port learned: 127.0.0.1:51443
 [mock-host] HEAD quality=0 pos=(0.0, 0.0, 0.0)
 [mock-host] INTENT hand=0 trigger=0.00 grip=0.00 stick=(0.00,0.00) buttons=0x000 quality=0
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.00 stick=(0.00,0.00) buttons=0x000 quality=0
@@ -22,12 +22,12 @@
 [mock-host] INTENT hand=1 trigger=1.00 grip=0.03 stick=(0.00,0.00) buttons=0x105 quality=2
 [mock-host] INTENT hand=1 trigger=1.00 grip=0.03 stick=(0.00,0.00) buttons=0x105 quality=2
 [mock-host] HEAD quality=2 pos=(0.0, 1.6200000047683716, 0.0)
+[mock-host] INTENT hand=1 trigger=0.00 grip=0.76 stick=(0.00,0.00) buttons=0x206 quality=2
 [mock-host] sent frame 90 key=False fragments=29
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.76 stick=(0.00,0.00) buttons=0x206 quality=2
-[mock-host] INTENT hand=1 trigger=0.00 grip=0.76 stick=(0.00,0.00) buttons=0x206 quality=2
 [mock-host] HEAD quality=2 pos=(0.0, 1.6200000047683716, 0.0)
-[mock-host] sent frame 120 key=False fragments=31
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.76 stick=(0.00,0.00) buttons=0x206 quality=2
+[mock-host] sent frame 120 key=False fragments=31
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.76 stick=(0.00,0.00) buttons=0x206 quality=2
 [mock-host] HEAD quality=2 pos=(0.0, 1.6200000047683716, 0.0)
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.76 stick=(0.00,0.00) buttons=0x206 quality=2
@@ -35,6 +35,7 @@
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.76 stick=(0.00,0.00) buttons=0x206 quality=2
 [mock-host] HEAD quality=2 pos=(0.0, 1.6200000047683716, 0.0)
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.03 stick=(-0.12,0.00) buttons=0x040 quality=2
-[mock-host] sent frame 180 key=False fragments=28
 [mock-host] INTENT hand=1 trigger=0.00 grip=0.03 stick=(-0.09,0.00) buttons=0x040 quality=2
 [mock-host] HEAD quality=2 pos=(0.0, 1.6200000047683716, 0.0)
+[mock-host] sent frame 180 key=False fragments=28
+[mock-host] INTENT hand=1 trigger=0.00 grip=0.03 stick=(-0.06,0.00) buttons=0x040 quality=2

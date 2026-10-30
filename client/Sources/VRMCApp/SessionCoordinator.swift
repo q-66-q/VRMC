@@ -60,6 +60,8 @@ public final class SessionCoordinator: @unchecked Sendable {
     private var reconnectAttempt = 0
     private var lastLocomotion = false
     private var lastTracking = "none"
+    private var lastMediaAt = Timestamp.now()
+    private var mediaDegraded = false
     private let headHistory = HeadPoseHistory()
     private var calibration: TrackingCalibration?
     private var userHeight: Float = 1.62
@@ -220,6 +222,8 @@ public final class SessionCoordinator: @unchecked Sendable {
         case .startStream(let start):
             lock.lock()
             streaming = true
+            lastMediaAt = .now()
+            mediaDegraded = false
             lastMetricsAt = .now()
             lastFramesDelta = 0
             lock.unlock()
@@ -255,6 +259,19 @@ public final class SessionCoordinator: @unchecked Sendable {
 
     private func handleMedia(_ header: MediaHeader, _ payload: Data) {
         guard header.sessionId == 0 || header.sessionId == sessionId else { return }
+        var recovered = false
+        lock.lock()
+        lastMediaAt = .now()
+        if mediaDegraded {
+            mediaDegraded = false
+            recovered = true
+        }
+        lock.unlock()
+        if recovered {
+            onStatus("Media recovered")
+            requestIDR(lastFrameId: lastDecodedFrameId, reason: 4)
+            try? send(.sessionState(SessionStateMessage(phase: .streaming, detail: "media recovered")))
+        }
         switch header.type {
         case .video:
             let result = assembler.ingest(header: header, payload: payload)
@@ -393,8 +410,13 @@ public final class SessionCoordinator: @unchecked Sendable {
         metricsTimer.setEventHandler { [weak self] in self?.emitMetrics() }
         metricsTimer.resume()
 
+        let watchdogTimer = DispatchSource.makeTimerSource(queue: queue)
+        watchdogTimer.schedule(deadline: .now() + .milliseconds(100), repeating: .milliseconds(100))
+        watchdogTimer.setEventHandler { [weak self] in self?.watchdog() }
+        watchdogTimer.resume()
+
         lock.lock()
-        timers = [inputTimer, pollTimer, clockTimer, keepaliveTimer, metricsTimer]
+        timers = [inputTimer, pollTimer, clockTimer, keepaliveTimer, metricsTimer, watchdogTimer]
         lock.unlock()
     }
 
@@ -443,7 +465,13 @@ public final class SessionCoordinator: @unchecked Sendable {
         let now = Timestamp.now()
         headHistory.record(head, at: now)
 
-        let output = mapper.update(leftSnapshot: left, rightSnapshot: right, headPose: head, now: now)
+        var output = mapper.update(leftSnapshot: left, rightSnapshot: right, headPose: head, now: now)
+        let degraded: Bool
+        lock.lock(); degraded = mediaDegraded; lock.unlock()
+        if degraded {
+            output.left = IntentInput.released(hand: output.left.hand, quality: .invalid)
+            output.right = IntentInput.released(hand: output.right.hand, quality: .invalid)
+        }
         let headInput = HeadInput(
             quality: headQuality, sampleId: UInt32(now.nanoseconds / 1_000_000),
             pose: head
@@ -480,6 +508,21 @@ public final class SessionCoordinator: @unchecked Sendable {
         if result.requiresIDR {
             requestIDR(lastFrameId: result.droppedFrameId ?? lastDecodedFrameId, reason: 3)
         }
+    }
+
+    private func watchdog() {
+        lock.lock()
+        guard running, streaming else { lock.unlock(); return }
+        if mediaDegraded {
+            lock.unlock()
+            return
+        }
+        let age = Double(Timestamp.now().distance(to: lastMediaAt)) / 1_000_000
+        guard age > 250 else { lock.unlock(); return }
+        mediaDegraded = true
+        lock.unlock()
+        onStatus("Link degraded: no video for >250 ms; inputs released")
+        try? send(.sessionState(SessionStateMessage(phase: .degraded, reason: 2, detail: "media timeout")))
     }
 
     private func emitMetrics() {
