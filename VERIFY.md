@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0005`.
+**Next evidence ID:** `EV-0006`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -115,7 +115,7 @@ default **Balanced**. Any change requires a budget table update.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | **Reference JVM** + minimal app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure; recorded **internal** EV required. EV-0002 is external; EV-0004 is host-only. OpenJDK 25 xros build is C3, not S1 | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | World renders; F3 reports Vulkan; 30 min stable | GL/LTW→ANGLE | `NOT RUN` |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot `PASS` subject to world render/soak, EV-0005; device pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `NOT RUN` |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -408,6 +408,41 @@ the request site. Full analysis: `evidence/EV-0004/S1-report.md`.
 visionOS process; device S1 remains `NOT RUN`. Research by teammate s1-openjdk; the JIT and TXM runs
 were reproduced by the Lead.
 
+### EV-0005 — S2 host pre-test: Minecraft 26.2 boots on Vulkan via MoltenVK 1.4.2 (macOS)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T11:55:20-10:00 |
+| Commit | `7c684f2dcead81dc37d7866beea4c7babd1d5248` |
+| Dirty state | clean |
+| Device | host-only (M1 MacBook Pro); no device run |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Assemble the 26.2 classpath from Mojang metadata (83 libraries + client jar).
+2. Launch MC 26.2 with Temurin 25 and `--graphicsBackend vulkan`, pointing LWJGL at the bundled
+   `libMoltenVK.dylib`.
+3. Wait 70 s, capture `logs/latest.log`, stop the process.
+4. Verify backend and required device extensions; confirm no GL fallback.
+
+**Expected:** `Using graphics backend Vulkan` with MoltenVK; required extensions present; process
+alive; no OpenGL fallback.
+
+**Actual:** `Using graphics backend Vulkan, using drivers: 1.2.334 MoltenVK 1.4.2`; device Apple M4
+Pro; extensions include dynamic rendering, push descriptor, synchronization2,
+vertex_attribute_divisor, swapchain; process alive at 70 s, stopped for capture; menu only, no world.
+
+**Artifacts:** `evidence/EV-0005/host_pretest_summary.log` (f9f017c985ae);
+`evidence/EV-0005/latest.log` (a0b1420a3d9a);
+`evidence/EV-0005/S2_vulkan_report.md` (abf00e6e7270);
+`evidence/EV-0005/probe_mvk_2026-10-31.out` (825984512f5b).
+
+**Limitations:** host macOS only. No world render, no 30-minute stability, no visionOS run; it does
+not satisfy ST-S2's device criterion. MC was force-stopped, not cleanly exited. Research by teammate
+s2-vulkan; the launch and capture were reproduced by the Lead.
+
 ---
 
 ## 7. Status dashboard
@@ -419,7 +454,7 @@ were reproduced by the Lead.
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `NOT RUN` | ST-S2 pending |
+| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot `PASS` (EV-0005); world render/soak and device pending |
 | Provider integration | `NOT RUN` | ST-S3 pending |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -450,6 +485,7 @@ were reproduced by the Lead.
 | 2026-10-31 | EV-0002 recorded (external JIT26 demonstration, `PARTIAL`); S1 internal reproduction remains `NOT RUN`; A2 → MEDIUM in AGENT.md; totals 32/26/7. |
 | 2026-10-31 | M0 foundation committed (`3332cdb`); EV-0003 records the tooling self-test (`PASS`, AT-009). |
 | 2026-10-31 | EV-0004 records the S1 host pre-test (`PARTIAL`): relabelled iOS JRE 25 JITs on macOS and the JIT26 request site traps as expected. Device S1 remains `NOT RUN`. |
+| 2026-10-31 | EV-0005 records the S2 host pre-test (`PARTIAL`): MC 26.2 boots with Vulkan via MoltenVK 1.4.2 and no GL fallback. Device S2, world render, and soak remain `NOT RUN`. |
 
 ---
 

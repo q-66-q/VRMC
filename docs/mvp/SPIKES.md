@@ -86,23 +86,53 @@ re-baseline M1.
 **Question.** Does MC 26.2's experimental Vulkan renderer run through MoltenVK on macOS, and then on
 visionOS?
 
-**Split.**
-1. **Pre-test on M1 (macOS):** run MC 26.2 with Graphics API = Prefer Vulkan using a MoltenVK build;
-   confirm F3 reports Vulkan and a world renders for 30 minutes. This validates the MC/MoltenVK pair
-   without the JVM port.
-2. **Device test:** requires S1 (a JVM on device). Run the same MC instance under the device JVM and
-   capture F3, logs, frame timing.
+**Pre-spike findings (2026-10-31).**
 
-**Prerequisites.** MC 26.2 client/libraries/assets (user-owned account), MoltenVK pinned build,
-LWJGL 3.4.1 vulkan natives, `versions.env` hashes.
+- MC 26.2's Vulkan backend requires 5 device extensions (`VK_KHR_dynamic_rendering`,
+  `VK_KHR_push_descriptor`, `VK_KHR_synchronization2`, `VK_EXT_vertex_attribute_divisor`,
+  `VK_KHR_swapchain`) and 9 features (timeline semaphores, dynamic rendering, sync2, vertex-divisor,
+  multiDrawIndirect, fillModeNonSolid, samplerAnisotropy, shaderDrawParameters, hostQueryReset).
+  Optional: `VK_EXT_multi_draw`, checkpoint extensions, portability subset. Missing required items
+  flip MC to its GL backend.
+- Measured against the exact `libMoltenVK.dylib` bundled with LWJGL 3.4.1 (MoltenVK 1.4.2,
+  Vulkan 1.2.334): all 5 extensions and all 9 features are present; `maxPushDescriptors=287`.
+  MoltenVK officially builds for visionOS but release artifacts omit it (build from source).
+- Host pre-test EV-0005: MC 26.2 boots with `--graphicsBackend vulkan` on macOS 27.0.1 and logs
+  `Using graphics backend Vulkan, using drivers: 1.2.334 MoltenVK 1.4.2` with the required
+  extensions; no GL fallback. Menu only; no world render or soak yet.
+- Known risks: push descriptors ride Metal argument buffers (MoltenVK issues #2827/#2888/#1839); the
+  official visionOS Cube demo currently fails to find the Vulkan runtime (#2665); visionOS release
+  artifacts omit the xros slice (#2385); visionOS has no validation layers.
+- visionOS deltas are stack-level, not MoltenVK-level: xros MoltenVK build, xros LWJGL 3.4.1 natives
+  (not published), Java GLFW replacement + `MacosUtil` shadow + `CAMetalLayer` handoff
+  (`GLFWVulkan.glfwCreateWindowSurface` via `vkCreateMetalSurfaceEXT`), and `-rdynamic` symbol export.
 
-**Pass criteria.** World renders via Vulkan (F3 backend line + logs) for 30 minutes; no device loss;
-MoltenVK/extension gaps documented; evidence recorded per stage (macOS stage may be PARTIAL for the
-device gate).
+**Plan.**
+1. macOS pre-test (boot done, EV-0005): force Vulkan, capture backend lines; extend to a world render
+   and a 30-minute soak on host (both still `NOT RUN`).
+2. Pin MoltenVK (match LWJGL's `f79c6c5` or 1.4.2) and build the xros slice; record commit + log.
+3. Run the capability probe on D1 (same 5 extensions + 9 features) and record the JSON.
+4. Build/retag LWJGL 3.4.1 xros natives (liblwjgl, shaderc, spvc, vma, freetype, stb, tinyfd, openal);
+   load test.
+5. GLFW stub + `MacosUtil` shadow + CAMetalLayer + `org.lwjgl.vulkan.libname`; boot to title on D1
+   (requires the S1/C3 JVM).
+6. World render, F3 screenshot, 30-minute stability -> S2 EV; otherwise document the blocker and
+   invoke the fallback ADR.
 
-**Fallback.** GL/LTW → ANGLE path; ADR update and S4 re-plan.
+**Prerequisites.** MC 26.2 client/libraries/assets (user-owned), Temurin 25 for the host stage,
+MoltenVK pinned build, xros LWJGL natives, `versions.env` hashes.
 
-**Timebox.** 2–3 weeks.
+**Pass criteria.**
+- Host stage: backend Vulkan + MoltenVK with no GL fallback (EV-0005 covers boot; a world render and
+  soak are still required for a full host pass).
+- Device stage: world renders via Vulkan (F3 + log) for 30 minutes; required extensions present on
+  xros; no fallback; MoltenVK gaps documented.
+
+**Fallback.** GL/LTW → ANGLE path; ADR update and S4 re-plan. Patch MoltenVK only for a specific
+missing feature, with the patch and reason recorded.
+
+**Timebox.** 2–3 weeks: host pre-test 0.5 d; MoltenVK xros build 1–2 d; xros natives 3–5 d;
+GLFW/MacosUtil parity 2–3 d; CAMetalLayer/window 2–3 d; device debug 3–5 d (overlaps S1/C3).
 
 ## S3 — Provider injection
 
