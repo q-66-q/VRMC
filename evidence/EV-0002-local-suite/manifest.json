@@ -1,8 +1,0 @@
-{
-  "commit": "5b4c68a",
-  "date": "2026-10-30T09:00:00Z",
-  "dirty": "no",
-  "host": "Mac-14053.lan",
-  "id": "EV-0002-local-suite",
-  "note": "Swift 34 core + 3 VideoToolbox + C++ core/vectors/docs"
-}

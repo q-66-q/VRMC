@@ -1,6 +1,0 @@
-{
-  "name": "vrmc",
-  "library_path": "bin/win64/driver_vrmc.dll",
-  "hmd_presence": true,
-  "display_name": "VRMC virtual HMD"
-}
