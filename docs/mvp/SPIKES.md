@@ -23,40 +23,63 @@ visionOS 27.2) under the JIT26 debugger-prepared-memory protocol?
 **Known.** No JIT entitlement exists on visionOS. EV-0002 records an external demonstration
 (Apparition + ARMSX2/UTM): the app requests prepared memory with `brk #0xf00d`, an attached
 debugger prepares each 16 KiB page, the app executes from it and writes code through a writable
-alias. Internal reproduction is the gap.
+alias. EV-0004 records the host-only pre-test below. Internal device reproduction is the gap.
+
+**Pre-spike findings (2026-10-31, EV-0004, host-only).**
+
+- The likely reference JRE is Amethyst's prebuilt OpenJDK 25 iOS bundle (`assets.angelauramc.dev`),
+  built from `jdk25u` with the `MirrorMappedCodeCache` patch: the code cache is reserved through a
+  debugger request (`brk #0x69`), mirrored RW/RX with `vm_remap`, and code writes go through the
+  writable alias. Log lines: `[JIT26] Requesting…`, `[JIT26] Got JIT mapping…`,
+  `[JIT26] mapping at RW=…,RX=…`.
+- dyld will not load IOS-platform images into a visionOS process; images must be relabelled
+  (`vtool -set-build-version 11 …`) and re-signed. On macOS, relabel+resign made the shipped JRE run
+  and JIT (tiers 3/4), and `XNU_HAS_TXM=1` trapped at the request site (exit 133).
+- Open questions are therefore platform acceptance (AMFI/library validation), the on-device script's
+  semantics for the JVM's allocation-style request, TXM detection, and in-process `JLI_Launch` —
+  not the JIT mechanism itself.
 
 **Scope.** A reference JVM + minimal app. The OpenJDK 25 xros runtime is **C3**, not S1.
 
 **Prerequisites.**
 - Paired D1 (visionOS 27.2) and a signing team (personal team observed on M1; 7-day provisioning).
 - Xcode 27.2 / visionOS 27.2 SDK.
-- A JVM candidate that can run on visionOS: rebuild target, relinked iOS JRE, or a smaller JIT VM.
+- A reference JRE candidate: relabelled+re-signed Amethyst `jre25` bundle (fast) or a rebuilt xros
+  runtime (C3, later).
 - A JIT-enablement path: Xcode-attached debugger, StikDebug-style tool, or Apparition-style
   sideloader. Record which one is used.
+- A provisioning profile containing the AVP UDID (the current free-team profile covers iOS/xrOS but
+  only the iPad), Developer Mode enabled on D1, and the enabler installed.
 
-**Steps.**
-1. Build a minimal visionOS app that embeds the JVM and runs a `HotLoop` class (a loop long enough to
-   trigger tiered compilation).
-2. Launch the app so the debugger prepares code memory; capture the preparation step.
-3. Capture JVM evidence: `-XX:+PrintCompilation` or `-Xlog:jit+compilation`, compiled-method count,
-   code-cache stats, and process survival.
-4. Run the same app without JIT enablement to confirm it fails or falls back to the interpreter
-   (control run).
-5. Repeat three launches; record timing of the preparation step.
+**Plan.**
+- **S1a (compat mode, ~1 week).** Wrap the unmodified iOS JRE in a small iOS app (`HelloJit` + hot
+  loop), install via Apparition, "Launch with JIT", capture `[JIT26]` lines + `PrintCompilation`.
+  Proves the reference JVM + JIT26 on D1 but **not** native xros: record as `PASS (compat)` only
+  with device evidence; it does not satisfy ST-S1's native requirement.
+- **S1b (target, 1.5–3 weeks).** Native visionOS harness with the relabelled+re-signed JRE; request
+  JIT through the on-device enabler (poll `CS_DEBUGGED`, then `JLI_Launch`). A **custom** script is
+  required because the JVM's `0x69` request is allocation-style (`x0 = size`), unlike the enabler's
+  default serve. Do not copy AGPL-3.0 StikDebug script text; Amethyst is GPL-3.0, Apparition MIT.
+- JVM args: `-XX:+UnlockExperimentalVMOptions -XX:+MirrorMappedCodeCache -XX:+PrintCompilation
+  -XX:ReservedCodeCacheSize=64m -XX:-UseCompressedClassPointers`; provide the TXM signal the build
+  expects (environment/exported symbol).
+- Control run: the same app without JIT enablement (interpreter), to measure the speedup.
 
 **Pass criteria.**
-- JIT compiles methods and the app runs for 10 minutes without W^X crashes.
+- Device evidence shows a debugger-prepared mapping (`[JIT26] Got JIT mapping` / `mapping at RW=…,
+  RX=…`), compiled methods (tier 3/4), and 10 minutes without W^X faults.
 - A measurable speedup versus the interpreter control (report the ratio; target ≥ 2× on the hot loop).
-- The process can explain, log, and fail safely when the debugger-prepared step is absent.
-- Recorded as an internal EV (PASS) with device log, app build hash, and manifest.
+- Safe, explained failure when preparation is absent.
+- Recorded as an internal EV with device log, app build SHA-256, and manifest. Host-only runs are
+  `PARTIAL` (EV-0004).
 
-**Artifacts.** Device log, `PrintCompilation` excerpt, app build SHA-256, launch procedure, video of
-the device run, manifest.
+**Artifacts.** Device log, `PrintCompilation` excerpt, enabler script log, app build SHA-256, launch
+procedure, video of the device run, manifest.
 
 **Fallback.** A different JVM candidate; if no JVM can JIT, pivot to AOT (ADR-0001 fallback) and
 re-baseline M1.
 
-**Timebox.** 3–4 weeks.
+**Timebox.** 3–4 weeks total: S1a ~1 week, S1b 1.5–3 weeks, evidence 2–3 days.
 
 ## S2 — Minecraft 26.2 Vulkan via MoltenVK
 

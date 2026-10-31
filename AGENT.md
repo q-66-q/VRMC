@@ -74,9 +74,9 @@ comfort polish.
 - Hardware is available: an Apple Vision Pro is paired (`RealityDevice14,1`, N301AP, 1 TB,
   visionOS) and a Mac build host is present (MacBook Pro Mac16,7, Apple M4 Pro, 24 GB,
   macOS 27.0.1, Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
-- Evidence baseline: `VERIFY.md` EV-0001 (`PARTIAL`, toolchain/reference inspection) and EV-0002
-  (`PARTIAL`, external JIT26 demonstration; internal reproduction pending). Only evidence IDs
-  recorded in `VERIFY.md` §6 are valid.
+- Evidence baseline: `VERIFY.md` EV-0001 (`PARTIAL`, toolchain/reference inspection), EV-0002
+  (`PARTIAL`, external JIT26 demonstration), EV-0003 (`PASS`, tooling self-test), and EV-0004
+  (`PARTIAL`, host-only S1 pre-test). Only evidence IDs recorded in `VERIFY.md` §6 are valid.
 
 ---
 
@@ -392,7 +392,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
-| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external context and does not satisfy this row | EV-0002 (external, `PARTIAL`); internal EV pending (next free ID) | 3–4 wk |
+| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external and EV-0004 is host-only; neither satisfies this row | EV-0002 (external) + EV-0004 (host), both `PARTIAL`; device EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
 | S2 | MC 26.2 Vulkan boots | World renders via Vulkan; F3 reports Vulkan; 30 min stable | pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | pending | 2–3 wk |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
@@ -550,3 +550,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | Review revision: S1/A2/C3 status semantics, S3 stability criteria + M0 decision, §3.5 fork wording, §4.7 propagation checklist, cross-reference fixes, K3 rig and F3 assumption notes, `log_evidence.sh` promoted to M0. |
 | 2026-10-31 | EV-0002 recorded (external JIT26 demonstration, `PARTIAL`); A2 → MEDIUM, counts 32/26/7; §4.6/§11 split mechanism vs runtime; S1 scope aligned (reference JVM; C3 owns OpenJDK 25); §4.6 added to §4.7. Internal S1 reproduction still `NOT RUN`. |
 | 2026-10-31 | M0 foundation: repo hygiene (`.gitignore`, `.DS_Store` untracked), `versions.env`, licenses/notices, ADRs 0001–0006, docs (scope/spikes/acceptance), component skeletons, and tooling (`check_versions.sh`, `bootstrap.sh`, `log_evidence.sh`, self-tested). No spike status changed. |
+| 2026-10-31 | S1 groundwork: host pre-test EV-0004 (`PARTIAL`) and S1a/S1b harness plan in `docs/mvp/SPIKES.md`. Device S1 still `NOT RUN`. |
