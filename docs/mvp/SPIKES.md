@@ -52,10 +52,13 @@ alias. EV-0004 records the host-only pre-test below. Internal device reproductio
   only the iPad), Developer Mode enabled on D1, and the enabler installed.
 
 **Plan.**
-- **S1a (compat mode, ~1 week).** Wrap the unmodified iOS JRE in a small iOS app (`HelloJit` + hot
-  loop), install via Apparition, "Launch with JIT", capture `[JIT26]` lines + `PrintCompilation`.
-  Proves the reference JVM + JIT26 on D1 but **not** native xros: record as `PASS (compat)` only
-  with device evidence; it does not satisfy ST-S1's native requirement.
+- **S1a (compat mode, ~1 week).** Minimal harness: a Swift/ObjC app embedding the unmodified iOS
+  JRE 25 + `HelloJit`, one enabler script (attach, prepare the code cache, detach, continue),
+  installed and launched on D1. **Out of scope:** Minecraft, Vivecraft, CompositorServices (S1b/S2/S4).
+  Pass requires the four criteria above; record as `PASS (compat)` only with device evidence — it does
+  not satisfy ST-S1's native requirement. **Divergence note:** if D1's JIT26 behavior differs from the
+  macOS host (no TXM trap, different failure), record it for S1b. Start the AVP provisioning-profile
+  update before this work lands; the current free-team profile covers only the iPad.
 - **S1b (target, 1.5–3 weeks).** Native visionOS harness with the relabelled+re-signed JRE; request
   JIT through the on-device enabler (poll `CS_DEBUGGED`, then `JLI_Launch`). A **custom** script is
   required because the JVM's `0x69` request is allocation-style (`x0 = size`), unlike the enabler's
@@ -65,13 +68,14 @@ alias. EV-0004 records the host-only pre-test below. Internal device reproductio
   expects (environment/exported symbol).
 - Control run: the same app without JIT enablement (interpreter), to measure the speedup.
 
-**Pass criteria.**
-- Device evidence shows a debugger-prepared mapping (`[JIT26] Got JIT mapping` / `mapping at RW=…,
-  RX=…`), compiled methods (tier 3/4), and 10 minutes without W^X faults.
-- A measurable speedup versus the interpreter control (report the ratio; target ≥ 2× on the hot loop).
-- Safe, explained failure when preparation is absent.
-- Recorded as an internal EV with device log, app build SHA-256, and manifest. Host-only runs are
-  `PARTIAL` (EV-0004).
+**Pass criteria (all four required).**
+1. JIT-compiled methods are actually **executed**, not merely compiled.
+2. No `brk #0x69` trap occurs during execution.
+3. After the enabler detaches, the JIT code cache remains executable.
+4. A **cold relaunch** reproduces the result, or a persistence mechanism is proven.
+
+Criterion 4 decides A2's final hardness (MEDIUM vs LOW). A host-only run is `PARTIAL` (EV-0004);
+simulator runs are not evidence.
 
 **Artifacts.** Device log, `PrintCompilation` excerpt, enabler script log, app build SHA-256, launch
 procedure, video of the device run, manifest.
@@ -125,6 +129,9 @@ MoltenVK pinned build, xros LWJGL natives, `versions.env` hashes.
 **Pass criteria.**
 - Host stage: backend Vulkan + MoltenVK with no GL fallback (EV-0005 covers boot; a world render and
   soak are still required for a full host pass).
+- Host scope note: the host stage de-risks MC's Vulkan backend against MoltenVK; it is **not** S2
+  device evidence. The xros work is limited to the MoltenVK-xros port, LWJGL-xros natives, and the
+  GLFW/CAMetalLayer shim.
 - Device stage: world renders via Vulkan (F3 + log) for 30 minutes; required extensions present on
   xros; no fallback; MoltenVK gaps documented.
 
@@ -139,14 +146,28 @@ GLFW/MacosUtil parity 2–3 d; CAMetalLayer/window 2–3 d; device debug 3–5 d
 **Question.** Is there a real, stable injection point for a `VisionVR` provider in Vivecraft
 26.2-1.3.15, without forking?
 
+**Pre-spike findings (2026-10-31, EV-0006, static).**
+
+- `VRState` is public; `initializeVR()` is `public static`. Provider selection is a branch on
+  `VRSettings.stereoProviderPluginID == VRProvider.OPENVR`, constructing `MCOpenVR` (ordinal-0
+  `PUTFIELD ClientDataHolderVR.vr`) or `NullVR` (ordinal-1). No public provider API exists.
+- `initializeVR` bytecode is byte-identical across 26.2‑1.3.14 and 26.2‑1.3.15 (19,772 bytes,
+  sha256 `dcde94f…`), so the injection point is stable across the two available patch builds.
+- `MCOpenVR`'s constructor allocates LWJGL structs but makes no `org.lwjgl.openvr` `VR_*` calls, so a
+  redirect that discards it is safe (one small discarded allocation).
+- Recommended injection: `@Redirect` the ordinal-0 `PUTFIELD`, signature
+  `(ClientDataHolderVR, MCVR) -> MCVR`, returning `VisionVR`; set the provider setting to OPENVR in
+  `vrsettings.json`. Runtime Mixin test is still required — the fork path is **not** triggered yet.
+
 **Steps.**
-1. Obtain the Vivecraft jar from the official source (user-owned); record its hash.
+1. Obtain the Vivecraft jar from the official source; record its hash (done: EV-0006).
 2. Decompile `VRState.initializeVR`, `MCVR`, `VRRenderer`, and the provider factory path; capture the
-   exact target and descriptor for the Mixin.
-3. Build a minimal companion mod that Mixins the selection path and instantiates a stub `MCVR`.
-4. Run on desktop JVM (Fabric, MC 26.2) to prove the Mixin applies; capture logs.
-5. Check the same injection across available 26.2.x Vivecraft patch versions; note drift.
-6. Record the decompiled excerpts (with the mod's LGPL notice) as evidence.
+   target and descriptor (done: EV-0006).
+3. Build the minimal LGPL companion mod with the redirect Mixin and a stub `VisionVR`.
+4. Run on desktop JVM (Fabric, MC 26.2) to prove the Mixin applies and the stub is instantiated;
+   capture logs. This is the remaining S3 gate.
+5. Re-check the injection against any newer 26.2.x patch; note drift.
+6. Record the decompiled excerpts and runtime log (with the mod's LGPL notice) as evidence.
 
 **Pass criteria.** Mixin applies, the stub provider is instantiated without SteamVR, and the
 injection point is evidenced in the decompiled 26.2-1.3.15 jar and holds across 26.2.x patches.

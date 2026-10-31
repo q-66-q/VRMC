@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0006`.
+**Next evidence ID:** `EV-0007`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -110,13 +110,17 @@ default **Balanced**. Any change requires a budget table update.
 | AT-008 | Diagnostics log parser + export bundle | Bundle reproducible, no secrets | `NOT RUN` |
 | AT-009 | Evidence tooling self-test (allocate, hash, manifest, invalid input) | Valid bundle + manifest; collision advances ID; invalid input exits 2 | `PASS` (EV-0003) |
 
+**AT allocation rule:** AT IDs are assigned sequentially when a test is added to this registry — no
+gaps, no reuse. `scripts/log_evidence.sh` allocates **EV** IDs only; it never allocates AT IDs. The
+EV that first evidences a test is recorded in the Status column.
+
 ### 4.2 Spikes (go/no-go)
 
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
-| ST-S1 | Can the JIT26 mechanism be reproduced internally? | **Reference JVM** + minimal app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure; recorded **internal** EV required. EV-0002 is external; EV-0004 is host-only. OpenJDK 25 xros build is C3, not S1 | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
+| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 is external; EV-0004 is host-only | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
 | ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot `PASS` subject to world render/soak, EV-0005; device pending) |
-| ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `NOT RUN` |
+| ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `NOT RUN` (static analysis `PARTIAL`, EV-0006; runtime Mixin test pending) |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
 | ST-S6 | Do frame pacing and thermals hold? | K2/K5 met or documented waiver | Lower preset, 45 Hz lock, caps | `NOT RUN` |
@@ -398,6 +402,11 @@ run traps at the request site (exit 133).
 `[JIT26] mapping at RW=0x11c1c4000, RX=0x1181c4000`; the TXM run exits 133 (Trace/BPT trap), proving
 the request site. Full analysis: `evidence/EV-0004/S1-report.md`.
 
+**Interpretation (added 2026-10-31, original results unchanged):** the `[JIT26] mapping` line proves
+the JRE **entered the JIT26 branch**; exit 133 under `XNU_HAS_TXM=1` is TXM rejecting the subsequent
+execution, not a successful JIT run. Relabel compatibility and branch reachability are verified;
+JIT26 **execution** is unverified and deferred to S1a (iOS) and S1b (native visionOS).
+
 **Artifacts:** `evidence/EV-0004/S1-report.md` (965e72a7fce0);
 `evidence/EV-0004/host_java_version.log` (f5c5b56aa6d0);
 `evidence/EV-0004/host_jit_mac.log` (d893e249f9f6);
@@ -434,6 +443,11 @@ alive; no OpenGL fallback.
 Pro; extensions include dynamic rendering, push descriptor, synchronization2,
 vertex_attribute_divisor, swapchain; process alive at 70 s, stopped for capture; menu only, no world.
 
+**Scope (added 2026-10-31):** confirmed on the **macOS build host only**. Mojang ships MoltenVK
+officially on macOS, so this de-risks MC 26.2's Vulkan backend logic and shows the xros S2 scope is
+limited to three transplantable components: MoltenVK-xros, LWJGL-xros natives, and the
+GLFW/CAMetalLayer shim. It is **not** evidence for S2 on device.
+
 **Artifacts:** `evidence/EV-0005/host_pretest_summary.log` (f9f017c985ae);
 `evidence/EV-0005/latest.log` (a0b1420a3d9a);
 `evidence/EV-0005/S2_vulkan_report.md` (abf00e6e7270);
@@ -442,6 +456,48 @@ vertex_attribute_divisor, swapchain; process alive at 70 s, stopped for capture;
 **Limitations:** host macOS only. No world render, no 30-minute stability, no visionOS run; it does
 not satisfy ST-S2's device criterion. MC was force-stopped, not cleanly exited. Research by teammate
 s2-vulkan; the launch and capture were reproduced by the Lead.
+
+### EV-0006 — S3 static analysis: provider injection point exists and is stable across 1.3.14→1.3.15
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T12:06:06-10:00 |
+| Commit | `ee6855999c10541710e18bdc5f542da6f6caae05` |
+| Dirty state | clean |
+| Device | host-only (static analysis); no runtime test |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Download the official Fabric jars for 26.2-1.3.15 and 26.2-1.3.14 from Modrinth; hash them.
+2. `javap -p -c` `VRState` and extract the `initializeVR` bytecode.
+3. Diff the method bytecode across the two versions.
+4. Inspect `MCOpenVR` construction coupling and the `ClientDataHolderVR.vr` field type.
+
+**Expected:** public/static `initializeVR` with an identifiable provider-selection branch, a stable
+target across patch versions, and a viable Mixin injection point.
+
+**Actual:** `VRState` is public, `initializeVR` is `public static`; the branch reads
+`VRSettings.stereoProviderPluginID`, constructs `MCOpenVR` (ordinal-0 `PUTFIELD`) or `NullVR`
+(ordinal-1); `initializeVR` bytecode is identical (19,772 bytes, sha256 `dcde94f…`) across 1.3.14 and
+1.3.15; the `vr` field is a public `MCVR`; the `MCOpenVR` constructor makes no `org.lwjgl.openvr`
+`VR_*` calls (only struct allocation and `Version.getVersion`).
+
+**Preliminary conclusion:** Mixin injection is viable and stable across the two available 26.2.x
+builds. Recommended target: `@Redirect` on the ordinal-0 `PUTFIELD ClientDataHolderVR.vr`, signature
+`(ClientDataHolderVR, MCVR) -> MCVR`, returning `VisionVR`; set the provider setting to OPENVR in
+`vrsettings.json`. `MCOpenVR` is still constructed and then discarded (harmless allocation). No
+public provider API exists. Runtime Mixin test is still required; the fork path is not triggered yet.
+
+**Artifacts:** `evidence/EV-0006/S3-static-summary.log` (b0d3ee1cdb69);
+`evidence/EV-0006/VRState-1.3.15.javap.txt` (75f714cb126e);
+`evidence/EV-0006/VRState-1.3.14.javap.txt` (75f714cb126e);
+`evidence/EV-0006/jar-sha256.txt` (7053c0fbd55d);
+`evidence/EV-0006/initializeVR-1.3.15.txt` (dcde94fbb281).
+
+**Limitations:** static analysis only. No Mixin build/run and no desktop Fabric injection test; S3
+remains `NOT RUN` until a Mixin is applied and a provider is instantiated. Jars were not committed.
 
 ---
 
@@ -455,7 +511,7 @@ s2-vulkan; the launch and capture were reproduced by the Lead.
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
 | Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot `PASS` (EV-0005); world render/soak and device pending |
-| Provider integration | `NOT RUN` | ST-S3 pending |
+| Provider integration | `NOT RUN` | Static analysis `PARTIAL` (EV-0006); runtime Mixin pending |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
@@ -486,6 +542,7 @@ s2-vulkan; the launch and capture were reproduced by the Lead.
 | 2026-10-31 | M0 foundation committed (`3332cdb`); EV-0003 records the tooling self-test (`PASS`, AT-009). |
 | 2026-10-31 | EV-0004 records the S1 host pre-test (`PARTIAL`): relabelled iOS JRE 25 JITs on macOS and the JIT26 request site traps as expected. Device S1 remains `NOT RUN`. |
 | 2026-10-31 | EV-0005 records the S2 host pre-test (`PARTIAL`): MC 26.2 boots with Vulkan via MoltenVK 1.4.2 and no GL fallback. Device S2, world render, and soak remain `NOT RUN`. |
+| 2026-10-31 | EV-0006 records S3 static analysis (`PARTIAL`): injection point exists and `initializeVR` bytecode is identical across 1.3.14/1.3.15; runtime Mixin test pending. Added interpretation/scope notes to EV-0004/EV-0005 and the AT allocation rule. |
 
 ---
 

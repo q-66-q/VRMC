@@ -82,8 +82,8 @@ comfort polish.
   no GL fallback). Device S1/S2, world render/soak, and S3 remain `NOT RUN`.
 - Evidence baseline: `VERIFY.md` EV-0001 (`PARTIAL`, toolchain/reference inspection), EV-0002
   (`PARTIAL`, external JIT26 demonstration), EV-0003 (`PASS`, tooling self-test), EV-0004
-  (`PARTIAL`, host-only S1 pre-test), and EV-0005 (`PARTIAL`, host-only S2 boot pre-test). Only
-  evidence IDs recorded in `VERIFY.md` §6 are valid.
+  (`PARTIAL`, host-only S1 pre-test), EV-0005 (`PARTIAL`, host-only S2 boot pre-test), and EV-0006
+  (`PARTIAL`, S3 static analysis). Only evidence IDs recorded in `VERIFY.md` §6 are valid.
 
 ---
 
@@ -188,7 +188,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | ID | Feature | Hardness | Note |
 |---|---|---|---|
 | A1 | Sideload install (SideStore/IPA) + first-run wizard | MEDIUM | External sideload tooling is the dependency |
-| A2 | JIT launch flow + guided readiness | MEDIUM | External JIT26 requires a debugger-prepared memory step per launch (EV-0002), so the productization case is the per-launch ritual. Still open: M2/M5 coverage, persistence across kill/reboot, distribution closure, failure UX. LOW only if provisioning persists; back to HIGH if our app cannot use the protocol |
+| A2 | JIT launch flow + guided readiness | MEDIUM | External JIT26 requires a debugger-prepared memory step per launch (EV-0002), so the productization case is the per-launch ritual. Still open: M2/M5 coverage, persistence across kill/reboot, distribution closure, failure UX. LOW only if provisioning persists; back to HIGH if our app cannot use the protocol. **S1a criterion 4 (cold-relaunch reproduction or proven persistence) makes the LOW/MEDIUM call** |
 | A3 | Hand-tracking permission + denial handling | LOW | Standard ARKit authorization |
 | A4 | Launcher → game window → immersive entry prompt | LOW | One immersive space; do not auto-immerse |
 | A5 | Boot progress, phase log, timing | LOW | — |
@@ -328,9 +328,9 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 
 | Spike | Question | Hardness | Status | Fallback |
 |---|---|---|---|---|
-| S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `NOT RUN` — external `PARTIAL` (EV-0002) | Pivot to AOT; launcher scope reduces |
-| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `NOT RUN` | GL/LTW→ANGLE path |
-| S3 | Vivecraft provider without SteamVR | MEDIUM | `NOT RUN` | Fork approved by ADR + LGPL source |
+| S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `NOT RUN` — external `PARTIAL` (EV-0002) + host `PARTIAL` (EV-0004) | Pivot to AOT; launcher scope reduces |
+| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `NOT RUN` — host boot `PASS` for host stage (EV-0005); device pending | GL/LTW→ANGLE path |
+| S3 | Vivecraft provider without SteamVR | MEDIUM | `NOT RUN` — static analysis `PARTIAL` (EV-0006); runtime Mixin pending | Fork approved by ADR + LGPL source |
 | S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
 | S5 | PSVR2 + hands drive all P0 actions | MEDIUM | `NOT RUN` | Hands-only MVP |
 | S6 | Frame pacing / thermals on device | **HIGH** | `NOT RUN` | Lower preset, 45 Hz lock, render-distance cap |
@@ -343,12 +343,12 @@ spike changes status, apply §4.7 in the same commit.
 
 | Subsystem | Hardness | Why |
 |---|---|---|
-| JIT mechanism (S1) | MEDIUM | JIT26 demonstrated externally (EV-0002); internal reproduction pending |
+| JIT mechanism (S1) | MEDIUM | JIT26 demonstrated externally (EV-0002); host pre-test EV-0004; device reproduction pending |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache (C3) | **HIGH** | Runtime build and in-MC integration unproven |
-| Graphics translation | **HIGH** | Experimental MC Vulkan on MoltenVK |
+| Graphics translation | **HIGH** | Host boot verified with MoltenVK 1.4.2 (EV-0005); xros stack unproven |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
 | Performance/thermal | **HIGH** | Watchdog kills on missed frames |
-| VR provider | MEDIUM | Small, well-defined abstraction |
+| VR provider | MEDIUM | Static injection point exists and is stable 1.3.14→1.3.15 (EV-0006); runtime Mixin unproven |
 | Input & gestures | MEDIUM | Usability, not feasibility |
 | Launcher shell | MEDIUM | visionOS UI port |
 | Accounts/downloads | LOW | Amethyst-proven logic |
@@ -401,7 +401,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 |---|---|---|---|---|
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external and EV-0004 is host-only; neither satisfies this row | EV-0002 (external) + EV-0004 (host), both `PARTIAL`; device EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
 | S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 (host boot, `PARTIAL`); device EV pending | 2–3 wk |
-| S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | pending | 2–3 wk |
+| S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | EV-0006 (static, `PARTIAL`); runtime EV pending | 2–3 wk |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
 | S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |
 | S6 | Perf/thermal | K2/K5 met or a documented waiver with mitigation | pending | 2–3 wk |
@@ -432,6 +432,11 @@ ADR; it is never quietly downgraded.
 
 Total ≈ 12–17 engineer-months. S1's internal reproduction is the M0 gate; S2 and the S3 decision
 also bound M0.
+
+**M0 timing and exit rule.** M0 is **evidence-gated, not calendar-gated**. Target 3–4 weeks with S3
+run in parallel and the AVP provisioning profile started early. If the calendar slips, M0 may close
+only when all three gates pass — S1 internal EV, S2 device pass, S3 decision — plus a written
+documentation-convergence plan. No `NOT RUN` item may be presented as passed.
 
 ---
 
@@ -520,13 +525,13 @@ and never record personal data (accounts, serials beyond the standard evidence f
 
 | Risk | Hardness | Mitigation |
 |---|---|---|
-| JIT mechanism on visionOS (S1) | MEDIUM | Externally demonstrated (EV-0002, `PARTIAL`); internal reproduction is the M0 gate. AOT pivot if it fails |
+| JIT mechanism on visionOS (S1) | MEDIUM | Externally demonstrated (EV-0002) and host-reproduced (EV-0004, `PARTIAL`); device reproduction is the M0 gate. AOT pivot if it fails |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache inside MC (C3) | **HIGH** | EV-0002 does not cover it; runtime build and in-MC integration unproven |
-| MC Vulkan on MoltenVK fails | **HIGH** | S2; GL/LTW fallback |
+| MC Vulkan on MoltenVK fails | **HIGH** | Host boot verified (EV-0005); the xros stack (MoltenVK-xros, LWJGL-xros, GLFW/CAMetalLayer) is the risk. GL/LTW fallback |
 | Eye-texture handoff unstable | **HIGH** | S4; GPU blit fallback |
 | Performance/thermals on device | **HIGH** | Presets, 45 Hz repeat, caps |
 | JIT onboarding friction | MEDIUM | Guided setup + docs |
-| Vivecraft/MC drift | MEDIUM | Pin 26.2; version guard |
+| Vivecraft/MC drift | MEDIUM | Pin 26.2; version guard; S3 injection decision at M0 exit (static point stable 1.3.14→1.3.15, EV-0006) |
 | GPL/EULA constraints | MEDIUM | Source publication, ownership gate |
 | Prior-art overlap | MEDIUM | Compete on launcher flexibility |
 
@@ -559,3 +564,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | M0 foundation: repo hygiene (`.gitignore`, `.DS_Store` untracked), `versions.env`, licenses/notices, ADRs 0001–0006, docs (scope/spikes/acceptance), component skeletons, and tooling (`check_versions.sh`, `bootstrap.sh`, `log_evidence.sh`, self-tested). No spike status changed. |
 | 2026-10-31 | S1 groundwork: host pre-test EV-0004 (`PARTIAL`) and S1a/S1b harness plan in `docs/mvp/SPIKES.md`. Device S1 still `NOT RUN`. |
 | 2026-10-31 | S2 groundwork: host boot pre-test EV-0005 (`PARTIAL`, Vulkan/MoltenVK 1.4.2) and S2 plan in `docs/mvp/SPIKES.md`. Device S2, world render, soak still `NOT RUN`. |
+| 2026-10-31 | S3 static analysis EV-0006 (`PARTIAL`): `VRState.initializeVR` is public static, injection point stable across 1.3.14/1.3.15, no runtime Mixin yet. EV-0004/EV-0005 interpretation/scope notes added; AT allocation rule documented; M0 timing rule added. |
