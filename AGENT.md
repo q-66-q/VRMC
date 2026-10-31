@@ -67,13 +67,19 @@ comfort polish.
 - Git history: a single `delete` commit (`a96e13b`) removed the previous remote-streaming
   implementation. That architecture is retired; only its hand-mapping and comfort research informs
   this design.
-- Working tree additionally contains two untracked reference trees:
+- Reference sources are present and **git-ignored** (never committed):
   - `Amethyst-iOS-main/` — 525 files, 126 MB (GPL-3.0 iOS launcher).
   - `VivecraftMod-Multiloader-26.2/` — 863 files, 13 MB (LGPL-3.0, MC 26.2, Vivecraft 1.3.15).
-- No product code, build scripts, docs tree, or license files exist yet. M0 creates them.
-- Hardware is available: an Apple Vision Pro is paired (`RealityDevice14,1`, N301AP, 1 TB,
-  visionOS) and a Mac build host is present (MacBook Pro Mac16,7, Apple M4 Pro, 24 GB,
-  macOS 27.0.1, Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
+- **M0 foundation landed** (`3332cdb`, `d25aa49`, `7c684f2`, `d07436d`): `.gitignore`, `versions.env`,
+  GPL/LGPL licenses + third-party notices, ADRs 0001–0006, `docs/mvp/{MVP_SCOPE,SPIKES,ACCEPTANCE}.md`,
+  component READMEs (`launcher/`, `runtime/`, `provider/`, `bridge/`), and tooling
+  (`check_versions.sh`, `bootstrap.sh`, `log_evidence.sh`). Product code is not started.
+- Hardware is available: a paired Apple Vision Pro (`RealityDevice14,1`, N301AP, 1 TB, visionOS 27.2
+  reported) and a Mac build host (MacBook Pro Mac16,7, Apple M4 Pro, 24 GB, macOS 27.0.1,
+  Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
+- Spike progress: S1 host pre-test `PARTIAL` (EV-0004: relabelled iOS JRE 25 JITs on macOS and the
+  JIT26 request site traps); S2 host boot `PARTIAL` (EV-0005: MC 26.2 Vulkan via MoltenVK 1.4.2,
+  no GL fallback). Device S1/S2, world render/soak, and S3 remain `NOT RUN`.
 - Evidence baseline: `VERIFY.md` EV-0001 (`PARTIAL`, toolchain/reference inspection), EV-0002
   (`PARTIAL`, external JIT26 demonstration), EV-0003 (`PASS`, tooling self-test), EV-0004
   (`PARTIAL`, host-only S1 pre-test), and EV-0005 (`PARTIAL`, host-only S2 boot pre-test). Only

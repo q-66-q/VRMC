@@ -449,7 +449,7 @@ s2-vulkan; the launch and capture were reproduced by the Lead.
 
 | Area | Status | Basis |
 |---|---|---|
-| Specification (AGENT.md) | `PARTIAL` | Review revisions applied; see §9 |
+| Specification (AGENT.md) | `PARTIAL` | Committed; M0 review pending |
 | Reference baseline | `PARTIAL` | EV-0001, EV-0002 |
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
