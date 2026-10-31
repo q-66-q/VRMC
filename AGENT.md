@@ -428,21 +428,22 @@ also bound M0.
 
 ---
 
-## 8. Commands (planned — none implemented yet)
+## 8. Commands
 
 | Command | Purpose | Status |
 |---|---|---|
-| `scripts/bootstrap.sh` | Fetch pinned upstreams into `vendor/` | NOT IMPLEMENTED |
+| `scripts/check_versions.sh` | Toolchain + reference-pin check (read-only) | IMPLEMENTED (2026-10-31) |
+| `scripts/bootstrap.sh` | Prerequisite check + local dirs (no downloads) | IMPLEMENTED (2026-10-31) |
+| `scripts/log_evidence.sh` | Allocate EV ID, bundle artifacts, write manifest + entry template | IMPLEMENTED (self-tested 2026-10-31) |
 | `scripts/build_jre.sh` | Build OpenJDK 25 for xros | NOT IMPLEMENTED |
 | `scripts/build_launcher.sh` | Build the visionOS app | NOT IMPLEMENTED |
 | `scripts/build_provider.sh` | Build the provider mod jar | NOT IMPLEMENTED |
 | `scripts/test_local.sh` | Run host-side unit tests | NOT IMPLEMENTED |
-| `scripts/log_evidence.sh` | Create an EV manifest + checksums | NOT IMPLEMENTED |
 | `scripts/install_device.sh` | Install to a paired Vision Pro | NOT IMPLEMENTED |
 | `scripts/latency_rig.sh` | Drive the K3 camera protocol + tabulate samples | NOT IMPLEMENTED |
 
-`scripts/log_evidence.sh` is an **M0 deliverable**, not a release chore: every `PASS` depends on it,
-and a manually formatted first EV invites drift. Its own acceptance is an `AT` test logged with it.
+`scripts/log_evidence.sh` is an **M0 deliverable** and is now implemented and self-tested (§13). Its
+own acceptance is `AT-009`, logged in `VERIFY.md`.
 The K3 latency-rig protocol (camera settings, measurement steps, sample table) is also an M0
 deliverable, because K3 is HIGH for a measurement dependency rather than a feasibility risk.
 
@@ -548,3 +549,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0001 recorded workspace/toolchain/reference baseline (`PARTIAL`; no build, no device run, no JIT evidence). |
 | 2026-10-31 | Review revision: S1/A2/C3 status semantics, S3 stability criteria + M0 decision, §3.5 fork wording, §4.7 propagation checklist, cross-reference fixes, K3 rig and F3 assumption notes, `log_evidence.sh` promoted to M0. |
 | 2026-10-31 | EV-0002 recorded (external JIT26 demonstration, `PARTIAL`); A2 → MEDIUM, counts 32/26/7; §4.6/§11 split mechanism vs runtime; S1 scope aligned (reference JVM; C3 owns OpenJDK 25); §4.6 added to §4.7. Internal S1 reproduction still `NOT RUN`. |
+| 2026-10-31 | M0 foundation: repo hygiene (`.gitignore`, `.DS_Store` untracked), `versions.env`, licenses/notices, ADRs 0001–0006, docs (scope/spikes/acceptance), component skeletons, and tooling (`check_versions.sh`, `bootstrap.sh`, `log_evidence.sh`, self-tested). No spike status changed. |

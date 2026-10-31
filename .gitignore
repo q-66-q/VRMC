@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# Third-party reference sources (never commit: GPL/LGPL/proprietary, large)
+/Amethyst-iOS-main/
+/VivecraftMod-Multiloader-26.2/
+/vendor/
+
+# Evidence artifacts (manifests are described in VERIFY.md; binaries stay local)
+/evidence/
+
+# Build outputs and packaging
+/.build/
+/artifacts/
+/build/
+/DerivedData/
+**/DerivedData/
+**/xcuserdata/
+**/*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+*.ipa
+*.tipa
+*.app/
+*.dSYM/
+*.xcresult
+.swiftpm/
+
+# Secrets and signing material
+*.p12
+*.mobileprovision
+*.provisionprofile
+.env
+.secrets/
