@@ -119,7 +119,7 @@ visionOS?
 2. Pin MoltenVK (v1.4.2) and build the xros slice; record commit + log. **Done (EV-0010):** `xros-arm64`, platform VISIONOS, minos 27.2.
 3. Run the capability probe on D1 (same 5 extensions + 9 features) and record the JSON.
 4. Build/retag LWJGL 3.4.1 xros natives (liblwjgl, shaderc, spvc, vma, freetype, stb, tinyfd, openal);
-   load test.
+   load test. **Retag done (EV-0012):** 12 dylibs platform VISIONOS; load test and jemalloc substitution pending.
 5. GLFW stub + `MacosUtil` shadow + CAMetalLayer + `org.lwjgl.vulkan.libname`; boot to title on D1
    (requires the S1/C3 JVM).
 6. World render, F3 screenshot, 30-minute stability -> S2 EV; otherwise document the blocker and
