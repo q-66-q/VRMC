@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0003`.
+**Next evidence ID:** `EV-0004`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -108,6 +108,7 @@ default **Balanced**. Any change requires a budget table update.
 | AT-006 | Mapping table → action intents | Every P0 action mapped | `NOT RUN` |
 | AT-007 | Gesture state machine on synthetic joint fixtures | Hysteresis, tap/hold, drag disambiguation | `NOT RUN` |
 | AT-008 | Diagnostics log parser + export bundle | Bundle reproducible, no secrets | `NOT RUN` |
+| AT-009 | Evidence tooling self-test (allocate, hash, manifest, invalid input) | Valid bundle + manifest; collision advances ID; invalid input exits 2 | `PASS` (EV-0003) |
 
 ### 4.2 Spikes (go/no-go)
 
@@ -339,12 +340,47 @@ the source states parts of the article were AI-written.
 
 ---
 
+### EV-0003 — M0 tooling self-test (check_versions, bootstrap, log_evidence)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T11:43:18-10:00 |
+| Commit | `3332cdb5730924dd05865dec9fb98cd64fecb448` |
+| Dirty state | clean |
+| Device | host-only (M1 MacBook Pro); no device run |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. Run `scripts/check_versions.sh` against the pinned reference trees.
+2. Run `scripts/bootstrap.sh` (prerequisite check + local dirs).
+3. Run `scripts/log_evidence.sh` in a sandbox root with a synthetic VERIFY.md.
+4. Test collision allocation and invalid-input exit codes.
+5. Validate manifest JSON fields and artifact hashes.
+
+**Expected:** 8/8 environment checks pass; an evidence bundle is allocated with hashed artifacts;
+invalid input exits 2.
+
+**Actual:** 8/8 checks passed; the sandbox allocated EV-0003 and EV-0004 and stopped at an EV-0005
+dry-run; all three invalid-input cases exited 2; manifest fields were complete with SHA-256 length 64.
+
+**Artifacts:** `evidence/EV-0003/check_versions.log` (b31b08cbf318);
+`evidence/EV-0003/evidence_tool_selftest.log` (8a9b2ed74c79);
+`evidence/EV-0003/git_state.log` (7d7f89168973).
+
+**Limitations:** host tooling only. No app build, no device run, no JIT evidence; this entry does not
+satisfy ST-S1 or ST-S2.
+
+---
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
 |---|---|---|
 | Specification (AGENT.md) | `PARTIAL` | Review revisions applied; see §9 |
-| Reference baseline | `PARTIAL` | EV-0001 |
+| Reference baseline | `PARTIAL` | EV-0001, EV-0002 |
+| Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); internal reproduction pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
 | Graphics (Vulkan/MoltenVK) | `NOT RUN` | ST-S2 pending |
@@ -365,8 +401,6 @@ the source states parts of the article were AI-written.
 | S1 internal evidence pending | Lead | Record an internal reference-JVM EV; EV-0002 alone does not satisfy S1 |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
-| Reference trees not git-ignored/relocated | Lead | M0 repo hygiene before first product commit |
-| App/provider license files and notices | Lead | M0 documentation |
 
 ---
 
@@ -378,6 +412,7 @@ the source states parts of the article were AI-written.
 | 2026-10-31 | Acceptance criteria, budgets, test suites, and evidence protocol established. |
 | 2026-10-31 | Review revision: rule/§ cross-references corrected, valid-EV rule added, S1/S3/K3/DT-18/CT-07 criteria tightened, device OS recorded, propagation requirement added. |
 | 2026-10-31 | EV-0002 recorded (external JIT26 demonstration, `PARTIAL`); S1 internal reproduction remains `NOT RUN`; A2 → MEDIUM in AGENT.md; totals 32/26/7. |
+| 2026-10-31 | M0 foundation committed (`3332cdb`); EV-0003 records the tooling self-test (`PASS`, AT-009); next ID is `EV-0004`. |
 
 ---
 
