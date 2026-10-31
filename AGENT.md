@@ -569,3 +569,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | S2 groundwork: host boot pre-test EV-0005 (`PARTIAL`, Vulkan/MoltenVK 1.4.2) and S2 plan in `docs/mvp/SPIKES.md`. Device S2, world render, soak still `NOT RUN`. |
 | 2026-10-31 | S3 static analysis EV-0006 (`PARTIAL`): `VRState.initializeVR` is public static, injection point stable across 1.3.14/1.3.15, no runtime Mixin yet. EV-0004/EV-0005 interpretation/scope notes added; AT allocation rule documented; M0 timing rule added. |
 | 2026-10-31 | S1a harness scaffolded (`runtime/probes/s1a`); EV-0007 records the build self-check and host JIT run. Device S1a blocked on an AVP provisioning profile. |
+| 2026-10-31 | S1a device-build attempt blocked (EV-0008): the AVP must be unlocked for development services; automatic signing then creates the AVP profile. |

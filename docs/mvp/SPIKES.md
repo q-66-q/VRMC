@@ -57,7 +57,8 @@ alias. EV-0004 records the host-only pre-test below. Internal device reproductio
   installed and launched on D1. **Out of scope:** Minecraft, Vivecraft, CompositorServices (S1b/S2/S4).
   Pass requires the four criteria above; record as `PASS (compat)` only with device evidence — it does
   not satisfy ST-S1's native requirement. **Scaffold:** `runtime/probes/s1a/` compiles
-  (`build.sh --check`, EV-0007); signing/install wait on the AVP provisioning profile. **Divergence note:** if D1's JIT26 behavior differs from the
+  (`build.sh --check`, EV-0007). Device build is `BLOCKED` (EV-0008): unlock the AVP, then re-run
+  `xcodebuild -allowProvisioningUpdates` so automatic signing registers it and creates the profile. **Divergence note:** if D1's JIT26 behavior differs from the
   macOS host (no TXM trap, different failure), record it for S1b. Start the AVP provisioning-profile
   update before this work lands; the current free-team profile covers only the iPad.
 - **S1b (target, 1.5–3 weeks).** Native visionOS harness with the relabelled+re-signed JRE; request

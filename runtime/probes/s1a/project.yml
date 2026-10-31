@@ -1,0 +1,51 @@
+name: S1AProbe
+options:
+  bundleIdPrefix: dev.vrmc
+  deploymentTarget:
+    iOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.s1a
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_ENTITLEMENTS: s1a.entitlements
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "14.0"
+targets:
+  S1AProbe:
+    type: application
+    platform: iOS
+    sources:
+      - path: main.m
+    settings:
+      base:
+        PRODUCT_NAME: S1AProbe
+        INFOPLIST_KEY_LSRequiresIPhoneOS: YES
+    info:
+      path: GeneratedInfo.plist
+      properties:
+        CFBundleDisplayName: S1AProbe
+        LSRequiresIPhoneOS: true
+        UIDeviceFamily: [1, 2]
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities: [arm64]
+        MinimumOSVersion: "14.0"
+    postBuildScripts:
+      - name: Compile HelloJit and embed JRE
+        shell: /bin/bash
+        script: |
+          set -e
+          RES="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$RES/s1a"
+          javac -d "$RES/s1a" "$SRCROOT/HelloJit.java"
+          if [ -n "${JRE_DIR:-}" ] && [ -f "$JRE_DIR/lib/libjli.dylib" ]; then
+            FR="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/jre"
+            rm -rf "$FR"
+            mkdir -p "$(dirname "$FR")"
+            rsync -a --exclude bin --exclude include --exclude legal "$JRE_DIR/" "$FR/"
+            echo "embedded JRE from $JRE_DIR"
+          else
+            echo "warning: JRE_DIR not set; app will not find a JRE"
+          fi

@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0008`.
+**Next evidence ID:** `EV-0009`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -536,6 +536,36 @@ tiers 3/4; `HELLOJIT iterations=200000000 acc=-3264381489421335726 elapsed_ms=50
 **Limitations:** scaffold only — not signed, not installed, not run on device. No AVP provisioning
 profile exists locally (only an iPad profile), so device S1a remains `NOT RUN`.
 
+### EV-0008 — S1a device build attempt: blocked on AVP unlock and missing provisioning profile
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T12:25:29-10:00 |
+| Commit | `fc25eacc7eb3420217c8496d577bb9490f513abe` |
+| Dirty state | `runtime/probes/s1a/` (project.yml, generated project/info at capture time) |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, paired); **device locked** |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `BLOCKED` |
+
+**Procedure:**
+
+1. Generate the `S1AProbe` Xcode project with automatic signing (team `<TEAM_ID>`).
+2. Run `xcodebuild` for the visionOS compatibility destination with `-allowProvisioningUpdates`.
+3. Capture the destination list and build log.
+
+**Expected:** build succeeds, the device is registered, and an AVP provisioning profile is created.
+
+**Actual:** `xcodebuild` timed out waiting for the destination; Xcode reports *"Apple Vision Pro needs
+to be unlocked to enable development services."* Only an iPad-only profile exists locally (expires
+2026-11-05).
+
+**Artifacts:** `evidence/EV-0008/xcodebuild.log` (d3f6662bd328);
+`evidence/EV-0008/destinations.log` (9757aa407ec8).
+
+**Unblock condition:** unlock/wear the AVP so development services start, then re-run the same
+`xcodebuild` command; automatic signing should register the device and create the profile. No app was
+installed.
+
 ---
 
 ## 7. Status dashboard
@@ -552,7 +582,7 @@ profile exists locally (only an iPad profile), so device S1a remains `NOT RUN`.
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
-| S1a harness (scaffold) | `PARTIAL` | Compiles + host flags pass (EV-0007); device `NOT RUN` |
+| S1a harness (scaffold) | `PARTIAL` | Compiles + host flags (EV-0007); device build `BLOCKED` (EV-0008) |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -564,7 +594,7 @@ profile exists locally (only an iPad profile), so device S1a remains `NOT RUN`.
 |---|---|---|
 | ST-S1 internal reproduction not yet attempted | Lead | Reference JVM + minimal app under JIT26 on D1 (EV-0002 is external context; OpenJDK build is C3) |
 | S1 internal evidence pending | Lead | Record an internal reference-JVM EV; EV-0002 alone does not satisfy S1 |
-| AVP provisioning profile missing | Lead/user | Only an iPad profile exists (expires 2026-11-05). Create a profile containing AVP UDID `<D1-UDID>` via Xcode automatic signing, then sign/install the S1a bundle |
+| AVP provisioning profile missing | Lead/user | Only an iPad profile exists (expires 2026-11-05). **Unlock/wear the AVP**, then re-run `xcodebuild -allowProvisioningUpdates` in `runtime/probes/s1a` to register the device and create the profile |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -582,7 +612,7 @@ profile exists locally (only an iPad profile), so device S1a remains `NOT RUN`.
 | 2026-10-31 | EV-0004 records the S1 host pre-test (`PARTIAL`): relabelled iOS JRE 25 JITs on macOS and the JIT26 request site traps as expected. Device S1 remains `NOT RUN`. |
 | 2026-10-31 | EV-0005 records the S2 host pre-test (`PARTIAL`): MC 26.2 boots with Vulkan via MoltenVK 1.4.2 and no GL fallback. Device S2, world render, and soak remain `NOT RUN`. |
 | 2026-10-31 | EV-0006 records S3 static analysis (`PARTIAL`): injection point exists and `initializeVR` bytecode is identical across 1.3.14/1.3.15; runtime Mixin test pending. Added interpretation/scope notes to EV-0004/EV-0005 and the AT allocation rule. |
-| 2026-10-31 | S1a harness scaffolded in `runtime/probes/s1a`; EV-0007 records the build self-check and host JIT run (`PARTIAL`). Device S1a blocked on the AVP provisioning profile. |
+| 2026-10-31 | S1a harness scaffolded in `runtime/probes/s1a`; EV-0007 records the build self-check and host JIT run (`PARTIAL`). EV-0008 records the device-build attempt (`BLOCKED`: AVP locked; no AVP profile). |
 
 ---
 
