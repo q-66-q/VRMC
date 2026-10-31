@@ -80,8 +80,8 @@ comfort polish.
 - Spike progress: S1 host pre-test `PARTIAL` (EV-0004); S2 host boot `PARTIAL` (EV-0005); S3
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
   fork); S1a harness scaffolded (EV-0007), device build `BLOCKED` (EV-0008: AVP must be unlocked).
-  S3's M0 gate is closed; device S1/S2 and world render/soak remain `NOT RUN`; the AVP provisioning
-  profile is still missing.
+  S3's M0 gate is closed; S1a now builds and signs with an AVP profile (EV-0011) but device install
+  is blocked by the free-profile 3-app limit; device S1/S2 remain `NOT RUN`.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -571,3 +571,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | S1a device-build attempt blocked (EV-0008): the AVP must be unlocked for development services; automatic signing then creates the AVP profile. |
 | 2026-10-31 | S3 gate closed: EV-0009 (`PASS`, desktop) proves the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR; decision: Mixin, no fork. E1 → LOW; counts 33/25/7. |
 | 2026-10-31 | EV-0010 (`PASS`, host): MoltenVK v1.4.2 built for visionOS (`xros-arm64`, platform VISIONOS, minos 27.2). Next S2 steps: xros LWJGL natives, GLFW/CAMetalLayer shim, D1 probe. |
+| 2026-10-31 | EV-0011: S1a build/sign PASS with an AVP provisioning profile; install `BLOCKED` by the free-profile 3-app limit (Amethyst, StikDebug, SideStore). |

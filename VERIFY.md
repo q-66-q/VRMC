@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0011`.
+**Next evidence ID:** `EV-0012`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -640,6 +640,41 @@ the summary artifact.
 **Limitations:** build artifact only — not loaded, linked, or run on visionOS; S2 device stage remains
 `NOT RUN`. Next S2 steps: xros LWJGL 3.4.1 natives, GLFW/CAMetalLayer shim, capability probe on D1.
 
+### EV-0011 — S1a build and signing succeed; device install blocked by free-profile 3-app limit
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T13:44:25-10:00 |
+| Commit | `2974b6cb02a201cee0f8139d8ca08a40b85f42d5` |
+| Dirty state | `runtime/probes/s1a/` (project.yml and generated project) |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, paired) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `BLOCKED` |
+
+**Procedure:**
+
+1. Fix the iOS deployment target to 15.0 and regenerate the Xcode project.
+2. Build with `JRE_DIR` = clean iOS JRE 25 and automatic signing; this created a visionOS profile
+   containing the AVP UDID (`dev.vrmc.s1a`, expires **2026-11-07**).
+3. Sign the 33 nested JRE Mach-O binaries, then re-sign the app with Xcode's generated entitlements
+   (`application-identifier`, `team-identifier`, `get-task-allow`).
+4. Verify deep/strict, attempt `devicectl install` twice, and enumerate installed apps.
+
+**Expected:** the app installs on the AVP.
+
+**Actual:** build and signing pass (`codesign --verify --deep --strict` rc=0; 120 MB app). Install fails:
+the free-profile limit of 3 apps is already reached — **Amethyst**, **StikDebug**, **SideStore**. The
+device app list confirms those three plus SideInstaller.
+
+**Artifacts:** `evidence/EV-0011/xcodebuild-with-jre.log` (52d6f7581411);
+`evidence/EV-0011/profile.txt` (f46cd047f708); `evidence/EV-0011/signing.txt` (e2efa8a79aa8);
+`evidence/EV-0011/install.log` (0a5050e16b4d); `evidence/EV-0011/install2.log` (6fcc1617ad56);
+`evidence/EV-0011/apps.json` (66f99de02435); `evidence/EV-0011/apps_cmd.log` (1f02c8223d8e).
+
+**Unblock:** remove one free-profile app — **Amethyst** is the least disruptive; StikDebug and
+SideStore are needed for JIT and re-signing — or enroll in the paid Developer Program. No app was
+installed and device state is unchanged.
+
 ---
 
 ## 7. Status dashboard
@@ -656,7 +691,7 @@ the summary artifact.
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
-| S1a harness (scaffold) | `PARTIAL` | Compiles + host flags (EV-0007); device build `BLOCKED` (EV-0008) |
+| S1a harness | `PARTIAL` | Build+sign PASS, AVP profile created (EV-0011); install `BLOCKED` by free-profile 3-app limit |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -668,7 +703,7 @@ the summary artifact.
 |---|---|---|
 | ST-S1 internal reproduction not yet attempted | Lead | Reference JVM + minimal app under JIT26 on D1 (EV-0002 is external context; OpenJDK build is C3) |
 | S1 internal evidence pending | Lead | Record an internal reference-JVM EV; EV-0002 alone does not satisfy S1 |
-| AVP provisioning profile missing | Lead/user | Only an iPad profile exists (expires 2026-11-05). **Unlock/wear the AVP**, then re-run `xcodebuild -allowProvisioningUpdates` in `runtime/probes/s1a` to register the device and create the profile |
+| Free-profile app limit (3) reached | Lead/user | Amethyst, SideStore, StikDebug are installed. Remove Amethyst (or enroll paid) to install `dev.vrmc.s1a`; profile now exists and expires 2026-11-07 |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -688,7 +723,8 @@ the summary artifact.
 | 2026-10-31 | EV-0006 records S3 static analysis (`PARTIAL`): injection point exists and `initializeVR` bytecode is identical across 1.3.14/1.3.15; runtime Mixin test pending. Added interpretation/scope notes to EV-0004/EV-0005 and the AT allocation rule. |
 | 2026-10-31 | S1a harness scaffolded in `runtime/probes/s1a`; EV-0007 records the build self-check and host JIT run (`PARTIAL`). EV-0008 records the device-build attempt (`BLOCKED`: AVP locked; no AVP profile). |
 | 2026-10-31 | EV-0009 records the S3 runtime probe (`PASS`, desktop): the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR. Injection decision: Mixin, no fork. |
-| 2026-10-31 | EV-0010 records the MoltenVK v1.4.2 visionOS build (`PASS`, host): `xros-arm64`, platform VISIONOS, minos 27.2. Device stage still `NOT RUN`. Next ID `EV-0011`. |
+| 2026-10-31 | EV-0010 records the MoltenVK v1.4.2 visionOS build (`PASS`, host): `xros-arm64`, platform VISIONOS, minos 27.2. Device stage still `NOT RUN`. |
+| 2026-10-31 | EV-0011: S1a builds and signs successfully (AVP profile created); install is `BLOCKED` by the free-profile 3-app limit. Next ID `EV-0012`. |
 
 ---
 

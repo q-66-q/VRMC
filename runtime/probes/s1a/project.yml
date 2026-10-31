@@ -2,7 +2,7 @@ name: S1AProbe
 options:
   bundleIdPrefix: dev.vrmc
   deploymentTarget:
-    iOS: "14.0"
+    iOS: "15.0"
   createIntermediateGroups: true
 settings:
   base:
@@ -12,7 +12,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
     CODE_SIGN_ENTITLEMENTS: s1a.entitlements
     SWIFT_VERSION: "5.0"
-    IPHONEOS_DEPLOYMENT_TARGET: "14.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "15.0"
 targets:
   S1AProbe:
     type: application
