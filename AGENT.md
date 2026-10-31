@@ -401,7 +401,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external and EV-0004/EV-0007 are host-only; none satisfies this row | EV-0002 external + EV-0004 host pre-test + EV-0007 scaffold, all `PARTIAL`; device EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
-| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 host boot + EV-0010 MoltenVK-xros + EV-0012 retagged natives; device EV pending | 2–3 wk |
+| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 host boot + EV-0010 MoltenVK-xros + EV-0012 natives + EV-0013 probe app; device EV pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
 | S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |
@@ -573,3 +573,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0010 (`PASS`, host): MoltenVK v1.4.2 built for visionOS (`xros-arm64`, platform VISIONOS, minos 27.2). Next S2 steps: xros LWJGL natives, GLFW/CAMetalLayer shim, D1 probe. |
 | 2026-10-31 | EV-0011: S1a build/sign PASS with an AVP provisioning profile; install `BLOCKED` by the free-profile 3-app limit (Amethyst, StikDebug, SideStore). |
 | 2026-10-31 | EV-0012: LWJGL 3.4.1 / spirv-cross / openal dylibs retagged to VISIONOS (`vtool`, 12/12); load test pending; jemalloc absent, launch needs `-Dorg.lwjgl.system.allocator=system`. |
+| 2026-10-31 | EV-0013: visionOS S2 capability probe app builds/signs with MoltenVK + the 12 retagged natives embedded; not installed (app-slot limit, EV-0011). |

@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0013`.
+**Next evidence ID:** `EV-0014`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 is external; EV-0004 is host-only | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot PASS EV-0005; visionOS MoltenVK EV-0010 + retagged LWJGL natives EV-0012; device pending) |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot PASS EV-0005; MoltenVK xros EV-0010; natives EV-0012; probe app built EV-0013; device pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -706,6 +706,36 @@ load test yet.
 blocked by the free-profile 3-app limit (EV-0011). Next: add these to the visionOS probe app, add an
 rpath or explicit `dlopen` path, and run the capability probe on D1.
 
+### EV-0013 — S2 visionOS probe app builds with MoltenVK + retagged LWJGL natives (install pending)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T13:46:21-10:00 |
+| Commit | `79e67e8c371baad57d809b83bd8bdcfa8e13ed75` |
+| Dirty state | `runtime/probes/s2-xros/` |
+| Device | build only; not installed (free-profile app limit) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Adapt the host MoltenVK capability probe to a visionOS app (`dlopen Frameworks/libMoltenVK.dylib`).
+2. Generate an Xcode project with xcodegen (visionOS 27.0, team `<TEAM_ID>`).
+3. Build with the Vulkan headers and the EV-0012 native set; embed 12 dylibs.
+4. Verify the app and embedded natives are platform VISIONOS.
+
+**Expected:** a visionOS app with MoltenVK and LWJGL natives embedded, signed, ready to install and run
+the capability probe.
+
+**Actual:** build succeeded; app main binary is platform VISIONOS, minos 27.0; all 12 embedded dylibs
+are VISIONOS; `codesign --verify --deep --strict` passes; 24 MB app. Not installed because the
+free-profile limit is reached (EV-0011).
+
+**Artifacts:** `evidence/EV-0013/build.log` (40c801b24368); `evidence/EV-0013/summary.log` (3ec92d0686b7).
+
+**Limitations:** probe not executed. Install and run are gated on freeing a free-profile app slot or
+enrolling in the paid Developer Program (EV-0011). S2 device stage remains `NOT RUN`.
+
 ---
 
 ## 7. Status dashboard
@@ -717,7 +747,7 @@ rpath or explicit `dlopen` path, and run the capability probe on D1.
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot PASS (EV-0005); MoltenVK xros (EV-0010); LWJGL natives retagged (EV-0012); world render/soak and device pending |
+| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot PASS (EV-0005); MoltenVK xros (EV-0010); natives (EV-0012); probe app built (EV-0013); device run pending |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -756,7 +786,8 @@ rpath or explicit `dlopen` path, and run the capability probe on D1.
 | 2026-10-31 | EV-0009 records the S3 runtime probe (`PASS`, desktop): the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR. Injection decision: Mixin, no fork. |
 | 2026-10-31 | EV-0010 records the MoltenVK v1.4.2 visionOS build (`PASS`, host): `xros-arm64`, platform VISIONOS, minos 27.2. Device stage still `NOT RUN`. |
 | 2026-10-31 | EV-0011: S1a builds and signs successfully (AVP profile created); install is `BLOCKED` by the free-profile 3-app limit. |
-| 2026-10-31 | EV-0012: 12 LWJGL/helper dylibs retagged to platform VISIONOS (MoltenVK from EV-0010); load test pending. Next ID `EV-0013`. |
+| 2026-10-31 | EV-0012: 12 LWJGL/helper dylibs retagged to platform VISIONOS (MoltenVK from EV-0010); load test pending. |
+| 2026-10-31 | EV-0013: visionOS S2 probe app builds and signs with MoltenVK + retagged natives embedded; install pending the app-slot decision. Next ID `EV-0014`. |
 
 ---
 

@@ -1,0 +1,41 @@
+name: S2Probe
+options:
+  bundleIdPrefix: dev.vrmc
+  deploymentTarget:
+    visionOS: "27.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.s2probe
+    CODE_SIGN_ENTITLEMENTS: s2probe.entitlements
+    TARGETED_DEVICE_FAMILY: "7"
+targets:
+  S2Probe:
+    type: application
+    platform: visionOS
+    sources:
+      - main.m
+      - probe_mvk.c
+    settings:
+      base:
+        HEADER_SEARCH_PATHS: "$(inherited) $(VRMC_VULKAN_HEADERS)"
+    info:
+      path: GeneratedInfo.plist
+      properties:
+        CFBundleDisplayName: S2Probe
+        UIDeviceFamily: [7]
+        UILaunchScreen: {}
+    postBuildScripts:
+      - name: Embed xros natives
+        shell: /bin/bash
+        script: |
+          set -e
+          if [ -n "${VRMC_NATIVES_DIR:-}" ] && [ -d "$VRMC_NATIVES_DIR" ]; then
+            DST="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH"
+            mkdir -p "$DST"
+            cp "$VRMC_NATIVES_DIR"/*.dylib "$DST"/
+            echo "embedded natives from $VRMC_NATIVES_DIR"
+          else
+            echo "warning: VRMC_NATIVES_DIR not set; app will not find MoltenVK"
+          fi
