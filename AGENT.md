@@ -346,7 +346,7 @@ spike changes status, apply §4.7 in the same commit.
 |---|---|---|
 | JIT mechanism (S1) | MEDIUM | JIT26 demonstrated externally (EV-0002); host pre-test EV-0004; device reproduction pending |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache (C3) | **HIGH** | Runtime build and in-MC integration unproven |
-| Graphics translation | **HIGH** | Host boot verified with MoltenVK 1.4.2 (EV-0005); xros stack unproven |
+| Graphics translation | **HIGH** | Host boot verified (EV-0005); visionOS MoltenVK built (EV-0010); xros LWJGL/GLFW stack unproven |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
 | Performance/thermal | **HIGH** | Watchdog kills on missed frames |
 | VR provider | MEDIUM | Injection proven on desktop (EV-0006 + EV-0009); full provider/renderer and device runtime are M2 |
@@ -401,7 +401,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external and EV-0004/EV-0007 are host-only; none satisfies this row | EV-0002 external + EV-0004 host pre-test + EV-0007 scaffold, all `PARTIAL`; device EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
-| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 (host boot, `PARTIAL`); device EV pending | 2–3 wk |
+| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 host boot + EV-0010 MoltenVK-xros build; device EV pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
 | S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |
@@ -569,3 +569,5 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | S3 static analysis EV-0006 (`PARTIAL`): `VRState.initializeVR` is public static, injection point stable across 1.3.14/1.3.15, no runtime Mixin yet. EV-0004/EV-0005 interpretation/scope notes added; AT allocation rule documented; M0 timing rule added. |
 | 2026-10-31 | S1a harness scaffolded (`runtime/probes/s1a`); EV-0007 records the build self-check and host JIT run. Device S1a blocked on an AVP provisioning profile. |
 | 2026-10-31 | S1a device-build attempt blocked (EV-0008): the AVP must be unlocked for development services; automatic signing then creates the AVP profile. |
+| 2026-10-31 | S3 gate closed: EV-0009 (`PASS`, desktop) proves the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR; decision: Mixin, no fork. E1 → LOW; counts 33/25/7. |
+| 2026-10-31 | EV-0010 (`PASS`, host): MoltenVK v1.4.2 built for visionOS (`xros-arm64`, platform VISIONOS, minos 27.2). Next S2 steps: xros LWJGL natives, GLFW/CAMetalLayer shim, D1 probe. |

@@ -116,7 +116,7 @@ visionOS?
 **Plan.**
 1. macOS pre-test (boot done, EV-0005): force Vulkan, capture backend lines; extend to a world render
    and a 30-minute soak on host (both still `NOT RUN`).
-2. Pin MoltenVK (match LWJGL's `f79c6c5` or 1.4.2) and build the xros slice; record commit + log.
+2. Pin MoltenVK (v1.4.2) and build the xros slice; record commit + log. **Done (EV-0010):** `xros-arm64`, platform VISIONOS, minos 27.2.
 3. Run the capability probe on D1 (same 5 extensions + 9 features) and record the JSON.
 4. Build/retag LWJGL 3.4.1 xros natives (liblwjgl, shaderc, spvc, vma, freetype, stb, tinyfd, openal);
    load test.

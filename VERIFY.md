@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0010`.
+**Next evidence ID:** `EV-0011`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 is external; EV-0004 is host-only | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot `PASS` subject to world render/soak, EV-0005; device pending) |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot PASS EV-0005; visionOS MoltenVK built EV-0010; device pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -605,6 +605,41 @@ returns false. That dialog is the proof the substituted provider was instantiate
 **Limitations:** desktop Fabric verification only; the full provider/renderer and the visionOS device
 runtime are M2 scope.
 
+### EV-0010 — S2 step 2: MoltenVK v1.4.2 visionOS xcframework built (xros-arm64, minos 27.2)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T12:36:26-10:00 |
+| Commit | `10acf808859b4fe9d304c2164e839b30923e41f7` |
+| Dirty state | clean |
+| Device | host-only build; not loaded on device |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. Clone `KhronosGroup/MoltenVK` at tag **v1.4.2** (commit `db66022`).
+2. Run `./fetchDependencies --visionos`.
+3. Run `make visionos` (scheme "MoltenVK Package (visionOS only)", destination `generic/platform=xrOS`).
+4. Verify the `xros-arm64` slice is platform VISIONOS and record artifact hashes and dependency revisions.
+
+**Expected:** `xros-arm64` dynamic and static `MoltenVK.xcframework` artifacts with platform VISIONOS.
+
+**Actual:** build succeeded (fetch rc=0, make rc=0). The dynamic
+`MoltenVK.xcframework/xros-arm64/MoltenVK.framework` is Mach-O arm64, **platform VISIONOS, minos 27.2,
+sdk 27.2**; the static xcframework is also present. Framework binary sha256
+`1e3554510f2dc97f8fff27ded14f67c4a6f1f4c7c1ca1cc34cc37c6db9794138`. Dependency revisions (SPIRV-Cross
+`6c09849`, SPIRV-Tools `0d6fd73`, Vulkan-Headers `e3b1eec`, Volk `7768933`, cereal `a56bad8`, …) are in
+the summary artifact.
+
+**Artifacts:** `evidence/EV-0010/summary.log` (28780b914b99);
+`evidence/EV-0010/build.log` (6a813f674d10);
+`evidence/EV-0010/xcframework-Info.plist` (96c950ece239);
+`evidence/EV-0010/MoltenVK-xros-arm64` (1e3554510f2d).
+
+**Limitations:** build artifact only — not loaded, linked, or run on visionOS; S2 device stage remains
+`NOT RUN`. Next S2 steps: xros LWJGL 3.4.1 natives, GLFW/CAMetalLayer shim, capability probe on D1.
+
 ---
 
 ## 7. Status dashboard
@@ -616,7 +651,7 @@ runtime are M2 scope.
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot `PASS` (EV-0005); world render/soak and device pending |
+| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot PASS (EV-0005); visionOS MoltenVK built (EV-0010); world render/soak and device pending |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -652,7 +687,8 @@ runtime are M2 scope.
 | 2026-10-31 | EV-0005 records the S2 host pre-test (`PARTIAL`): MC 26.2 boots with Vulkan via MoltenVK 1.4.2 and no GL fallback. Device S2, world render, and soak remain `NOT RUN`. |
 | 2026-10-31 | EV-0006 records S3 static analysis (`PARTIAL`): injection point exists and `initializeVR` bytecode is identical across 1.3.14/1.3.15; runtime Mixin test pending. Added interpretation/scope notes to EV-0004/EV-0005 and the AT allocation rule. |
 | 2026-10-31 | S1a harness scaffolded in `runtime/probes/s1a`; EV-0007 records the build self-check and host JIT run (`PARTIAL`). EV-0008 records the device-build attempt (`BLOCKED`: AVP locked; no AVP profile). |
-| 2026-10-31 | EV-0009 records the S3 runtime probe (`PASS`, desktop): the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR. Injection decision: Mixin, no fork. Next ID `EV-0010`. |
+| 2026-10-31 | EV-0009 records the S3 runtime probe (`PASS`, desktop): the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR. Injection decision: Mixin, no fork. |
+| 2026-10-31 | EV-0010 records the MoltenVK v1.4.2 visionOS build (`PASS`, host): `xros-arm64`, platform VISIONOS, minos 27.2. Device stage still `NOT RUN`. Next ID `EV-0011`. |
 
 ---
 
