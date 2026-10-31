@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0007`.
+**Next evidence ID:** `EV-0008`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -109,6 +109,7 @@ default **Balanced**. Any change requires a budget table update.
 | AT-007 | Gesture state machine on synthetic joint fixtures | Hysteresis, tap/hold, drag disambiguation | `NOT RUN` |
 | AT-008 | Diagnostics log parser + export bundle | Bundle reproducible, no secrets | `NOT RUN` |
 | AT-009 | Evidence tooling self-test (allocate, hash, manifest, invalid input) | Valid bundle + manifest; collision advances ID; invalid input exits 2 | `PASS` (EV-0003) |
+| AT-010 | S1a harness scaffold self-check | `build.sh --check` passes; HelloJit executes on host with harness flags | `PASS` (EV-0007) |
 
 **AT allocation rule:** AT IDs are assigned sequentially when a test is added to this registry — no
 gaps, no reuse. `scripts/log_evidence.sh` allocates **EV** IDs only; it never allocates AT IDs. The
@@ -499,6 +500,42 @@ public provider API exists. Runtime Mixin test is still required; the fork path 
 **Limitations:** static analysis only. No Mixin build/run and no desktop Fabric injection test; S3
 remains `NOT RUN` until a Mixin is applied and a provider is instantiated. Jars were not committed.
 
+### EV-0007 — S1a harness scaffold: iOS app compiles; HelloJit executes under harness JIT flags on host
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T12:08:25-10:00 |
+| Commit | `91f40f8fe02d77b638b7ba94f6cc7d2a067d1191` |
+| Dirty state | `runtime/probes/` (uncommitted scaffold at capture time) |
+| Device | host-only (syntax + host JVM run); no device run |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Write the S1a iOS harness (`HelloJit`, `main.m` JLI_Launch wrapper, `Info.plist`, entitlements,
+   `build.sh`, README).
+2. Run `runtime/probes/s1a/build.sh --check` against the iOS SDK.
+3. Compile `HelloJit` and run it with the harness flags on the relabelled iOS JRE (host).
+4. Record JIT26 mapping, `PrintCompilation`, and `HelloJit` output.
+
+**Expected:** iOS syntax check passes; `[JIT26]` mapping logged; `HelloJit::hot` compiles at tier 3/4;
+`HELLOJIT` output printed.
+
+**Actual:** check passed; `[JIT26] mapping at RW=0x11a1c4000, RX=0x1161c4000`; `HelloJit::hot` at
+tiers 3/4; `HELLOJIT iterations=200000000 acc=-3264381489421335726 elapsed_ms=504`;
+`java 25.0.4-internal`.
+
+**Artifacts:** `evidence/EV-0007/harness_syntax.log` (0af8d99af294);
+`evidence/EV-0007/hellojit_harness_flags.log` (788421386ae0);
+`evidence/EV-0007/HelloJit.java` (f07400177ce2);
+`evidence/EV-0007/main.m` (491487665fac);
+`evidence/EV-0007/build.sh` (8d7b148aa55b);
+`evidence/EV-0007/Info.plist` (628841107002).
+
+**Limitations:** scaffold only — not signed, not installed, not run on device. No AVP provisioning
+profile exists locally (only an iPad profile), so device S1a remains `NOT RUN`.
+
 ---
 
 ## 7. Status dashboard
@@ -515,6 +552,7 @@ remains `NOT RUN` until a Mixin is applied and a provider is instantiated. Jars 
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
+| S1a harness (scaffold) | `PARTIAL` | Compiles + host flags pass (EV-0007); device `NOT RUN` |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -526,6 +564,7 @@ remains `NOT RUN` until a Mixin is applied and a provider is instantiated. Jars 
 |---|---|---|
 | ST-S1 internal reproduction not yet attempted | Lead | Reference JVM + minimal app under JIT26 on D1 (EV-0002 is external context; OpenJDK build is C3) |
 | S1 internal evidence pending | Lead | Record an internal reference-JVM EV; EV-0002 alone does not satisfy S1 |
+| AVP provisioning profile missing | Lead/user | Only an iPad profile exists (expires 2026-11-05). Create a profile containing AVP UDID `<D1-UDID>` via Xcode automatic signing, then sign/install the S1a bundle |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -543,6 +582,7 @@ remains `NOT RUN` until a Mixin is applied and a provider is instantiated. Jars 
 | 2026-10-31 | EV-0004 records the S1 host pre-test (`PARTIAL`): relabelled iOS JRE 25 JITs on macOS and the JIT26 request site traps as expected. Device S1 remains `NOT RUN`. |
 | 2026-10-31 | EV-0005 records the S2 host pre-test (`PARTIAL`): MC 26.2 boots with Vulkan via MoltenVK 1.4.2 and no GL fallback. Device S2, world render, and soak remain `NOT RUN`. |
 | 2026-10-31 | EV-0006 records S3 static analysis (`PARTIAL`): injection point exists and `initializeVR` bytecode is identical across 1.3.14/1.3.15; runtime Mixin test pending. Added interpretation/scope notes to EV-0004/EV-0005 and the AT allocation rule. |
+| 2026-10-31 | S1a harness scaffolded in `runtime/probes/s1a`; EV-0007 records the build self-check and host JIT run (`PARTIAL`). Device S1a blocked on the AVP provisioning profile. |
 
 ---
 

@@ -79,7 +79,9 @@ comfort polish.
   Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
 - Spike progress: S1 host pre-test `PARTIAL` (EV-0004: relabelled iOS JRE 25 JITs on macOS and the
   JIT26 request site traps); S2 host boot `PARTIAL` (EV-0005: MC 26.2 Vulkan via MoltenVK 1.4.2,
-  no GL fallback). Device S1/S2, world render/soak, and S3 remain `NOT RUN`.
+  no GL fallback); S3 static analysis `PARTIAL` (EV-0006: stable injection point); S1a harness
+  scaffolded and compile-checked (EV-0007). Device S1/S2, world render/soak, and S3 runtime remain
+  `NOT RUN`; the AVP provisioning profile is still missing.
 - Evidence baseline: `VERIFY.md` EV-0001 (`PARTIAL`, toolchain/reference inspection), EV-0002
   (`PARTIAL`, external JIT26 demonstration), EV-0003 (`PASS`, tooling self-test), EV-0004
   (`PARTIAL`, host-only S1 pre-test), EV-0005 (`PARTIAL`, host-only S2 boot pre-test), and EV-0006
@@ -399,7 +401,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
-| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external and EV-0004 is host-only; neither satisfies this row | EV-0002 (external) + EV-0004 (host), both `PARTIAL`; device EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
+| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external and EV-0004/EV-0007 are host-only; none satisfies this row | EV-0002 external + EV-0004 host pre-test + EV-0007 scaffold, all `PARTIAL`; device EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
 | S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 (host boot, `PARTIAL`); device EV pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | EV-0006 (static, `PARTIAL`); runtime EV pending | 2–3 wk |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
@@ -453,6 +455,7 @@ documentation-convergence plan. No `NOT RUN` item may be presented as passed.
 | `scripts/test_local.sh` | Run host-side unit tests | NOT IMPLEMENTED |
 | `scripts/install_device.sh` | Install to a paired Vision Pro | NOT IMPLEMENTED |
 | `scripts/latency_rig.sh` | Drive the K3 camera protocol + tabulate samples | NOT IMPLEMENTED |
+| `runtime/probes/s1a/build.sh` | Build/sign/install the S1a iOS JIT probe | SCAFFOLD — compiles; signing/install pending AVP profile |
 
 `scripts/log_evidence.sh` is an **M0 deliverable** and is now implemented and self-tested (§13). Its
 own acceptance is `AT-009`, logged in `VERIFY.md`.
@@ -565,3 +568,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | S1 groundwork: host pre-test EV-0004 (`PARTIAL`) and S1a/S1b harness plan in `docs/mvp/SPIKES.md`. Device S1 still `NOT RUN`. |
 | 2026-10-31 | S2 groundwork: host boot pre-test EV-0005 (`PARTIAL`, Vulkan/MoltenVK 1.4.2) and S2 plan in `docs/mvp/SPIKES.md`. Device S2, world render, soak still `NOT RUN`. |
 | 2026-10-31 | S3 static analysis EV-0006 (`PARTIAL`): `VRState.initializeVR` is public static, injection point stable across 1.3.14/1.3.15, no runtime Mixin yet. EV-0004/EV-0005 interpretation/scope notes added; AT allocation rule documented; M0 timing rule added. |
+| 2026-10-31 | S1a harness scaffolded (`runtime/probes/s1a`); EV-0007 records the build self-check and host JIT run. Device S1a blocked on an AVP provisioning profile. |
