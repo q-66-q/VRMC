@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0009`.
+**Next evidence ID:** `EV-0010`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -121,7 +121,7 @@ EV that first evidences a test is recorded in the Status column.
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 is external; EV-0004 is host-only | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
 | ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot `PASS` subject to world render/soak, EV-0005; device pending) |
-| ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `NOT RUN` (static analysis `PARTIAL`, EV-0006; runtime Mixin test pending) |
+| ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
 | ST-S6 | Do frame pacing and thermals hold? | K2/K5 met or documented waiver | Lower preset, 45 Hz lock, caps | `NOT RUN` |
@@ -566,6 +566,45 @@ to be unlocked to enable development services."* Only an iPad-only profile exist
 `xcodebuild` command; automatic signing should register the device and create the profile. No app was
 installed.
 
+### EV-0009 — S3 runtime: Mixin substitutes VisionVR in Vivecraft on desktop Fabric (no SteamVR)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T12:30:51-10:00 |
+| Commit | `e8fdb3c81de1d139e4ae2da72925b0a6d2d71634` |
+| Dirty state | clean |
+| Device | host-only (desktop Fabric); no visionOS device run |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. Build the probe mod (redirect Mixin + `VisionVR` stub) against MC 26.2, Fabric 0.19.3, Vivecraft 26.2-1.3.15.
+2. Install the probe and Vivecraft in `/tmp/mc-fabric/mods` with `vrEnabled=true`.
+3. Launch MC 26.2 through Fabric loader `KnotClient`.
+4. Observe the redirect, provider construction, `dh.vr` assignment, and `init()` call.
+
+**Expected:** redirect fires on `initializeVR`; `VisionVR` is constructed; `dh.vr` is `VisionVR`; `init()`
+is reached without a SteamVR/OpenVR runtime.
+
+**Actual:** log shows `redirect fired; original=…MCOpenVR`, `VisionVR constructed`,
+`dh.vr is now dev.vrmc.probe.VisionVR`, `VisionVR.init() reached`. Vivecraft then shows
+*"Render setup failed: VRMC S3 probe / VR provider: VRMC-S3-Probe"* because the stub intentionally
+returns false. That dialog is the proof the substituted provider was instantiated.
+
+**Artifacts:** `evidence/EV-0009/probe-summary.log` (ab641afdd790);
+`evidence/EV-0009/latest.log` (dc7cdd6eee17);
+`evidence/EV-0009/run2.log` (8586680eab8a);
+`evidence/EV-0009/vrmc-s3-probe.jar` (8d02609a4b3d);
+`evidence/EV-0009/VisionVR.java` (275e18690862);
+`evidence/EV-0009/VRStateMixin.java` (9d7fdd714211);
+`evidence/EV-0009/fabric.mod.json` (5e53442cfe77);
+`evidence/EV-0009/vrmc.mixins.json` (3fdc8dbeae85);
+`evidence/EV-0009/probe-sha256.txt` (53003a780f5d).
+
+**Limitations:** desktop Fabric verification only; the full provider/renderer and the visionOS device
+runtime are M2 scope.
+
 ---
 
 ## 7. Status dashboard
@@ -578,7 +617,7 @@ installed.
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
 | Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot `PASS` (EV-0005); world render/soak and device pending |
-| Provider integration | `NOT RUN` | Static analysis `PARTIAL` (EV-0006); runtime Mixin pending |
+| Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
@@ -613,6 +652,7 @@ installed.
 | 2026-10-31 | EV-0005 records the S2 host pre-test (`PARTIAL`): MC 26.2 boots with Vulkan via MoltenVK 1.4.2 and no GL fallback. Device S2, world render, and soak remain `NOT RUN`. |
 | 2026-10-31 | EV-0006 records S3 static analysis (`PARTIAL`): injection point exists and `initializeVR` bytecode is identical across 1.3.14/1.3.15; runtime Mixin test pending. Added interpretation/scope notes to EV-0004/EV-0005 and the AT allocation rule. |
 | 2026-10-31 | S1a harness scaffolded in `runtime/probes/s1a`; EV-0007 records the build self-check and host JIT run (`PARTIAL`). EV-0008 records the device-build attempt (`BLOCKED`: AVP locked; no AVP profile). |
+| 2026-10-31 | EV-0009 records the S3 runtime probe (`PASS`, desktop): the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR. Injection decision: Mixin, no fork. Next ID `EV-0010`. |
 
 ---
 

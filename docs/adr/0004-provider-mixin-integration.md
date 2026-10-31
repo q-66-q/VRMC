@@ -1,6 +1,6 @@
 # ADR-0004 — Vivecraft provider integration via companion Mixin mod
 
-**Status:** Accepted (2026-10-31), injection decision due at M0 exit
+**Status:** Accepted (2026-10-31); injection decision made: **Mixin, no fork** (EV-0006 + EV-0009)
 **Related:** S3; AGENT §3.5, §6; `VERIFY.md` ST-S3; ADR-0006
 
 ## Context
@@ -13,6 +13,12 @@ LWJGL mixins (~4.4% of the mod). But Vivecraft exposes **no public provider-repl
 
 We need a visionOS provider (`VisionVR`) plus a renderer that submits to CompositorServices, while
 keeping Vivecraft replaceable and updateable.
+
+## Decision (confirmed 2026-10-31)
+
+The Mixin path is confirmed: EV-0006 proved the injection point is stable across 26.2‑1.3.14/1.3.15,
+and EV-0009 proved on desktop Fabric that the redirect substitutes `VisionVR` for `MCOpenVR` with no
+SteamVR. No fork is triggered. The rules below remain the implementation constraints.
 
 ## Decision
 

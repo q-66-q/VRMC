@@ -173,11 +173,19 @@ GLFW/MacosUtil parity 2–3 d; CAMetalLayer/window 2–3 d; device debug 3–5 d
 
 **Pass criteria.** Mixin applies, the stub provider is instantiated without SteamVR, and the
 injection point is evidenced in the decompiled 26.2-1.3.15 jar and holds across 26.2.x patches.
-Decision deadline: **M0 exit**. If unstable, approve the fork by ADR and re-baseline M2.
+Decision deadline: **M0 exit**.
+
+**Result (2026-10-31, EV-0009, PASS on desktop Fabric).** The redirect fired on `initializeVR`,
+`VisionVR` was constructed, `dh.vr` became `dev.vrmc.probe.VisionVR`, and `init()` was reached with no
+SteamVR. Vivecraft then showed the expected `Render setup failed: VRMC S3 probe / VR provider:
+VRMC-S3-Probe` dialog because the stub intentionally returns false.
+
+**Decision: Mixin, no fork.** The fork fallback is not triggered; the full provider, renderer, and
+device runtime move to M2.
 
 **Fallback.** Fork Vivecraft under LGPL-3.0 with published source and a rebase strategy.
 
-**Timebox.** 2–3 weeks.
+**Timebox.** Injection decision done in one day; full provider implementation is M2.
 
 ## S4 — Eye texture handoff and CompositorServices
 

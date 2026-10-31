@@ -77,15 +77,14 @@ comfort polish.
 - Hardware is available: a paired Apple Vision Pro (`RealityDevice14,1`, N301AP, 1 TB, visionOS 27.2
   reported) and a Mac build host (MacBook Pro Mac16,7, Apple M4 Pro, 24 GB, macOS 27.0.1,
   Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
-- Spike progress: S1 host pre-test `PARTIAL` (EV-0004: relabelled iOS JRE 25 JITs on macOS and the
-  JIT26 request site traps); S2 host boot `PARTIAL` (EV-0005: MC 26.2 Vulkan via MoltenVK 1.4.2,
-  no GL fallback); S3 static analysis `PARTIAL` (EV-0006: stable injection point); S1a harness
-  scaffolded and compile-checked (EV-0007). Device S1/S2, world render/soak, and S3 runtime remain
-  `NOT RUN`; the AVP provisioning profile is still missing.
-- Evidence baseline: `VERIFY.md` EV-0001 (`PARTIAL`, toolchain/reference inspection), EV-0002
-  (`PARTIAL`, external JIT26 demonstration), EV-0003 (`PASS`, tooling self-test), EV-0004
-  (`PARTIAL`, host-only S1 pre-test), EV-0005 (`PARTIAL`, host-only S2 boot pre-test), and EV-0006
-  (`PARTIAL`, S3 static analysis). Only evidence IDs recorded in `VERIFY.md` §6 are valid.
+- Spike progress: S1 host pre-test `PARTIAL` (EV-0004); S2 host boot `PARTIAL` (EV-0005); S3
+  **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
+  fork); S1a harness scaffolded (EV-0007), device build `BLOCKED` (EV-0008: AVP must be unlocked).
+  S3's M0 gate is closed; device S1/S2 and world render/soak remain `NOT RUN`; the AVP provisioning
+  profile is still missing.
+- Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
+  tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
+  device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
 
 ---
 
@@ -175,8 +174,8 @@ triggers its fallback and a scope/ADR change, not silent scope creep.
 
 | Hardness | Count | Examples |
 |---|---|---|
-| **LOW** | 32 | accounts, downloads, Fabric install, menus, Files import, diagnostics |
-| **MEDIUM** | 26 | launcher shell, JIT launch flow, provider wiring, input mapping, gestures, audio |
+| **LOW** | 33 | accounts, downloads, Fabric install, menus, Files import, diagnostics, provider injection |
+| **MEDIUM** | 25 | launcher shell, JIT launch flow, provider wiring, input mapping, gestures, audio |
 | **HIGH** | 7 | OpenJDK 25 xros runtime, Vulkan/MoltenVK boot, stereo eye handoff, frame pacing, perf/thermal |
 
 Counts reflect **A2 = MEDIUM** after EV-0002 (external JIT26 demonstration). A2 drops to LOW only if
@@ -236,7 +235,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 
 | ID | Feature | Hardness | Note |
 |---|---|---|---|
-| E1 | `VisionVR` selected without SteamVR | MEDIUM | S3; Mixin into `VRState` |
+| E1 | `VisionVR` selected without SteamVR | LOW | Mixin proven on desktop Fabric (EV-0006 + EV-0009); device runtime is M2 |
 | E2 | `VRRenderer` subclass + Vulkan eye targets | MEDIUM | Reuse `VulkanHelper` patterns |
 | E3 | Action data for ~105 actions × 2 hands | MEDIUM | No external injection layer exists |
 | E4 | Haptic routing | LOW | No-op for hands |
@@ -332,7 +331,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 |---|---|---|---|---|
 | S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `NOT RUN` — external `PARTIAL` (EV-0002) + host `PARTIAL` (EV-0004) | Pivot to AOT; launcher scope reduces |
 | S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `NOT RUN` — host boot `PASS` for host stage (EV-0005); device pending | GL/LTW→ANGLE path |
-| S3 | Vivecraft provider without SteamVR | MEDIUM | `NOT RUN` — static analysis `PARTIAL` (EV-0006); runtime Mixin pending | Fork approved by ADR + LGPL source |
+| S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
 | S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
 | S5 | PSVR2 + hands drive all P0 actions | MEDIUM | `NOT RUN` | Hands-only MVP |
 | S6 | Frame pacing / thermals on device | **HIGH** | `NOT RUN` | Lower preset, 45 Hz lock, render-distance cap |
@@ -350,7 +349,7 @@ spike changes status, apply §4.7 in the same commit.
 | Graphics translation | **HIGH** | Host boot verified with MoltenVK 1.4.2 (EV-0005); xros stack unproven |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
 | Performance/thermal | **HIGH** | Watchdog kills on missed frames |
-| VR provider | MEDIUM | Static injection point exists and is stable 1.3.14→1.3.15 (EV-0006); runtime Mixin unproven |
+| VR provider | MEDIUM | Injection proven on desktop (EV-0006 + EV-0009); full provider/renderer and device runtime are M2 |
 | Input & gestures | MEDIUM | Usability, not feasibility |
 | Launcher shell | MEDIUM | visionOS UI port |
 | Accounts/downloads | LOW | Amethyst-proven logic |
@@ -403,7 +402,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 |---|---|---|---|---|
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002 is external and EV-0004/EV-0007 are host-only; none satisfies this row | EV-0002 external + EV-0004 host pre-test + EV-0007 scaffold, all `PARTIAL`; device EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
 | S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 (host boot, `PARTIAL`); device EV pending | 2–3 wk |
-| S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | EV-0006 (static, `PARTIAL`); runtime EV pending | 2–3 wk |
+| S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
 | S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |
 | S6 | Perf/thermal | K2/K5 met or a documented waiver with mitigation | pending | 2–3 wk |
@@ -534,7 +533,7 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | Eye-texture handoff unstable | **HIGH** | S4; GPU blit fallback |
 | Performance/thermals on device | **HIGH** | Presets, 45 Hz repeat, caps |
 | JIT onboarding friction | MEDIUM | Guided setup + docs |
-| Vivecraft/MC drift | MEDIUM | Pin 26.2; version guard; S3 injection decision at M0 exit (static point stable 1.3.14→1.3.15, EV-0006) |
+| Vivecraft/MC drift | MEDIUM | Pin 26.2; version guard; injection decision: Mixin, no fork (EV-0006 + EV-0009) |
 | GPL/EULA constraints | MEDIUM | Source publication, ownership gate |
 | Prior-art overlap | MEDIUM | Compete on launcher flexibility |
 
