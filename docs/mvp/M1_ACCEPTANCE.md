@@ -11,9 +11,9 @@ Status as of **2026-11-01**. This is the single view of the M1 acceptance criter
 | 2 | 30 minutes stable in-world, clean exit, save preserved on relaunch | **PASS** | Soak PASS: 1805 s continuous, no game crash/watchdog, thermal `serious` (EV-0044); clean save/quit and save-reload verified (EV-0052). |
 | 3 | No manual host steps after install (JRE, LWJGL, options, JIT script provisioned by the app or documented one-tap UI) | **PASS** | Bundled JREs selected internally, options forced app-side, no Mac-side pushes (EV-0037/EV-0043). StikDebug script assignment is the documented on-device step. |
 | 4 | JIT readiness UX: detect no-JIT, guide through StikDebug, retry cleanly | **PASS** | Explicit TXM alert + `[JIT] preflight` logging (EV-0050); no-JIT flow verified on D1, game continues after JIT is enabled (EV-0051). |
-| 5 | Crash/log capture: MC log stored and retrievable; crash produces an in-app report | **PARTIAL** | `latestlog.txt`, MC crash-reports and system crash logs are stored and retrievable via `scripts/capture_device_logs.sh` (EV-0039; crash reports seen in EV-0045/0046 investigations). **Gap:** in-app crash report/share UI not implemented. |
+| 5 | Crash/log capture: MC log stored and retrievable; crash produces an in-app report | **PARTIAL** | `latestlog.txt`, MC crash-reports and system crash logs are stored and retrievable via `scripts/capture_device_logs.sh` (EV-0039), and Amethyst already ships an in-game **Log output** overlay with a *Share latestlog.txt* action (`PLLogOutputView`, share button in the log view). **Gap:** device check of the share sheet; crash screen is MC's own report. |
 | 6 | Input usable for flat-world movement/look (keyboard/controller at minimum; mouse issue triaged) | **PARTIAL** | Grab/relative mouse path active, rotation smooth (EV-0047); 30-minute play session used keyboard+mouse (EV-0044). Cursor visibility is a visionOS pointer-lock limitation accepted as cosmetic (EV-0047). **Gap:** keyboard/controller defaults not explicitly validated. |
-| 7 | GPL-3.0 compliance: corresponding source + build instructions published for the distributed build | **PARTIAL** | Source/build documentation in-repo: ADR-0006/0008, `docs/mvp/LAUNCHER_BUILD.md`, `patches/vrmc-m1-amethyst-1.2.0.patch`, `scripts/build_launcher.sh` (EV-0049). **Gap:** external publication/source-offer artifact not produced yet. |
+| 7 | GPL-3.0 compliance: corresponding source + build instructions published for the distributed build | **PASS (in-repo source offer)** | Base-tree provenance hash, VRMC patch, build script and third-party license table are now in `docs/legal/SOURCE_OFFER.md` (plus ADR-0006/0008 and EV-0049). Residual: publish the same offer wherever the binary is distributed (release page). |
 
 ## Workstreams (M1_PLAN §3)
 
@@ -24,7 +24,7 @@ Status as of **2026-11-01**. This is the single view of the M1 acceptance criter
 | W3 | JIT readiness | **DONE** | Upstream wait-gate retained; explicit TXM instructions + preflight logging (EV-0050); no-JIT flow verified (EV-0051). |
 | W4 | MC install + boot | **PASS** | Fresh container: account + MC 26.2 install + world reached from app UI (EV-0043). Flat preset note above. |
 | W5 | Input | **CLOSED (with accepted cosmetic)** | Rotation smooth via grab/relative path (EV-0047); cursor visible is a visionOS pointer-lock limitation, accepted by the user. Keyboard/controller defaults tabled. |
-| W6 | Observability | **PARTIAL** | Logs/crash reports retrievable with repo scripts (EV-0039); in-app crash/share UI missing. |
+| W6 | Observability | **PARTIAL** | Logs/crash reports retrievable with repo scripts (EV-0039); upstream in-game Log output overlay has a Share latestlog.txt action; device verification of the share sheet pending. |
 | W7 | Stability | **DONE** | 30-min soak PASS (EV-0044); save/relaunch integrity PASS (EV-0052); thermal `serious` recorded; FPS baseline still a nice-to-have. |
 
 ## Next actions
