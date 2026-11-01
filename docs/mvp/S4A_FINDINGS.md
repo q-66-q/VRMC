@@ -40,6 +40,10 @@ Host spike (`runtime/probes/s4a-host/spike_s4a.mm`, macOS MoltenVK 1.4.2) proved
   Signaled value 42 from Vulkan was observed by `MTLSharedEvent`.
 
 Device gate (S4a-device) is **NOT RUN** — macOS Metal handles do not prove visionOS MoltenVK/Metal.
+A device probe is staged inside the VRMC app (`runtime/probes/s4a-device/`): it is triggered by
+`Documents/vrmc_s4a_device.flag`, loads the bundled MoltenVK 1.4.3, repeats this test and writes
+`Documents/s4a-device.log`. First attempt was blocked by a locked device (EV-0064); unlock and launch
+VRMC to execute.
 
 ## Gates (separate — host PASS does not imply device PASS)
 

@@ -355,7 +355,7 @@ M2–M4 time). The G-group is the sole P0 input path and has no fallback.
 | S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `PASS (M0 gate)` — Device graphics substrate PASS (EV-0025 + EV-0026 + EV-0027); device world render PASS (EV-0034). Full 30-minute soak NOT RUN — deferred to M1 per Decision 45=A. | GL/LTW→ANGLE path |
 | S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
 | S4a-host | Eye-texture handoff, **host stage** (macOS MoltenVK: `vkGetMTLTextureMVK` + `MTLSharedEvent` works) | **HIGH** | **PASS (EV-0063)** — VkImage→MTLTexture export + Metal readback + timeline-semaphore MTLSharedEvent sync verified on host | GPU blit, then readback as last resort |
-| S4a-device | Eye-texture handoff, **device stage** (visionOS MoltenVK/Metal; host PASS does not imply device PASS) | **HIGH** | `NOT RUN` | GPU blit fallback |
+| S4a-device | Eye-texture handoff, **device stage** (visionOS MoltenVK/Metal; host PASS does not imply device PASS) | **HIGH** | `NOT RUN (probe staged)` — EV-0064: probe built into VRMC, flag pushed, device locked | GPU blit fallback |
 | S4 | Compositor stereo (both eyes presented, 90 Hz, no tearing) | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
 | S5-hands | Hands drive all P0 actions (sole P0 input path) | **HIGH** | `NOT RUN` | None — hands-only has no controller fallback; G2–G4 are HIGH |
 | S5-controllers | PSVR2 controllers | MEDIUM | `DEFERRED (out of MVP scope)` | P1 register |
@@ -460,7 +460,7 @@ ADR; it is never quietly downgraded.
 |---|---|---|---|---|
 | **M0** | Docs, skeleton, versions.env, S1/S2, S3 decision | **CLOSED 2026-10-31** — S1 PASS (EV-0021 + EV-0024); S3 CLOSED (EV-0006 + EV-0009); S2 device world render PASS (EV-0034). The 30-minute device soak (K4 precursor) is deferred to M1 and recorded in §7 M1 exit criteria. | **HIGH** | 3–4 wk |
 | **M1** | Launcher shell + install + flat MC boot | **CLOSED 2026-11-01 (EV-0057)** — fresh install → world (EV-0043), 30-minute soak (EV-0044), save/relaunch (EV-0052), W1–W7 closed/accepted (input cursor cosmetic accepted); M1_ACCEPTANCE.md matrix | MEDIUM | DONE (4–6 wk plan: `docs/mvp/M1_PLAN.md`) |
-| **M2** | Provider + Vulkan VR | **IN PROGRESS** — **M2-W4/W5 host PASS (EV-0060)**: bridge ABI v1 handshake, provider init, stereo eye targets, per-frame submit on desktop Fabric (GL ids), no SteamVR. **M2-W6 device bring-up NOT RUN**; **S4a-host NOT RUN**, **S4a-device NOT RUN**. Host progress is not device completion. | **HIGH** | 4–5 wk |
+| **M2** | Provider + Vulkan VR | **IN PROGRESS** — **M2-W4/W5 host PASS (EV-0060)**; **S4a-host PASS (EV-0063)**. **S4a-device NOT RUN (probe staged, EV-0064)**; **M2-W6 device bring-up NOT RUN**; **M3 NOT RUN**. Host progress is not device completion. | **HIGH** | 4–5 wk |
 | **M3** | Compositor stereo + head tracking | **NOT RUN** — 30-min immersive session; device stereo/head tracking unproven | **HIGH** | 4 wk |
 | **M4** | Input (**hands only**, PSVR2 is P1) | **P0 action checklist passes from hands**; no controller fallback. M4 can close on schedule; G2/G3/G4 are HIGH because hands are the sole path | MEDIUM (scope) / HIGH (gesture risk) | 4–6 wk |
 | **M5** | Gameplay loop + comfort + diagnostics | All H features pass | MEDIUM | 3–4 wk |

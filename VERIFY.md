@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0064`.
+**Next evidence ID:** `EV-0065`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1759,6 +1759,30 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Host gate only. Device gate (S4a-device) is separate: macOS Metal object handles do not prove visionOS MoltenVK/Metal. M3 must use a timeline semaphore for shared-event sync.
 
+### EV-0064 — S4a-device probe staged inside the VRMC app — NOT RUN (device locked)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:27:44-10:00 |
+| Commit | `f72572b5383b5361a2bc6982fed6bbbdafa9e9e1` |
+| Dirty state | atches/vrmc-m1-amethyst-1.2.0.patch, scripts/build_launcher.sh, versions.env, assets/vulkan_include/, runtime/probes/s4a-device/ |
+| Device | D1 Apple Vision Pro (passcodeRequired=true at attempt time) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `NOT RUN` |
+
+**Procedure:**
+
+1. add Natives/vrmc_s4a_probe.m to the app (triggered by Documents/vrmc_s4a_device.flag), wire it into CMake/main.m, build/sign/install with bundled MoltenVK 1.4.3
+2. push the flag file and try to launch the app via devicectl
+
+**Expected:** S4a-DEVICE PASS in Documents/s4a-device.log (MTLDevice+MTLTexture export, Metal readback, timeline MTLSharedEvent sync)
+
+**Actual:** probe built/installed (tree 6d6d4773...), flag present; launch blocked because the device is locked; no log produced. NOT RUN.
+
+**Artifacts:** evidence/EV-0064/vrmc_s4a_probe.m (d9b8176487ab); evidence/EV-0064/summary.log (69c29b4aa8f1); evidence/EV-0064/build.log (e0c75105d02a)
+
+**Limitations:** Unlock the AVP and launch VRMC to execute the probe; then pull Documents/s4a-device.log. This is a separate gate from S4a-host (EV-0063).
+
 ---
 
 ## 7. Status dashboard
@@ -1776,7 +1800,8 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
-| S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063); S4a-device NOT RUN |
+| S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063) |
+| S4a-device eye handoff | `NOT RUN (probe staged)` | Probe compiled into the VRMC app, flag pushed; execution blocked by locked device (EV-0064) |
 | M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
 | PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
@@ -1870,3 +1895,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **M2 review propagation + PSVR2 scope downgrade.** EV-0060 scoped as **M2-W4/W5 host PASS**; M2-W6 device bring-up and M3 are **NOT RUN**; S4a split into host/device gates. Identity controller transforms marked **host-only** (device missing data fails loudly). macstream is a tracked LGPL-3.0 reference (upstream `ec5a851c…`, design + partial provider port, no code in the GPL launcher; ADR-0009). PSVR2 Sense = **P1 / DEFERRED (out of MVP scope)**, not BLOCKED: F1–F3 moved to P1, AC-4/§1/§3/§4/§6/§7/§11 updated, G2/G3/G4 → HIGH (hands-only has no fallback), ST-S4/ST-S5 split. New status `DEFERRED (out of MVP scope)` added to the legend. Next ID `EV-0062`. |
 | 2026-11-01 | **EV-0061 (`PASS`): M2 review fixes applied** (host/device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy). **EV-0062 (`DEFERRED`): PSVR2 Sense controller input — out of MVP scope (P1), not BLOCKED.** Next ID `EV-0063`. |
 | 2026-11-01 | **EV-0063 (`PASS`): S4a-host** — exportable VkImage → MTLTexture works, Metal reads the Vulkan clear correctly, and MTLSharedEvent sync works with a **timeline** semaphore. **S4a-device remains NOT RUN** (separate gate). Next ID `EV-0064`. |
+| 2026-11-01 | **EV-0064 (`NOT RUN`)**: S4a-device probe staged inside the VRMC app (bundled MoltenVK 1.4.3), marker pushed, but the device was locked (passcodeRequired=true) so it could not be launched. Unlock AVP and launch VRMC to execute; log = Documents/s4a-device.log. Next ID `EV-0065`. |

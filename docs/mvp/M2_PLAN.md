@@ -29,7 +29,7 @@ M2 exit criteria (all evidenced):
 | M2-W4/W5 bridge + provider + stereo host integration | **PASS (host)** | EV-0060 |
 | M2-W6 device bring-up | **NOT RUN** | — |
 | S4a-host (macOS MoltenVK export/shared-event) | **PASS** | EV-0063: MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync |
-| S4a-device (visionOS MoltenVK/Metal) | **NOT RUN** | host PASS does not imply device PASS |
+| S4a-device (visionOS MoltenVK/Metal) | **NOT RUN — probe staged** | EV-0064: probe in the VRMC app, flag pushed; device locked at launch |
 | M3 compositor stereo + head tracking | **NOT RUN** | — |
 | PSVR2 controllers (F1–F3) | **DEFERRED (out of MVP scope)** | P1 register; not BLOCKED |
 | Hands-only P0 input (G2/G3/G4) | **HIGH** | sole input path, no controller fallback |

@@ -29,6 +29,10 @@ if [ -d "$ROOT/assets/branding" ]; then
   echo "[build] installing VRMC branding assets"
   rsync -a "$ROOT/assets/branding/" "$BUILD_DIR/Natives/Assets.xcassets/"
 fi
+if [ -d "$ROOT/assets/vulkan_include" ]; then
+  echo "[build] installing Vulkan headers (S4a-device probe)"
+  rsync -a "$ROOT/assets/vulkan_include/" "$BUILD_DIR/Natives/vulkan_include/"
+fi
 for p in "$ROOT"/patches/*.patch; do
   echo "[build] applying $(basename "$p")"
   patch -p1 -d "$BUILD_DIR" < "$p"
