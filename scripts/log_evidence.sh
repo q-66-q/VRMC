@@ -57,8 +57,8 @@ done
 
 [ -n "$TITLE" ] || die "--title is required"
 case "$STATUS" in
-  PASS|PARTIAL|FAIL|BLOCKED|"NOT RUN") ;;
-  *) die "invalid --status '$STATUS' (PASS|PARTIAL|FAIL|BLOCKED|'NOT RUN')" ;;
+  PASS|PARTIAL|FAIL|BLOCKED|DEFERRED|"NOT RUN") ;;
+  *) die "invalid --status '$STATUS' (PASS|PARTIAL|FAIL|BLOCKED|DEFERRED|'NOT RUN')" ;;
 esac
 [ -d "$ROOT" ] || die "root does not exist: $ROOT"
 EVIDENCE_ROOT="${EVIDENCE_ROOT_OVERRIDE:-$ROOT/evidence}"

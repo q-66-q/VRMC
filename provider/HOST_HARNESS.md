@@ -31,6 +31,7 @@ cp -R /tmp/provider-out/* /tmp/provider-mod/
 cp /tmp/vrmc-provider.jar /tmp/mc-fabric/mods/    # keep vivecraft jar too; remove any old probe jar
 cd /tmp/mc-fabric
 java -XstartOnFirstThread -Xmx2G \
+  -Dvrmc.hostHarness=true \
   -Dvrmc.bridge.lib=/tmp/libvrmc_bridge.dylib \
   -cp "$(cat /tmp/s3-mod/cp.txt)" net.fabricmc.loader.impl.launch.knot.KnotClient \
   --gameDir /tmp/mc-fabric \

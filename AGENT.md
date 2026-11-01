@@ -33,8 +33,7 @@ evidence; where they conflict on acceptance, `VERIFY.md` wins.
 
 > A user installs VRMC on Apple Vision Pro, signs in with Microsoft (or uses Offline), installs
 > Minecraft 26.2 + Fabric + Vivecraft from the launcher, enters a world, and plays in head-tracked
-> stereo with hands — and with PlayStation VR2 Sense controllers when present — for an hour, with
-> no PC involved.
+> stereo with hands for an hour, with no PC involved. (PSVR2 Sense controller support is P1, post-MVP.)
 
 ### 1.2 MVP success criteria (mirrored in `VERIFY.md` §1)
 
@@ -43,7 +42,7 @@ evidence; where they conflict on acceptance, `VERIFY.md` wins.
 | AC-1 | Fresh sideload → in-world in ≤ 30 min on a 100 Mbps link, using only documented steps. |
 | AC-2 | Immersive stereo via CompositorServices: correct per-eye projection and eye order, head tracking active, 90 Hz target with graceful fallback. |
 | AC-3 | Core play: move, turn, teleport, jump/sneak, break/place, attack/use, inventory, hotbar, crafting/chests, pause/settings, bow, climbing, save/reload. |
-| AC-4 | Every P0 action reachable from hands; P0 actions also reachable from PSVR2 controllers; no stuck input on tracking loss. |
+| AC-4 | Every P0 action reachable from hands; no stuck input on tracking loss. (PSVR2 controllers are P1, post-MVP.) |
 | AC-5 | 60-minute session, 20 cold launches, 10 world loads, zero compositor watchdog kills. |
 | AC-6 | No Minecraft binaries in git; ownership gate + EULA notice; GPL-3.0 source published; third-party notices complete. |
 
@@ -51,7 +50,7 @@ evidence; where they conflict on acceptance, `VERIFY.md` wins.
 
 App Store/TestFlight/Ad Hoc; AOT builds; PC/cloud streaming; SteamVR/OpenVR/OpenXR runtime;
 modpack marketplace; shaders/Iris parity; multiplayer hosting; video streaming; MC 26.3+ until
-Vivecraft supports it; redistribution of Minecraft binaries or assets.
+Vivecraft supports it; redistribution of Minecraft binaries or assets; **PSVR2 Sense controller support (P1, post-MVP — not a temporary blocker)**.
 
 ### 1.4 Positioning
 
@@ -59,6 +58,14 @@ A public project (`rebelancap/vivecraft-visionos`) already runs MC 26.2 + Vivecr
 via GraalVM AOT + Klepton, sideloaded. We do not compete on "first to run it". We compete on the
 **launcher**: accounts, user-managed installs and mods, version agility, diagnostics, and input /
 comfort polish.
+
+**Input positioning (scope revision 2026-11-01): hands-only, deeply optimized hand interaction.**
+PSVR2 Sense controller support is **P1 (post-MVP)** — this is a scope decision, not a temporary
+constraint, and input parity is **not** claimed as an MVP feature.
+
+**Tracked external references:** `rebelancap/vivecraft-visionos` (benchmark only; no code copied) and
+**macstream** — LGPL-3.0 reference; design reference + partial port into the LGPL provider; **no code
+in the GPL launcher**; upstream commit `ec5a851c066856b0a3ca3eadc530d5ea18e88930` (ADR-0009).
 
 ---
 
@@ -114,7 +121,7 @@ visionOS app (SwiftUI + ObjC++ bridge)
 │   └─ VRMC Vision Provider (LGPL-3.0 mod): MCVR + VRRenderer + action data
 ├─ Native VR bridge (ObjC++/C)
 │   ├─ ARKit HandTrackingProvider (27 joints) + WorldTrackingProvider (predicted head)
-│   ├─ GameController GCSpatialAccessory (PSVR2 Sense) + AccessoryTrackingProvider
+│   ├─ (P1) GameController GCSpatialAccessory + AccessoryTrackingProvider — PSVR2, not MVP
 │   └─ CompositorServices LayerRenderer (stereo, foveation)
 └─ Graphics: MC "Prefer Vulkan" → MoltenVK (visionOS build) → Metal
 ```
@@ -127,8 +134,8 @@ visionOS app (SwiftUI + ObjC++ bridge)
 | JVM/JIT runtime | OpenJDK 25 on xros, JIT provisioning, memory limits, LWJGL 3.4.1 natives | **HIGH** |
 | Graphics path | MC Vulkan renderer via MoltenVK; GL/LTW fallback | **HIGH** |
 | Vision Provider mod | `MCVR` + `VRRenderer` subclasses; action data without SteamVR | MEDIUM |
-| Native VR bridge | Head/hand/controller tracking, eye-texture handoff, frame pacing | **HIGH** |
-| Input mapping | PSVR2 profile + hand gestures → Vivecraft actions | MEDIUM |
+| Native VR bridge | ARKit hand/world tracking, eye-texture handoff, frame pacing; `(P1) GCSpatialAccessory/AccessoryTrackingProvider` for PSVR2 controllers | **HIGH** |
+| Input mapping | Hand gestures → Vivecraft actions (hands-only MVP; PSVR2 profile is P1) | **HIGH** (no controller fallback) |
 | Gameplay verification | Vivecraft features exercised in VR end-to-end | MEDIUM |
 | Diagnostics | Boot/frame/thermal logs, overlay, export | LOW |
 | Compliance | GPL/LGPL/EULA obligations, notices, ownership gate | MEDIUM |
@@ -188,12 +195,14 @@ triggers its fallback and a scope/ADR change, not silent scope creep.
 | Hardness | Count | Examples |
 |---|---|---|
 | **LOW** | 33 | accounts, downloads, Fabric install, menus, Files import, diagnostics, provider injection |
-| **MEDIUM** | 25 | launcher shell, JIT launch flow, provider wiring, input mapping, gestures, audio |
-| **HIGH** | 7 | OpenJDK 25 xros runtime, Vulkan/MoltenVK boot, stereo eye handoff, frame pacing, perf/thermal |
+| **MEDIUM** | 19 | launcher shell, JIT launch flow, provider wiring, audio, GUI interaction |
+| **HIGH** | 10 | OpenJDK 25 xros runtime, Vulkan/MoltenVK boot, stereo eye handoff, frame pacing, perf/thermal, hands-only input (G2/G3/G4) |
 
-Counts reflect **A2 = MEDIUM** after EV-0002 (external JIT26 demonstration). A2 drops to LOW only if
-provisioning persists across launches; C3 stays HIGH until the OpenJDK 25 xros runtime, LWJGL natives,
-and the in-MC code-cache path are built. Any further move must follow §4.7.
+Counts: P0 items drop 65 → 62 because **F1–F3 (PSVR2) moved to P1** (−3 MEDIUM); **G2/G3/G4 raised
+MEDIUM → HIGH** (−3 MEDIUM, +3 HIGH). (The prior HIGH count was 7 in this register; the review's "8"
+assumed a different snapshot.) Hands-only input has no controller fallback — see §11. Counts reflect
+**A2 = MEDIUM** after EV-0002; C3 stays HIGH until the runtime/LWJGL/code-cache path is built. Any
+further move must follow §4.7.
 
 ### 4.3 P0 feature register by area
 
@@ -254,22 +263,20 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | E4 | Haptic routing | LOW | No-op for hands |
 | E5 | IPD, eye offsets, play area, runtime identity | LOW | — |
 
-#### F. Controller input (P0 when PSVR2 Sense is available)
+#### F. Controller input — P1 (post-MVP), see §4.4
 
-| ID | Feature | Hardness | Note |
-|---|---|---|---|
-| F1 | Detect PSVR2 Sense: poses, buttons, sticks, triggers, grips | MEDIUM | visionOS 26+ spatial accessories |
-| F2 | Default Touch-style mapping profile | MEDIUM | Parity with prior art bindings |
-| F3 | Per-hand takeover (controller vs hands) | MEDIUM | **Assumption pending S5:** visionOS 27 is documented to stop hand tracking for a held controller; verify on device, do not treat as fact |
+PSVR2 Sense support is **out of MVP scope** (scope decision 2026-11-01). F1–F3 are deferred to the P1
+register; **no F-group code is written until P1** (unverifiable code is a liability and would consume
+M2–M4 time). The G-group is the sole P0 input path and has no fallback.
 
 #### G. Hand input
 
 | ID | Feature | Hardness | Note |
 |---|---|---|---|
 | G1 | 27-joint skeleton, both hands, per-frame timestamps | LOW | ARKit API is straightforward |
-| G2 | Gesture set with hysteresis | MEDIUM | Usability tuning is the risk |
-| G3 | Virtual stick, snap turn, teleport gesture | MEDIUM | Dead zone/deflection tuning |
-| G4 | Tracking-loss release/reacquire | MEDIUM | No stuck input is the acceptance bar |
+| G2 | Gesture set with hysteresis | **HIGH** | **Sole P0 input path with no controller fallback**; bad gesture recognition = unplayable. Usability tuning is the risk |
+| G3 | Virtual stick, snap turn, teleport gesture | **HIGH** | **Sole locomotion path; no controller alternative.** Dead zone/deflection tuning |
+| G4 | Tracking-loss release/reacquire | **HIGH** | **Sole safety mechanism; no controller fallback.** No stuck input is the acceptance bar |
 | G5 | Calibration: dominant hand, height, recenter | LOW | — |
 
 #### H. Gameplay (Vivecraft features)
@@ -334,6 +341,8 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | Pass-through / mixed reality | **HIGH** |
 | Full-body trackers | MEDIUM |
 | Custom spatial accessories | MEDIUM |
+| **PSVR2 Sense controllers (F1–F3, deferred 2026-11-01)** | MEDIUM |
+| Controller remap + left-handed profile | MEDIUM |
 | Localization | LOW |
 | Cloud save | MEDIUM |
 | App Store feasibility study | **HIGH** |
@@ -345,11 +354,19 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `PASS` — EV-0021 (compat, five cold runs) and EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) | Pivot to AOT; launcher scope reduces |
 | S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `PASS (M0 gate)` — Device graphics substrate PASS (EV-0025 + EV-0026 + EV-0027); device world render PASS (EV-0034). Full 30-minute soak NOT RUN — deferred to M1 per Decision 45=A. | GL/LTW→ANGLE path |
 | S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
-| S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
-| S5 | PSVR2 + hands drive all P0 actions | MEDIUM | `NOT RUN` | Hands-only MVP |
+| S4a-host | Eye-texture handoff, **host stage** (macOS MoltenVK: `vkGetMTLTextureMVK` + `MTLSharedEvent` works) | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
+| S4a-device | Eye-texture handoff, **device stage** (visionOS MoltenVK/Metal; host PASS does not imply device PASS) | **HIGH** | `NOT RUN` | GPU blit fallback |
+| S4 | Compositor stereo (both eyes presented, 90 Hz, no tearing) | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
+| S5-hands | Hands drive all P0 actions (sole P0 input path) | **HIGH** | `NOT RUN` | None — hands-only has no controller fallback; G2–G4 are HIGH |
+| S5-controllers | PSVR2 controllers | MEDIUM | `DEFERRED (out of MVP scope)` | P1 register |
 | S6 | Frame pacing / thermals on device | **HIGH** | `NOT RUN` | Lower preset, 45 Hz lock, render-distance cap |
 
-**Gate order:** S1 (internal reproduction) → S2 → S4 → S6. EV-0002 de-risks the mechanism only; M1
+**Milestone scope check (2026-11-01 review):** M2-W4/W5 = **host PASS (EV-0060)**; **M2-W6 = NOT RUN**
+(device bring-up); **M3 = NOT RUN** (compositor stereo + head tracking). Host provider/stereo work is
+**not** device evidence: device stereo, head tracking, hands, PSVR2, and thermal/frame-rate are all
+`NOT RUN`. S4a has two separate gates (host/device); a host PASS must never be reported as device PASS.
+
+**Gate order:** S1 (internal reproduction) → S2 → S4a-host → S4a-device → S4 → S6. EV-0002 de-risks the mechanism only; M1
 does not start until S1 has an internal EV. If S1 fails internally, the launcher pivots to AOT. When a
 spike changes status, apply §4.7 in the same commit.
 
@@ -362,8 +379,8 @@ spike changes status, apply §4.7 in the same commit.
 | Graphics translation | **HIGH** | Host boot EV-0005; D1 executes Vulkan render + present (EV-0025/EV-0028); **MC 26.2 world renders via Vulkan/MoltenVK on D1 (EV-0034)**; device world render closes S2's M0 gate, 30-min soak is an M1 gate |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
 | Performance/thermal | **HIGH** | Watchdog kills on missed frames |
-| VR provider | MEDIUM | Injection proven on desktop (EV-0006 + EV-0009); full provider/renderer and device runtime are M2 |
-| Input & gestures | MEDIUM | Usability, not feasibility |
+| VR provider | **MEDIUM (host) / HIGH (device)** | Host: Mixin injection + bridge handshake + stereo eye targets + submit loop PASS (EV-0059/EV-0060). Device: provider init, Vulkan eye handoff, no-runtime check **NOT RUN** (M2-W6) |
+| Input & gestures | **HIGH** | **Hands-only P0 path with no controller fallback** (G2/G3/G4 HIGH); PSVR2 is P1/DEFERRED |
 | Launcher shell | MEDIUM | visionOS UI port |
 | Accounts/downloads | LOW | Amethyst-proven logic |
 | Compliance | MEDIUM | GPL/LGPL/EULA boundaries |
@@ -405,7 +422,7 @@ Evidence IDs are allocated only by recording an entry in `VERIFY.md` §6.
 | Amethyst (app build) | 1.2.0 | Prior pin: 1.0-development. ADR-0007 records the change; EV-0001/EV-0004/EV-0005 reference 1.0-development and are retained as historical records. Upstream reference `AngelAuraMC/Amethyst-iOS`, GPL-3.0, do not commit |
 | StikDebug script | amethyst.js | Prior script: universal.js. BundleScriptMap persistence must be re-confirmed for amethyst.js |
 | Prior art (benchmark) | `rebelancap/vivecraft-visionos` | Not a dependency; no code copied |
-| OpenVR reference (external) | `/Volumes/Untitled/Projects/macstream` | Separate project (Vivecraft streaming to Quest 3): ALVR-derived OpenVR server + Vulkan layer spikes. Reference for S3/M2 OpenVR work; outside the repo, not committed |
+| Tracked external reference | `/Volumes/Untitled/Projects/macstream` | LGPL-3.0 reference project (Vivecraft streaming to Quest 3, proven no-OpenVR RemoteVR backend): design reference + **partial port into our LGPL provider** (`VisionVR`/`VisionRenderer`/bridge wiring); **no code in the GPL launcher**. Upstream commit `ec5a851c066856b0a3ca3eadc530d5ea18e88930`; outside the repo, not committed; ADR-0009 |
 
 All pins move to `versions.env` in M0; changes require an ADR.
 
@@ -418,8 +435,11 @@ All pins move to `versions.env` in M0; changes require an ADR.
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. **EV-0021 `PASS` (compat, five cold runs)** and **EV-0024 `PASS` (native visionOS, JIT26 mapping + tier 3/4 + `HELLOJIT`)**; the relabelled iOS JRE removes the fresh-xros-build need | `PASS` EV-0021 + EV-0024; S2 device render next | 3–4 wk (done inside M0) |
 | S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders (M0 gate). The 30-minute soak is an **M1 gate** (Decision 45=A) | `PASS (M0 gate)` — Host EV-0005/EV-0014; D1 capability EV-0016; render/surface/swapchain EV-0025–EV-0028; **D1 MC 26.2 world EV-0034**. Soak: NOT RUN, deferred to M1 (EV-0035 feasibility) | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
-| S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
-| S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |
+| S4a-host | Host eye-texture handoff | On macOS host, `vkGetMTLTextureMVK` export + `MTLSharedEvent` sync works and pixels are correct | `NOT RUN` | 3–5 days |
+| S4a-device | Device eye-texture handoff | Same path works on visionOS (separate gate; host PASS ≠ device PASS) | `NOT RUN` | 3–5 days |
+| S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | `NOT RUN` | 2–3 wk |
+| S5-hands | Hands-only input coverage | Full P0 action checklist from hands (sole P0 input path) | `NOT RUN` | 2–3 wk |
+| S5-controllers | PSVR2 controllers | `DEFERRED (out of MVP scope)` — P1 register, not counted at MVP exit | `DEFERRED` | P1 |
 | S6 | Perf/thermal | K2/K5 met or a documented waiver with mitigation | pending | 2–3 wk |
 
 EV-0002 records an external JIT26 demonstration on Vision Pro (`PARTIAL`). It is **context, not
@@ -440,11 +460,11 @@ ADR; it is never quietly downgraded.
 |---|---|---|---|---|
 | **M0** | Docs, skeleton, versions.env, S1/S2, S3 decision | **CLOSED 2026-10-31** — S1 PASS (EV-0021 + EV-0024); S3 CLOSED (EV-0006 + EV-0009); S2 device world render PASS (EV-0034). The 30-minute device soak (K4 precursor) is deferred to M1 and recorded in §7 M1 exit criteria. | **HIGH** | 3–4 wk |
 | **M1** | Launcher shell + install + flat MC boot | **CLOSED 2026-11-01 (EV-0057)** — fresh install → world (EV-0043), 30-minute soak (EV-0044), save/relaunch (EV-0052), W1–W7 closed/accepted (input cursor cosmetic accepted); M1_ACCEPTANCE.md matrix | MEDIUM | DONE (4–6 wk plan: `docs/mvp/M1_PLAN.md`) |
-| **M2** | Provider + Vulkan VR | Provider init, stereo eye targets, no SteamVR — **STARTED 2026-11-01 (EV-0058)**: `docs/mvp/M2_PLAN.md`, bridge ABI v1 stub, provider skeleton (S4a eye-handoff spike next) | **HIGH** | 4–5 wk |
-| **M3** | Compositor stereo + head tracking | 30-min immersive session | **HIGH** | 4 wk |
-| **M4** | Input (controllers, hands, gestures) | P0 action checklist passes | MEDIUM | 4–6 wk |
+| **M2** | Provider + Vulkan VR | **IN PROGRESS** — **M2-W4/W5 host PASS (EV-0060)**: bridge ABI v1 handshake, provider init, stereo eye targets, per-frame submit on desktop Fabric (GL ids), no SteamVR. **M2-W6 device bring-up NOT RUN**; **S4a-host NOT RUN**, **S4a-device NOT RUN**. Host progress is not device completion. | **HIGH** | 4–5 wk |
+| **M3** | Compositor stereo + head tracking | **NOT RUN** — 30-min immersive session; device stereo/head tracking unproven | **HIGH** | 4 wk |
+| **M4** | Input (**hands only**, PSVR2 is P1) | **P0 action checklist passes from hands**; no controller fallback. M4 can close on schedule; G2/G3/G4 are HIGH because hands are the sole path | MEDIUM (scope) / HIGH (gesture risk) | 4–6 wk |
 | **M5** | Gameplay loop + comfort + diagnostics | All H features pass | MEDIUM | 3–4 wk |
-| **M6** | Hardening + acceptance | AC-1…AC-6 + K gates evidenced | MEDIUM | 2–3 wk |
+| **M6** | Hardening + acceptance | AC-1…AC-6 + K gates evidenced. **AC-4 verification is hands-only**; PSVR2 is not checked at MVP exit | MEDIUM | 2–3 wk |
 
 Total ≈ 12–17 engineer-months. S1's internal reproduction is the M0 gate; S2 and the S3 decision
 also bound M0.
@@ -529,6 +549,7 @@ surfaces. README/status tables must match `VERIFY.md`.
   product commit.
 - Never commit Minecraft jars/assets, IPAs, prebuilt framework binaries, or SteamVR/OpenVR binaries.
 - Record the upstream commit/hash whenever a reference is used in a design decision.
+- **macstream** is a tracked external reference (ADR-0009): record its upstream commit, state explicitly whether code was copied/ported, and keep any ported code inside the LGPL provider — never in the GPL launcher. Current state: `VisionVR`/`VisionRenderer`/bridge wiring contain code/design derived from macstream's `RemoteVR` backend (LGPL-3.0), commit `ec5a851c…`.
 
 ### 10.5 Licensing boundaries
 - App: GPL-3.0 (derived from Amethyst). Publish corresponding source for every distributed build.
@@ -555,10 +576,12 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | JIT mechanism on visionOS (S1) | MEDIUM | Externally demonstrated (EV-0002) and host-reproduced (EV-0004, `PARTIAL`); device reproduction is the M0 gate. AOT pivot if it fails |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache inside MC (C3) | **HIGH** | EV-0002 does not cover it; runtime build and in-MC integration unproven |
 | MC Vulkan on MoltenVK fails | **HIGH** (device substrate closed; soak + M2 VR remain) | Host boot EV-0005; **device world render PASS EV-0034** via MoltenVK 1.4.3; the 30-minute soak is now an M1 gate (Decision 45=A). GL/LTW fallback |
-| Eye-texture handoff unstable | **HIGH** | S4; GPU blit fallback |
+| Eye-texture handoff unstable | **HIGH** | Split gates: **S4a-host** (macOS MoltenVK export/shared-event) and **S4a-device** (visionOS) are separate; host PASS does not imply device PASS. GPU blit fallback |
 | Performance/thermals on device | **HIGH** | Presets, 45 Hz repeat, caps |
 | JIT onboarding friction | MEDIUM | Guided setup + docs |
 | Vivecraft/MC drift | MEDIUM | Pin 26.2; version guard; injection decision: Mixin, no fork (EV-0006 + EV-0009) |
+| **Hands-only input has no fallback** | **HIGH** | Gesture recognition or tracking-loss failures become MVP blockers with no controller workaround; G2/G3/G4 raised to HIGH, S5-hands is the only S5 scope. PSVR2 is P1 (not a workaround) |
+| Provider device runtime unproven | **HIGH (device)** | Host PASS (EV-0060) only; M2-W6 device bring-up, S4a-device, Vulkan/Metal eye handoff all NOT RUN. Do not report host progress as device readiness |
 | GPL/EULA constraints | MEDIUM | Source publication, ownership gate |
 | Prior-art overlap | MEDIUM | Compete on launcher flexibility |
 
@@ -639,3 +662,6 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-11-01 | **EV-0057 (`PASS`): M1 milestone CLOSED** (fresh install→world, 30-min soak, save/relaunch; matrix in `docs/mvp/M1_ACCEPTANCE.md`). **EV-0058 (`PASS`): M2 started** — `docs/mvp/M2_PLAN.md`, bridge `vrmc_abi.h` v1 + compiled/tested stub, provider mod scaffold from S3 evidence. Next: S4a eye-texture interop spike + provider build harness. |
 | 2026-11-01 | **EV-0059 (`PASS`): M2-W1 host harness** — provider scaffold compiled/packaged and injected as `VisionVR` on desktop Fabric (Mixin redirect fired, `dh.vr is now dev.vrmc.provider.VisionVR`), failing closed with `VR provider: VRMC` and no SteamVR. **S4a static findings**: shipped MoltenVK 1.4.3 exposes `VK_EXT_metal_objects`, `vkGetMTLTextureMVK`/`vkSetMTLTextureMVK`, `MTLSharedEvent`, timeline semaphores — zero-copy eye handoff is plausible; runtime device capability check is the next gate. |
 | 2026-11-01 | **EV-0060 (`PASS`): M2 host integration** — bridge ABI v1 handshake, `VisionVR.init()` success, stereo eye targets, per-frame `vrmc_submit_eyes` on desktop Fabric (GL ids), 8400+ tracking frames, no SteamVR; provider/dylib hashes recorded. Structure adapted from **macstream's proven RemoteVR backend** (`docs/mvp/MACSTREAM_REFERENCE.md`): the external project already demonstrates a working no-OpenVR Vivecraft provider; its GL id handoff is replaced by the S4a Metal-handle path on visionOS. |
+| 2026-11-01 | **M2 review propagation + PSVR2 scope downgrade.** EV-0060 explicitly scoped as **M2-W4/W5 host PASS**; M2-W6 device bring-up and M3 are **NOT RUN** (§4.5/§6/§7/§11/VERIFY). Identity controller transforms marked **host-only**; device missing transforms must fail loudly (code comment + `provider/HOST_HARNESS.md`). macstream recorded as tracked LGPL-3.0 reference (upstream `ec5a851c…`, design + partial port into the LGPL provider, no code in the GPL launcher; ADR-0009, §1.4/§5/§10.4). **PSVR2 Sense is P1/DEFERRED, not BLOCKED**: AC-4 and §1.1/§1.2/§1.3/§1.4/§3.1/§3.2/§4.2/§4.3/§4.4/§4.5/§4.6/§6/§7/§11 updated; G2/G3/G4 → HIGH (hands-only has no fallback); S5 split into S5-hands (P0) and S5-controllers (P1); F1–F3 moved to the P1 register. VERIFY gains a `DEFERRED (out of MVP scope)` status. |
+| 2026-11-01 | ABI evolution policy added to `bridge/abi/vrmc_abi.h` + `docs/mvp/M2_PLAN.md` (§9): additive field = major bump + reject; v1 old/new mismatches fail closed; `vrmc_init(caps_json)` mismatch is a hard reject, never warn-and-continue. M2-W6 preconditions recorded (Fabric → Vivecraft → provider/bridge). |
+| 2026-11-01 | **EV-0061 (`PASS`)**: M2 review fixes (host vs device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy). **EV-0062 (`DEFERRED`)**: PSVR2 Sense controller input moved out of MVP scope to P1 (not BLOCKED); hands-only is the sole P0 input path. |

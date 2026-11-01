@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0061`.
+**Next evidence ID:** `EV-0063`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -31,6 +31,9 @@ unallocated and must not be used.
 
 **Status legend:** `PASS` · `PARTIAL` · `FAIL` · `BLOCKED` · `NOT RUN` · `N/A` (with reason).
 
+`DEFERRED (out of MVP scope)` — Feature is applicable but explicitly moved out of MVP scope. Not counted
+as PARTIAL, BLOCKED, or NOT RUN in MVP exit checks. Re-entry requires a new scope decision.
+
 ---
 
 ## 1. Scope of acceptance
@@ -42,7 +45,7 @@ VRMC is accepted only when all of the following hold on device (Apple Vision Pro
 | AC-1 | Fresh sideload → in-world in ≤ 30 min on a 100 Mbps link, using only documented steps. | `NOT RUN` |
 | AC-2 | Immersive stereo via CompositorServices: correct per-eye projection and eye order, head tracking active, 90 Hz target with graceful fallback. | `NOT RUN` |
 | AC-3 | Core play: move, turn, teleport, jump/sneak, break/place, attack/use, inventory, hotbar, crafting/chests, pause/settings, bow, climbing, save/reload. | `NOT RUN` |
-| AC-4 | Every P0 action reachable from hands; P0 actions also reachable from PSVR2 Sense; no stuck input on tracking loss. | `NOT RUN` |
+| AC-4 | Every P0 action reachable from hands; no stuck input on tracking loss. (PSVR2 controllers are **P1 / DEFERRED**, not checked at MVP exit.) | `NOT RUN` |
 | AC-5 | 60-minute session, 20 cold launches, 10 world loads, zero compositor watchdog kills. | `NOT RUN` |
 | AC-6 | No Minecraft binaries in git; ownership gate + EULA notice; GPL-3.0 source published; third-party notices complete. | `NOT RUN` |
 
@@ -122,8 +125,11 @@ EV that first evidences a test is recorded in the Status column.
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `PASS` — EV-0021 (compat: five cold launches) + EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) |
 | ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PASS (M0 gate)` — Device graphics substrate PASS (EV-0025 + EV-0026 + EV-0027); device world render PASS (EV-0034). Full 30-minute soak NOT RUN — deferred to M1 per Decision 45=A (EV-0035 is feasibility evidence). |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
+| ST-S4a-host | Host eye-texture handoff: macos MoltenVK export + shared-event sync | `vkGetMTLTextureMVK` + `MTLSharedEvent` works; pixels correct (host gate) | GPU blit | `NOT RUN` |
+| ST-S4a-device | Device eye-texture handoff: visionOS MoltenVK/Metal | Same path works on device (host PASS does **not** imply device PASS) | GPU blit | `NOT RUN` |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
-| ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
+| ST-S5-hands | Do hands drive all P0 actions (sole P0 input path)? | Full P0 action checklist from hands | **None** — no controller fallback | `NOT RUN` |
+| ST-S5-controllers | PSVR2 controllers | P1 — **DEFERRED (out of MVP scope)**, not counted at MVP exit | P1 register | `DEFERRED` |
 | ST-S6 | Do frame pacing and thermals hold? | K2/K5 met or documented waiver | Lower preset, 45 Hz lock, caps | `NOT RUN` |
 
 **S3 decision deadline:** the Mixin-vs-fork choice is made at the M0 exit gate. If the injection point
@@ -169,18 +175,21 @@ is not evidenced as stable by then, the fork fallback is approved by ADR and M2 
 
 Gesture acceptance: ≥ 90% recognition per gesture over 30 trials across 3 testers.
 
-### 4.5 Controller tests (PSVR2 Sense)
+### 4.5 Controller tests (PSVR2 Sense) — P1, `DEFERRED (out of MVP scope)`
+
+**Not run; not counted at MVP exit.** PSVR2 Sense hardware will not be purchased; re-entry requires a
+new scope decision. Hands-only tests live in §4.4.
 
 | ID | Test | Expected | Status |
 |---|---|---|---|
-| CT-01 | Detect controllers | Both tracked; type reported | `NOT RUN` |
-| CT-02 | Buttons | All mapped actions fire | `NOT RUN` |
-| CT-03 | Sticks | Walk/turn with no drift | `NOT RUN` |
-| CT-04 | Triggers | Analog range + thresholds | `NOT RUN` |
-| CT-05 | Grips | Hotbar/grab behavior | `NOT RUN` |
-| CT-06 | Haptics | Pulse on impact/use | `NOT RUN` |
-| CT-07 | Handoff controller ↔ hands | No double input; **assumption pending S5** that visionOS 27 stops hand tracking for a held controller | `NOT RUN` |
-| CT-08 | Disconnect/reconnect | Inputs release; recovery | `NOT RUN` |
+| CT-01 | Detect controllers | Both tracked; type reported | `DEFERRED (P1)` |
+| CT-02 | Buttons | All mapped actions fire | `DEFERRED (P1)` |
+| CT-03 | Sticks | Walk/turn with no drift | `DEFERRED (P1)` |
+| CT-04 | Triggers | Analog range + thresholds | `DEFERRED (P1)` |
+| CT-05 | Grips | Hotbar/grab behavior | `DEFERRED (P1)` |
+| CT-06 | Haptics | Pulse on impact/use | `DEFERRED (P1)` |
+| CT-07 | Handoff controller ↔ hands | No double input; **assumption pending S5** that visionOS 27 stops hand tracking for a held controller | `DEFERRED (P1)` |
+| CT-08 | Disconnect/reconnect | Inputs release; recovery | `DEFERRED (P1)` |
 
 ### 4.6 Soak tests
 
@@ -1677,6 +1686,55 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Artifacts:** `evidence/EV-0060/m2-bridge-run2.log`, `summary.log`, `vrmc-provider.jar`,
 `libvrmc_bridge.dylib`.
 
+### EV-0061 — M2 review fixes: host/device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:08:52-10:00 |
+| Commit | `ee81a466790e854b85eab5f9a0c32d4eac39a07b` |
+| Dirty state | GENT.md, README.md, VERIFY.md, bridge/abi/vrmc_abi.h, docs/adr/0005-input-psvr2-and-hands.md, docs/mvp/M1_ACCEPTANCE.md, docs/mvp/M2_PLAN.md, docs/mvp/MACSTREAM_REFERENCE.md, docs/mvp/MVP_SCOPE.md, docs/mvp/SPIKES.md, provider/HOST_HARNESS.md, provider/src/main/java/dev/vrmc/provider/VisionVR.java, scripts/log_evidence.sh, docs/adr/0009-macstream-tracked-reference.md |
+| Device | documentation + host harness only; device remains NOT RUN |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. apply the three required fixes and three confirmations from the M2 review
+2. update AGENT/VERIFY/M2_PLAN/SPIKES/MACSTREAM_REFERENCE/ADR-0009/bridge ABI header and the provider host-only code path
+
+**Expected:** EV-0060 explicitly host-scoped; identity fallback host-only with fail-loud device path; macstream port recorded; S4a split gates; W6 preconditions; ABI policy
+
+**Actual:** all six applied; host harness code compiled; provider jar rebuilt with -Dvrmc.hostHarness flag path; docs propagated. Device items remain NOT RUN.
+
+**Artifacts:** evidence/EV-0061/summary.log (0ba5f2374544)
+
+**Limitations:** Companion scope EV-0062 records the PSVR2 P1/DEFERRED decision.
+
+---
+
+### EV-0062 — PSVR2 Sense controller input (F1–F3) — DEFERRED (out of MVP scope), not BLOCKED
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:08:52-10:00 |
+| Commit | `ee81a466790e854b85eab5f9a0c32d4eac39a07b` |
+| Dirty state | GENT.md, README.md, VERIFY.md, bridge/abi/vrmc_abi.h, docs/adr/0005-input-psvr2-and-hands.md, docs/mvp/M1_ACCEPTANCE.md, docs/mvp/M2_PLAN.md, docs/mvp/MACSTREAM_REFERENCE.md, docs/mvp/MVP_SCOPE.md, docs/mvp/SPIKES.md, provider/HOST_HARNESS.md, provider/src/main/java/dev/vrmc/provider/VisionVR.java, scripts/log_evidence.sh, docs/adr/0009-macstream-tracked-reference.md |
+| Device | scope decision (no device run) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `DEFERRED` |
+
+**Procedure:**
+
+1. record the permanent scope decision and propagate it through the specification, ADR-0005, spikes, milestones, risks and verification docs
+
+**Expected:** PSVR2 is P1/DEFERRED; MVC/P0 scope is hands-only; no document claims controller input parity
+
+**Actual:** F1–F3 moved to the P1 register; AC-4 hands-only; M4/M6 exit hands-only; G2/G3/G4 HIGH (no fallback); ST-S5 split; DEFERRED status defined in VERIFY; ADR-0005 amended; docs propagated.
+
+**Artifacts:** evidence/EV-0062/summary.log (2ec87797eec6)
+
+**Limitations:** Re-entry requires a new scope decision. Not BLOCKED: BLOCKED would imply a future automatic resolution.
+
 ---
 
 ## 7. Status dashboard
@@ -1690,15 +1748,18 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
-| **M2 milestone** | **IN PROGRESS** | EV-0058 scaffold; EV-0059 provider substitution; **EV-0060 host: bridge handshake + provider init + stereo eye targets + submit loop (no SteamVR)**; next S4a Metal-handle path then device bring-up |
+| **M2 milestone** | **IN PROGRESS (host only)** | EV-0058 scaffold; EV-0059 provider substitution; **EV-0060 = M2-W4/W5 host PASS** (bridge handshake, provider init, stereo eye targets, submit loop, no SteamVR). **M2-W6 device bring-up NOT RUN**; **S4a-host/S4a-device NOT RUN**; **M3 NOT RUN**. Host progress is not device completion |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
+| M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
+| PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
 | M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch (EV-0040); follow-up: rotation now smooth, cursor visibility accepted cosmetic (EV-0045/EV-0047), task-2 closed |
-| Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
+| Provider integration | `PASS (host) / NOT RUN (device)` | EV-0006/EV-0009 injection; EV-0059/EV-0060 host provider+stereo loop; **device runtime (M2-W6) NOT RUN** |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
-| Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
+| Input (hands) | `NOT RUN` | ST-S5-hands pending; hands-only is the sole P0 path (G2–G4 HIGH, no controller fallback) |
+| Input (PSVR2 controllers) | `DEFERRED (out of MVP scope)` | P1 register; not counted at MVP exit |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
 | S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
 | S1b harness (native visionOS) | `PASS` | VISIONOS-relabelled JRE builds/signs (EV-0022), launches (EV-0023), and JITs + executes on D1 (EV-0024) |
@@ -1781,3 +1842,5 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 |---|---|---|---|
 | Verification owner | — | pending | — |
 | Lead | — | pending | — |
+| 2026-11-01 | **M2 review propagation + PSVR2 scope downgrade.** EV-0060 scoped as **M2-W4/W5 host PASS**; M2-W6 device bring-up and M3 are **NOT RUN**; S4a split into host/device gates. Identity controller transforms marked **host-only** (device missing data fails loudly). macstream is a tracked LGPL-3.0 reference (upstream `ec5a851c…`, design + partial provider port, no code in the GPL launcher; ADR-0009). PSVR2 Sense = **P1 / DEFERRED (out of MVP scope)**, not BLOCKED: F1–F3 moved to P1, AC-4/§1/§3/§4/§6/§7/§11 updated, G2/G3/G4 → HIGH (hands-only has no fallback), ST-S4/ST-S5 split. New status `DEFERRED (out of MVP scope)` added to the legend. Next ID `EV-0062`. |
+| 2026-11-01 | **EV-0061 (`PASS`): M2 review fixes applied** (host/device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy). **EV-0062 (`DEFERRED`): PSVR2 Sense controller input — out of MVP scope (P1), not BLOCKED.** Next ID `EV-0063`. |

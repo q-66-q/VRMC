@@ -7,7 +7,7 @@ This file records scope decisions and boundaries; it does not duplicate feature 
 
 A user installs VRMC on Apple Vision Pro, signs in with Microsoft (or uses Offline), installs
 Minecraft 26.2 + Fabric + Vivecraft from the launcher, enters a world, and plays in head-tracked
-stereo with hands — and with PlayStation VR2 Sense controllers when present — for an hour, with no
+stereo with hands for an hour, with no
 PC involved.
 
 ## In scope (P0 count: 65 features, rated in AGENT §4.3)
@@ -19,7 +19,7 @@ PC involved.
 | Game install | Pinned 26.2, verified/resumable downloads, Java 25 runtime, memory config, Fabric 0.19.3, Vivecraft 26.2-1.3.15, provider jar, Files import/export |
 | Graphics | MC Vulkan via MoltenVK, flat window mode, immersive stereo, head tracking, frame pacing + 45 Hz fallback, resolution presets, debug overlay |
 | VR provider | `VisionVR` selection without SteamVR, stereo renderer, action data for all API-visible actions, haptics, IPD/eye offsets/play area |
-| Controllers | PSVR2 Sense when available: poses, buttons/sticks/triggers/grips, Touch-style mapping, per-hand takeover |
+| Controllers | **P1 (post-MVP, out of MVP scope):** PSVR2 Sense poses/buttons/sticks/triggers/grips, Touch-style mapping, per-hand takeover. Not purchased; permanent scope decision — **DEFERRED**, not BLOCKED |
 | Hands | 27-joint skeleton, gesture profile with hysteresis, virtual stick/snap turn/teleport, tracking-loss release, calibration |
 | Gameplay | Continue/title/create, locomotion + teleport, seated/standing, interactions, inventory/crafting/chests, pause/options/death, visible hands/items, bow, climbing, save/reload |
 | Launcher UX | Home, settings, progress/errors, diagnostics/log export |
@@ -45,10 +45,10 @@ custom spatial accessories; localization; cloud save; App Store feasibility stud
 1. **One pinned stack** (26.2 / Fabric 0.19.3 / Vivecraft 26.2-1.3.15) — ADR-0002.
 2. **Vulkan/MoltenVK is the primary graphics path** — ADR-0003.
 3. **Vivecraft stays unmodified by default; provider via LGPL Mixin mod** — ADR-0004.
-4. **PSVR2 Sense first-class; hands-only is the accepted degradation** — ADR-0005.
+4. **Hands-only MVP** — ADR-0005 (amended 2026-11-01); PSVR2 Sense is P1, out of MVP scope.
 5. **Sideload-only, GPL-3.0 app, ownership gate** — ADR-0006.
 6. **One default instance**; multiple instances are P1.
-7. **Hands-only MVP is acceptable** if no PSVR2 Sense hardware is available for testing; F1–F3 then
+7. **Hands-only MVP is the plan** (PSVR2 hardware will not be purchased); F1–F3 are
    move to P1.
 
 ## Success criteria

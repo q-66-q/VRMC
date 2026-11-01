@@ -1,7 +1,22 @@
 #ifndef VRMC_ABI_H
 #define VRMC_ABI_H
 /*
- * VRMC native bridge ABI v1 (AGENT.md §3.4).
+ * VRMC native bridge ABI (AGENT.md §3.4).
+ *
+ * ABI EVOLUTION POLICY (binding from M2; see docs/mvp/M2_PLAN.md §9):
+ * 1. ANY struct layout/field/function signature change bumps VRMC_ABI_VERSION by a major version,
+ *    including additive fields (struct sizes are part of the contract; no "optional field in v1").
+ * 2. Unknown/mismatched major => FAIL CLOSED. vrmc_init returns an error and the provider aborts VR
+ *    initialization with a visible message. vrmc_init(caps_json) version mismatch is a hard reject,
+ *    never warn-and-continue.
+ * 3. No cross-version compatibility window: v1 provider + v2 bridge and v2 provider + v1 bridge both
+ *    fail; a v1->v2 transition ships provider + bridge in the same app build.
+ * 4. Capabilities are negotiated in caps_json; absence of a required capability fails closed. Adding a
+ *    capability string without a layout change is not a version bump.
+ * 5. Removal/deprecation only in the next major bump; one major version of documented overlap is
+ *    allowed by keeping both symbols.
+ *
+ * VRMC native bridge ABI v1 details:
  *
  * The JVM-side provider mod talks to the visionOS bridge through these C entry points (JNI wrapper on
  * the Java side). The ABI is versioned and FAILS CLOSED: an unknown version or a missing capability must

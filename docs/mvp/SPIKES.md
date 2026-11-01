@@ -11,8 +11,11 @@ Status at time of writing (2026-10-31): S1 `NOT RUN` (external `PARTIAL`, EV-000
 | S1 | Can a reference JVM JIT on D1 under JIT26? | MEDIUM | — | AOT pivot |
 | S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | **HIGH** | S1 for device run; macOS pre-test independent | GL/LTW→ANGLE |
 | S3 | Is the Vivecraft provider injection point real and stable? | MEDIUM | — (static + desktop JVM) | Fork via ADR |
-| S4 | Can eye textures reach CompositorServices reliably? | **HIGH** | S2 | GPU blit, then readback |
-| S5 | Do PSVR2 + hands drive all P0 actions? | MEDIUM | S3/S4 | Hands-only MVP |
+| S4a-host | Eye-texture handoff, host stage (macOS MoltenVK export + shared event) | **HIGH** | S2 | GPU blit |
+| S4a-device | Eye-texture handoff, device stage (visionOS; host PASS ≠ device PASS) | **HIGH** | S4a-host | GPU blit |
+| S4 | Can eye textures reach CompositorServices reliably? | **HIGH** | S4a-device | GPU blit, then readback |
+| S5-hands | Do hands drive all P0 actions (sole P0 input path) | **HIGH** | S3/S4 | None — no controller fallback |
+| S5-controllers | PSVR2 controllers | MEDIUM | — | **DEFERRED (out of MVP scope)** — P1 |
 | S6 | Do frame pacing and thermals hold? | **HIGH** | S2/S4/S5 | Lower preset, 45 Hz lock |
 
 ## S1 — JIT mechanism, internal reproduction
@@ -216,21 +219,22 @@ deadline misses that trip the watchdog, evidence recorded.
 
 **Timebox.** 2–3 weeks.
 
-## S5 — Input coverage
+## S5 — Input coverage (hands-only P0; PSVR2 controllers P1/DEFERRED)
 
-**Question.** Do PSVR2 Sense and hand gestures drive every P0 action?
+**Question.** Do hand gestures drive every P0 action (the sole P0 input path)?
 
 **Steps.**
 1. Inventory the P0 actions from `AGENT.md` §4.3 (F/G/H) into a checklist.
-2. Implement the PSVR2 profile and the gesture profile; expose a debug overlay.
-3. Run the checklist in controller mode and in hands-only mode; record failures.
-4. Run tracking-loss and takeover tests (HT/CT suites).
+2. Implement the gesture profile; expose a debug overlay.
+3. Run the checklist hands-only; record failures.
+4. Run tracking-loss tests (HT suite). CT (PSVR2) is `DEFERRED (out of MVP scope)`.
 5. Measure gesture recognition over 30 trials per gesture across 3 testers (≥ 90%).
 
-**Pass criteria.** Full checklist passes in both modes (or hands-only accepted if no controllers),
-no stuck inputs, gesture bar met.
+**Pass criteria.** Full checklist passes from hands, no stuck inputs, gesture bar met. **No controller
+fallback exists**; G2/G3/G4 are HIGH.
 
-**Fallback.** Hands-only MVP; controllers move to P1.
+**Fallback.** None for hands (this is the accepted MVP path). PSVR2 controllers remain P1/DEFERRED; a
+re-entry needs a new scope decision.
 
 **Timebox.** 2–3 weeks.
 

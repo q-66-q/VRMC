@@ -1,6 +1,8 @@
 # macstream reference — proven “no OpenVR” Vivecraft backend (external)
 
 Source: `/Volumes/Untitled/Projects/macstream` (separate project, outside this repo, not committed).
+Upstream commit: `ec5a851c066856b0a3ca3eadc530d5ea18e88930` (2026-10-24, Phase 9 S9.1 complete).
+License: LGPL-3.0 (Vivecraft derivative). Tracked reference: ADR-0009.
 It streams Vivecraft from macOS to a Quest 3 without SteamVR and already has an end-to-end working
 build. This note records what we reuse for VRMC M2 and what must differ on visionOS.
 
@@ -49,9 +51,11 @@ build. This note records what we reuse for VRMC M2 and what must differ on visio
 
 ## 4. License
 
-macstream’s `spike/vivecraftmod` is a derivative of Vivecraft (LGPL-3.0). Any code adapted into our
-`provider/` stays LGPL-3.0 with notices; never copied into the GPL launcher shell. Our provider remains
-a separate published artifact (ADR-0004/ADR-0006).
+macstream’s `spike/vivecraftmod` is a derivative of Vivecraft (LGPL-3.0). **Status: `VisionVR`,
+`VisionRenderer` and the bridge wiring contain code/design derived from macstream (`RemoteVR`,
+`RemoteVRStereoRenderer`), LGPL-3.0, upstream commit `ec5a851c…`.** That code stays in our LGPL provider
+with notices; **no macstream/derived code enters the GPL launcher**. The provider remains a separate
+published artifact (ADR-0004/ADR-0006, ADR-0009).
 
 ## 5. Concrete next uses in M2
 

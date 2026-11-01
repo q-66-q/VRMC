@@ -30,7 +30,9 @@ import java.util.List;
  */
 public class VisionVR extends MCVR {
     private static final int TRACKING_BYTES = VrmcBridge.TRACKING_BYTES;
+    /** Host harness only: no real controllers exist, so identity component transforms are correct. */
     private static final Matrix4f IDENTITY = new Matrix4f();
+    private static final boolean HOST_HARNESS = Boolean.getBoolean("vrmc.hostHarness");
     private final ByteBuffer tracking = ByteBuffer.allocateDirect(TRACKING_BYTES).order(ByteOrder.nativeOrder());
     private final Quaternionf rot = new Quaternionf();
     private boolean bridgeReady;
@@ -148,7 +150,18 @@ public class VisionVR extends MCVR {
     @Override protected ControllerType findActiveBindingControllerType(KeyMapping keyMapping) { return null; }
     @Override public Vector2fc getPlayAreaSize() { return new Vector2f(1.0F, 1.0F); }
     @Override public void refreshControllerTransforms() { /* M3/M4 */ }
-    @Override public Matrix4fc getControllerComponentTransform(int controllerIndex, String componentName) { return IDENTITY; }
+    @Override public Matrix4fc getControllerComponentTransform(int controllerIndex, String componentName) {
+        // Host-only fallback (no real controller/hand data exists in the harness). On device, a null
+        // transform means tracking data is missing: fail loudly instead of silently returning identity,
+        // which would look like "hands in the wrong place" and hide the real defect.
+        if (HOST_HARNESS) {
+            return IDENTITY;
+        }
+        String msg = "VRMC: missing controller/hand transform on device (controller=" + controllerIndex
+            + ", component=" + componentName + "); tracking data missing (identity fallback is host-only)";
+        System.out.println("[VRMC-M2][FATAL] " + msg);
+        throw new IllegalStateException(msg);
+    }
     @Override public List<Long> getOrigins(VRInputAction action) { return List.of(); }
     @Override public String getOriginName(long origin) { return "VRMC"; }
     @Override public VRRenderer createVRRenderer() { return new VisionRenderer(this); }

@@ -28,6 +28,11 @@ Fallback if runtime capability checks fail on visionOS (e.g. iOS restrictions on
 or a Metal compute/blit pass on the exported handle). Cost: one full-screen copy per eye per frame;
 acceptable for M2, revisit in S6 perf.
 
+## Gates (separate — host PASS does not imply device PASS)
+
+- **S4a-host:** macOS MoltenVK export + `MTLSharedEvent` sync works; pixels correct.
+- **S4a-device:** the same path works on visionOS (separate EV required).
+
 ## Next steps (host, then device)
 
 1. Host spike with MoltenVK on macOS: create a `VkImage`, export its `MTLTexture`, render into it from

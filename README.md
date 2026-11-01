@@ -1,7 +1,7 @@
 # VRMC — Minecraft VR on Apple Vision Pro
 
 VRMC runs **Minecraft: Java Edition 26.2 + Fabric + the real Vivecraft mod** natively on Apple
-Vision Pro, with head-tracked stereo, hand-tracked input, and PlayStation VR2 Sense controllers
+Vision Pro, with head-tracked stereo and hand-tracked input (PSVR2 controllers are P1, post-MVP)
 when present. No PC, no streaming.
 
 > **Status: M0 (specification, spikes, and skeleton).** No product build exists yet. Status claims
@@ -18,7 +18,7 @@ when present. No PC, no streaming.
 - **VR integration:** an LGPL companion mod Mixins Vivecraft's provider selection and implements
   `MCVR`/`VRRenderer` for CompositorServices; Vivecraft stays unmodified unless S3 proves Mixin
   injection unstable.
-- **Input:** PSVR2 Sense first-class, hand gestures as fallback, per-hand takeover.
+- **Input:** hands-only MVP (ARKit 27-joint tracking + gestures). PSVR2 Sense is P1, post-MVP — not claimed as MVP input parity.
 - **Evidence:** every `PASS` needs an entry in [`VERIFY.md`](VERIFY.md) §6. Simulator is never
   evidence for hands, stereo optics, thermals, or latency.
 
