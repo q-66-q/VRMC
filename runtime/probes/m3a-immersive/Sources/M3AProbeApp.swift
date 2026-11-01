@@ -8,7 +8,7 @@ struct ProbeLayerConfiguration: CompositorLayerConfiguration {
     func makeConfiguration(capabilities: LayerRenderer.Capabilities,
                            configuration: inout LayerRenderer.Configuration) {
         configuration.layout = .dedicated
-        configuration.isFoveationEnabled = capabilities.supportsFoveation
+        configuration.isFoveationEnabled = false // gate-2 test: avoid rasterization-rate-map requirements
         configuration.colorFormat = .rgba16Float
     }
 }
@@ -38,7 +38,7 @@ struct M3AProbeApp: App {
         }
         ImmersiveSpace(id: "probe") {
             CompositorLayer(configuration: ProbeLayerConfiguration()) { layerRenderer in
-                model.renderLoop(layerRenderer)
+                VRMCProbe_InitAndRun(layerRenderer)
             }
         }
         .immersionStyle(selection: .constant(.full), in: .full)

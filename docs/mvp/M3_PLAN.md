@@ -1,6 +1,6 @@
 # M3 plan — Compositor stereo + head tracking (started 2026-11-01)
 
-Status: **IN PROGRESS** — gate 1 **PASS (EV-0071)**; gate 2 **PARTIAL (EV-0072)**: immersive space opens and the CompositorServices loop runs (2700+ frames, no crash), but stereo content is not presented (passthrough) and ARKit anchor/presentation-time wiring is missing. M2 CLOSED (EV-0070). M3 turns the provider's two exported `MTLTexture`s into an
+Status: **IN PROGRESS** — gate 1 **PASS (EV-0071)**; gate 2 **PARTIAL (EV-0072/EV-0073)**: immersive space opens and the CompositorServices loop runs (2700+ frames, no crash), but stereo content is not presented (passthrough) and ARKit anchor/presentation-time wiring is missing. M2 CLOSED (EV-0070). M3 turns the provider's two exported `MTLTexture`s into an
 **immersive CompositorServices stereo view with real head tracking**.
 
 ## 0. Architectural gate (M3a) — native visionOS app required
@@ -73,8 +73,10 @@ Options considered (ADR-0010):
 - Native immersive space + `CompositorLayer` + Metal render loop work (2700+ frames, no crash).
 - Fixed three crash modes: premature `endSubmission` (`__BUG_IN_CLIENT__`), missing
   `cp_drawable_encode_present`, main-thread blocking (scene-update watchdog).
-- **Not yet:** passthrough is visible instead of the per-eye test colors, and ARKit device-anchor
-  queries fail. Next iteration ports the loop to the Apple C sample shape:
+- **Verified by readback (EV-0073):** the per-eye render path is correct — eye0 pixel is
+  r=0.800/g=0.050/b=0.050/a=1.000, view count 2, 1888×1792 rgba16Float, command buffer completes with
+  no error. Remaining blocker: **presentation** — with the ARKit anchor set the user sees black, without
+  it passthrough. Next iteration ports/compares the remaining layer/drawable setup:
   `predict_timing` → `start_update/end_update` → wait `optimal_input_time` → `start_submission` →
   `query_drawable` → `cp_drawable_set_device_anchor` → render → `cp_drawable_encode_present` → commit →
   `end_submission`, with `cp_time_to_cf_time_interval` for the ARKit timestamp.
