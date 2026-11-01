@@ -77,11 +77,11 @@ comfort polish.
 - Hardware is available: a paired Apple Vision Pro (`RealityDevice14,1`, N301AP, 1 TB, visionOS 27.2
   reported) and a Mac build host (MacBook Pro Mac16,7, Apple M4 Pro, 24 GB, macOS 27.0.1,
   Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
-- Spike progress: S1 host pre-test `PARTIAL` (EV-0004); S2 host boot `PARTIAL` (EV-0005); S3
+- Spike progress: S1 host pre-test `PARTIAL` (EV-0004); **S1a `PASS (compat)` (EV-0021: five cold runs
+  with JIT26 mappings, tier 3/4 compiles, `HELLOJIT`, exit 0)**; S2 host boot `PARTIAL` (EV-0005); S3
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
-  fork); S1a harness scaffolded (EV-0007), device build `BLOCKED` (EV-0008: AVP must be unlocked).
-  S3's M0 gate is closed; S1a's console harness starts the JVM on D1 (EV-0018) but JIT was not active in
-  the post-patch launches (EV-0019); S2 device capability passed (EV-0016), render stages `NOT RUN`.
+  fork); S1a scaffold EV-0007. S3's M0 gate is closed; S1's internal reproduction gate is now met in
+  compatibility mode; S1b native xros and S2 device render remain `NOT RUN`.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -189,7 +189,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | ID | Feature | Hardness | Note |
 |---|---|---|---|
 | A1 | Sideload install (SideStore/IPA) + first-run wizard | MEDIUM | External sideload tooling is the dependency |
-| A2 | JIT launch flow + guided readiness | MEDIUM | External JIT26 requires a debugger-prepared memory step per launch (EV-0002), so the productization case is the per-launch ritual. Still open: M2/M5 coverage, persistence across kill/reboot, distribution closure, failure UX. LOW only if provisioning persists; back to HIGH if our app cannot use the protocol. **S1a criterion 4 (cold-relaunch reproduction or proven persistence) makes the LOW/MEDIUM call** |
+| A2 | JIT launch flow + guided readiness | MEDIUM | External JIT26 requires a debugger-prepared memory step per launch (EV-0002), so the productization case is the per-launch ritual. Still open: M2/M5 coverage, persistence across kill/reboot, distribution closure, failure UX. LOW only if provisioning persists; back to HIGH if our app cannot use the protocol. **Criterion 4 is met (EV-0021: five cold relaunches), but provisioning is not persistent — StikDebug needs `universal.js` assigned to the app per install and a per-launch enabler — so A2 stays MEDIUM.** |
 | A3 | Hand-tracking permission + denial handling | LOW | Standard ARKit authorization |
 | A4 | Launcher → game window → immersive entry prompt | LOW | One immersive space; do not auto-immerse |
 | A5 | Boot progress, phase log, timing | LOW | — |
@@ -329,7 +329,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 
 | Spike | Question | Hardness | Status | Fallback |
 |---|---|---|---|---|
-| S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `NOT RUN` — external `PARTIAL` (EV-0002) + host `PARTIAL` (EV-0004) | Pivot to AOT; launcher scope reduces |
+| S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `PASS (compat)` — EV-0021: five cold runs, tier 3/4, clean exit; S1b native xros pending | Pivot to AOT; launcher scope reduces |
 | S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `NOT RUN` — host boot `PASS` for host stage (EV-0005); device pending | GL/LTW→ANGLE path |
 | S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
 | S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
@@ -344,7 +344,7 @@ spike changes status, apply §4.7 in the same commit.
 
 | Subsystem | Hardness | Why |
 |---|---|---|
-| JIT mechanism (S1) | MEDIUM | JIT26 demonstrated externally (EV-0002); host pre-test EV-0004; device reproduction pending |
+| JIT mechanism (S1) | MEDIUM | JIT26 executed on D1 in compatibility mode (EV-0021: five cold runs, tier 3/4, exit 0); native xros (S1b) pending |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache (C3) | **HIGH** | Runtime build and in-MC integration unproven |
 | Graphics translation | **HIGH** | Host boot verified (EV-0005); visionOS MoltenVK built (EV-0010); xros LWJGL/GLFW stack unproven |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
@@ -400,7 +400,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
-| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002/0004/0007 external/host/scaffold; EV-0018 shows the console harness starts the JVM and traps at the JIT26 request without an enabler | EV-0018 device control run; JIT-enabler EV pending (patched 0x69 script) | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
+| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. **EV-0021 `PASS (compat)`**: five cold runs with mapping, tier 3/4, `HELLOJIT`, exit 0; S1b native xros pending | `PASS (compat)` EV-0021; S1b native xros next | 3–4 wk (S1a ~1 wk done, S1b 1.5–3 wk) |
 | S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 boot + EV-0014 21-min world + EV-0010/0012/0013 xros + EV-0016 D1 capability PASS; device render pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
@@ -436,8 +436,9 @@ also bound M0.
 
 **M0 timing and exit rule.** M0 is **evidence-gated, not calendar-gated**. Target 3–4 weeks with S3
 run in parallel and the AVP provisioning profile started early. If the calendar slips, M0 may close
-only when all three gates pass — S1 internal EV, S2 device pass, S3 decision — plus a written
-documentation-convergence plan. No `NOT RUN` item may be presented as passed.
+only when all three gates pass — S1 internal EV (**compat PASS**, EV-0021), S2 device pass, S3
+decision — plus a written documentation-convergence plan. S2 device render/soak remains open; no
+`NOT RUN` item may be presented as passed.
 
 ---
 
@@ -580,3 +581,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0017/0018: fixed the S1a harness by calling `JLI_Launch` from `main()` (no UI); console harness starts the JVM and traps at `BreakGetJITMapping` without an enabler. Patched StikDebug `universal.js` for allocation-style `0x69`; JIT run pending. |
 | 2026-10-31 | EV-0019 (`FAIL`): post-patch launches still trap at the JIT26 request; JIT was not active (Home launch or script not applied). Script-selection/launch-flow confirmation is the next step. |
 | 2026-10-31 | EV-0020 (`FAIL`, BLOCKED): StikDebug attaches/detaches without JIT26 preparation even with all four scripts patched; S1a device JIT is blocked pending an enabler decision (Apparition / custom enabler / AOT). |
+| 2026-10-31 | **EV-0021 (`PASS (compat)`): S1 gate closed in compatibility mode** — assign `universal.js` to the app in StikDebug and use the harness JIT26 extension handshake; five cold launches got JIT26 mappings, compiled tier 3/4 and executed `HELLOJIT` with clean exits. S1b native xros and S2 device render remain open; A2 stays MEDIUM. |

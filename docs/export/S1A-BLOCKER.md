@@ -126,3 +126,23 @@ Expected when it works: the app log shows `[JIT26] … mapping at RW=…,RX=…`
   only for diagnosis**; they are not part of our product and must not be redistributed as part of a
   non-AGPL product.
 - No Minecraft assets, binaries, or mod jars are included in this bundle.
+
+
+---
+
+## 10. Resolution (2026-10-31, later the same day)
+
+Resolved without changing the JIT mechanism:
+
+1. **StikDebug needs a script assigned to the specific app.** Long-press the app in StikDebug →
+   **Assign Script** → `universal.js`. Without that assignment StikDebug launches, attaches and
+   detaches without running the script.
+2. **The harness performs the JIT26 handshake** (`runtime/probes/s1a/main.c`): it waits for an
+   attached debugger (`CS_DEBUGGED` and `getppid() != 1`), probes the legacy `brk #0x69`, detects
+   `universal.js`'s `0xE0000069` refusal, and sends a JIT26 extension script via `brk #0xf00d`
+   (`x16 = 2`) that maps `0x69` (`x0 = size`) to `JIT26PrepareRegion(NULL, size)` and detaches after
+   the first breakpoint (`x16 = 3`).
+
+Result (evidence `EV-0021`): five cold launches on D1 logged `[JIT26] Requesting 64 MB`,
+`Got JIT mapping 0x…`, tier 3/4 compiles, `HELLOJIT iterations=200000000 …`, and
+`JLI_Launch returned 0`. S1a is `PASS (compat)`; S1b (native visionOS) is still pending.
