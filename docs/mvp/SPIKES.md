@@ -117,7 +117,7 @@ visionOS?
 **Plan.**
 1. macOS pre-test: force Vulkan, capture backend lines (done, EV-0005); world render reached and ran 21 min cleanly (EV-0014); a full 30-minute soak is still required.
 2. Pin MoltenVK (v1.4.2) and build the xros slice; record commit + log. **Done (EV-0010):** `xros-arm64`, platform VISIONOS, minos 27.2.
-3. Run the capability probe on D1 (same 5 extensions + 9 features) and record the JSON. **Probe app built (EV-0013)**; run pending the app-slot decision.
+3. Run the capability probe on D1 (same 5 extensions + 9 features) and record the JSON. **Built (EV-0013) and run on D1 (EV-0016): all 5 extensions + 9 features present; Apple M2 / MoltenVK 1.4.2.**
 4. Build/retag LWJGL 3.4.1 xros natives (liblwjgl, shaderc, spvc, vma, freetype, stb, tinyfd, openal);
    load test. **Retag done (EV-0012):** 12 dylibs platform VISIONOS; load test and jemalloc substitution pending.
 5. GLFW stub + `MacosUtil` shadow + CAMetalLayer + `org.lwjgl.vulkan.libname`; boot to title on D1

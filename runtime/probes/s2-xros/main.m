@@ -24,22 +24,15 @@ static NSString *gLogPath;
 }
 @end
 
-@interface ProbeAppDelegate : UIResponder <UIApplicationDelegate>
-@property (nonatomic, strong) UIWindow *window;
-@end
+static UIWindow *gWindow;
 
-@implementation ProbeAppDelegate
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+static void s2probe_start(void) {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     gLogPath = [paths.firstObject stringByAppendingPathComponent:@"s2-probe.log"];
     freopen(gLogPath.UTF8String, "a", stdout);
     freopen(gLogPath.UTF8String, "a", stderr);
     setvbuf(stdout, NULL, _IONBF, 0);
-
-    self.window = [[UIWindow alloc] initWithFrame:CGRectZero];
-    self.window.rootViewController = [ProbeViewController new];
-    [self.window makeKeyAndVisible];
-
+    setvbuf(stderr, NULL, _IONBF, 0);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSString *lib = [[NSBundle mainBundle] pathForResource:@"libMoltenVK" ofType:@"dylib" inDirectory:@"Frameworks"];
         int rc = -1;
@@ -50,12 +43,35 @@ static NSString *gLogPath;
         }
         printf("probe rc=%d\n", rc);
         fflush(stdout);
+        fflush(stderr);
         dispatch_async(dispatch_get_main_queue(), ^{
-            ProbeViewController *vc = (ProbeViewController *)self.window.rootViewController;
+            ProbeViewController *vc = (ProbeViewController *)gWindow.rootViewController;
             vc.label.text = [NSString stringWithFormat:@"VRMC S2 MoltenVK probe\nrc=%d\n%@", rc, gLogPath];
         });
     });
+}
+
+@interface ProbeAppDelegate : UIResponder <UIApplicationDelegate>
+@end
+
+@implementation ProbeAppDelegate
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
     return YES;
+}
+@end
+
+@interface S2SceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property (nonatomic, strong) UIWindow *window;
+@end
+
+@implementation S2SceneDelegate
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session
+      options:(UISceneConnectionOptions *)connectionOptions {
+    gWindow = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
+    gWindow.rootViewController = [ProbeViewController new];
+    [gWindow makeKeyAndVisible];
+    self.window = gWindow;
+    s2probe_start();
 }
 @end
 

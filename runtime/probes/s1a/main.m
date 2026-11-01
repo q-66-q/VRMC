@@ -44,7 +44,7 @@ static void open_log(void) {
 
 static int run_java(void) {
     NSBundle *bundle = [NSBundle mainBundle];
-    NSString *jre = [bundle pathForResource:nil ofType:nil inDirectory:@"Frameworks/jre"];
+    NSString *jre = [bundle.bundlePath stringByAppendingPathComponent:@"Frameworks/jre"];
     if (jre == nil) {
         vrmc_log(@"JRE not found at Frameworks/jre");
         return 2;
@@ -69,7 +69,7 @@ static int run_java(void) {
     setenv("JAVA_HOME", jre.UTF8String, 1);
     setenv("HACK_IGNORE_START_ON_FIRST_THREAD", "1", 1);
 
-    NSString *classes = [bundle pathForResource:nil ofType:nil inDirectory:@"Resources/s1a"];
+    NSString *classes = [bundle.bundlePath stringByAppendingPathComponent:@"s1a"];
     NSString *libPath = [jre stringByAppendingPathComponent:@"lib"];
     NSString *homeArg = [@"-Djava.home=" stringByAppendingString:jre];
     NSString *libArg = [@"-Djava.library.path=" stringByAppendingString:libPath];
@@ -114,26 +114,41 @@ static int run_java(void) {
 }
 @end
 
+static UIWindow *gWindow;
+
+static void s1a_start(void) {
+    open_log();
+    vrmc_log(@"launch: iOS %@ on %@", UIDevice.currentDevice.systemVersion, UIDevice.currentDevice.model);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        int rc = run_java();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            S1AViewController *vc = (S1AViewController *)gWindow.rootViewController;
+            vc.label.text = [NSString stringWithFormat:@"VRMC S1a JIT probe\nJLI_Launch rc=%d\n%@", rc, gLogPath];
+        });
+    });
+}
+
 @interface S1AAppDelegate : UIResponder <UIApplicationDelegate>
-@property (nonatomic, strong) UIWindow *window;
 @end
 
 @implementation S1AAppDelegate
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
-    open_log();
-    vrmc_log(@"launch: iOS %@ on %@", UIDevice.currentDevice.systemVersion, UIDevice.currentDevice.model);
-    self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-    self.window.rootViewController = [S1AViewController new];
-    [self.window makeKeyAndVisible];
-
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        int rc = run_java();
-        dispatch_async(dispatch_get_main_queue(), ^{
-            S1AViewController *vc = (S1AViewController *)self.window.rootViewController;
-            vc.label.text = [NSString stringWithFormat:@"VRMC S1a JIT probe\nJLI_Launch rc=%d\n%@", rc, gLogPath];
-        });
-    });
     return YES;
+}
+@end
+
+@interface S1ASceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property (nonatomic, strong) UIWindow *window;
+@end
+
+@implementation S1ASceneDelegate
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session
+      options:(UISceneConnectionOptions *)connectionOptions {
+    gWindow = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
+    gWindow.rootViewController = [S1AViewController new];
+    [gWindow makeKeyAndVisible];
+    self.window = gWindow;
+    s1a_start();
 }
 @end
 

@@ -31,7 +31,13 @@ targets:
         UIDeviceFamily: [1, 2]
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities: [arm64]
-        MinimumOSVersion: "14.0"
+        MinimumOSVersion: "15.0"
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default
+                UISceneDelegateClassName: S1ASceneDelegate
     postBuildScripts:
       - name: Compile HelloJit and embed JRE
         shell: /bin/bash

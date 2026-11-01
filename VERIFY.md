@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0016`.
+**Next evidence ID:** `EV-0017`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `NOT RUN` (host `PARTIAL` EV-0004; device app installs but crashed on UIScene adoption before JVM start, EV-0015; fix + JIT-enabler run pending) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005, world session 21 min EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; device pending) |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; **D1 capability PASS EV-0016**; device render/soak pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -801,6 +801,40 @@ start is unverified. Fix: adopt UIScene in both probe apps, then re-run the cont
 
 **Limitations:** control run only; no JIT enabled. The device JIT26 execution is still `NOT RUN`.
 
+### EV-0016 — S2 device capability probe: MoltenVK 1.4.2 on visionOS exposes all MC 26.2 requirements (Apple M2)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T14:17:10-10:00 |
+| Commit | `53c9de17822dbc7874ad675174a300fde8021017` |
+| Dirty state | `runtime/probes/` (UIScene fixes) |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, **Apple M2**) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. Build the native visionOS probe with UIScene adoption, MoltenVK and the retagged natives embedded.
+2. Sign the embedded dylibs with the development identity and re-sign the app with its Xcode
+   entitlements (the first run failed: "missing code signature").
+3. Install and launch on D1; pull `Documents/s2-probe.log`.
+4. Check the five required device extensions, nine required features, and push-descriptor limits.
+
+**Expected:** all MC 26.2 required extensions and features are present on visionOS.
+
+**Actual:** MoltenVK **1.4.2**; **Apple M2 GPU**; apiVersion 1.2.357; driverID 14 (MoltenVK);
+**5/5 required extensions OK** (dynamic_rendering, push_descriptor, synchronization2,
+vertex_attribute_divisor, swapchain); **9/9 required features = 1**; `maxPushDescriptors=287`;
+`VK_EXT_metal_objects` present; `VK_EXT_multi_draw` absent (optional).
+
+**Artifacts:** `evidence/EV-0016/s2-probe.log` (4c9ef9b7902f);
+`evidence/EV-0016/s2probe-build5.log` (a70bdd783e26);
+`evidence/EV-0016/s2probe-launch4.log` (dd0bf9105d6e);
+`evidence/EV-0016/probe_mvk.c` (04a6f2247a05); `evidence/EV-0016/probe-main.m` (a39cc0704b2c).
+
+**Limitations:** capability only. No swapchain/window or MC render on D1 yet; the probe did not enable
+surface extensions, so surface support is not assessed. Device is **M2**; M5 is not covered.
+
 ---
 
 ## 7. Status dashboard
@@ -812,7 +846,7 @@ start is unverified. Fix: adopt UIScene in both probe apps, then re-run the cont
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot EV-0005 + 21-min world session EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; device pending |
+| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; **D1 capability PASS EV-0016**; device render pending |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -854,7 +888,8 @@ start is unverified. Fix: adopt UIScene in both probe apps, then re-run the cont
 | 2026-10-31 | EV-0012: 12 LWJGL/helper dylibs retagged to platform VISIONOS (MoltenVK from EV-0010); load test pending. |
 | 2026-10-31 | EV-0013: visionOS S2 probe app builds and signs with MoltenVK + retagged natives embedded; install pending the app-slot decision. |
 | 2026-10-31 | EV-0014: host MC 26.2 world rendered through Vulkan/MoltenVK for 21 minutes, clean shutdown; full 30-min soak still pending. |
-| 2026-10-31 | Amethyst removed with approval; S1AProbe installed on D1. EV-0015 control run: embedded JRE runs and traps at the JIT26 request without an enabler. Next ID `EV-0016`. |
+| 2026-10-31 | Amethyst removed with approval; S1AProbe installed on D1. EV-0015 corrected: UIScene-adoption crash, not JIT26. |
+| 2026-10-31 | EV-0016 (`PASS`, D1): MoltenVK 1.4.2 on visionOS/Apple M2 exposes all 5 required extensions and 9 required features; maxPushDescriptors=287. Device render still pending. Next ID `EV-0017`. |
 
 ---
 

@@ -26,6 +26,12 @@ targets:
         CFBundleDisplayName: S2Probe
         UIDeviceFamily: [7]
         UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default
+                UISceneDelegateClassName: S2SceneDelegate
     postBuildScripts:
       - name: Embed xros natives
         shell: /bin/bash
