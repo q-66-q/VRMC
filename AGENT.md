@@ -85,7 +85,8 @@ comfort polish.
   fork); S1a scaffold EV-0007. S3's M0 gate is closed; S1's internal reproduction gate is now met in
   compatibility and native modes; S1b native JIT `PASS` (EV-0024); S2 device graphics primitives `PASS`
   (EV-0025–EV-0028: capability, render, natives, CAMetalLayer surface, swapchain/present); S2 MC
-  world/soak remain `NOT RUN`.
+  world/soak remain `NOT RUN`. The re-signed Amethyst launcher (bundled UniversalJIT26, MoltenVK,
+  Vulkan bridge) installs and runs on D1 (EV-0029), giving an MC-on-device test path.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
