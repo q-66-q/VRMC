@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0029`.
+**Next evidence ID:** `EV-0030`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1118,6 +1118,27 @@ same run.
 **Artifacts:** `evidence/EV-0028/s2-probe.log`, `summary.log`, `probe_mvk.c`, `main.m`,
 `s2probe-build13.log`.
 
+### EV-0029 — Amethyst re-signed for <TEAM_ID> installs and launches on D1 (MC boot pending)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:54:26-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** take the release Amethyst IPA (arm64, unsigned), change its bundle id to
+`dev.vrmc.amethyst`, sign 22 nested Mach-O and the app with the free-team profile +
+`get-task-allow`; install via devicectl and launch normally; pull crash logs.
+
+**Actual:** installation and launch succeed; the `AngelAuraAmethyst` process remains alive. The only
+crash log present is an older 12:46 entry, not this run.
+
+**Why it matters:** Amethyst bundles `UniversalJIT26`/`Extension`, MoltenVK, EGL/LWJGL natives and the
+Vulkan bridge, so it is the fastest path to an MC-on-device boot test.
+
+**Next:** assign `universal.js` in StikDebug to Amethyst, launch it with Enable JIT, set up a demo/
+offline account, install MC 26.2 and start a world; capture the MC logs and crash state.
+
 ---
 
 ## 7. Status dashboard
@@ -1136,6 +1157,7 @@ same run.
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
 | S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
 | S1b harness (native visionOS) | `PASS` | VISIONOS-relabelled JRE builds/signs (EV-0022), launches (EV-0023), and JITs + executes on D1 (EV-0024) |
+| M1 launcher probe (Amethyst) | `PARTIAL` | Re-signed launcher installs and runs on D1 (EV-0029); MC setup/JIT/Vulkan world pending |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -1182,7 +1204,8 @@ same run.
 | 2026-10-31 | EV-0025 (`PASS`): D1 executes a Vulkan offscreen clear+readback through MoltenVK/M2 (`pixel=(64,128,191,255)`). |
 | 2026-10-31 | EV-0026 (`PASS`): all 12 retagged VISIONOS natives dlopen in the D1 probe. |
 | 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer→VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean with 12 natives. |
-| 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO, submit/present 0). S2 device graphics primitives complete; MC boot/title/world remains. Next ID `EV-0029`. |
+| 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO, submit/present 0). S2 device graphics primitives complete; MC boot/title/world remains. |
+| 2026-10-31 | EV-0029 (`PARTIAL`): release Amethyst re-signed for <TEAM_ID> installs and launches on D1. Next: StikDebug JIT + MC 26.2 setup/world. Next ID `EV-0030`. |
 
 ---
 
