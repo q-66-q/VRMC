@@ -49,6 +49,22 @@
      if (requiresTXMWorkaround) {
          static void *result;
          if(!result) result = JIT26CreateRegionLegacy(getpagesize());
+@@ -386,6 +393,15 @@
+     margv[++margc] = [NSString stringWithFormat:@"-Damethyst.resolutionScale=%.3f", getPrefFloat(@"video.resolution") / 100.0].UTF8String;
+ 
+     margv[++margc] = "-Damethyst.noUpcalls=true";
++
++    // VRMC M2: expose the native bridge dylib to the provider (loaded by VrmcBridge).
++    {
++        NSString *bridgeLib = [frameworksPath stringByAppendingPathComponent:@"libvrmc_bridge.dylib"];
++        if ([fm fileExistsAtPath:bridgeLib]) {
++            margv[++margc] = [NSString stringWithFormat:@"-Dvrmc.bridge.lib=%@", bridgeLib].UTF8String;
++            NSLog(@"[VRMC] bridge dylib: %@", bridgeLib);
++        }
++    }
+ 
+     if (lwjglNativeSubfolder) {
+         NSString *sdlDylibPath = [[frameworksPath stringByAppendingPathComponent:lwjglNativeSubfolder] stringByAppendingPathComponent:@"libSDL3_controlify.dylib"];
 --- a/Natives/LauncherMenuViewController.m
 +++ b/Natives/LauncherMenuViewController.m
 @@ -164,9 +164,38 @@

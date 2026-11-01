@@ -98,9 +98,11 @@ evidence (same class of error as S2 substrate vs render).
 
 W6 does **not** start with the provider jar. The device instance must already have the mod stack:
 
-1. Install **Fabric 0.19.3** via the launcher (the vanilla 26.2 install alone cannot load Vivecraft).
-2. Install **Vivecraft 26.2-1.3.15** via the launcher (pinned jar).
-3. Then install the **VRMC provider jar** and place the **bridge dylib** in the app bundle.
+1. **Fabric 0.19.3 via the launcher** — **PENDING on device** (vanilla 26.2 only; launcher Profiles → +
+   → "Install Fabric/Quilt", Minecraft 26.2).
+2. **Vivecraft 26.2-1.3.15** — **staged** (`Documents/instances/default/mods/vivecraft-26.2-1.3.15-fabric.jar`).
+3. **VRMC provider jar + bridge dylib** — **staged**: `mods/vrmc-provider.jar`; arm64-ios bridge embedded
+   in the app (`Frameworks/libvrmc_bridge.dylib`) and exposed via `-Dvrmc.bridge.lib` (EV-0066).
 4. Launch MC 26.2 with `vrEnabled=true`, `stereoProviderPluginID=OPENVR`; capture provider init and
    no-SteamVR evidence.
 

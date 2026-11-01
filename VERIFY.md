@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0066`.
+**Next evidence ID:** `EV-0067`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1807,6 +1807,30 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** This validates the M3 eye-texture/compositor substrate on device. M2-W6 (provider init on device) and M3 (compositor stereo/head tracking) remain NOT RUN.
 
+### EV-0066 — M2-W6 prep: iOS bridge dylib embedded/signed + JVM arg injection + provider/Vivecraft jars staged on device
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:18:52-10:00 |
+| Commit | `2ed77e148dd1d7288a9483c1cb851484c4274afe` |
+| Dirty state | atches/vrmc-m1-amethyst-1.2.0.patch, scripts/build_launcher.sh, versions.env |
+| Device | D1 Apple Vision Pro (bridge dylib installed; Fabric loader missing) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. build libvrmc_bridge for arm64-apple-ios14 with JNI headers; embed in app Frameworks; sign (168 Mach-O); add -Dvrmc.bridge.lib in JavaLauncher when the dylib exists
+2. install app; push vrmc-provider.jar and vivecraft-26.2-1.3.15-fabric.jar into Documents/instances/default/mods/
+
+**Expected:** app+bridge+mods staged; W6 device provider run still needs Fabric loader
+
+**Actual:** bridge dylib built (platform IOS minos 14.0, JNI symbols), embedded/signed (app tree 8dc643ae...); JVM arg injection added; provider+Vivecraft jars staged. Device has only vanilla 26.2 — Fabric 0.19.3 loader install remains, so W6 device run is NOT RUN.
+
+**Artifacts:** evidence/EV-0066/libvrmc_bridge_ios.dylib (f43e80048646); evidence/EV-0066/summary.log (d7c8c3824b7b); evidence/EV-0066/build.log (5a3caa98a366)
+
+**Limitations:** M2-W6 preconditions: Fabric 0.19.3 -> Vivecraft (staged) -> provider (staged) -> launch. Remaining device action: install Fabric loader via launcher UI.
+
 ---
 
 ## 7. Status dashboard
@@ -1826,6 +1850,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
 | S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063) |
 | S4a-device eye handoff | `PASS` | Bundled MoltenVK 1.4.3: MTLDevice+MTLTexture export, Metal readback correct, timeline MTLSharedEvent sync on D1 (EV-0065) |
+| M2-W6 prep | `PARTIAL` | iOS bridge dylib embedded/signed + JVM arg injection + provider/Vivecraft jars staged (EV-0066); Fabric loader install pending |
 | M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
 | PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
@@ -1847,6 +1872,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 | Blocker | Owner | Unblock condition |
 |---|---|---|
+| M2-W6: Fabric loader on D1 | Open | Device instance has vanilla 26.2 only. Install Fabric 0.19.3 via launcher Profiles → + → "Install Fabric/Quilt" (Minecraft 26.2); Vivecraft + provider jars are already in `instances/default/mods`. Then launch with JIT to run the provider. |
 | M1 T6: 30-minute device soak | **DONE** | 1805 s continuous world session, no game crash/watchdog kill, thermal `serious` recorded (EV-0044); StikDebug watchdog incident noted |
 | Lifecycle/audio defect | **CLOSED** | Background freeze + sound loss fixed; retest PASS (EV-0048), task-3 closed |
 | M1 W1 — reproducible build | `PASS` | `scripts/build_launcher.sh` + `patches/vrmc-m1-amethyst-1.2.0.patch` + `LAUNCHER_BUILD.md`; tested from a fresh tree (EV-0049) |
@@ -1921,3 +1947,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0063 (`PASS`): S4a-host** — exportable VkImage → MTLTexture works, Metal reads the Vulkan clear correctly, and MTLSharedEvent sync works with a **timeline** semaphore. **S4a-device remains NOT RUN** (separate gate). Next ID `EV-0064`. |
 | 2026-11-01 | **EV-0064 (`NOT RUN`)**: S4a-device probe staged inside the VRMC app (bundled MoltenVK 1.4.3), marker pushed, but the device was locked (passcodeRequired=true) so it could not be launched. Unlock AVP and launch VRMC to execute; log = Documents/s4a-device.log. Next ID `EV-0065`. |
 | 2026-11-01 | **EV-0065 (`PASS`): S4a-device** — bundled MoltenVK 1.4.3 on D1 exports MTLDevice/MTLTexture, Metal reads back the Vulkan clear correctly, and timeline MTLSharedEvent sync works (signaledValue 42). M3's zero-copy eye-handoff substrate is device-validated; **M2-W6 (provider init on device) and M3 remain NOT RUN**. Next ID `EV-0066`. |
+| 2026-11-01 | **EV-0066 (`PARTIAL`): M2-W6 prep** — arm64-ios JNI bridge dylib built/embedded/signed; launcher passes `-Dvrmc.bridge.lib`; `vrmc-provider.jar` + Vivecraft jar staged in the device instance mods. **Remaining device step: install Fabric 0.19.3 loader**; W6 provider run still NOT RUN. Next ID `EV-0067`. |

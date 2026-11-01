@@ -33,6 +33,16 @@ if [ -d "$ROOT/assets/vulkan_include" ]; then
   echo "[build] installing Vulkan headers (S4a-device probe)"
   rsync -a "$ROOT/assets/vulkan_include/" "$BUILD_DIR/Natives/vulkan_include/"
 fi
+if [ -f "$ROOT/bridge/src/vrmc_stub.c" ] && command -v xcrun >/dev/null 2>&1; then
+  IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || true)
+  JAVAHOME=${JAVAHOME:-$(/usr/libexec/java_home -v 25 2>/dev/null || true)}
+  if [ -n "$IOS_SDK" ] && [ -n "$JAVAHOME" ] && [ -f "$JAVAHOME/include/jni.h" ]; then
+    echo "[build] building VRMC bridge dylib (arm64 ios)"
+    cc -target arm64-apple-ios14.0 -isysroot "$IOS_SDK"       -I"$ROOT/bridge/abi" -I"$JAVAHOME/include" -I"$JAVAHOME/include/darwin"       -shared -fPIC -o "$BUILD_DIR/Natives/resources/Frameworks/libvrmc_bridge.dylib"       "$ROOT/bridge/src/vrmc_stub.c" "$ROOT/bridge/src/vrmc_jni.c" || exit 1
+  else
+    echo "[build] warning: iOS bridge dylib not built (missing SDK/JDK)"
+  fi
+fi
 for p in "$ROOT"/patches/*.patch; do
   echo "[build] applying $(basename "$p")"
   patch -p1 -d "$BUILD_DIR" < "$p"
