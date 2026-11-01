@@ -9,6 +9,7 @@ their licenses. It is informational, not legal advice.
 | Component | Version / pin | License | Role | Notes |
 |---|---|---|---|---|
 | Amethyst-iOS | upstream `f98c413` | GPL-3.0 | Launcher reference base | VRMC app code is GPL-3.0 as a derivative. Source published with releases. |
+| Amethyst JIT scripts (`runtime/jit/amethyst.js`) | Amethyst `UniversalJIT26.js` + `UniversalJIT26Extension.js` | GPL-3.0 | JIT26 enabler script assigned via StikDebug | Concatenated verbatim; deployed with `scripts/push_jit_script.sh`. Source available in the upstream Amethyst repo. |
 | VRMC provider mod | in-tree (`provider/`) | LGPL-3.0 | Vivecraft integration | Separate, replaceable artifact; source published. |
 | OpenJDK | 25 (xros build, TBD) | GPL-2.0 with Classpath Exception | JVM runtime | Build provenance recorded in `versions.env` when built. |
 | LWJGL | 3.4.1 | BSD-3-Clause | Java bindings (GLFW/Vulkan/OpenAL) | visionOS natives built from source. |

@@ -472,6 +472,10 @@ must not be forgotten once M1 starts — it is a dated M1 obligation, not an opt
 | `scripts/install_device.sh` | Install to a paired Vision Pro | NOT IMPLEMENTED |
 | `scripts/latency_rig.sh` | Drive the K3 camera protocol + tabulate samples | NOT IMPLEMENTED |
 | `runtime/probes/s1a/build.sh` | Build/sign/install the S1a iOS JIT probe | SCAFFOLD — compiles; signing/install pending AVP profile |
+| `scripts/sign_ipa.sh` | Re-sign an `.app` for a dev team/profile (Amethyst, StikDebug, M1 app) | IMPLEMENTED (T2, 2026-10-31) |
+| `scripts/push_jit_script.sh` | Push a StikDebug script (default `runtime/jit/amethyst.js`) | IMPLEMENTED (T2, 2026-10-31) |
+| `scripts/set_mc_options.sh` | Set MC `preferredGraphicsBackend:"vulkan"` + `startedCleanly:true` on device | IMPLEMENTED (T2, 2026-10-31) |
+| `scripts/capture_device_logs.sh` | Collect Amethyst log + crash logs + StikDebug log into a directory | IMPLEMENTED (T2, 2026-10-31) |
 
 `scripts/log_evidence.sh` is an **M0 deliverable** and is now implemented and self-tested (§13). Its
 own acceptance is `AT-009`, logged in `VERIFY.md`.

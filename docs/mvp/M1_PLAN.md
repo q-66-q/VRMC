@@ -60,8 +60,9 @@ Acceptance criteria:
 1. **T1 pin the working stack**: record hashes/versions of Amethyst 1.2.0 IPA, StikDebug 3.2.0,
    Java 25 JRE, LWJGL 3.4.1 jars/natives, MoltenVK 1.4.3, MC 26.2; update `versions.env` and a
    dedicated `docs/mvp/DEVICE_STACK.md` (ADR needed if a pin changes).
-2. **T2 move ad-hoc scripts into the repo**: `scripts/sign_ipa.sh`, `scripts/push_mc_options.sh`,
-   `scripts/push_jit_script.sh`, `scripts/capture_device_logs.sh` (currently in `/tmp` only).
+2. **T2 move ad-hoc scripts into the repo** — **done 2026-10-31**: `scripts/sign_ipa.sh`,
+   `scripts/set_mc_options.sh`, `scripts/push_jit_script.sh`, `scripts/capture_device_logs.sh`, plus
+   `runtime/jit/amethyst.js` (GPL-3.0, notices updated). Remaining: exercise them in a full install flow.
 3. **T3 choose W1 route** and produce the first `dev.vrmc.vrmc` app bundle:
    - preferred: build Amethyst from source with submodules and our branding;
    - fallback: pin the tested 1.2.0 binary, re-sign as our bundle id, add first-run shell.
