@@ -113,6 +113,19 @@ static void openLog(void) {
                 rp.colorAttachments[0].clearColor = (i == 0)
                     ? MTLClearColorMake(0.8, 0.05, 0.05, 1.0)
                     : MTLClearColorMake(0.05, 0.7, 0.1, 1.0);
+                // Sample parity: dedicated layout expects the drawable depth texture + rate map.
+                rp.depthAttachment.texture = cp_drawable_get_depth_texture(drawable, i);
+                rp.depthAttachment.loadAction = MTLLoadActionClear;
+                rp.depthAttachment.storeAction = MTLStoreActionStore;
+                rp.depthAttachment.clearDepth = 1.0;
+                id<MTLRasterizationRateMap> rrm = cp_drawable_get_rasterization_rate_map(drawable, i);
+                if (rrm) rp.rasterizationRateMap = rrm;
+                static int loggedDepth = 0;
+                if (!loggedDepth) {
+                    loggedDepth = 1;
+                    probeLog("view %d depthTex=%p rrm=%p", i,
+                             (__bridge void *)rp.depthAttachment.texture, (__bridge void *)rrm);
+                }
                 id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rp];
                 [enc endEncoding];
             }

@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0074`.
+**Next evidence ID:** `EV-0075`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1997,6 +1997,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Gate 2 remains PARTIAL. Next: compare against the Apple-style reference sample (build blocked: Metal Toolchain missing) or port remaining drawable/layer setup; no further device churn until then. VRMC launcher restored.
 
+### EV-0074 — M3a gate 2 PASS: native visionOS immersive space presents per-eye CompositorServices stereo (red/green) on D1
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T08:07:45-10:00 |
+| Commit | `ae6b4e49fcb3a1407e157ccaf839b5ae032ae640` |
+| Dirty state | untime/probes/m3a-immersive/Sources/ProbeRenderer.mm |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. install native visionOS probe, open immersive space, render per-eye clear test pattern through CompositorServices (depth attachment + rate map parity), ARKit anchor at presentation time
+
+**Expected:** user sees left-eye red / right-eye green immersive stereo; readable GPU content and completed command buffer
+
+**Actual:** PASS: user reports seeing both red and green in the immersive space; log shows 2 views 1888x1792 rgba16Float, depthTex present, cb completed status=4/no error, eye0 readback r=0.800 g=0.050 b=0.050 a=1.000, ARKit anchor success. Root cause of earlier black screen: missing drawable depth attachment/rasterization-rate map in the render pass.
+
+**Artifacts:** evidence/EV-0074/m3a-probe.log (3223a0efc509); evidence/EV-0074/summary.log (45101ebed920)
+
+**Limitations:** Gate 2 PASS. Gate 3 (hosting MC/JVM/JIT/Vulkan in the native app) remains NOT RUN; next milestone step. VRMC launcher restored after the probe.
+
 ---
 
 ## 7. Status dashboard
@@ -2011,7 +2034,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
 | **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
-| **M3 milestone** | **IN PROGRESS (M3a)** | Gate 1 PASS (EV-0071); gate 2 **PARTIAL**: native immersive space + CompositorServices loop render correctly and GPU content is verified by readback (red eye0 pixel, cb completed) — EV-0072/EV-0073 — but presentation is black/passthrough (device-anchor/layer wiring missing). Gate 3 (MC/JVM hosting in native app) NOT RUN. VRMC launcher restored. |
+| **M3 milestone** | **IN PROGRESS (M3a)** | Gate 1 PASS (EV-0071); **gate 2 PASS (EV-0074)**: native immersive space presents per-eye CompositorServices stereo (operator saw red/green; GPU readback + completed buffers; fix = drawable depth attachment/rate-map parity). Gate 3 (MC/JVM hosting in native app) NOT RUN. VRMC launcher restored. |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -2119,4 +2142,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0067 (`FAIL`)**: first W6 device attempt reached provider init + bridge handshake + eye targets, then crashed on the host-only identity guard applied to static component transforms; fix: identity component offsets + tracking-pose validity guard. **EV-0068 (`PASS`)**: after the fix, device provider init + stereo render passes (LEFT/RIGHT) + 1501+ tracking frames + no SteamVR; device used Fabric Loader **0.20.1** (pin is 0.19.3 → compatibility candidate; pin/ADR decision pending). Game remains unplayable by design: M3 compositor/head tracking and M4 input are NOT RUN. Next ID `EV-0069`. |
 | 2026-11-01 | **EV-0069 (`PASS`): M2-W5 device eye handoff** — ABI v2 `vrmc_export_mtl_texture` on D1: `VkImage=0x139dccf00 -> MTLTexture=0x7107982300`, submitted; clean run. **EV-0070 (`PASS`): M2 milestone CLOSED** — all exit criteria evidenced; M2 acceptance matrix added. M3 compositor/head tracking and M4 input remain NOT RUN (game not playable yet). Fabric 0.20.1 vs pin 0.19.3 carry-over. Next ID `EV-0071`. |
 | 2026-11-01 | **EV-0071 (`PASS`): M3 started, M3a gate 1** — `PLATFORM=11` native visionOS payload builds (platform VISIONOS, relabelled natives). **NOT RUN:** native app launch on D1, CompositorServices immersive space/ARKit, MC/JVM/JIT/Vulkan hosting in the native app. M2 remains CLOSED; M3 plan `docs/mvp/M3_PLAN.md`, ADR-0010 (native app route; companion fallback only if MC hosting fails). Next ID `EV-0072`. |
-| 2026-11-01 | **EV-0072 (`PARTIAL`): M3a gate 2** — native visionOS immersive space + CompositorServices loop work (2700+ frames; three crash modes fixed: premature endSubmission, missing `cp_drawable_encode_present`, main-thread watchdog), but the user sees passthrough instead of the red/green test pattern and the ARKit anchor never resolves. Next: port to the C sample structure with `cp_drawable_set_device_anchor` + presentation-time conversion; then gate 3. VRMC launcher restored after the probe. Next ID `EV-0073`. || 2026-11-01 | **EV-0073 (`PARTIAL`): M3a gate 2 diagnostics** — GPU readback proves the per-eye render path is correct (eye0 pixel `r=0.800 g=0.050 b=0.050 a=1.000`, command buffer completed), but the user sees black with the ARKit device anchor set and passthrough without it. Rendering correct; presentation/anchor wiring is the remaining blocker. Next: compare against the reference sample (Metal Toolchain needed) or port its remaining drawable/layer setup. VRMC launcher restored. Next ID `EV-0074`. |
+| 2026-11-01 | **EV-0072 (`PARTIAL`): M3a gate 2** — native visionOS immersive space + CompositorServices loop work (2700+ frames; three crash modes fixed: premature endSubmission, missing `cp_drawable_encode_present`, main-thread watchdog), but the user sees passthrough instead of the red/green test pattern and the ARKit anchor never resolves. Next: port to the C sample structure with `cp_drawable_set_device_anchor` + presentation-time conversion; then gate 3. VRMC launcher restored after the probe. Next ID `EV-0073`. || 2026-11-01 | **EV-0073 (`PARTIAL`): M3a gate 2 diagnostics** — GPU readback proves the per-eye render path is correct (eye0 pixel `r=0.800 g=0.050 b=0.050 a=1.000`, command buffer completed), but the user sees black with the ARKit device anchor set and passthrough without it. Rendering correct; presentation/anchor wiring is the remaining blocker. Next: compare against the reference sample (Metal Toolchain needed) or port its remaining drawable/layer setup. VRMC launcher restored. Next ID `EV-0074`. || 2026-11-01 | **EV-0074 (`PASS`): M3a gate 2** — native visionOS immersive space shows the per-eye red/green CompositorServices stereo test pattern (operator-confirmed); log: 2 views 1888x1792 rgba16Float, depth attachment present, cb completed, readback r=0.800. Root cause of earlier black screen: missing drawable depth attachment/rasterization-rate map. Gate 3 (MC/JVM/JIT/Vulkan in native app) next. Next ID `EV-0075`. |

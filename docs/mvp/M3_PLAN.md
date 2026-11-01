@@ -1,6 +1,6 @@
 # M3 plan — Compositor stereo + head tracking (started 2026-11-01)
 
-Status: **IN PROGRESS** — gate 1 **PASS (EV-0071)**; gate 2 **PARTIAL (EV-0072/EV-0073)**: immersive space opens and the CompositorServices loop runs (2700+ frames, no crash), but stereo content is not presented (passthrough) and ARKit anchor/presentation-time wiring is missing. M2 CLOSED (EV-0070). M3 turns the provider's two exported `MTLTexture`s into an
+Status: **IN PROGRESS** — gate 1 **PASS (EV-0071)**; **gate 2 PASS (EV-0074)**: immersive space opens and the CompositorServices loop runs (2700+ frames, no crash), but stereo content is not presented (passthrough) and ARKit anchor/presentation-time wiring is missing. M2 CLOSED (EV-0070). M3 turns the provider's two exported `MTLTexture`s into an
 **immersive CompositorServices stereo view with real head tracking**.
 
 ## 0. Architectural gate (M3a) — native visionOS app required
@@ -70,7 +70,7 @@ Options considered (ADR-0010):
 
 ## 5. Gate-2 findings (EV-0072)
 
-- Native immersive space + `CompositorLayer` + Metal render loop work (2700+ frames, no crash).
+- Native immersive space + `CompositorLayer` + Metal render loop work; **gate 2 PASS (EV-0074)** — operator saw per-eye red/green stereo.
 - Fixed three crash modes: premature `endSubmission` (`__BUG_IN_CLIENT__`), missing
   `cp_drawable_encode_present`, main-thread blocking (scene-update watchdog).
 - **Verified by readback (EV-0073):** the per-eye render path is correct — eye0 pixel is
