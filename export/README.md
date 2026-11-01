@@ -1,83 +1,68 @@
-# VRMC — native visionOS launcher (M3-W1) — **RESOLVED**
+# VRMC — native immersive integration (M3-W3/W4) — **current issue**
 
 **Date:** 2026-11-01
-**Status:** **native launcher UI works on D1** — the previously blocking blank window was fixed by the
-UIKit idiom patch; Play launches Minecraft from the native app with no autolaunch bypass.
+**Status:** PARTIAL / blocked on three integration issues. The native app now launches the game, opens an
+immersive CompositorServices space by itself, hides the game window's content, samples the provider's
+eye `MTLTexture`s (`eyes=1`) and feeds real ARKit tracking into the provider. Remaining issues are
+listed below (evidence EV-0083/EV-0084/EV-0085).
 
-> The earlier `export/` blocker dossier (native UIKit content blank / split-view crash) is resolved.
-> Prior logs are kept under `logs/history/`; the current success evidence is
-> `logs/latestlog-native-m3w1-pass.txt` (EV-0079).
+## What already works
 
-## 1. Root cause (confirmed)
+| Item | Evidence |
+|---|---|
+| Native visionOS launcher builds/runs (UIKit idiom fix), launcher UI + Play | EV-0079 |
+| SwiftUI app-lifecycle shell hosts `LauncherSplitViewController` and opens `ImmersiveSpace`/`CompositorLayer` | EV-0081 |
+| Game-start auto-open (15 s settle delay), game survives, no Vulkan device-loss | EV-0083 |
+| Compositor samples provider eye textures (`eyes=1`, e.g. 0x722b0b2300/0x722b0b2080) | EV-0083/84/85 |
+| ARKit poses reach the provider (`tracking frame … head=(-0.02,1.17,0.02)`) | EV-0083/84/85 |
+| Game window content parked (`windows=3 alpha=0.0`) | EV-0084/85 |
+| Background compositor exit is now clean (`stop/invalidation after timing wait; exiting without submission`, `posted VRMCImmersiveEnded`) — no new crash | EV-0085 |
 
-`Natives/UIKit+hook.m:init_hookUIKitConstructor()` spoofed the UIKit idiom:
+## Current issues
 
-```objc
-UIUserInterfaceIdiom idiom = getPrefBool(@"debug.debug_ipad_ui") ? Pad : Phone;
-[UIDevice.currentDevice _setActiveUserInterfaceIdiom:idiom];
-[UIScreen.mainScreen _setUserInterfaceIdiom:idiom];
-```
+### 1. Window chrome remains despite parking
+`alpha = 0` and `isHidden = true` hide the window content, but the visionOS **window bottom bar / ornament
+still shows** (it is scene-level chrome, not window content). Need to close/deactivate the window scene
+while immersive is active, or avoid having a game window scene in immersive mode.
 
-In the iOS-compat app this is harmless (device already reports iPad). In a **native visionOS app** the
-real idiom is `Vision` (6); spoofing it to Phone/Pad makes the UIKit window content invisible (blank
-window; process alive). A minimal split-view sample on the visionOS simulator reproduced it exactly:
-real idiom → renders; forced Phone/Pad → blank.
+### 2. Cannot return to immersive after background
+After the game starts, `UIKit_launchMinecraftSurfaceVC` replaces the window's root view controller with
+`SurfaceViewController`. That **destroys the SwiftUI `WindowGroup` view and its NotificationCenter
+subscriptions** (`willResignActive` / `didEnterBackground` / `VRMCImmersiveEnded` / `scenePhase`). Shell
+log final run stops after `window parked`; no lifecycle notifications are handled afterward. The game
+keeps running, but the shell cannot reopen the immersive space.
 
-## 2. Fix
+**Fix direction:** keep the SwiftUI root/observers alive — present `SurfaceViewController` modally over
+the SwiftUI hosting controller instead of replacing the window root, or move lifecycle handling to an
+app-level observer (AppDelegate/global object) that does not depend on the WindowGroup view.
 
-`patches/vrmc-m3w1-visionos-idiom.patch` (applies after `vrmc-m1-amethyst-1.2.0.patch`):
+### 3. Exotropia / stereo misalignment
+The compositor samples each 1024×1024 eye texture and draws it as a flat fullscreen image. It has no
+per-eye projection/FOV parity with Minecraft; swapping view 0/view 1 did not fix the exotropia.
+**Fix direction:** pass CompositorServices per-eye tangents/FOV to the provider so MC renders a matching
+projection (or reproject in the compositor), then verify eye order/orientation with a stereo test.
 
-```objc
-if (realUIIdiom != 6) {   // never spoof in the native visionOS app
-    ...existing Phone/Pad override...
-}
-```
+## Reproduction
 
-Compat app behavior is unchanged. Popups (alerts/share sheets) set anchor views as iPad requires, so
-the Vision idiom path is safe.
+1. Install the native build (see patches/build-native-vrmc.sh; scripts/build_launcher.sh PLATFORM=11)
+2. StikDebug → Enable JIT → VRMC
+3. Play `fabric-loader-0.20.1-26.2`; wait ~15 s for auto-open
+4. Observed: window content disappears but bottom bar remains; eye images exotropic; backgrounding ends
+   the immersive and it cannot be re-entered.
 
-## 3. Verified result (EV-0079)
+## Evidence / logs
 
-Operator-confirmed on D1:
+- `logs/vrmc-shell.log` — final run: auto-open, window parked, no lifecycle lines after root replacement
+- `logs/vrmc-compositor.log` — `eyes=1`, anchor=1, tracking, clean exit on background
+- `logs/latestlog.txt` — provider tracking frames, MC/Vivecraft
+- `logs/AngelAuraAmethyst-background-crash-113422.ips` — historical background crash at
+  `cp_frame_end_submission` (fixed by the final build's clean-exit guard; latest final run has no new crash)
+- `logs/summary.log` — detailed evidence narrative
+- `evidence/EV-0079/81/82/83/84/85.md` — milestone entries
 
-- native launcher **UI renders** after StikDebug Enable JIT → VRMC;
-- pressing **Play** on `fabric-loader-0.20.1-26.2` starts the game **without** `autolaunch.flag`;
-- log: JIT enabled (`isJITEnabled=1`, always-attached TXM), MC 26.2 + Fabric 0.20.1, Vulkan/MoltenVK
-  1.4.3, `VisionVR` provider init/bridge ABI 2, LEFT/RIGHT render passes, `VkImage→MTLTexture` eye
-  export, 901+ tracking frames, Vivecraft MenuWorlds built.
+## Next implementation order
 
-Evidence: `evidence/EV-0079.md`, `logs/latestlog-native-m3w1-pass.txt`.
-
-## 4. Reproduce — native build + install
-
-Prereqs: Xcode 27.2 + visionOS SDK, JDK 8 boot JDK, patched Amethyst 1.2.0 source tree
-(`AME_SRC`, e.g. `vendor/amethyst-build`), visionOS dev profile + `.xcent` for `dev.vrmc.vrmc`.
-
-```bash
-AME_SRC=/path/to/amethyst-1.2.0-source \
-BOOTJDK=/path/to/jdk8/bin \
-PLATFORM=11 \
-BUILD_DIR=/tmp/vrmc-native-build \
-scripts/build_launcher.sh
-```
-
-The script applies `patches/*.patch` in order, builds `PLATFORM=11`, and adjusts the app Info.plist for
-native visionOS (`MinimumOSVersion 1.0`, `UIDeviceFamily [7]`). Then brand and sign:
-
-```bash
-APP=/tmp/vrmc-native-build/artifacts/Payload/AngelAuraAmethyst.app
-cp -R "$APP" /tmp/VRMC-native.app
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier dev.vrmc.vrmc" /tmp/VRMC-native.app/Info.plist
-# sign every Mach-O, copy the visionOS profile to embedded.mobileprovision,
-# codesign the app with the matching .xcent, then:
-xcrun devicectl device install app --device <UDID> /tmp/VRMC-native.app
-```
-
-`patches/build-native-vrmc.sh` wraps this flow (edit the profile/xcent paths).
-
-## 5. Remaining M3 work
-
-- **M3-W2/W3**: CompositorServices layer consumes the provider's eye `MTLTexture`s (timeline
-  `MTLSharedEvent` sync) instead of the test pattern.
-- **M3-W4**: ARKit pose → bridge → provider `hmdPose`; recenter.
-- **M3-W5/W6**: pacing/thermal and device acceptance (10-min immersive run).
+1. Keep SwiftUI observers alive (modal game surface or app-level observer) → background/return works
+2. Window scene chrome handling while immersive is active
+3. Per-eye projection/FOV parity + stereo eye-order test
+4. `MTLSharedEvent`/Vk timeline sync, then pacing/acceptance

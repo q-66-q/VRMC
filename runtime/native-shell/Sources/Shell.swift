@@ -59,6 +59,7 @@ struct VRMCShellApp: App {
             for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
                 for window in scene.windows {
                     window.alpha = alpha
+                    window.isHidden = (alpha <= 0.01)
                     window.isUserInteractionEnabled = (alpha > 0.01)
                     count += 1
                 }
@@ -99,12 +100,30 @@ struct VRMCShellApp: App {
                     immersiveOpen = false
                     setWindowAlpha(1, log: "window restored")
                 }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                    shellLog("willResignActive -> request compositor stop")
+                    VRMCCompositor_RequestStop()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                    shellLog("didEnterBackground -> request compositor stop")
+                    VRMCCompositor_RequestStop()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
+                    shellLog("scene didEnterBackground -> request compositor stop")
+                    VRMCCompositor_RequestStop()
+                }
                 .onChange(of: scenePhase) { _, newPhase in
                     shellLog("scenePhase=\(String(describing: newPhase)) gameStarted=\(gameStarted) immersive=\(immersiveOpen)")
+                    if newPhase != .active {
+                        VRMCCompositor_RequestStop()
+                    }
                     if newPhase == .active && gameStarted && !immersiveOpen {
                         Task {
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
                             openVR(reason: "foreground")
+                            // If the first attempt loses the race with scene activation, retry once.
+                            try? await Task.sleep(nanoseconds: 3_000_000_000)
+                            if !immersiveOpen { openVR(reason: "foreground-retry") }
                         }
                     }
                 }

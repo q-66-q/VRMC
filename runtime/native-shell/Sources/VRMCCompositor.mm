@@ -16,6 +16,11 @@ typedef int32_t (*eye_targets_fn)(vrmc_eye_targets *);
 typedef int32_t (*set_tracking_fn)(const vrmc_tracking_state *);
 static eye_targets_fn gEyeFn;
 static set_tracking_fn gTrackFn;
+static volatile int gStopRequested = 0;
+
+extern "C" void VRMCCompositor_RequestStop(void) {
+    gStopRequested = 1;
+}
 
 static void compLog(const char *fmt, ...) {
     char line[1024];
@@ -69,6 +74,7 @@ static NSString *const kShaderSource =
 
 - (void)main {
     cp_layer_renderer_t lr = self.layerRenderer;
+    gStopRequested = 0;
     resolveBridge();
 
     ar_world_tracking_configuration_t cfg = ar_world_tracking_configuration_create();
@@ -108,6 +114,7 @@ static NSString *const kShaderSource =
     int frameCount = 0;
     while (true) {
         @autoreleasepool {
+            if (gStopRequested) { compLog("stop requested before frame; exiting loop"); break; }
             cp_layer_renderer_state state = cp_layer_renderer_get_state(lr);
             if (state == cp_layer_renderer_state_invalidated) { compLog("layer invalidated"); break; }
             if (state == cp_layer_renderer_state_paused) { cp_layer_renderer_wait_until_running(lr); continue; }
@@ -123,6 +130,10 @@ static NSString *const kShaderSource =
             cp_frame_start_update(frame);
             cp_frame_end_update(frame);
             cp_time_wait_until(cp_frame_timing_get_optimal_input_time(timing));
+            if (gStopRequested || cp_layer_renderer_get_state(lr) != cp_layer_renderer_state_running) {
+                compLog("stop/invalidation after timing wait; exiting without submission");
+                break;
+            }
             cp_frame_start_submission(frame);
             cp_drawable_t drawable = cp_frame_query_drawable(frame);
             if (drawable == nullptr) { cp_frame_end_submission(frame); continue; }
@@ -193,7 +204,9 @@ static NSString *const kShaderSource =
                                                                                              mipmapped:NO];
                     td.usage = MTLTextureUsageShaderRead;
                     id<MTLTexture> tex = nil;
-                    uint64_t handle = (i == 0) ? eyes.left_texture : eyes.right_texture;
+                    // CompositorServices view 0 is the right eye on this setup (exotropia with the
+                    // naive left->view0 mapping); swap so each eye receives its own image.
+                    uint64_t handle = (i == 0) ? eyes.right_texture : eyes.left_texture;
                     if (handle != 0) {
                         // Reuse the opaque MTLTexture pointer exported by the provider (same GPU/process).
                         tex = (__bridge id<MTLTexture>)(void *)(uintptr_t)handle;
@@ -220,12 +233,11 @@ static NSString *const kShaderSource =
             [cb commit];
             // Do not block the compositor on GPU completion (the sample doesn't); blocking here can
             // stall the shared GPU while Minecraft is rendering.
-            if (cp_layer_renderer_get_state(lr) == cp_layer_renderer_state_running) {
-                cp_frame_end_submission(frame);
-            } else {
-                compLog("layer left running state before endSubmission; exiting loop");
+            if (gStopRequested || cp_layer_renderer_get_state(lr) != cp_layer_renderer_state_running) {
+                compLog("stop/invalidation before endSubmission; exiting without endSubmission");
                 break;
             }
+            cp_frame_end_submission(frame);
 
             frameCount++;
             if (frameCount == 1 || frameCount % 120 == 0) {

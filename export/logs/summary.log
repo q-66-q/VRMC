@@ -1,0 +1,10 @@
+# M3-W3/W4 final attempt (EV-0085) — background crash path fixed, but shell lifecycle/observers do not survive the game root replacement; exotropia persists; window chrome remains
+# date: 2026-11-01T11:59:38-1000
+
+Shell log final run (21:57-21:58): game started, auto openImmersiveSpace result=opened, window parked windows=3 alpha=0.0. NO subsequent willResignActive/didEnterBackground/VRMCImmersiveEnded/scenePhase log lines were emitted -> the SwiftUI WindowGroup content (and its NotificationCenter subscriptions) was destroyed when Amethyst's UIKit_launchMinecraftSurfaceVC replaced window.rootViewController with SurfaceViewController.
+
+Compositor: frames through 1680, eyes=1 (provider textures 0x722b0b2300/0x722b0b2080), anchor=1, head tracking; on background the layer left running -> 'stop/invalidation after timing wait; exiting without submission' + 'posted VRMCImmersiveEnded' (clean exit, no crash; latest crash report remains the old 11:34 one).
+
+Operator: window bottom bar still present (alpha/isHidden did not remove visionOS window chrome); after background the game keeps running but the immersive cannot be re-entered (observer is gone); eyes remain exotropic despite view-0/view-1 swap.
+
+Root causes: (1) game launch replaces the SwiftUI root VC, tearing down the WindowGroup view and its lifecycle/notification observers; (2) window chrome is scene-level and not removed by alpha/isHidden; (3) eye presentation is still a flat fullscreen sample with no per-eye projection/FOV parity.

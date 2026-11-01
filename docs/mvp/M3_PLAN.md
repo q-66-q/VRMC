@@ -274,3 +274,18 @@ tangents/FOV into the provider so MC renders a matching projection, or reproject
 - **Alignment** is still a flat fullscreen sample of each 1024×1024 eye texture; the next rendering task
   is per-eye projection/FOV parity with the provider (or reprojection in the compositor), plus
   `MTLSharedEvent` sync.
+
+
+## 15. M3-W3/W4 current blockers (EV-0083/84/85)
+
+- **Re-entry / lifecycle**: game launch replaces `window.rootViewController` with `SurfaceViewController`,
+  which destroys the SwiftUI WindowGroup view and its notification/scenePhase subscriptions. Shell log
+  stops after `window parked`; background compositor exit is clean but the shell cannot reopen the
+  immersive space. Fix by presenting the game surface modally over the SwiftUI root, or moving lifecycle
+  handling to an app-level observer that survives root replacement.
+- **Window chrome**: `alpha = 0`/`isHidden` hide content, but the visionOS window bottom bar/ornament
+  remains (scene-level chrome). Needs window-scene handling/closure while immersive is active.
+- **Stereo alignment**: flat fullscreen sampling of each eye texture with no per-eye projection/FOV
+  parity; view 0/1 swap did not fix exotropia. Next: pass CompositorServices tangents/FOV to the provider
+  for matching projection (or reproject), verify eye order with a stereo test, then MTLSharedEvent sync.
+- `export/` now holds the current-issue dossier (`VRMC-immersive-integration-blocker-2026-11-01.zip`).

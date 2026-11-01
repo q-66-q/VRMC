@@ -1,32 +1,26 @@
-Environment (VRMC — native visionOS launcher, M3-W1 PASS, 2026-11-01)
+Environment (VRMC — native immersive integration blocker, 2026-11-01)
 
 Device:
   Apple Vision Pro, RealityDevice14,1 (Apple M2), visionOS 27.2 (24N120), Developer Mode ON
-  UDID <D1-UDID>
 Host:
   MacBook Pro Mac16,7 (M4 Pro), macOS 27.0.1, Xcode 27.2 (27B52), visionOS 27.2 SDK
 
-Source/patches:
-  Amethyst 1.2.0 source tree (vendor/amethyst-build), submodules populated.
-  Patches applied in order by scripts/build_launcher.sh:
-    patches/vrmc-m1-amethyst-1.2.0.patch
-    patches/vrmc-m3w1-visionos-idiom.patch   (skip UIKit idiom spoof when real idiom == Vision/6)
-  Boot JDK: temurin-8 (jdk8)
-  Build: PLATFORM=11 payload -> Mach-O platform VISIONOS, minos 1.0; JRE/LWJGL/MoltenVK relabelled
-  by the Amethyst platform step.
-
-App/signing:
-  Bundle id dev.vrmc.vrmc; CFBundleDisplayName VRMC; Info.plist MinimumOSVersion 1.0,
-  UIDeviceFamily [7]; 168 Mach-O files + app signed with
-  "Apple Development: <apple-id> (<cert-id>)" and the visionOS dev.vrmc.vrmc
-  provisioning profile/xcent. Installed over the iOS-compat app (data container preserved).
+Native app:
+  Amethyst 1.2.0 source (vendor/amethyst-build) + patches
+  (vrmc-m1-amethyst-1.2.0, vrmc-m3w1-visionos-idiom, vrmc-m3w2-shell-hook);
+  scripts/build_launcher.sh PLATFORM=11 (SwiftUI scene manifest + NSWorldSensing/NSHands usage
+  strings, Info.plist MinimumOSVersion 1.0, UIDeviceFamily 7).
+  Embedded runtime/native-shell/VRMCShell.framework (SwiftUI App lifecycle hosting
+  LauncherSplitViewController + ImmersiveSpace/CompositorLayer + ObjC++ Metal renderer).
+  Branded dev.vrmc.vrmc; 169 Mach-O + framework signed with the visionOS dev.vrmc.vrmc profile.
 
 JIT:
-  StikDebug 3.2.0; Enable JIT -> VRMC works for the native app.
-  [JIT] preflight isJITEnabled=1 hasTXM=1 hasMirrored=1
-  [JIT] TXM device: forcing always-attached JIT so the dyld validation bypass stays active.
+  StikDebug 3.2.0; Enable JIT -> VRMC (native app works: isJITEnabled=1, always-attached TXM).
 
-Game stack (EV-0079):
-  MC 26.2, Fabric Loader 0.20.1, Vivecraft 26.2-1.3.15, VRMC provider (bridge ABI 2),
-  LWJGL 3.4.1, MoltenVK 1.4.3 / Vulkan 1.2.357, Java 25 bundled runtime.
-  Launched from the native launcher UI (no autolaunch flag).
+Game stack:
+  MC 26.2, Fabric 0.20.1, Vivecraft 26.2-1.3.15, VRMC provider (bridge ABI 2), LWJGL 3.4.1,
+  MoltenVK 1.4.3/Vulkan 1.2.357, Java 25. Launch via launcher Play button.
+
+Bridge:
+  In-process shared surface: vrmc_shared_eye_textures() (latest provider MTLTexture handles),
+  vrmc_shared_set_tracking() (ARKit pose override), vrmc_shared_clear_tracking().
