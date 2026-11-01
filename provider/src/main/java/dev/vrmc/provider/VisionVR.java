@@ -55,7 +55,7 @@ public class VisionVR extends MCVR {
                 System.out.println("[VRMC-M2] " + this.initStatus);
                 return false;
             }
-            int rc = VrmcBridge.init("{\"abi\":1,\"eyes\":2}");
+            int rc = VrmcBridge.init("{\"abi\":2,\"eyes\":2}");
             if (rc != 0) {
                 this.initStatus = "vrmc_init failed rc=" + rc + ": " + VrmcBridge.lastError();
                 System.out.println("[VRMC-M2] " + this.initStatus);
@@ -63,7 +63,7 @@ public class VisionVR extends MCVR {
             }
             this.bridgeReady = true;
             this.initStatus = "VRMC bridge ABI v1";
-            System.out.println("[VRMC-M2] bridge handshake ok (ABI v1)");
+            System.out.println("[VRMC-M2] bridge handshake ok (ABI " + abi + ")");
         } catch (Throwable t) {
             this.initStatus = "VRMC bridge load failed: " + t;
             System.out.println("[VRMC-M2] " + this.initStatus);

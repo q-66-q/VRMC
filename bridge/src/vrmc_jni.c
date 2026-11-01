@@ -46,6 +46,13 @@ JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyes
     return (jint)vrmc_submit_eyes(&t);
 }
 
+JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTLTexture(
+    JNIEnv *env, jclass clazz, jlong vkImage) {
+    uint64_t out = 0;
+    int32_t rc = vrmc_export_mtl_texture((uint64_t)vkImage, &out);
+    return rc == 0 ? (jlong)out : 0;
+}
+
 JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeFrameTiming(JNIEnv *env, jclass clazz, jobject buf) {
     if (buf == NULL) return -4;
     void *dst = (*env)->GetDirectBufferAddress(env, buf);

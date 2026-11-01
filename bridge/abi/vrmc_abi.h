@@ -3,6 +3,9 @@
 /*
  * VRMC native bridge ABI (AGENT.md §3.4).
  *
+ * v2 adds vrmc_export_mtl_texture (VkImage -> MTLTexture export through the game's MoltenVK).
+ * v1 was never shipped externally; provider + bridge ship together.
+ *
  * ABI EVOLUTION POLICY (binding from M2; see docs/mvp/M2_PLAN.md §9):
  * 1. ANY struct layout/field/function signature change bumps VRMC_ABI_VERSION by a major version,
  *    including additive fields (struct sizes are part of the contract; no "optional field in v1").
@@ -29,7 +32,7 @@
 extern "C" {
 #endif
 
-#define VRMC_ABI_VERSION 1
+#define VRMC_ABI_VERSION 2
 
 typedef struct { float x, y, z; } vrmc_vec3;
 typedef struct { float x, y, z, w; } vrmc_quat;
@@ -72,6 +75,10 @@ int32_t vrmc_submit_eyes(const vrmc_eye_targets *targets);
 int32_t vrmc_frame_timing(vrmc_frame_timing_t *out);
 int32_t vrmc_recenter(int32_t mode);
 int32_t vrmc_haptic(int32_t hand, float amplitude, float frequency_hz, float duration_s);
+
+/* v2: export an opaque MTLTexture handle from a VkImage (the image must belong to the process's
+ * MoltenVK device). Writes a non-zero handle and returns 0 on success; fails closed otherwise. */
+int32_t vrmc_export_mtl_texture(uint64_t vk_image, uint64_t *out_mtl_texture);
 
 /* Human-readable last error, never NULL; valid until the next call on the same thread. */
 const char *vrmc_last_error(void);

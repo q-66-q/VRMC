@@ -8,7 +8,9 @@
  */
 #include "vrmc_abi.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <dlfcn.h>
 
 static int32_t g_initialized = 0;
 static uint64_t g_frames = 0;
@@ -28,8 +30,8 @@ int32_t vrmc_init(const char *caps_json, size_t caps_len) {
     if (caps_json == NULL || caps_len == 0) return set_error("caps_json missing");
     if (strstr(caps_json, "\"abi\"") == NULL) return set_error("caps_json lacks abi capability");
     /* The real bridge will validate the advertised numbers; the stub only checks the ABI token. */
-    if (strstr(caps_json, "\"abi\": 1") == NULL && strstr(caps_json, "\"abi\":1") == NULL) {
-        return set_error("abi version mismatch (expected 1)");
+    if (strstr(caps_json, "\"abi\": 2") == NULL && strstr(caps_json, "\"abi\":2") == NULL) {
+        return set_error("abi version mismatch (expected 2)");
     }
     memset(&g_tracking, 0, sizeof(g_tracking));
     g_tracking.ipd_m = 0.064f;
@@ -63,6 +65,39 @@ int32_t vrmc_submit_eyes(const vrmc_eye_targets *targets) {
         return set_error("eye texture handles missing");
     }
     g_frames++;
+    return 0;
+}
+
+typedef void (*PFN_vrmc_vkGetMTLTextureMVK)(uint64_t image, void **out_texture);
+
+static PFN_vrmc_vkGetMTLTextureMVK resolve_get_mtl_texture(void) {
+    static PFN_vrmc_vkGetMTLTextureMVK fn;
+    if (fn != NULL) return fn;
+    fn = (PFN_vrmc_vkGetMTLTextureMVK)dlsym(RTLD_DEFAULT, "vkGetMTLTextureMVK");
+    if (fn != NULL) return fn;
+    const char *bundle = getenv("BUNDLE_PATH");
+    char path[4096];
+    if (bundle != NULL) {
+        snprintf(path, sizeof(path), "%s/Frameworks/libMoltenVK.dylib", bundle);
+        void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        if (h == NULL) {
+            snprintf(path, sizeof(path), "%s/libMoltenVK.dylib", bundle);
+            h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        }
+        if (h != NULL) fn = (PFN_vrmc_vkGetMTLTextureMVK)dlsym(h, "vkGetMTLTextureMVK");
+    }
+    return fn;
+}
+
+int32_t vrmc_export_mtl_texture(uint64_t vk_image, uint64_t *out_mtl_texture) {
+    if (!g_initialized) return set_error("not initialized");
+    if (vk_image == 0 || out_mtl_texture == NULL) return set_error("bad export arguments");
+    PFN_vrmc_vkGetMTLTextureMVK fn = resolve_get_mtl_texture();
+    if (fn == NULL) return set_error("vkGetMTLTextureMVK unavailable (MoltenVK missing)");
+    void *texture = NULL;
+    fn(vk_image, &texture);
+    if (texture == NULL) return set_error("vkGetMTLTextureMVK returned null (image not exported)");
+    *out_mtl_texture = (uint64_t)(uintptr_t)texture;
     return 0;
 }
 

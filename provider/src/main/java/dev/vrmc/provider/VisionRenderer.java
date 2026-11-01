@@ -12,6 +12,7 @@ import org.vivecraft.client_vr.provider.MCVR;
 import org.vivecraft.client_vr.provider.VRRenderer;
 import org.vivecraft.client_vr.render.helpers.graphics.GraphicsHelper;
 import org.vivecraft.client_vr.settings.VRSettings;
+import dev.vrmc.provider.bridge.VrmcBridge;
 
 /**
  * M2 stereo renderer: creates the two eye targets and hands their texture handles to the bridge.
@@ -62,17 +63,16 @@ public class VisionRenderer extends VRRenderer {
         if (this.framebufferEye[0] == null || this.framebufferEye[1] == null) {
             return;
         }
-        int lt = textureId(this.framebufferEye[0]);
-        int rt = textureId(this.framebufferEye[1]);
+        long lt = textureHandle(this.framebufferEye[0]);
+        long rt = textureHandle(this.framebufferEye[1]);
         if (lt != 0 && rt != 0) {
-            int rc = dev.vrmc.provider.bridge.VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT);
+            int rc = VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT);
             if (rc != 0) {
                 VRSettings.LOGGER.warn("VRMC: submitEyes failed rc={}", rc);
             }
         } else if (!this.loggedNoHandle) {
-            // Vulkan/MoltenVK backend: S4a decides the Metal handle export path; GL handle unavailable.
             this.loggedNoHandle = true;
-            System.out.println("[VRMC-M2] eye texture handle unavailable on this backend (Vulkan: S4a pending)");
+            System.out.println("[VRMC-M2] eye texture handle unavailable (Vulkan export failed or GL handle missing)");
         }
         if (!this.polled) {
             VRSettings.LOGGER.warn("VRMC: frame ended without poll");
@@ -81,11 +81,34 @@ public class VisionRenderer extends VRRenderer {
         this.frameIndex++;
     }
 
-    private static int textureId(VRTextureTarget target) {
+    private boolean loggedVulkanExport;
+
+    /**
+     * GL backends expose a GL texture id directly. Vulkan (MoltenVK) exposes a VkImage handle, which
+     * is exported to an MTLTexture through the bridge (ABI v2) so the compositor/native side can
+     * consume it zero-copy (S4a host+device PASS: EV-0063/EV-0065).
+     */
+    private long textureHandle(VRTextureTarget target) {
         try {
             long handle = GraphicsHelper.INSTANCE.getTextureHandle(target.getColorTexture());
-            return (int) handle;
+            if (handle == 0) {
+                return 0;
+            }
+            String backend = RenderSystem.getDevice().getDeviceInfo().backendName();
+            if (backend != null && backend.toLowerCase().contains("opengl")) {
+                return handle;
+            }
+            long mtl = VrmcBridge.exportMTLTexture(handle);
+            if (!this.loggedVulkanExport) {
+                this.loggedVulkanExport = true;
+                System.out.printf("[VRMC-M2] vulkan eye export: VkImage=0x%x -> MTLTexture=0x%x%n", handle, mtl);
+            }
+            return mtl;
         } catch (RuntimeException e) {
+            if (!this.loggedVulkanExport) {
+                this.loggedVulkanExport = true;
+                System.out.println("[VRMC-M2] vulkan eye export unavailable: " + e);
+            }
             return 0;
         }
     }

@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
  * Only scalars and preallocated direct buffers cross the boundary; fail closed on load/init errors.
  */
 public final class VrmcBridge {
-    public static final int ABI_VERSION = 1;
+    public static final int ABI_VERSION = 2;
     /** sizeof(vrmc_tracking_state): u64 + head(28) + 2*controller(28) + f32. */
     public static final int TRACKING_BYTES = 8 + 28 + 28 + 28 + 4;
     /** sizeof(vrmc_frame_timing_t): u64 + i64*4 + u32 (+ padding kept explicit below). */
@@ -34,6 +34,7 @@ public final class VrmcBridge {
     public static native int nativeGetTracking(ByteBuffer out);
     public static native int nativeSubmitEyes(long leftTexture, long rightTexture, int frameIndex, int width, int height);
     public static native int nativeFrameTiming(ByteBuffer out);
+    public static native long nativeExportMTLTexture(long vkImage);
 
     public static int abiVersion() { return nativeAbiVersion(); }
     public static int init(String capsJson) { return nativeInit(capsJson); }
@@ -43,4 +44,6 @@ public final class VrmcBridge {
         return nativeSubmitEyes(left, right, frameIndex, width, height);
     }
     public static int frameTiming(ByteBuffer out) { return nativeFrameTiming(out); }
+    /** Export a Metal texture handle from a VkImage owned by the game's MoltenVK device (0 = failure). */
+    public static long exportMTLTexture(long vkImage) { return nativeExportMTLTexture(vkImage); }
 }
