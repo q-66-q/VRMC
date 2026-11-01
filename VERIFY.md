@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0063`.
+**Next evidence ID:** `EV-0064`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1735,6 +1735,30 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Re-entry requires a new scope decision. Not BLOCKED: BLOCKED would imply a future automatic resolution.
 
+### EV-0063 — S4a-host PASS: MoltenVK MTLTexture export + Metal pixel readback + MTLSharedEvent synchronization work on macOS host
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:13:12-10:00 |
+| Commit | `d329ed07e46d37aaf0ed37cdc16f78cecbb7584e` |
+| Dirty state | runtime/probes/s4a-host/ |
+| Device | host macOS (Mac16,7, MoltenVK 1.4.2; visual parity with bundled 1.4.3 build) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. spike runtime/probes/s4a-host/spike_s4a.mm: create VkInstance/device with VK_EXT_metal_objects; export MTLDevice; create exportable VkImage; clear it to red via Vulkan; export MTLTexture; read it back through Metal; verify pixels
+2. create a timeline VkSemaphore with VK_EXPORT_METAL_OBJECT_TYPE_METAL_SHARED_EVENT_BIT_EXT; export MTLSharedEvent; signal value 42 from Vulkan; read signaledValue in Metal
+
+**Expected:** MTLDevice + MTLTexture export works, Metal pixels match Vulkan clear, MTLSharedEvent observes Vulkan signal
+
+**Actual:** PASS: exported MTLDevice yes; exported MTLTexture 64x64 (RGBA8Unorm); Metal readback pixel = 255,0,0,255 as expected; timeline VkSemaphore exported MTLSharedEvent, signaledValue=42 after Vulkan signal. Binary semaphore export yields nil (timeline required). S4a-device remains NOT RUN.
+
+**Artifacts:** evidence/EV-0063/spike_s4a.mm (cce0584a3fa2); evidence/EV-0063/spike_s4a (7cb4158a87e0); evidence/EV-0063/spike_s4a.log (0816d75c4ebd); evidence/EV-0063/summary.log (8422d7310a4c)
+
+**Limitations:** Host gate only. Device gate (S4a-device) is separate: macOS Metal object handles do not prove visionOS MoltenVK/Metal. M3 must use a timeline semaphore for shared-event sync.
+
 ---
 
 ## 7. Status dashboard
@@ -1752,6 +1776,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
+| S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063); S4a-device NOT RUN |
 | M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
 | PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
@@ -1844,3 +1869,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Lead | — | pending | — |
 | 2026-11-01 | **M2 review propagation + PSVR2 scope downgrade.** EV-0060 scoped as **M2-W4/W5 host PASS**; M2-W6 device bring-up and M3 are **NOT RUN**; S4a split into host/device gates. Identity controller transforms marked **host-only** (device missing data fails loudly). macstream is a tracked LGPL-3.0 reference (upstream `ec5a851c…`, design + partial provider port, no code in the GPL launcher; ADR-0009). PSVR2 Sense = **P1 / DEFERRED (out of MVP scope)**, not BLOCKED: F1–F3 moved to P1, AC-4/§1/§3/§4/§6/§7/§11 updated, G2/G3/G4 → HIGH (hands-only has no fallback), ST-S4/ST-S5 split. New status `DEFERRED (out of MVP scope)` added to the legend. Next ID `EV-0062`. |
 | 2026-11-01 | **EV-0061 (`PASS`): M2 review fixes applied** (host/device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy). **EV-0062 (`DEFERRED`): PSVR2 Sense controller input — out of MVP scope (P1), not BLOCKED.** Next ID `EV-0063`. |
+| 2026-11-01 | **EV-0063 (`PASS`): S4a-host** — exportable VkImage → MTLTexture works, Metal reads the Vulkan clear correctly, and MTLSharedEvent sync works with a **timeline** semaphore. **S4a-device remains NOT RUN** (separate gate). Next ID `EV-0064`. |

@@ -28,6 +28,19 @@ Fallback if runtime capability checks fail on visionOS (e.g. iOS restrictions on
 or a Metal compute/blit pass on the exported handle). Cost: one full-screen copy per eye per frame;
 acceptable for M2, revisit in S6 perf.
 
+## Host gate result — PASS (EV-0063)
+
+Host spike (`runtime/probes/s4a-host/spike_s4a.mm`, macOS MoltenVK 1.4.2) proved the path:
+
+- `VK_EXT_metal_objects` present; `MTLDevice` export works.
+- Exportable `VkImage` → `MTLTexture` (RGBA8Unorm, 64×64); Vulkan clear to red; Metal readback
+  `255,0,0,255` — pixels correct.
+- **Shared-event sync:** `MTLSharedEvent` export works only for a **timeline** `VkSemaphore`
+  (`VK_SEMAPHORE_TYPE_TIMELINE`, timelineSemaphore feature). A binary semaphore exports `nil`.
+  Signaled value 42 from Vulkan was observed by `MTLSharedEvent`.
+
+Device gate (S4a-device) is **NOT RUN** — macOS Metal handles do not prove visionOS MoltenVK/Metal.
+
 ## Gates (separate — host PASS does not imply device PASS)
 
 - **S4a-host:** macOS MoltenVK export + `MTLSharedEvent` sync works; pixels correct.
