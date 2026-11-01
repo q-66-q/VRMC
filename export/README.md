@@ -1,82 +1,83 @@
-# VRMC — native visionOS launcher UI blocker (current issue)
+# VRMC — native visionOS launcher (M3-W1) — **RESOLVED**
 
 **Date:** 2026-11-01
-**Status:** **blocked on the native launcher UI only** — the native app runs the whole Minecraft stack
-(JVM + JIT + MC 26.2 + Fabric + Vivecraft + VRMC provider + Vulkan/MoltenVK + eye-texture export), but
-its **UIKit launcher content does not render** (blank window) and the root-VC workaround crashes.
+**Status:** **native launcher UI works on D1** — the previously blocking blank window was fixed by the
+UIKit idiom patch; Play launches Minecraft from the native app with no autolaunch bypass.
 
-> This dossier **replaces** the old 2026-10-31 `export/` contents (Amethyst release IPA / LWJGL 3.3.3
-> blocker), which is resolved: VRMC is now built from an Amethyst 1.2.0 source tree with LWJGL 3.4.1,
-> and MC 26.2 boots on device and in the native app.
+> The earlier `export/` blocker dossier (native UIKit content blank / split-view crash) is resolved.
+> Prior logs are kept under `logs/history/`; the current success evidence is
+> `logs/latestlog-native-m3w1-pass.txt` (EV-0079).
 
----
+## 1. Root cause (confirmed)
 
-## 1. Why native at all
+`Natives/UIKit+hook.m:init_hookUIKitConstructor()` spoofed the UIKit idiom:
 
-visionOS **compatibility apps cannot open immersive spaces or use CompositorServices**. M3 therefore
-requires a native visionOS app (`PLATFORM=11`). ADR-0010 chose the single-process native app (launcher +
-JVM/MC + provider + immersive renderer).
+```objc
+UIUserInterfaceIdiom idiom = getPrefBool(@"debug.debug_ipad_ui") ? Pad : Phone;
+[UIDevice.currentDevice _setActiveUserInterfaceIdiom:idiom];
+[UIScreen.mainScreen _setUserInterfaceIdiom:idiom];
+```
 
-## 2. What already works (evidence in this repo)
+In the iOS-compat app this is harmless (device already reports iPad). In a **native visionOS app** the
+real idiom is `Vision` (6); spoofing it to Phone/Pad makes the UIKit window content invisible (blank
+window; process alive). A minimal split-view sample on the visionOS simulator reproduced it exactly:
+real idiom → renders; forced Phone/Pad → blank.
 
-| Item | Evidence |
-|---|---|
-| Native visionOS payload builds (relabelled VISIONOS; arm64) | EV-0071 |
-| Native app opens a CompositorServices immersive space and presents per-eye stereo (red/green test pattern) | EV-0074 |
-| Native app hosts JVM/JIT/MC 26.2/Fabric 0.20.1/Vivecraft/provider/Vulkan/MoltenVK and device eye export | **EV-0077** |
-| StikDebug Enable JIT works for the native app (`isJITEnabled=1`, always-attached JIT) | EV-0077 |
-| Native window/scene/root VC are created and sized correctly (1280×720) | EV-0076 |
-| Root-VC swap workaround fires and then crashes (launcher VCs assume split view) | **EV-0078** |
+## 2. Fix
 
-**Auto-launch bypass**: putting `Documents/autolaunch.flag` in the container makes the native app launch
-the selected profile ~10 s after start; with this, EV-0077 proved the full native MC stack. The
-auto-launch hook was a local refbuild patch (not yet in `patches/` of the repo).
+`patches/vrmc-m3w1-visionos-idiom.patch` (applies after `vrmc-m1-amethyst-1.2.0.patch`):
 
-## 3. Current blocker (reproduce)
+```objc
+if (realUIIdiom != 6) {   // never spoof in the native visionOS app
+    ...existing Phone/Pad override...
+}
+```
 
-1. Install the native build (see `patches/build-native-vrmc.sh`).
-2. StikDebug → Enable JIT → VRMC.
-3. The app launches; a window title/toolbar is visible, **content is blank**. Logs show:
-   - `willConnect bounds={{0,0},{1280,720}}`, `rootVC=LauncherSplitViewController`, window visible,
-     view 1280×720 with 2 subviews (EV-0076).
-4. With `VRMCNativeBuild=true` the launcher swaps the root to
-   `LauncherNavigationController(root=LauncherProfilesViewController)`: the branch runs
-   (`rootVC=LauncherNavigationController`), then the app crashes:
-   `NSException` in `-[LauncherProfilesViewController viewWillAppear:]` →
+Compat app behavior is unchanged. Popups (alerts/share sheets) set anchor views as iPad requires, so
+the Vision idiom path is safe.
 
-   ```
-   @[sidebarViewController drawAccountButton, self.createButtonItem]
-   ```
+## 3. Verified result (EV-0079)
 
-   `sidebarViewController` is defined as
-   `((LauncherMenuViewController *)self.splitViewController.viewControllers[0].viewControllers[0])`;
-   with a plain navigation root, `self.splitViewController` is nil → nil element → exception.
-   (EV-0078, crash report `logs/AngelAuraAmethyst-2026-11-01-085003.ips`.)
+Operator-confirmed on D1:
 
-## 4. Attempts so far
+- native launcher **UI renders** after StikDebug Enable JIT → VRMC;
+- pressing **Play** on `fabric-loader-0.20.1-26.2` starts the game **without** `autolaunch.flag`;
+- log: JIT enabled (`isJITEnabled=1`, always-attached TXM), MC 26.2 + Fabric 0.20.1, Vulkan/MoltenVK
+  1.4.3, `VisionVR` provider init/bridge ABI 2, LEFT/RIGHT render passes, `VkImage→MTLTexture` eye
+  export, 901+ tracking frames, Vivecraft MenuWorlds built.
 
-| Attempt | Result |
-|---|---|
-| Native app with `LauncherSplitViewController` root | Window valid, content blank (EV-0076) |
-| Plain `LauncherNavigationController(root=LauncherProfilesViewController)` root | Crash: split-view-dependent sidebar macro (EV-0078) |
-| Auto-launch bypass (no UI interaction) | **Works** — full MC stack boots in native app (EV-0077) |
+Evidence: `evidence/EV-0079.md`, `logs/latestlog-native-m3w1-pass.txt`.
 
-## 5. Next options (M3-W1)
+## 4. Reproduce — native build + install
 
-1. **Native-specific shell (preferred):** a small SwiftUI/UIKit shell that (a) shows a minimal launcher
-   (instance/profile + Play) and (b) calls the existing launch path (`LauncherNavigationController`
-   /`launchMinecraft:`), without instantiating the split-view-dependent view controllers.
-2. **Split-view-compatible shim:** keep `LauncherSplitViewController` but render it in a way visionOS
-   accepts (host it in a SwiftUI window, force layout/transaction, or replace the split view with a
-   plain container that sets each child's `splitViewController` expectations).
-3. Interim: keep the auto-launch flag for development; do not ship.
+Prereqs: Xcode 27.2 + visionOS SDK, JDK 8 boot JDK, patched Amethyst 1.2.0 source tree
+(`AME_SRC`, e.g. `vendor/amethyst-build`), visionOS dev profile + `.xcent` for `dev.vrmc.vrmc`.
 
-Either way, the *game hosting* problem is solved; only UI presentation remains.
+```bash
+AME_SRC=/path/to/amethyst-1.2.0-source \
+BOOTJDK=/path/to/jdk8/bin \
+PLATFORM=11 \
+BUILD_DIR=/tmp/vrmc-native-build \
+scripts/build_launcher.sh
+```
 
-## 6. Folder map
+The script applies `patches/*.patch` in order, builds `PLATFORM=11`, and adjusts the app Info.plist for
+native visionOS (`MinimumOSVersion 1.0`, `UIDeviceFamily [7]`). Then brand and sign:
 
-- `logs/` — native gate-3 boot log, native UI logs, crash report, summary.
-- `patches/build-native-vrmc.sh` — build/brand/sign/install recipe for the native app.
-- `patches/native-ui-workaround.md` — source-level details of the attempted root-VC swap, diagnostics,
-  and auto-launch hook.
-- `evidence/EV-0077.md`, `evidence/EV-0078.md` — evidence entries copied for offline readers.
+```bash
+APP=/tmp/vrmc-native-build/artifacts/Payload/AngelAuraAmethyst.app
+cp -R "$APP" /tmp/VRMC-native.app
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier dev.vrmc.vrmc" /tmp/VRMC-native.app/Info.plist
+# sign every Mach-O, copy the visionOS profile to embedded.mobileprovision,
+# codesign the app with the matching .xcent, then:
+xcrun devicectl device install app --device <UDID> /tmp/VRMC-native.app
+```
+
+`patches/build-native-vrmc.sh` wraps this flow (edit the profile/xcent paths).
+
+## 5. Remaining M3 work
+
+- **M3-W2/W3**: CompositorServices layer consumes the provider's eye `MTLTexture`s (timeline
+  `MTLSharedEvent` sync) instead of the test pattern.
+- **M3-W4**: ARKit pose → bridge → provider `hmdPose`; recenter.
+- **M3-W5/W6**: pacing/thermal and device acceptance (10-min immersive run).
