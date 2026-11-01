@@ -57,11 +57,11 @@ alias. EV-0004 records the host-only pre-test below. Internal device reproductio
   installed and launched on D1. **Out of scope:** Minecraft, Vivecraft, CompositorServices (S1b/S2/S4).
   Pass requires the four criteria above; record as `PASS (compat)` only with device evidence — it does
   not satisfy ST-S1's native requirement. **Scaffold:** `runtime/probes/s1a/` compiles
-  (`build.sh --check`, EV-0007). Build/signing pass with an AVP profile (EV-0011); the app installs, but
-  the control run crashed on missing UIScene adoption before the JVM started (EV-0015 correction).
-  Next: adopt UIScene, re-run, then launch through StikDebug with the JIT script. **Divergence note:** if D1's JIT26 behavior differs from the
-  macOS host (no TXM trap, different failure), record it for S1b. Start the AVP provisioning-profile
-  update before this work lands; the current free-team profile covers only the iPad.
+  (`build.sh --check`, EV-0007). Build/signing pass with an AVP profile (EV-0011). A console-style
+  harness (`JLI_Launch` from `main`, no UI) starts the JVM on D1 and traps at `BreakGetJITMapping`
+  without an enabler (EV-0018). **Divergence note:** if D1's JIT26 behavior differs from the macOS host
+  (no TXM trap, different failure), record it for S1b. Next: launch through StikDebug with a patched
+  `universal.js` implementing allocation-style `0x69`; the built-in script rejects legacy `0x69`.
 - **S1b (target, 1.5–3 weeks).** Native visionOS harness with the relabelled+re-signed JRE; request
   JIT through the on-device enabler (poll `CS_DEBUGGED`, then `JLI_Launch`). A **custom** script is
   required because the JVM's `0x69` request is allocation-style (`x0 = size`), unlike the enabler's
