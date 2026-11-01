@@ -237,6 +237,10 @@ static NSString *const kShaderSource =
         }
     }
     ar_session_stop(session);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"VRMCImmersiveEnded" object:nil];
+    });
+    compLog("posted VRMCImmersiveEnded");
 }
 @end
 

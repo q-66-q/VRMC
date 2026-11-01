@@ -1,5 +1,6 @@
 import SwiftUI
 import CompositorServices
+import UIKit
 
 /// Entry point called from the Amethyst C main() (iOS-compat binary) via dlopen/dlsym.
 /// The shell adopts SwiftUI's app lifecycle so visionOS immersive scenes / CompositorLayer exist.
@@ -48,7 +49,37 @@ struct LauncherHostView: UIViewControllerRepresentable {
 @main
 struct VRMCShellApp: App {
     @State private var immersiveOpen = false
+    @State private var gameStarted = false
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+    @Environment(\.scenePhase) private var scenePhase
+
+    private func setWindowAlpha(_ alpha: CGFloat, log: String) {
+        DispatchQueue.main.async {
+            var count = 0
+            for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+                for window in scene.windows {
+                    window.alpha = alpha
+                    window.isUserInteractionEnabled = (alpha > 0.01)
+                    count += 1
+                }
+            }
+            shellLog("\(log) windows=\(count) alpha=\(alpha)")
+        }
+    }
+
+    private func openVR(reason: String) {
+        guard !immersiveOpen else { return }
+        immersiveOpen = true
+        Task {
+            let result = await openImmersiveSpace(id: "vr")
+            shellLog("\(reason) openImmersiveSpace result=\(String(describing: result))")
+            if String(describing: result).contains("opened") {
+                setWindowAlpha(0, log: "window parked")
+            } else {
+                immersiveOpen = false
+            }
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -56,15 +87,25 @@ struct VRMCShellApp: App {
                 .onAppear { shellLog("launcher host appeared") }
                 .onReceive(NotificationCenter.default.publisher(for: Notification.Name("VRMCGameStarted"))) { _ in
                     shellLog("VRMCGameStarted received")
-                    guard !immersiveOpen else { return }
-                    immersiveOpen = true
+                    gameStarted = true
                     Task {
-                        // Let the game create its renderer/provider first; opening the immersive space
-                        // while Minecraft is still initializing caused a Vulkan device-loss during
-                        // bring-up. Keep a short settle delay before presenting.
+                        // Let the game create its renderer/provider first (provider init + first frames).
                         try? await Task.sleep(nanoseconds: 15_000_000_000)
-                        let result = await openImmersiveSpace(id: "vr")
-                        shellLog("auto openImmersiveSpace result=\(String(describing: result))")
+                        openVR(reason: "auto")
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: Notification.Name("VRMCImmersiveEnded"))) { _ in
+                    shellLog("VRMCImmersiveEnded received")
+                    immersiveOpen = false
+                    setWindowAlpha(1, log: "window restored")
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    shellLog("scenePhase=\(String(describing: newPhase)) gameStarted=\(gameStarted) immersive=\(immersiveOpen)")
+                    if newPhase == .active && gameStarted && !immersiveOpen {
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            openVR(reason: "foreground")
+                        }
                     }
                 }
         }

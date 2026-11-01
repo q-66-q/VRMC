@@ -258,3 +258,19 @@ Next implementation order: (a) window visibility/parking while immersive is acti
 handling to keep/reopen the immersive space; (c) per-eye alignment — either pass CompositorServices
 tangents/FOV into the provider so MC renders a matching projection, or reproject in the compositor;
 (d) timeline `MTLSharedEvent` sync; then pacing/acceptance.
+
+
+## 14. M3-W3/W4 status after window parking (EV-0083/EV-0084)
+
+- Eye-texture + tracking data path works: compositor logs `eyes=1` with the provider's `MTLTexture`
+  handles and provider logs real ARKit head poses.
+- The game survives the immersive transition with the 15 s delay / no-GPU-block mitigations.
+- Window parking works: shell sets the app windows to `alpha=0` when the immersive space opens
+  (operator confirms the game window disappears).
+- **Backgrounding still crashes the app**: `__BUG_IN_CLIENT__` at `cp_frame_end_submission` on the
+  compositor thread while the layer invalidates as the app backgrounds. Needs a graceful compositor
+  shutdown/recreate path on `scenePhase` background (stop before invalidation, recreate layer/space on
+  foreground) or a frame-completion-safe endSubmission strategy.
+- **Alignment** is still a flat fullscreen sample of each 1024×1024 eye texture; the next rendering task
+  is per-eye projection/FOV parity with the provider (or reprojection in the compositor), plus
+  `MTLSharedEvent` sync.
