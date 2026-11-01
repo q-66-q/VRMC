@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0067`.
+**Next evidence ID:** `EV-0069`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1831,6 +1831,54 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** M2-W6 preconditions: Fabric 0.19.3 -> Vivecraft (staged) -> provider (staged) -> launch. Remaining device action: install Fabric loader via launcher UI.
 
+### EV-0067 — M2-W6 device attempt 1 — provider init reached but crashed on component-transform guard; fix applied
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:41:08-10:00 |
+| Commit | `5db3fd020b7af789043875f2d63d2d541509fa05` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (Fabric 0.20.1 + Vivecraft 26.2-1.3.15 + vrmc-provider) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `FAIL` |
+
+**Procedure:**
+
+1. launch MC via VRMC with JIT; Fabric 0.20.1; provider mixin + bridge dylib; Vivecraft vrEnabled=true/OPENVR
+
+**Expected:** provider init and stable frame loop with no SteamVR
+
+**Actual:** provider redirect fired; VisionVR constructed; dh.vr=VisionVR; bridge handshake ok (ABI v1); VisionVR.init() succeeded; VisionRenderer created; eye targets 1024x1024. Then crashed in poll(): IllegalStateException 'missing controller/hand transform on device (controller=0, component=handgrip)' from the identity guard. Root cause: guard applied to static component offsets, not tracking data. Fix applied: identity component offsets; fail-loud moved to tracking-pose validation; new provider jar pushed.
+
+**Artifacts:** evidence/EV-0067/latestlog.txt (840911a8cb09); evidence/EV-0067/crash.txt (4fb8cc85a244); evidence/EV-0067/summary.log (7d0c3eb6d324)
+
+**Limitations:** Retry with updated provider jar; expected provider init + frame loop, then record EV-0068.
+
+---
+
+### EV-0068 — M2-W6 PASS: device provider init + bridge handshake + stereo render passes + no SteamVR (Fabric 0.20.1)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:46:38-10:00 |
+| Commit | `5db3fd020b7af789043875f2d63d2d541509fa05` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. launch MC 26.2 via VRMC with StikDebug JIT; Fabric Loader 0.20.1; Vivecraft 26.2-1.3.15 + vrmc-provider; bridge dylib ABI v1 stub; Vivecraft vrEnabled=true/OPENVR
+
+**Expected:** provider init + bridge handshake + stereo eye targets/render passes + no SteamVR/OpenVR runtime
+
+**Actual:** PASS: provider redirect fired; VisionVR constructed; dh.vr=VisionVR; [vrmc-stub] init ok abi=1; bridge handshake ok (ABI v1); VisionVR.init() succeeded; VisionRenderer created; eye targets L/R 1024x1024; Vivecraft 'Active RenderPasses: LEFT, RIGHT' + GUI/keyboard/radial/telescope targets; tracking frames polled (1501+); no crash report; no SteamVR failure. Game is not playable yet: M3 compositor/head tracking and M4 input are NOT RUN (low/unusable view, no click) — expected.
+
+**Artifacts:** evidence/EV-0068/latestlog.txt (6109d4b0ce6b); evidence/EV-0068/summary.log (4e88c1f1aa1c)
+
+**Limitations:** Fabric pin is 0.19.3 in versions.env; device used 0.20.1 as a compatibility candidate and the provider loaded + initialized successfully. M2 remainder: wire S4a device eye export/submit into VisionRenderer; M3/M4 next.
+
 ---
 
 ## 7. Status dashboard
@@ -1844,13 +1892,13 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
-| **M2 milestone** | **IN PROGRESS** | EV-0058 scaffold; EV-0059 provider substitution; EV-0060 M2-W4/W5 host PASS; **S4a-host PASS (EV-0063)** and **S4a-device PASS (EV-0065)**. **M2-W6 device bring-up NOT RUN**; **M3 NOT RUN** |
+| **M2 milestone** | **IN PROGRESS** | EV-0058/0059/0060 host; **S4a-host/device PASS (EV-0063/EV-0065)**; **M2-W6 device provider init PASS (EV-0068)**. Remaining M2: wire S4a device eye export/submit into `VisionRenderer` (M2-W5 remainder). **M3/M4 NOT RUN** |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
 | S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063) |
 | S4a-device eye handoff | `PASS` | Bundled MoltenVK 1.4.3: MTLDevice+MTLTexture export, Metal readback correct, timeline MTLSharedEvent sync on D1 (EV-0065) |
-| M2-W6 prep | `PARTIAL` | iOS bridge dylib embedded/signed + JVM arg injection + provider/Vivecraft jars staged (EV-0066); Fabric loader install pending |
+| M2-W6 device provider init | `PASS` | Device: bridge handshake ABI v1, `VisionVR.init()`, stereo render passes LEFT/RIGHT, 1501+ tracking frames, no SteamVR (EV-0068); Fabric 0.20.1 compatibility candidate |
 | M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
 | PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
@@ -1948,3 +1996,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0064 (`NOT RUN`)**: S4a-device probe staged inside the VRMC app (bundled MoltenVK 1.4.3), marker pushed, but the device was locked (passcodeRequired=true) so it could not be launched. Unlock AVP and launch VRMC to execute; log = Documents/s4a-device.log. Next ID `EV-0065`. |
 | 2026-11-01 | **EV-0065 (`PASS`): S4a-device** — bundled MoltenVK 1.4.3 on D1 exports MTLDevice/MTLTexture, Metal reads back the Vulkan clear correctly, and timeline MTLSharedEvent sync works (signaledValue 42). M3's zero-copy eye-handoff substrate is device-validated; **M2-W6 (provider init on device) and M3 remain NOT RUN**. Next ID `EV-0066`. |
 | 2026-11-01 | **EV-0066 (`PARTIAL`): M2-W6 prep** — arm64-ios JNI bridge dylib built/embedded/signed; launcher passes `-Dvrmc.bridge.lib`; `vrmc-provider.jar` + Vivecraft jar staged in the device instance mods. **Remaining device step: install Fabric 0.19.3 loader**; W6 provider run still NOT RUN. Next ID `EV-0067`. |
+| 2026-11-01 | **EV-0067 (`FAIL`)**: first W6 device attempt reached provider init + bridge handshake + eye targets, then crashed on the host-only identity guard applied to static component transforms; fix: identity component offsets + tracking-pose validity guard. **EV-0068 (`PASS`)**: after the fix, device provider init + stereo render passes (LEFT/RIGHT) + 1501+ tracking frames + no SteamVR; device used Fabric Loader **0.20.1** (pin is 0.19.3 → compatibility candidate; pin/ADR decision pending). Game remains unplayable by design: M3 compositor/head tracking and M4 input are NOT RUN. Next ID `EV-0069`. |

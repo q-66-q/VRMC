@@ -14,6 +14,7 @@ machine-readable source of truth.
 | JVM | **OpenJDK 25.0.4** iOS arm64 (`MirrorMappedCodeCache`) | Relabelled to VISIONOS and deployed as external runtime `Documents/java_runtimes/java-25-openjdk` | tree `sha256 06ff09cf2d06cd3d9b0d713f147a56b8c1723c0e7fffc573c7ef3241af055409` (as-deployed flat, signed tree) | EV-0022/EV-0024, EV-0031/EV-0034 |
 | LWJGL | **3.4.1** (Java + iOS natives) | Amethyst source `JavaApp/libs/lwjgl-3.4.1` jars; natives `Natives/resources/Frameworks/lwjgl34` | jars tree `sha256 f6601d2ad9edf975529b7871a21b3ba0297974e43d576980f46f70eaf855ae6e` | EV-0031/EV-0032 (learning), EV-0034 (1.2.0 ships it natively) |
 | VRMC app (branded source build) | **dev.vrmc.vrmc / 1.2.0** | Source-built payload branded as VRMC (display/name), 167 Mach-O re-signed with the `<TEAM_ID>.dev.vrmc.vrmc` profile; test app `dev.vrmc.amethyst` removed (fresh container) | signed app tree `sha256 446862ef3c13a37ec95c8e12d3546ec3dc5ed593eb4fb492b1f2b9f4be91f884` | EV-0042 |
+| Fabric Loader (device test) | **0.20.1** | Device test 2026-11-01: provider loads/initializes; pin remains **0.19.3** pending pin/ADR decision | — | EV-0068 |
 | Minecraft Java | **26.2** | Mojang; installed on device by Amethyst | version JSON `sha256 267d4b17134667235223525d3151b8126b066a3347c372d7a0d2474a9f0970f4` | EV-0005, EV-0014, EV-0034 |
 
 Hash method: “tree sha256” = `find . -type f | sort | xargs shasum -a 256 | shasum -a 256` over the

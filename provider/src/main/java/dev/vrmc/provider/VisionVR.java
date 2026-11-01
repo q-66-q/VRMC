@@ -113,6 +113,13 @@ public class VisionVR extends MCVR {
                 int c1 = 8 + 56;
                 readPose(c0, this.controllerPose[LEFT_CONTROLLER]);
                 readPose(c1, this.controllerPose[RIGHT_CONTROLLER]);
+                // Fail loudly if the bridge returned no usable tracking data (never silently invent poses).
+                if (qw == 0.0F || !Float.isFinite(qw) || !Float.isFinite(px) || !Float.isFinite(py) || !Float.isFinite(pz)) {
+                    String msg = "VRMC: invalid/missing head tracking data from bridge (q=" + qx + "," + qy
+                        + "," + qz + "," + qw + " p=" + px + "," + py + "," + pz + ")";
+                    System.out.println("[VRMC-M2][FATAL] " + msg);
+                    throw new IllegalStateException(msg);
+                }
                 this.controllerTracking[LEFT_CONTROLLER] = true;
                 this.controllerTracking[RIGHT_CONTROLLER] = true;
                 float ipd = this.tracking.getFloat(8 + 84);
@@ -151,16 +158,10 @@ public class VisionVR extends MCVR {
     @Override public Vector2fc getPlayAreaSize() { return new Vector2f(1.0F, 1.0F); }
     @Override public void refreshControllerTransforms() { /* M3/M4 */ }
     @Override public Matrix4fc getControllerComponentTransform(int controllerIndex, String componentName) {
-        // Host-only fallback (no real controller/hand data exists in the harness). On device, a null
-        // transform means tracking data is missing: fail loudly instead of silently returning identity,
-        // which would look like "hands in the wrong place" and hide the real defect.
-        if (HOST_HARNESS) {
-            return IDENTITY;
-        }
-        String msg = "VRMC: missing controller/hand transform on device (controller=" + controllerIndex
-            + ", component=" + componentName + "); tracking data missing (identity fallback is host-only)";
-        System.out.println("[VRMC-M2][FATAL] " + msg);
-        throw new IllegalStateException(msg);
+        // These are *static* handgrip/tip model offsets, not tracking data. The bridge does not yet
+        // supply per-controller component offsets (M3/M4 work), so identity is the correct default.
+        // Tracking poses are the data that must never be silently invented — poll() validates them.
+        return IDENTITY;
     }
     @Override public List<Long> getOrigins(VRInputAction action) { return List.of(); }
     @Override public String getOriginName(long origin) { return "VRMC"; }

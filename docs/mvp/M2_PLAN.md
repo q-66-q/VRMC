@@ -12,14 +12,15 @@ receives both eye images at a stable frame cadence — with **no SteamVR, no Ope
 OpenXR runtime**.
 
 M2 exit criteria (all evidenced):
-1. Provider init: Mixin redirect → `VisionVR.init()` returns success; MC logs the provider name.
+1. Provider init: Mixin redirect → `VisionVR.init()` returns success; MC logs the provider name. **PASS (EV-0068)**
 2. Stereo eye targets: both eyes rendered (log + per-eye image hashes differ correctly, or exported
-   texture handles recorded).
-3. Native bridge handshake: `vrmc_init` version check passes; fail-closed on mismatch.
+   texture handles recorded). **PASS for target creation/render passes (EV-0068); device eye
+   export/submit wiring into `VisionRenderer` is the remaining M2-W5 item.**
+3. Native bridge handshake: `vrmc_init` version check passes; fail-closed on mismatch. **PASS (EV-0068, ABI v1 stub).**
 4. Eye handoff: the bridge receives per-eye texture handles/IDs (Metal object export or GPU blit;
    path decided by S4a).
 5. No VR runtime dependency: no SteamVR/OpenVR/OpenXR DLL/dylib loaded; Vivecraft logs no
-   "OpenVR not found" failure.
+   "OpenVR not found" failure. **PASS (EV-0068).**
 6. Host harness reproducible: the provider can run on desktop Fabric with a stub bridge before device.
 
 ## 1a. Scope status (2026-11-01 review)
@@ -27,7 +28,7 @@ M2 exit criteria (all evidenced):
 | Item | Status | Evidence |
 |---|---|---|
 | M2-W4/W5 bridge + provider + stereo host integration | **PASS (host)** | EV-0060 |
-| M2-W6 device bring-up | **NOT RUN** | — |
+| M2-W6 device bring-up | **PASS** | EV-0068: provider init, bridge handshake, LEFT/RIGHT render passes, 1501+ frames, no SteamVR (Fabric 0.20.1 candidate) |
 | S4a-host (macOS MoltenVK export/shared-event) | **PASS** | EV-0063: MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync |
 | S4a-device (visionOS MoltenVK/Metal) | **PASS** | EV-0065: bundled MoltenVK 1.4.3 on D1 — MTLDevice/MTLTexture export, Metal readback, timeline MTLSharedEvent sync |
 | M3 compositor stereo + head tracking | **NOT RUN** | — |
