@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0033`.
+**Next evidence ID:** `EV-0034`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1208,6 +1208,29 @@ dossier has been exported to `export/` (and zipped).
 
 **Artifacts:** `evidence/EV-0032/latestlog.txt`, `hs_err.log`, `summary.log`; `export/`.
 
+### EV-0033 — StikDebug 3.2.0 reinstalled for <TEAM_ID>; pairing/DDI/scripts preserved and amethyst.js present
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T20:07:33-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** download the official StikDebug 3.2.0 IPA; change its bundle id to the existing
+`com.stik.stikdebug.<TEAM_ID>` and re-sign with a fresh free-team profile; install over the existing
+app; push `amethyst.js` to `Documents/scripts`; verify container data; attempt launch.
+
+**Actual:** install succeeds and the existing data is preserved — `pairingFile.plist`, `DDI/`, and
+`Documents/scripts/` (`Geode.js`, `legacy.js`, `maciOS.js`, plus the pushed `amethyst.js`). Launch
+verification is blocked by CoreDevice XPC errors (“connection invalidated”) while the device is
+locked/asleep; no StikDebug crash report was produced.
+
+**Next:** wake/unlock D1, open StikDebug, long-press Amethyst → Assign Script → `amethyst.js`. The
+MC 26.2 LWJGL 3.4.1 blocker (EV-0031/EV-0032) is independent and still needs a current-source
+Amethyst rebuild.
+
+**Artifacts:** `evidence/EV-0033/summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1277,7 +1300,8 @@ dossier has been exported to `export/` (and zipped).
 | 2026-10-31 | EV-0029 (`PARTIAL`): release Amethyst re-signed for <TEAM_ID> installs and launches on D1. |
 | 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug attaches/continues/detaches in ~28 ms and dies with no crash report; normal launch works. |
 | 2026-10-31 | EV-0031 (`PARTIAL`): external Java 25 + always-attached JIT + dyld bypass work; MC 26.2 reaches `NativeLibrariesBootstrap` but aborts on missing `org.lwjgl.util.spvc.Spvc` (release bundles LWJGL 3.3.3). |
-| 2026-10-31 | EV-0032 (`FAIL`): grafting 3.4.1 Java/natives clears `spvc` but crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (JVM SIGSEGV). Needs a current-source Amethyst rebuild; **problem exported to `export/` + zip**. Next ID `EV-0033`. |
+| 2026-10-31 | EV-0032 (`FAIL`): grafting 3.4.1 Java/natives clears `spvc` but crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (JVM SIGSEGV). Needs a current-source Amethyst rebuild; **problem exported to `export/` + zip**. |
+| 2026-10-31 | EV-0033 (`PARTIAL`): StikDebug 3.2.0 reinstalled under the existing bundle id (data preserved: pairing, DDI, scripts); `amethyst.js` pushed. Launch check blocked by a locked/asleep device. Next ID `EV-0034`. |
 
 ---
 
