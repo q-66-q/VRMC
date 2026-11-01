@@ -36,6 +36,8 @@ public class VisionVR extends MCVR {
     private final ByteBuffer tracking = ByteBuffer.allocateDirect(TRACKING_BYTES).order(ByteOrder.nativeOrder());
     private final Quaternionf rot = new Quaternionf();
     private boolean bridgeReady;
+    /** Default until the compositor reports the measured eye distance (NullVR's 0.1 m is far too wide). */
+    private float ipd = 0.064F;
     private int trackedFrames;
 
     public VisionVR(Minecraft mc, ClientDataHolderVR dh) {
@@ -61,6 +63,9 @@ public class VisionVR extends MCVR {
                 System.out.println("[VRMC-M2] " + this.initStatus);
                 return false;
             }
+            // Bind the per-eye FOV submit now (zero handles are rejected without side effects) so a bridge
+            // dylib from an older build fails init with UnsatisfiedLinkError instead of mid-frame.
+            VrmcBridge.submitEyes(0L, 0L, 0, 0, 0, 0.0F);
             this.bridgeReady = true;
             this.initStatus = "VRMC bridge ABI v1";
             System.out.println("[VRMC-M2] bridge handshake ok (ABI " + abi + ")");
@@ -74,7 +79,7 @@ public class VisionVR extends MCVR {
         this.headIsTracking = true;
         this.hmdPose.identity();
         this.hmdPose.m31(1.62F);
-        float ipdHalf = this.dh.vrSettings.nullvrIPD * 0.5F;
+        float ipdHalf = this.ipd * 0.5F;
         this.hmdPoseLeftEye.identity().m30(-ipdHalf);
         this.hmdPoseRightEye.identity().m30(ipdHalf);
 
@@ -124,6 +129,7 @@ public class VisionVR extends MCVR {
                 this.controllerTracking[RIGHT_CONTROLLER] = true;
                 float ipd = this.tracking.getFloat(8 + 84);
                 if (ipd > 0.0F) {
+                    this.ipd = ipd;
                     this.hmdPoseLeftEye.identity().m30(-ipd * 0.5F);
                     this.hmdPoseRightEye.identity().m30(ipd * 0.5F);
                 }
@@ -167,5 +173,5 @@ public class VisionVR extends MCVR {
     @Override public String getOriginName(long origin) { return "VRMC"; }
     @Override public VRRenderer createVRRenderer() { return new VisionRenderer(this); }
     @Override public boolean isActive() { return this.initialized; }
-    @Override public float getIPD() { return this.dh.vrSettings.nullvrIPD; }
+    @Override public float getIPD() { return this.ipd; }
 }

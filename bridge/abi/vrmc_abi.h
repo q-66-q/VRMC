@@ -51,7 +51,7 @@ typedef struct {
     uint64_t left_texture;  /* opaque Metal texture handle exported by the bridge/renderer */
     uint64_t right_texture; /* opaque Metal texture handle */
     uint32_t left_width, left_height, right_width, right_height;
-    float left_fov[4];  /* left, right, up, down, radians */
+    float left_fov[4];  /* left, right, up, down half-angles, radians; left/down negative (OpenXR) */
     float right_fov[4];
 } vrmc_eye_targets;
 

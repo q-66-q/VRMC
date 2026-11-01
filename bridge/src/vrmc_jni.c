@@ -35,9 +35,14 @@ JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeGetTrackin
 }
 
 JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyes(
-    JNIEnv *env, jclass clazz, jlong left, jlong right, jint frameIndex, jint width, jint height) {
+    JNIEnv *env, jclass clazz, jlong left, jlong right, jint frameIndex, jint width, jint height, jfloat halfFovRad) {
     vrmc_eye_targets t;
     memset(&t, 0, sizeof(t));
+    /* Symmetric per-eye frustum: left, right, up, down half-angles (left/down negative). */
+    for (int eye = 0; eye < 2; eye++) {
+        float *fov = eye == 0 ? t.left_fov : t.right_fov;
+        fov[0] = -halfFovRad; fov[1] = halfFovRad; fov[2] = halfFovRad; fov[3] = -halfFovRad;
+    }
     t.frame_index = (uint32_t)frameIndex;
     t.left_texture = (uint64_t)left;
     t.right_texture = (uint64_t)right;

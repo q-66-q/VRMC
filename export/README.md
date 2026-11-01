@@ -1,7 +1,7 @@
 # VRMC — native immersive integration (M3-W3/W4) — **current issue**
 
 **Date:** 2026-11-01
-**Status:** PARTIAL / blocked on the three operator-confirmed issues below. The native app now launches the game, opens an
+**Status:** PARTIAL — fixes for the three issues were integrated and device-tested on 2026-11-01 (EV-0086); the shell re-entry lifecycle now works, but the immersive content is **black** and the window chrome is still visible, so the exotropia fix is unverified. Details below. The native app launches the game, opens an
 immersive CompositorServices space by itself, hides the game window's content, samples the provider's
 eye `MTLTexture`s (`eyes=1`) and feeds real ARKit tracking into the provider. Remaining issues are
 listed below (evidence EV-0083/EV-0084/EV-0085).
@@ -9,13 +9,33 @@ listed below (evidence EV-0083/EV-0084/EV-0085).
 
 ## Issue summary (operator-confirmed, 2026-11-01)
 
-1. **The window cannot be hidden.** Parking the window (alpha = 0 / isHidden) hides its content, but the
-   visionOS window bottom bar/ornament still shows in immersive mode.
-2. **The game cannot present again after running in the background.** The game keeps running after
-   backgrounding, but the immersive space cannot be re-entered/presented again.
-3. **The perspective is exotropia.** The stereo eye images diverge outward (exotropia); swapping the
-   eye/view mapping did not fix it. Presentation is still a flat fullscreen sample without per-eye
-   projection/FOV parity.
+1. **The window cannot be hidden.** Parking (alpha/isHidden) plus `persistentSystemOverlays(.hidden)` still leaves the window bar/windows visible on device (EV-0086).
+2. **The game cannot present again after running in the background.** *Partially fixed in the 2026-11-01 fix build:* app-level coordinator reopens (generation 2) after background; still need end-to-end confirmation with visible content.
+3. **The perspective is exotropia.** Provider now renders symmetric 110° and the compositor reprojects
+   with the headset's own projection/IPD, but the 2026-11-01 device run showed a **black** immersive
+   image, so the fix is not yet visually verified.
+
+
+## Latest device run — fixes integrated (EV-0086, 2026-11-01)
+
+All three fixes were integrated together (app + bridge + provider jar verified) and device-tested:
+
+- **Re-entry lifecycle: works.** `ShellCoordinator` (app-level observer object) survives the game root-VC
+  swap; shell log shows `willResignActive`/`didEnterBackground` → clean compositor stop → `VRMCImmersiveEnded
+  generation=1` → `window restored` → `immersive space dismissed` → `didBecomeActive … reopen=true` →
+  `foreground attempt 1 … result=opened` (generation 2).
+- **Window chrome: still visible.** `persistentSystemOverlays(.hidden)` did not remove the bottom
+  bar/windows; the operator reports windows still visible.
+- **Eyes: black.** The immersive renders **completely black**, so alignment/exotropia cannot be judged.
+  Compositor logs prove the data path runs: per-eye view tangents
+  (`view 0 left (-1.732,1.000,-1.192,1.000)`, `view 1 right (-1.000,1.732,-1.192,1.000)`), provider eye
+  tangents `L=R=(-1.428,1.428,-1.428,1.428)` (110°), `ipd=0.0650`, `eyes=1`, `anchor=1`, frames
+  1…1680. Generation 2 was invalidated shortly after opening.
+
+**Likely next steps:** add CPU-side ray→UV logging (center/corners) to the compositor to verify the
+`invProjection`/`viewToDevice` conventions and frustum mapping (black = all rays map outside the provider
+frustum or a sign/convention error); verify `persistentSystemOverlays` behaviour/applicability or hide the
+window scene another way; investigate generation-2 invalidation.
 
 ## What already works
 

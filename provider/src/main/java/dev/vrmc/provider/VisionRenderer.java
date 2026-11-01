@@ -6,7 +6,6 @@ import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
 import org.joml.Vector2i;
 import org.joml.Vector2ic;
-import org.vivecraft.client_vr.ClientDataHolderVR;
 import org.vivecraft.client_vr.VRTextureTarget;
 import org.vivecraft.client_vr.provider.MCVR;
 import org.vivecraft.client_vr.provider.VRRenderer;
@@ -22,6 +21,9 @@ import dev.vrmc.provider.bridge.VrmcBridge;
 public class VisionRenderer extends VRRenderer {
     private static final int EYE_WIDTH = Integer.getInteger("vrmc.eyeWidth", 1024);
     private static final int EYE_HEIGHT = Integer.getInteger("vrmc.eyeHeight", 1024);
+    /** Half of the (square) per-eye render FOV, in radians. Vision Pro's per-eye FOV fits inside 110°. */
+    private static final float EYE_HALF_FOV_RAD =
+        0.5F * Mth.DEG_TO_RAD * Float.parseFloat(System.getProperty("vrmc.eyeFovDeg", "110"));
     private long frameIndex;
     private boolean polled;
     private boolean loggedNoHandle;
@@ -36,14 +38,16 @@ public class VisionRenderer extends VRRenderer {
         return new Vector2i(EYE_WIDTH, EYE_HEIGHT);
     }
 
+    /**
+     * Each eye renders a symmetric frustum looking straight ahead from the head orientation (no NullVR
+     * eye angle: its ±2° off-centre made each eye's image centre point outward -> exotropia). The
+     * compositor reprojects the image into the real CompositorServices view frustums using the half-angle
+     * reported in {@link #endFrame()}, so this FOV only has to cover the display FOV.
+     */
     @Override
     protected Matrix4f getProjectionMatrix(int eyeType, float nearClip, float farClip) {
         boolean zZeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
-        ClientDataHolderVR dh = ClientDataHolderVR.getInstance();
-        return new Matrix4f().setPerspectiveOffCenter(
-            Mth.DEG_TO_RAD * dh.vrSettings.nullvrFOV,
-            Mth.DEG_TO_RAD * dh.vrSettings.nullvrEyeAngle * (eyeType == 0 ? -1F : 1F), 0F,
-            1.0F, nearClip, farClip, zZeroToOne);
+        return new Matrix4f().setPerspective(2.0F * EYE_HALF_FOV_RAD, 1.0F, nearClip, farClip, zZeroToOne);
     }
 
     @Override
@@ -66,7 +70,8 @@ public class VisionRenderer extends VRRenderer {
         long lt = textureHandle(this.framebufferEye[0]);
         long rt = textureHandle(this.framebufferEye[1]);
         if (lt != 0 && rt != 0) {
-            int rc = VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT);
+            int rc = VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT,
+                EYE_HALF_FOV_RAD);
             if (rc != 0) {
                 VRSettings.LOGGER.warn("VRMC: submitEyes failed rc={}", rc);
             }

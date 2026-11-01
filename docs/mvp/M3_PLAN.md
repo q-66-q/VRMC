@@ -290,3 +290,22 @@ tangents/FOV into the provider so MC renders a matching projection, or reproject
    Fix: per-eye projection/FOV parity with the provider (or reproject), eye-order validation, then
    `MTLSharedEvent` sync.
 - `export/` now holds the current-issue dossier (`VRMC-immersive-integration-blocker-2026-11-01.zip`).
+
+
+## 16. Three-fix device run (EV-0086, 2026-11-01)
+
+Fixes integrated together (app + bridge + provider jar) and device-tested:
+- **Re-entry**: app-level `ShellCoordinator` survives the game root-VC swap. Shell log shows background
+  stop → `VRMCImmersiveEnded generation=1` → dismiss → `didBecomeActive … reopen=true` → foreground
+  `openImmersiveSpace result=opened` (generation 2). Works.
+- **Window chrome**: `persistentSystemOverlays(.hidden)` (scene-level) did **not** remove the bar/windows
+  on device; still visible.
+- **Stereo**: provider symmetric 110° FOV + FOV in `submitEyes`, compositor per-eye reprojection with
+  headset projection/view transforms and measured IPD. Device result: **completely black**; compositor
+  logs view tangents (`left (-1.732,1.000,-1.192,1.000)`, `right (-1.000,1.732,-1.192,1.000)`), provider
+  tangents ±1.428, ipd 0.065, `eyes=1` frames 1…1680. Exotropia cannot be judged.
+
+Next: add CPU-side center/corner ray→UV diagnostics to validate `invProjection`/`viewToDevice` conventions
+and frustum mapping (black implies all rays fall outside the provider frustum or a sign/convention error);
+find a working way to hide the window chrome/scene; investigate generation-2 invalidation. `export/`
+contains this evidence (`logs/*fixes-run*`, `evidence/EV-0086.md`).

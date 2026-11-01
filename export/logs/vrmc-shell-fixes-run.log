@@ -1,0 +1,55 @@
+[shell] 2026-11-01 20:44:04 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 20:44:04 +0000 launcher host appeared
+[shell] 2026-11-01 20:44:09 +0000 openImmersiveSpace result=opened
+[shell] 2026-11-01 20:59:56 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 20:59:56 +0000 launcher host appeared
+[shell] 2026-11-01 21:00:00 +0000 openImmersiveSpace result=opened
+[shell] 2026-11-01 21:02:19 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:02:19 +0000 launcher host appeared
+[shell] 2026-11-01 21:02:24 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:02:24 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:12:01 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:12:01 +0000 launcher host appeared
+[shell] 2026-11-01 21:12:06 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:12:22 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:33:21 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:33:21 +0000 launcher host appeared
+[shell] 2026-11-01 21:33:32 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:33:48 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:33:48 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 21:34:20 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:42:32 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:42:32 +0000 launcher host appeared
+[shell] 2026-11-01 21:42:36 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:42:52 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:42:52 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 21:49:59 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:49:59 +0000 launcher host appeared
+[shell] 2026-11-01 21:50:03 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:50:19 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:50:19 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 21:57:50 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:57:51 +0000 launcher host appeared
+[shell] 2026-11-01 21:57:56 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:58:11 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:58:11 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 23:08:28 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 23:08:28 +0000 coordinator ready
+[shell] 2026-11-01 23:08:28 +0000 didBecomeActive gameStarted=false immersive=false reopen=false
+[shell] 2026-11-01 23:08:28 +0000 launcher host appeared
+[shell] 2026-11-01 23:08:35 +0000 VRMCGameStarted received
+[shell] 2026-11-01 23:08:50 +0000 auto attempt 1 openImmersiveSpace result=opened
+[shell] 2026-11-01 23:08:50 +0000 window parked windows=2 visible=false
+[shell] 2026-11-01 23:09:10 +0000 willResignActive gameStarted=true immersive=true
+[shell] 2026-11-01 23:09:10 +0000 didEnterBackground gameStarted=true immersive=true
+[shell] 2026-11-01 23:09:10 +0000 VRMCImmersiveEnded generation=1 current=1
+[shell] 2026-11-01 23:09:10 +0000 window restored windows=2 visible=true
+[shell] 2026-11-01 23:09:10 +0000 immersive space dismissed
+[shell] 2026-11-01 23:09:17 +0000 didBecomeActive gameStarted=true immersive=false reopen=true
+[shell] 2026-11-01 23:09:19 +0000 foreground attempt 1 openImmersiveSpace result=opened
+[shell] 2026-11-01 23:09:19 +0000 window parked windows=2 visible=false
+[shell] 2026-11-01 23:09:26 +0000 VRMCImmersiveEnded generation=2 current=2
+[shell] 2026-11-01 23:09:26 +0000 window restored windows=2 visible=true
+[shell] 2026-11-01 23:09:26 +0000 immersive space dismissed
+[shell] 2026-11-01 23:09:53 +0000 willResignActive gameStarted=true immersive=false
+[shell] 2026-11-01 23:09:53 +0000 didEnterBackground gameStarted=true immersive=false

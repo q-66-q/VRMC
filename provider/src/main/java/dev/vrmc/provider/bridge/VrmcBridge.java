@@ -32,7 +32,8 @@ public final class VrmcBridge {
     public static native int nativeInit(String capsJson);
     public static native String nativeLastError();
     public static native int nativeGetTracking(ByteBuffer out);
-    public static native int nativeSubmitEyes(long leftTexture, long rightTexture, int frameIndex, int width, int height);
+    public static native int nativeSubmitEyes(long leftTexture, long rightTexture, int frameIndex, int width, int height,
+                                              float halfFovRad);
     public static native int nativeFrameTiming(ByteBuffer out);
     public static native long nativeExportMTLTexture(long vkImage);
 
@@ -40,8 +41,9 @@ public final class VrmcBridge {
     public static int init(String capsJson) { return nativeInit(capsJson); }
     public static String lastError() { return nativeLastError(); }
     public static int getTracking(ByteBuffer out) { return nativeGetTracking(out); }
-    public static int submitEyes(long left, long right, int frameIndex, int width, int height) {
-        return nativeSubmitEyes(left, right, frameIndex, width, height);
+    /** Submit both eye textures; both eyes use a symmetric frustum with the given half-angle (radians). */
+    public static int submitEyes(long left, long right, int frameIndex, int width, int height, float halfFovRad) {
+        return nativeSubmitEyes(left, right, frameIndex, width, height, halfFovRad);
     }
     public static int frameTiming(ByteBuffer out) { return nativeFrameTiming(out); }
     /** Export a Metal texture handle from a VkImage owned by the game's MoltenVK device (0 = failure). */

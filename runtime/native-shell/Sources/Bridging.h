@@ -6,6 +6,7 @@ extern "C" {
 #endif
 void VRMCCompositor_InitAndRun(cp_layer_renderer_t layerRenderer);
 void VRMCCompositor_RequestStop(void);
+int32_t VRMCCompositor_CurrentGeneration(void);
 #ifdef __cplusplus
 }
 #endif

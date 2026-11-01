@@ -1,0 +1,12 @@
+# M3-W3/W4 fixes device run (EV-0086) — shell lifecycle/reopen improved, but immersive is black and window chrome remains; exotropia fix unverified
+# date: 2026-11-01T13:11:28-1000
+
+Build: user's three fixes integrated: persistentSystemOverlays (scene chrome), app-level ShellCoordinator observers with session generations/retries, provider symmetric 110° FOV + FOV in submitEyes, compositor per-eye reprojection using headset projection/view transforms, measured IPD. New app+bridge+provider jar installed together (jar hash verified).
+
+Shell log: coordinator ready; game started; auto attempt 1 openImmersiveSpace result=opened; window parked windows=2 visible=false; background: willResignActive/didEnterBackground -> stop, VRMCImmersiveEnded generation=1, window restored, immersive dismissed; foreground: didBecomeActive reopen=true -> foreground attempt 1 result=opened (generation 2). So the re-entry lifecycle works in the shell.
+
+Compositor: views/tangents logged: view0(left) l/r/d/u=(-1.732,1.000,-1.192,1.000) pos=(-0.0349,-0.0272,0.0045); view1(right) (-1.000,1.732,-1.192,1.000) pos=(0.0300,-0.0251,0.0025); provider eye tangents L=R=(-1.428,1.428,-1.428,1.428) ipd=0.0650; frames 1..1680 eyes=1 anchor=1; generation 2 was invalidated shortly after opening.
+
+Operator result: 'this time, it was completely black and still have the windows.' — immersive content is black (reprojection shader/UV issue) and the window chrome/windows remain visible (persistentSystemOverlays did not remove them), so the exotropia fix could not be visually evaluated.
+
+Hypotheses: (a) shader reprojection maps all display rays outside the provider frustum or viewToDevice/inverse-projection sign/convention is wrong -> black; (b) persistentSystemOverlays does not affect window chrome for this SwiftUI WindowGroup/visionOS 27.2 or is being reset by the UIKit root swap; (c) generation 2 invalidation needs investigation.
