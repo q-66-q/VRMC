@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0017`.
+**Next evidence ID:** `EV-0019`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -119,7 +119,7 @@ EV that first evidences a test is recorded in the Status column.
 
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
-| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `NOT RUN` (host `PARTIAL` EV-0004; device app installs but crashed on UIScene adoption before JVM start, EV-0015; fix + JIT-enabler run pending) |
+| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `NOT RUN` (host `PARTIAL` EV-0004; device console harness starts the JVM and traps at the JIT26 request, EV-0018; JIT-enabler run pending with a patched 0x69 script) |
 | ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; **D1 capability PASS EV-0016**; device render/soak pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
@@ -835,6 +835,48 @@ vertex_attribute_divisor, swapchain); **9/9 required features = 1**; `maxPushDes
 **Limitations:** capability only. No swapchain/window or MC render on D1 yet; the probe did not enable
 surface extensions, so surface support is not assessed. Device is **M2**; M5 is not covered.
 
+### EV-0017 — S1a JIT attempts: IOKit/SwiftUI crashes before JVM output (superseded root cause)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T14:40:01-10:00 |
+| Device | D1 Apple Vision Pro (visionOS 27.2 compatibility mode) |
+| Status | `FAIL` |
+
+**What happened:** with a UIKit scene app, launches crashed in
+`IOHIDEventSystemClientSetDispatchQueue` (`assertion failure: Dispatch queue already set`) before any
+JVM output; a SwiftUI rewrite crashed with `AppGraph.shared may only be set once`. The same happened
+with and without StikDebug.
+
+**Root cause (found in EV-0018):** `JLI_Launch` calls back into the executable's `main` (`libjli.apple_main`
+→ app `main` → UI framework `main`), re-entering the UI framework. Fixed by a console-style harness
+where `main()` calls `JLI_Launch` directly and no UI exists (EV-0018).
+
+**Artifacts:** `evidence/EV-0017/s1a-jit.log`, two `.ips` crash logs, `stikdebug-scripts.txt`,
+`summary.log`.
+
+---
+
+### EV-0018 — S1a console harness: JVM starts on D1 and traps at BreakGetJITMapping (control run)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T14:47:58-10:00 |
+| Device | D1 Apple Vision Pro (visionOS 27.2 compatibility mode) |
+| Status | `PARTIAL` |
+
+**Procedure:** rewrite the harness so `main()` calls `JLI_Launch` directly (no UIApplication/SwiftUI);
+embed/sign the JRE; install; launch via devicectl; pull log and crash report.
+
+**Actual:** the JVM initializes (OpenJDK warning printed) and the crash backtrace is
+`BreakGetJITMapping → get_debug_jit_mapping → os::pd_reserve_memory → CodeCache::initialize`
+(`EXC_BREAKPOINT`). No enabler was attached, so no JIT executed — the expected control-run failure.
+
+**Artifacts:** `evidence/EV-0018/s1a-jit.log`, `S1AProbe-2026-10-31-144339.ips`, `summary.log`.
+
+**Next:** launch the same console app through StikDebug with a patched `universal.js` that implements
+the JVM's allocation-style `0x69` request (built-in script rejects it).
+
 ---
 
 ## 7. Status dashboard
@@ -851,7 +893,7 @@ surface extensions, so surface support is not assessed. Device is **M2**; M5 is 
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
-| S1a harness | `PARTIAL` | Installed on D1; crashed on missing UIScene adoption before JVM start (EV-0015 correction); fix + JIT run pending |
+| S1a harness | `PARTIAL` | Console harness starts the JVM and traps at the JIT26 request (EV-0018); patched StikDebug 0x69 script pushed; JIT run pending |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -889,7 +931,8 @@ surface extensions, so surface support is not assessed. Device is **M2**; M5 is 
 | 2026-10-31 | EV-0013: visionOS S2 probe app builds and signs with MoltenVK + retagged natives embedded; install pending the app-slot decision. |
 | 2026-10-31 | EV-0014: host MC 26.2 world rendered through Vulkan/MoltenVK for 21 minutes, clean shutdown; full 30-min soak still pending. |
 | 2026-10-31 | Amethyst removed with approval; S1AProbe installed on D1. EV-0015 corrected: UIScene-adoption crash, not JIT26. |
-| 2026-10-31 | EV-0016 (`PASS`, D1): MoltenVK 1.4.2 on visionOS/Apple M2 exposes all 5 required extensions and 9 required features; maxPushDescriptors=287. Device render still pending. Next ID `EV-0017`. |
+| 2026-10-31 | EV-0016 (`PASS`, D1): MoltenVK 1.4.2 on visionOS/Apple M2 exposes all 5 required extensions and 9 required features; maxPushDescriptors=287. Device render still pending. |
+| 2026-10-31 | EV-0017 (`FAIL`): UIKit/SwiftUI probe crashed before JVM output; root cause is `JLI_Launch` re-entering the app main. EV-0018: console-style harness starts the JVM and traps at `BreakGetJITMapping` without an enabler. Next ID `EV-0019`. |
 
 ---
 

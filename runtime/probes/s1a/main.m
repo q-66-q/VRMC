@@ -7,6 +7,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
+#include <unistd.h>
 
 // JLI_Launch from OpenJDK's libjli. jboolean == unsigned char on Apple platforms.
 typedef int (*JLI_LaunchFn)(int argc, char **argv,
@@ -39,6 +40,10 @@ static void open_log(void) {
     gLogFile = fopen(gLogPath.UTF8String, "a");
     if (gLogFile == NULL) {
         NSLog(@"[S1A] could not open log at %@", gLogPath);
+    } else {
+        setvbuf(gLogFile, NULL, _IONBF, 0);
+        dup2(fileno(gLogFile), STDOUT_FILENO);
+        dup2(fileno(gLogFile), STDERR_FILENO);
     }
 }
 

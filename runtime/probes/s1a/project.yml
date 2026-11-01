@@ -18,11 +18,11 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: main.m
+      - path: main.c
     settings:
       base:
         PRODUCT_NAME: S1AProbe
-        INFOPLIST_KEY_LSRequiresIPhoneOS: YES
+        INFOPLIST_KEY_LSRequiresIPHONEOS: YES
     info:
       path: GeneratedInfo.plist
       properties:
@@ -32,12 +32,6 @@ targets:
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities: [arm64]
         MinimumOSVersion: "15.0"
-        UIApplicationSceneManifest:
-          UIApplicationSupportsMultipleScenes: false
-          UISceneConfigurations:
-            UIWindowSceneSessionRoleApplication:
-              - UISceneConfigurationName: Default
-                UISceneDelegateClassName: S1ASceneDelegate
     postBuildScripts:
       - name: Compile HelloJit and embed JRE
         shell: /bin/bash
