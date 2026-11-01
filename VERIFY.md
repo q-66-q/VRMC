@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0059`.
+**Next evidence ID:** `EV-0060`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1642,6 +1642,23 @@ W1–W7 closed or closed-with-accepted-cosmetic. Matrix: `docs/mvp/M1_ACCEPTANCE
 
 **Artifacts:** `evidence/EV-0058/summary.log`.
 
+### EV-0059 — M2-W1 host harness: provider scaffold substitutes VisionVR on desktop Fabric and fails closed without the bridge
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:43:38-10:00 |
+| Status | `PASS` |
+
+**Actual:** provider scaffold compiled (javac 25) against MC 26.2 + Fabric 0.19.3 + Vivecraft
+26.2-1.3.15 and packaged; installed in the desktop Fabric harness with `vrEnabled=true`,
+`stereoProviderPluginID=OPENVR`. Log: `[VRMC-M2] provider redirect; original=…MCOpenVR`,
+`VisionVR constructed`, `dh.vr is now dev.vrmc.provider.VisionVR`, `init() skeleton reached; failing
+closed`; Vivecraft shows `Render setup failed: VRMC M2: native bridge not wired yet / VR provider: VRMC`.
+No SteamVR/OpenVR runtime involved. Provider jar `sha256 cc766804…`. S4a static findings in
+`docs/mvp/S4A_FINDINGS.md`.
+
+**Artifacts:** `evidence/EV-0059/m2-harness.log`, `summary.log`, `vrmc-provider.jar`.
+
 ---
 
 ## 7. Status dashboard
@@ -1655,7 +1672,7 @@ W1–W7 closed or closed-with-accepted-cosmetic. Matrix: `docs/mvp/M1_ACCEPTANCE
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
-| **M2 milestone** | **STARTED** | EV-0058: M2 plan, bridge ABI v1 stub (compiled/tested), provider skeleton; S4a eye-handoff spike next |
+| **M2 milestone** | **IN PROGRESS** | EV-0058 scaffold; **EV-0059 host harness: provider Mixin substitutes VisionVR on desktop, fails closed (no SteamVR)**; S4a static findings recorded (MoltenVK metal objects/shared events) |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -1736,7 +1753,7 @@ W1–W7 closed or closed-with-accepted-cosmetic. Matrix: `docs/mvp/M1_ACCEPTANCE
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
 | 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
-| 2026-11-01 | EV-0051…EV-0056 recorded (W1/W3/W6/W7). **EV-0057 (`PASS`): M1 milestone CLOSED**; **EV-0058 (`PASS`): M2 started** (plan + ABI v1 stub + provider skeleton). Next ID `EV-0059`. |
+| 2026-11-01 | EV-0057 (`PASS`) M1 CLOSED; EV-0058 (`PASS`) M2 started. **EV-0059 (`PASS`) M2-W1 host harness**: provider substitutes `VisionVR` on desktop Fabric and fails closed without the bridge; S4a findings recorded. Next ID `EV-0060`. |
 
 ---
 

@@ -1,6 +1,6 @@
 # M2 plan — Provider + Vulkan VR (started 2026-11-01)
 
-Status: **started**. M1 closed (EV-0057). This plan turns the S3 evidence (EV-0006 static + EV-0009
+Status: **in progress**. M1 closed (EV-0057); M2-W1 host harness PASS (EV-0059) — provider Mixin substitutes `VisionVR` on desktop Fabric and fails closed. S4a static findings in `docs/mvp/S4A_FINDINGS.md`. This plan turns the S3 evidence (EV-0006 static + EV-0009
 desktop runtime) into a device-buildable provider that renders Minecraft's two eyes through
 Vulkan/MoltenVK without SteamVR or any OpenVR runtime.
 
@@ -72,11 +72,12 @@ Timebox: 3–5 days. Evidence: EV with artifacts (spike code, hashes, screenshot
 
 ## 6. Ordered next actions
 
-1. **M2-W2** bridge ABI/stub + host compile test (no dependencies; starts now).
-2. **S4a** interop spike on host with MoltenVK; write note; go/no-go.
-3. **M2-W1** provider skeleton from the S3 probe sources (`evidence/EV-0009/`), expand to real init and
-   renderer stub; host Fabric harness from S3.
-4. **M2-W5** stereo eye targets on host; then **M2-W6** device bring-up.
+1. ~~M2-W2 bridge ABI/stub + host compile test~~ **done** (EV-0058).
+2. ~~M2-W1 host harness provider scaffold~~ **done** (EV-0059).
+3. **S4a** runtime interop spike on host with MoltenVK (capability check → export/sample test) then visionOS; write note; go/no-go.
+4. **M2-W4** bridge JNI binding: load `libvrmc_bridge.dylib` from the provider, `vrmc_init` handshake,
+   then make `VisionVR.init()` return success against the stub.
+5. **M2-W5** stereo eye targets on host; then **M2-W6** device bring-up.
 
 ## 7. Test harness
 
