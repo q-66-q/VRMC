@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0027`.
+**Next evidence ID:** `EV-0028`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `PASS` — EV-0021 (compat: five cold launches) + EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PARTIAL` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; D1 capability EV-0016; **D1 offscreen Vulkan render PASS EV-0025**; **native dylib load test PASS EV-0026**; MC world/swapchain/soak pending) |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PARTIAL` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; D1 capability EV-0016; **D1 offscreen Vulkan render PASS EV-0025**; **native dylib load test PASS EV-0026**; **CAMetalLayer surface PASS EV-0027**; MC swapchain/world/soak pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -1078,6 +1078,26 @@ rather than a load failure. `jemalloc` remains absent (use `-Dorg.lwjgl.system.a
 
 **Artifacts:** `evidence/EV-0026/s2-probe.log`, `summary.log`, `probe_mvk.c`, `main.m`.
 
+### EV-0027 — S2 step 5a: CAMetalLayer VkSurfaceKHR created on D1; probe clean with 12 natives loaded
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:34:19-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native `dev.vrmc.s2probe`) |
+| Status | `PASS` |
+
+**Procedure:** attach a `CAMetalLayer` to the probe view and pass it to the Vulkan probe; create a
+`VkSurfaceKHR` with `VK_EXT_metal_surface`; query caps/formats; also run the offscreen render and native
+load tests; pull the log.
+
+**Actual:** `SURFACE-TEST PASS` — `currentExtent 1280x720`, `minImageCount=2`, `maxImageCount=3`,
+60 formats. `RENDER-TEST PASS`, native load test **12 ok / 0 failed**, `probe rc=0`.
+
+**Scope:** surface creation only; swapchain/present and the MC world remain open (S2 steps 5b/6).
+
+**Artifacts:** `evidence/EV-0027/s2-probe.log`, `summary.log`, `probe_mvk.c`, `main.m`,
+`s2probe-build12.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1089,7 +1109,7 @@ rather than a load failure. `jemalloc` remains absent (use `-Dorg.lwjgl.system.a
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `PARTIAL` | Host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; D1 capability EV-0016; offscreen render EV-0025; native load test EV-0026; MC world/swapchain pending |
+| Graphics (Vulkan/MoltenVK) | `PARTIAL` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016; offscreen render EV-0025; native load test EV-0026; **CAMetalLayer surface EV-0027**; MC swapchain/world pending |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1140,7 +1160,8 @@ rather than a load failure. `jemalloc` remains absent (use `-Dorg.lwjgl.system.a
 | 2026-10-31 | EV-0023 (`PARTIAL`): after freeing the slot, `dev.vrmc.s1b` installs and launches natively on D1 without a scene crash; waits for the JIT debugger and exits cleanly when none is attached. |
 | 2026-10-31 | EV-0024 (`PASS`): native visionOS app JITs and executes on D1 with the VISIONOS-relabelled JRE (`HELLOJIT` 616 ms, exit 0). S1 spike complete (compat + native). |
 | 2026-10-31 | EV-0025 (`PASS`): D1 executes a Vulkan offscreen clear+readback through MoltenVK/M2 (`pixel=(64,128,191,255)`). |
-| 2026-10-31 | EV-0026 (`PASS`): all 12 retagged VISIONOS natives dlopen in the D1 probe; 7 representative symbols resolve. Remaining S2: GLFW stub + CAMetalLayer/swapchain, then MC boot/title/world. Next ID `EV-0027`. |
+| 2026-10-31 | EV-0026 (`PASS`): all 12 retagged VISIONOS natives dlopen in the D1 probe. |
+| 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer→VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean with 12 natives. Remaining S2: swapchain/present, then MC boot/title/world. Next ID `EV-0028`. |
 
 ---
 

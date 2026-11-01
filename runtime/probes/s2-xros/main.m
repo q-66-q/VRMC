@@ -1,9 +1,11 @@
 #import <UIKit/UIKit.h>
+#import <QuartzCore/QuartzCore.h>
 #import <Foundation/Foundation.h>
 #include <stdio.h>
 #include <unistd.h>
 
 extern int vrmc_probe_main(int argc, char **argv);
+extern void vrmc_set_metal_layer(void *layer);
 
 static NSString *gLogPath;
 
@@ -29,6 +31,12 @@ static UIWindow *gWindow;
 static void s2probe_start(void) {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     gLogPath = [paths.firstObject stringByAppendingPathComponent:@"s2-probe.log"];
+    // Hand a CAMetalLayer to the Vulkan probe so it can create a real Metal surface.
+    CAMetalLayer *metalLayer = [CAMetalLayer layer];
+    metalLayer.frame = gWindow.rootViewController.view.bounds;
+    metalLayer.drawableSize = CGSizeMake(512, 512);
+    [gWindow.rootViewController.view.layer addSublayer:metalLayer];
+    vrmc_set_metal_layer((__bridge void *)metalLayer);
     freopen(gLogPath.UTF8String, "a", stdout);
     freopen(gLogPath.UTF8String, "a", stderr);
     setvbuf(stdout, NULL, _IONBF, 0);
