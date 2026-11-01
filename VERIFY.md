@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0034`.
+**Next evidence ID:** `EV-0035`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `PASS` — EV-0021 (compat: five cold launches) + EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PARTIAL` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; D1 capability EV-0016; **D1 offscreen Vulkan render PASS EV-0025**; **native dylib load test PASS EV-0026**; **CAMetalLayer surface PASS EV-0027**; **swapchain+present PASS EV-0028**; MC world/soak pending) |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PARTIAL` — **D1 MC 26.2 world renders on Vulkan/MoltenVK (EV-0034)**; 30-min device soak pending; host 21-min world EV-0014; MoltenVK xros EV-0010; D1 capability EV-0016; render/load/surface/swapchain EV-0025–EV-0028 |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -1231,6 +1231,31 @@ Amethyst rebuild.
 
 **Artifacts:** `evidence/EV-0033/summary.log`.
 
+### EV-0034 — S2 DEVICE WORLD RENDER: Minecraft 26.2 runs a world on Apple Vision Pro with Vulkan/MoltenVK
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T20:28:16-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:** launch Amethyst via StikDebug Enable JIT (`amethyst.js`, JIT26 mapping 240 MB); force
+`preferredGraphicsBackend:"vulkan"` + `startedCleanly:true` in MC `options.txt`; launch MC 26.2 with
+LWJGL 3.4.1 + external Java 25; create and enter a singleplayer world; capture the MC log.
+
+**Actual:** `[JavaLauncher] RENDERER is set to libMoltenVK.dylib`,
+`Using graphics backend Vulkan, using drivers: 1.2.357 MoltenVK 1.4.3`,
+`Backend library: LWJGL version 3.4.1-snapshot`, `[VulkanBridge] game renders through Vulkan` (no ANGLE
+fallback). Sound engine and texture atlases loaded; world **“New World”** created: 49 spawn chunks,
+`<player> joined the game` at 20:27:54.
+
+**Significance:** first Minecraft 26.2 world rendered on Apple Vision Pro. `devicectl` screenshot
+capture is unavailable on visionOS, so the MC log is the evidence. A 30-minute soak is running for the
+ST-S2 device pass (next evidence ID).
+
+**Artifacts:** `evidence/EV-0034/latestlog.txt`, `summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1242,7 +1267,7 @@ Amethyst rebuild.
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `PARTIAL` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016; offscreen render EV-0025; native load EV-0026; CAMetalLayer surface EV-0027; **swapchain+present EV-0028**; MC world/soak pending |
+| Graphics (Vulkan/MoltenVK) | `PASS (device world)` | Host boot EV-0005 + 21-min world EV-0014; D1: capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak pending |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1259,7 +1284,7 @@ Amethyst rebuild.
 
 | Blocker | Owner | Unblock condition |
 |---|---|---|
-| S2 device render | Lead | S1 is `PASS` (EV-0021/EV-0024); S2 device capability is `PASS` (EV-0016); MC 26.2 Vulkan world on D1 still to run |
+| S2 device 30-min soak | Lead/user | MC 26.2 Vulkan world renders on D1 (EV-0034); keep the world running ~30 min to close ST-S2 (next EV) |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -1301,7 +1326,8 @@ Amethyst rebuild.
 | 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug attaches/continues/detaches in ~28 ms and dies with no crash report; normal launch works. |
 | 2026-10-31 | EV-0031 (`PARTIAL`): external Java 25 + always-attached JIT + dyld bypass work; MC 26.2 reaches `NativeLibrariesBootstrap` but aborts on missing `org.lwjgl.util.spvc.Spvc` (release bundles LWJGL 3.3.3). |
 | 2026-10-31 | EV-0032 (`FAIL`): grafting 3.4.1 Java/natives clears `spvc` but crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (JVM SIGSEGV). Needs a current-source Amethyst rebuild; **problem exported to `export/` + zip**. |
-| 2026-10-31 | EV-0033 (`PARTIAL`): StikDebug 3.2.0 reinstalled under the existing bundle id (data preserved: pairing, DDI, scripts); `amethyst.js` pushed. Launch check blocked by a locked/asleep device. Next ID `EV-0034`. |
+| 2026-10-31 | EV-0033 (`PARTIAL`): StikDebug 3.2.0 reinstalled under the existing bundle id (pairing/DDI/scripts preserved); `amethyst.js` pushed. |
+| 2026-10-31 | **EV-0034 (`PASS`): first Minecraft 26.2 world on Apple Vision Pro** — Vulkan via MoltenVK 1.4.3, LWJGL 3.4.1, JIT26 mapping, world “New World” joined at 20:27:54. 30-min soak running. Next ID `EV-0035`. |
 
 ---
 
