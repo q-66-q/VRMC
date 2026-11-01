@@ -51,7 +51,7 @@ Acceptance criteria:
 | W2 | **Runtime provisioning** | Bundle Java 25 JRE, LWJGL 3.4.1, MoltenVK, scripts inside the app; first-run copying to Documents; remove external `java_runtimes` push | Fresh install can launch the JVM with no Mac-side pushes |
 | W3 | **JIT readiness** | Encode the working StikDebug flow (3.2.0 + `amethyst.js`), detect `CS_DEBUGGED`, guide the user, handle failure/retry; track the AGPL script distribution | First-run JIT check + retry works; documented in app |
 | W4 | **MC install + boot** | Demo/Microsoft account flow, 26.2 install, default options (`vulkan`, `startedCleanly`), create flat world, quick-play | Acceptance #1 on a clean container |
-| W5 | **Input** | Fix mouse/cursor on visionOS; keyboard + controller defaults; look/move comfort | Flat world traversal without a Mac |
+| W5 | **Input** | Fix mouse/cursor on visionOS; keyboard + controller defaults; look/move comfort. **Finding (source):** `SurfaceViewController.m` only feeds `GCMouse` deltas when `window.windowScene.pointerLockState.locked`; visionOS does not provide pointer lock in the iOS-compatibility scene, so deltas are dropped / cursor behaves abnormally. Candidate fix: treat the GCMouse as captured while the game surface is focused instead of requiring `pointerLockState.locked`, and add a controller-first default | Flat world traversal without a Mac |
 | W6 | **Observability** | MC log capture, crash report, phase timings (JIT → JVM → menu → world) | Log/report retrievable per launch |
 | W7 | **Stability** | 30-min soak, FPS/thermals baseline, relaunch/save integrity | Acceptance #2 |
 
