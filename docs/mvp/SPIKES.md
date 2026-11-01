@@ -114,8 +114,7 @@ visionOS?
   (`GLFWVulkan.glfwCreateWindowSurface` via `vkCreateMetalSurfaceEXT`), and `-rdynamic` symbol export.
 
 **Plan.**
-1. macOS pre-test (boot done, EV-0005): force Vulkan, capture backend lines; extend to a world render
-   and a 30-minute soak on host (both still `NOT RUN`).
+1. macOS pre-test: force Vulkan, capture backend lines (done, EV-0005); world render reached and ran 21 min cleanly (EV-0014); a full 30-minute soak is still required.
 2. Pin MoltenVK (v1.4.2) and build the xros slice; record commit + log. **Done (EV-0010):** `xros-arm64`, platform VISIONOS, minos 27.2.
 3. Run the capability probe on D1 (same 5 extensions + 9 features) and record the JSON. **Probe app built (EV-0013)**; run pending the app-slot decision.
 4. Build/retag LWJGL 3.4.1 xros natives (liblwjgl, shaderc, spvc, vma, freetype, stb, tinyfd, openal);

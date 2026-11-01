@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0014`.
+**Next evidence ID:** `EV-0015`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 is external; EV-0004 is host-only | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot PASS EV-0005; MoltenVK xros EV-0010; natives EV-0012; probe app built EV-0013; device pending) |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005, world session 21 min EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; device pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -736,6 +736,35 @@ free-profile limit is reached (EV-0011).
 **Limitations:** probe not executed. Install and run are gated on freeing a free-profile app slot or
 enrolling in the paid Developer Program (EV-0011). S2 device stage remains `NOT RUN`.
 
+### EV-0014 — S2 host world render: Vulkan world session for 21 minutes, clean shutdown (partial soak)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T14:04:46-10:00 |
+| Commit | `9588c0505a944c239d1cd1f1fa1bf983a0920321` |
+| Dirty state | clean |
+| Device | host-only (macOS); no device run |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Copy the "New World" save into `/tmp/s2-mc/saves`.
+2. Launch MC 26.2 with `--graphicsBackend vulkan --quickPlaySingleplayer "New World"`.
+3. Verify backend and world join; let the session run and capture logs on stop.
+
+**Expected:** world renders via Vulkan for 30 minutes without a crash.
+
+**Actual:** backend `Vulkan, using drivers: 1.2.334 MoltenVK 1.4.2`; `Dev joined the game` at 13:42:10;
+the session stopped cleanly at 14:03:15 (**21m05s**) with saves flushed and no crash/exception. The
+30-minute criterion was not reached.
+
+**Artifacts:** `evidence/EV-0014/latest.log` (c0471fc09ddf);
+`evidence/EV-0014/soak-partial-summary.log` (948d5344f672); `evidence/EV-0014/world.log` (e0487eb9421b).
+
+**Limitations:** partial soak (21 of 30 minutes); clean shutdown, no crash. A full 30-minute host soak
+is still required. Host-only; not device evidence.
+
 ---
 
 ## 7. Status dashboard
@@ -747,7 +776,7 @@ enrolling in the paid Developer Program (EV-0011). S2 device stage remains `NOT 
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot PASS (EV-0005); MoltenVK xros (EV-0010); natives (EV-0012); probe app built (EV-0013); device run pending |
+| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot EV-0005 + 21-min world session EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; device pending |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -787,7 +816,8 @@ enrolling in the paid Developer Program (EV-0011). S2 device stage remains `NOT 
 | 2026-10-31 | EV-0010 records the MoltenVK v1.4.2 visionOS build (`PASS`, host): `xros-arm64`, platform VISIONOS, minos 27.2. Device stage still `NOT RUN`. |
 | 2026-10-31 | EV-0011: S1a builds and signs successfully (AVP profile created); install is `BLOCKED` by the free-profile 3-app limit. |
 | 2026-10-31 | EV-0012: 12 LWJGL/helper dylibs retagged to platform VISIONOS (MoltenVK from EV-0010); load test pending. |
-| 2026-10-31 | EV-0013: visionOS S2 probe app builds and signs with MoltenVK + retagged natives embedded; install pending the app-slot decision. Next ID `EV-0014`. |
+| 2026-10-31 | EV-0013: visionOS S2 probe app builds and signs with MoltenVK + retagged natives embedded; install pending the app-slot decision. |
+| 2026-10-31 | EV-0014: host MC 26.2 world rendered through Vulkan/MoltenVK for 21 minutes, clean shutdown; full 30-min soak still pending. Next ID `EV-0015`. |
 
 ---
 
