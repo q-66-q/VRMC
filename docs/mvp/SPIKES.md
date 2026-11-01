@@ -71,7 +71,8 @@ alias. EV-0004 records the host-only pre-test below. Internal device reproductio
 - **S1b (target, 1.5–3 weeks).** Native visionOS harness with the relabelled+re-signed JRE; request
   JIT through the on-device enabler (poll `CS_DEBUGGED`, then `JLI_Launch`). **Progress:** the iOS JRE's
   39 Mach-O files are relabelled VISIONOS and `S1BProbe` builds/signs (EV-0022); it installs and
-  launches natively on D1 (EV-0023, no scene crash, waits for the enabler). A **custom** script is
+  launches natively on D1 (EV-0023), and JITs + executes with the enabler (EV-0024: JIT26 mapping,
+  tier 3/4, `HELLOJIT` 616 ms, exit 0). **S1b `PASS`; S1 spike complete.** A **custom** script is
   required because the JVM's `0x69` request is allocation-style (`x0 = size`), unlike the enabler's
   default serve. Do not copy AGPL-3.0 StikDebug script text; Amethyst is GPL-3.0, Apparition MIT.
 - JVM args: `-XX:+UnlockExperimentalVMOptions -XX:+MirrorMappedCodeCache -XX:+PrintCompilation

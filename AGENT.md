@@ -79,8 +79,8 @@ comfort polish.
   Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
 - Spike progress: S1 host pre-test `PARTIAL` (EV-0004); **S1a `PASS (compat)` (EV-0021: five cold runs
   with JIT26 mappings, tier 3/4 compiles, `HELLOJIT`, exit 0)**; S1b native visionOS harness built/signed
-  (EV-0022, 39 JRE Mach-O relabelled VISIONOS; EV-0023 installs and launches on D1, enabler run pending);
-  S2 host boot `PARTIAL` (EV-0005); S3
+  (EV-0022, 39 JRE Mach-O relabelled VISIONOS; EV-0023 launches; **EV-0024 PASS: native visionOS JIT
+  mapping + tier 3/4 + `HELLOJIT`**); S2 host boot `PARTIAL` (EV-0005); S3
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
   fork); S1a scaffold EV-0007. S3's M0 gate is closed; S1's internal reproduction gate is now met in
   compatibility mode; S1b native xros and S2 device render remain `NOT RUN`.
@@ -331,7 +331,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 
 | Spike | Question | Hardness | Status | Fallback |
 |---|---|---|---|---|
-| S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `PASS (compat)` — EV-0021: five cold runs, tier 3/4, clean exit; S1b native xros pending | Pivot to AOT; launcher scope reduces |
+| S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `PASS` — EV-0021 (compat, five cold runs) and EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) | Pivot to AOT; launcher scope reduces |
 | S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `NOT RUN` — host boot `PASS` for host stage (EV-0005); device pending | GL/LTW→ANGLE path |
 | S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
 | S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
@@ -346,7 +346,7 @@ spike changes status, apply §4.7 in the same commit.
 
 | Subsystem | Hardness | Why |
 |---|---|---|
-| JIT mechanism (S1) | MEDIUM | JIT26 executed on D1 in compatibility mode (EV-0021: five cold runs, tier 3/4, exit 0); native xros (S1b) pending |
+| JIT mechanism (S1) | MEDIUM | JIT26 executes on D1 in compatibility mode (EV-0021) and in a **native visionOS app** (EV-0024); relabelled iOS JRE works, so no fresh xros OpenJDK build is needed |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache (C3) | **HIGH** | Runtime build and in-MC integration unproven |
 | Graphics translation | **HIGH** | Host boot verified (EV-0005); visionOS MoltenVK built (EV-0010); xros LWJGL/GLFW stack unproven |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
@@ -402,7 +402,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
-| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. **EV-0021 `PASS (compat)`**: five cold runs with mapping, tier 3/4, `HELLOJIT`, exit 0; S1b native xros pending | `PASS (compat)` EV-0021; S1b native xros next | 3–4 wk (S1a ~1 wk done, S1b 1.5–3 wk) |
+| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. **EV-0021 `PASS` (compat, five cold runs)** and **EV-0024 `PASS` (native visionOS, JIT26 mapping + tier 3/4 + `HELLOJIT`)**; the relabelled iOS JRE removes the fresh-xros-build need | `PASS` EV-0021 + EV-0024; S2 device render next | 3–4 wk (done inside M0) |
 | S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 boot + EV-0014 21-min world + EV-0010/0012/0013 xros + EV-0016 D1 capability PASS; device render pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
@@ -586,3 +586,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | **EV-0021 (`PASS (compat)`): S1 gate closed in compatibility mode** — assign `universal.js` to the app in StikDebug and use the harness JIT26 extension handshake; five cold launches got JIT26 mappings, compiled tier 3/4 and executed `HELLOJIT` with clean exits. S1b native xros and S2 device render remain open; A2 stays MEDIUM. |
 | 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; the iOS JRE's 39 Mach-O files relabelled to VISIONOS. Device install blocked by the free-profile 3-app limit (S1AProbe still counted) and a locked/asleep device; S1AProbe must be uninstalled before S1BProbe can install. |
 | 2026-10-31 | EV-0023 (`PARTIAL`): after uninstalling S1AProbe, `dev.vrmc.s1b` installs and launches natively on D1 with no scene crash; it waits for the JIT debugger and exits cleanly without one. Next: StikDebug Enable JIT pass on S1BProbe. |
+| 2026-10-31 | **EV-0024 (`PASS`): S1 spike complete** — native visionOS app (`dev.vrmc.s1b`) with the VISIONOS-relabelled JRE received a JIT26 mapping, compiled tier 3/4 and executed `HELLOJIT` (616 ms, exit 0). The relabelled iOS JRE works, so C3's remaining risk is LWJGL/natives + full-MC integration. S2 device render is the last open M0 gate. |
