@@ -31,6 +31,12 @@ that a binary pin cannot carry.
    are needed). Artifacts: unsigned payload tree `sha256 3d3a7c18…`, signed/test app tree
    `sha256 b1955fac…`, 167 Mach-O, bundle `dev.vrmc.amethyst` for the test phase.
 
+## Status update (2026-11-01)
+
+- Branded `dev.vrmc.vrmc` app installed and accepted from a fresh container (EV-0042/EV-0043).
+- Reproducible build committed and tested: `scripts/build_launcher.sh` + `patches/vrmc-m1-amethyst-1.2.0.patch` + `docs/mvp/LAUNCHER_BUILD.md` (EV-0049).
+- Remaining W1 items: app icon, first-run layer + JIT readiness checklist.
+
 ## Consequences
 
 - W1 becomes: (i) brand `dev.vrmc.vrmc` (Info.plist display name/icon/bundle id, entitlements/profile),

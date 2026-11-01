@@ -1,0 +1,244 @@
+--- a/Makefile
++++ b/Makefile
+@@ -275,7 +275,7 @@
+ 		$(info $(shell printf "%-20s" "$(v)") = $(value $(v)))) \
+ 	)
+ 
+-native: dep_mg
++native:  # dep_mg dropped for VRMC M1 (Vulkan/MoltenVK path; MobileGlues layout mismatch in assembled tree)
+ 	echo '[Amethyst v$(VERSION)] native - start'
+ 	mkdir -p $(WORKINGDIR)
+ 	cd $(WORKINGDIR) && cmake \
+@@ -425,7 +425,7 @@
+ 	fi
+ 	echo '[Amethyst v$(VERSION)] assets - end'
+ 
+-payload: native dep_mg dep_mobilegl dep_mcmetal dep_ame_vulkan java jre assets
++payload: native dep_mcmetal dep_ame_vulkan java jre assets  # dep_mg/dep_mobilegl dropped for VRMC M1: Vulkan/MoltenVK path
+ 	echo '[Amethyst v$(VERSION)] payload - start'
+ 	$(call METHOD_DIRCHECK,$(WORKINGDIR)/AngelAuraAmethyst.app/libs)
+ 	$(call METHOD_DIRCHECK,$(WORKINGDIR)/AngelAuraAmethyst.app/libs_caciocavallo)
+--- a/Natives/JavaLauncher.m
++++ b/Natives/JavaLauncher.m
+@@ -150,6 +150,13 @@
+     DeviceGetJITFlags(YES); // refresh JIT flags right after loading env
+     BOOL requiresTXMWorkaround = DeviceHasJITFlags(JIT_FLAG_FORCE_MIRRORED | JIT_FLAG_HAS_TXM);
+     BOOL jit26AlwaysAttached = getPrefBool(@"debug.debug_always_attached_jit");
++    if (!jit26AlwaysAttached && DeviceHasJITFlags(JIT_FLAG_HAS_TXM)) {
++        // VRMC T4: TXM devices need the debugger to stay attached for the dyld validation bypass to
++        // load external runtimes/temp dylibs (JNA, Vulkan helpers). A fresh container defaults this
++        // pref to NO, which silently disables the bypass ("Hook disabled!") and breaks native loading.
++        NSLog(@"[JIT] TXM device: forcing always-attached JIT so the dyld validation bypass stays active");
++        jit26AlwaysAttached = YES;
++    }
+     if (requiresTXMWorkaround) {
+         static void *result;
+         if(!result) result = JIT26CreateRegionLegacy(getpagesize());
+--- a/Natives/LauncherPreferences.m
++++ b/Natives/LauncherPreferences.m
+@@ -101,21 +101,45 @@
+ 
+ NSString* getSelectedJavaHome(NSString* defaultJRETag, int minVersion) {
+     NSDictionary *pref = getPrefObject(@"java.java_homes");
++    if (pref == nil) {
++        NSLog(@"Error: java.java_homes preference is missing");
++        return nil;
++    }
++    // VRMC T4 migration: register any internal runtimes bundled in the app that are missing from the
++    // preference map (fresh containers default to 8/17/21 and would silently use Java 17 for MC 26.x).
++    NSMutableDictionary *migrated = [pref mutableCopy];
++    BOOL changed = NO;
++    for (NSString *ver in @[@"8", @"17", @"21", @"25"]) {
++        NSString *dir = [NSString stringWithFormat:@"%@/java_runtimes/java-%@-openjdk",
++                         NSBundle.mainBundle.bundlePath, ver];
++        if (migrated[ver] == nil && [NSFileManager.defaultManager fileExistsAtPath:dir]) {
++            migrated[ver] = @"internal";
++            changed = YES;
++        }
++    }
++    if (changed) {
++        setPrefObject(@"java.java_homes", migrated);
++        pref = migrated;
++    }
+     NSDictionary<NSString *, NSString *> *selected = pref[@"0"];
+     NSString *selectedVer = selected[defaultJRETag];
+     if (minVersion > selectedVer.intValue) {
+-        NSArray *sortedVersions = [pref.allKeys valueForKeyPath:@"self.integerValue"];
+-        sortedVersions = [sortedVersions sortedArrayUsingSelector:@selector(compare:)];
+-        for (NSNumber *version in sortedVersions) {
+-            if (version.intValue >= minVersion) {
+-                selectedVer = version.stringValue;
+-                break;
++        NSMutableArray<NSNumber *> *versions = [NSMutableArray array];
++        for (id key in pref) {
++            if ([key isKindOfClass:NSString.class] && [key integerValue] > 0) {
++                [versions addObject:@([key integerValue])];
+             }
+         }
+-        if (!selectedVer) {
++        [versions sortUsingSelector:@selector(compare:)];
++        NSString *picked = nil;
++        for (NSNumber *version in versions) {
++            if (version.intValue >= minVersion) { picked = version.stringValue; break; }
++        }
++        if (picked == nil) {
+             NSLog(@"Error: requested Java >= %d was not installed!", minVersion);
+             return nil;
+         }
++        selectedVer = picked;
+     }
+ 
+     id selectedDir = pref[selectedVer];
+--- a/Natives/MinecraftOptionUtils.m
++++ b/Natives/MinecraftOptionUtils.m
+@@ -21,9 +21,15 @@
+     [options setKey:@"overrideWidth" value:@(windowWidth)];
+     [options setKey:@"overrideHeight" value:@(windowHeight)];
+     if (graphicsBackend.length) {
+-        // only on first creation of options.txt, never overwrite what the player or a mod (MetalUniversal) set (#44)
+-        [options setDefaultForKey:@"preferredGraphicsBackend" value:[NSString stringWithFormat:@"\"%@\"", graphicsBackend]];
++        // VRMC M1 T4: force the backend instead of only seeding it on first creation. Minecraft's
++        // crash-recovery resets the preference to Default after any unclean shutdown, which silently
++        // falls back to OpenGL/ANGLE and fails on 26.2 cloud shaders on visionOS. The launcher decides
++        // the backend (MoltenVK for versions with a Vulkan backend), so it must win every launch.
++        [options setKey:@"preferredGraphicsBackend" value:[NSString stringWithFormat:@"\"%@\"", graphicsBackend]];
+     }
++    // VRMC M1 T4: clear the crash marker before launch so Minecraft does not reset fullscreen/backend
++    // on the next start. Revisit this once crash reporting is in place.
++    [options setKey:@"startedCleanly" value:@"true"];
+     // Default settings for performance
+     [options setDefaultForKey:@"mipmapLevels" value:@"0"];
+     [options setDefaultForKey:@"particles" value:@"1"];
+--- a/Natives/PLPreferences.m
++++ b/Natives/PLPreferences.m
+@@ -62,7 +62,8 @@
+                 }.mutableCopy,
+                 @"8": @"internal",
+                 @"17": @"internal",
+-                @"21": @"internal"
++                @"21": @"internal",
++                @"25": @"internal"
+             }.mutableCopy,
+             @"java_args": @"",
+             @"env_variables": @"",
+--- a/Natives/SceneDelegate.m
++++ b/Natives/SceneDelegate.m
+@@ -1,5 +1,6 @@
+ #import "SceneDelegate.h"
+ #import "ios_uikit_bridge.h"
++#import "SurfaceViewController.h"
+ #import "utils.h"
+ 
+ extern UIWindow *mainWindow;
+@@ -18,6 +19,7 @@
+     mainWindow = self.window;
+     launchInitialViewController(self.window);
+     [self.window makeKeyAndVisible];
++    pojavSetAppForeground(YES);
+ }
+ 
+ 
+@@ -30,20 +32,25 @@
+ 
+ 
+ - (void)sceneDidBecomeActive:(UIScene *)scene {
+-    // Called when the scene has moved from an inactive state to an active state.
+-    // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
++    // VRMC T4: scene-based lifecycle on visionOS may not deliver the UIApplication notifications in
++    // the same order; make sure the render gate is open so the game resumes instead of freezing.
++    pojavSetAppForeground(YES);
++    SurfaceViewController *vc = (SurfaceViewController *)UIWindow.mainWindow.rootViewController;
++    if ([vc isKindOfClass:SurfaceViewController.class]) {
++        [vc updateAudioSettings];
++    }
+ }
+ 
+ 
+ - (void)sceneWillResignActive:(UIScene *)scene {
+-    // Called when the scene will move from an active state to an inactive state.
+-    // This may occur due to temporary interruptions (ex. an incoming phone call).
++    // VRMC T4: block GPU submissions while the scene is inactive (Metal rejects background work).
++    pojavSetAppForeground(NO);
+ }
+ 
+ 
+ - (void)sceneWillEnterForeground:(UIScene *)scene {
+-    // Called as the scene transitions from the background to the foreground.
+-    // Use this method to undo the changes made on entering the background.
++    // VRMC T4: keep the render gate open across the background->foreground transition.
++    pojavSetAppForeground(YES);
+ }
+ 
+ 
+--- a/Natives/SurfaceViewController.h
++++ b/Natives/SurfaceViewController.h
+@@ -25,6 +25,7 @@
+ - (void)sendTouchPoint:(CGPoint)location withEvent:(int)event;
+ - (void)updateSavedResolution;
+ - (void)updateGrabState;
++- (void)updateAudioSettings;
+ 
+ + (GameSurfaceView *)surface;
+ + (BOOL)isRunning;
+--- a/Natives/SurfaceViewController.m
++++ b/Natives/SurfaceViewController.m
+@@ -351,6 +351,19 @@
+ 
+     // Update audio settings
+     [self updateAudioSettings];
++    // VRMC T4: reapply the audio session after backgrounding/interruptions (visionOS deactivates it).
++    [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification
++                                                    object:nil queue:NSOperationQueue.mainQueue
++                                                usingBlock:^(NSNotification *note) { [self updateAudioSettings]; }];
++    [NSNotificationCenter.defaultCenter addObserverForName:AVAudioSessionInterruptionNotification
++                                                    object:AVAudioSession.sharedInstance queue:NSOperationQueue.mainQueue
++                                                usingBlock:^(NSNotification *note) {
++        NSNumber *type = note.userInfo[AVAudioSessionInterruptionTypeKey];
++        if (type.unsignedIntegerValue == AVAudioSessionInterruptionTypeEnded) {
++            NSLog(@"[Audio] interruption ended; reactivating audio session");
++            [self updateAudioSettings];
++        }
++    }];
+     // Update resolution
+     [self updateSavedResolution];
+     // Update performance HUD visibility
+@@ -438,6 +451,10 @@
+ }
+ 
+ - (void)updateGrabState {
++    BOOL plSupported = self.view.window.windowScene.pointerLockState != nil;
++    BOOL plLocked = plSupported ? self.view.window.windowScene.pointerLockState.locked : NO;
++    NSLog(@"[Input] grabState isGrabbing=%d virtMouse=%d pointerLockSupported=%d locked=%d",
++          (int)isGrabbing, (int)virtualMouseEnabled, (int)plSupported, (int)plLocked);
+     // Update cursor position
+     if (isGrabbing == JNI_TRUE) {
+         CGFloat screenScale = self.screenScale;
+@@ -699,7 +716,17 @@
+ - (void)registerMouseCallbacks:(GCMouse *)mouse {
+     NSLog(@"Input: Got mouse %@", mouse);
+     mouse.mouseInput.mouseMovedHandler = ^(GCMouseInput * _Nonnull mouse, float deltaX, float deltaY) {
+-        if (!self.view.window.windowScene.pointerLockState.locked) {
++        // VRMC M1 W5: visionOS has no pointer-lock state for the compatibility scene, so the old
++        // `windowScene.pointerLockState.locked` gate dropped every hardware-mouse delta. Feed the
++        // deltas whenever the game owns the mouse (matches prefersPointerLocked), with the virtual
++        // mouse as the fallback for menu/pointer use.
++        static int vrmcDeltaLogCount = 0;
++        if (vrmcDeltaLogCount < 12) {
++            NSLog(@"[Input] mouseDelta dx=%.2f dy=%.2f grabbing=%d virtMouse=%d",
++                  deltaX, deltaY, (int)isGrabbing, (int)virtualMouseEnabled);
++            vrmcDeltaLogCount++;
++        }
++        if (isGrabbing != JNI_TRUE && !virtualMouseEnabled) {
+             return;
+         }
+         [self sendTouchPoint:CGPointMake(deltaX, -deltaY) withEvent:ACTION_MOVE_MOTION];
+--- a/Natives/input_bridge_v3.m
++++ b/Natives/input_bridge_v3.m
+@@ -525,6 +525,7 @@
+ }
+ 
+ JNIEXPORT void JNICALL Java_org_lwjgl_glfw_CallbackBridge_nativeSetGrabbing(JNIEnv* env, jclass clazz, jboolean grabbing, jfloat xset, jfloat yset) {
++    NSLog(@"[Input] nativeSetGrabbing %d", (int)grabbing);
+     isGrabbing = grabbing;
+     
+     if (grabbing) {

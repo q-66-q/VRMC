@@ -469,7 +469,7 @@ must not be forgotten once M1 starts — it is a dated M1 obligation, not an opt
 | `scripts/bootstrap.sh` | Prerequisite check + local dirs (no downloads) | IMPLEMENTED (2026-10-31) |
 | `scripts/log_evidence.sh` | Allocate EV ID, bundle artifacts, write manifest + entry template | IMPLEMENTED (self-tested 2026-10-31) |
 | `scripts/build_jre.sh` | Build OpenJDK 25 for xros | NOT IMPLEMENTED |
-| `scripts/build_launcher.sh` | Build the visionOS app | NOT IMPLEMENTED — recipe proven manually (ADR-0008/EV-0036); W1 must commit the reproducible script |
+| `scripts/build_launcher.sh` | Build the visionOS app | IMPLEMENTED (ADR-0008): reproducible payload build from a prepared Amethyst 1.2.0 tree + `patches/vrmc-m1-amethyst-1.2.0.patch`; see `docs/mvp/LAUNCHER_BUILD.md` |
 | `scripts/build_provider.sh` | Build the provider mod jar | NOT IMPLEMENTED |
 | `scripts/test_local.sh` | Run host-side unit tests | NOT IMPLEMENTED |
 | `scripts/install_device.sh` | Install to a paired Vision Pro | NOT IMPLEMENTED |
@@ -629,3 +629,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC app (`dev.vrmc.vrmc`, display name VRMC)** signed and installed on D1; the `dev.vrmc.amethyst` test app was removed, giving a fresh container for the T4 first-run acceptance. |
 | 2026-10-31 | **EV-0043 (`PASS`): T4 fresh-install acceptance** — fresh branded VRMC container reaches the MC 26.2 world with app-side provisioning (forced TXM always-attached JIT, bundled Java 25, Vulkan); **EV-0044 (`PASS`): T6 30-minute soak** — 1805 s continuous, no game crash/watchdog kill, thermal `serious` recorded (StikDebug watchdog kill noted). **EV-0045 (`FAIL`)**: cursor not hidden + rotation not smooth (SDL3 absolute-cursor path when `isGrabbing` false); **EV-0046 (`FAIL`)**: background freeze + audio loss (scene lifecycle/audio session); fixes for the lifecycle defect are installed for retest. |
 | 2026-11-01 | **EV-0047 (`PARTIAL`)** input retest: grab path active (`nativeSetGrabbing 1`), rotation smooth; cursor stays visible because visionOS reports pointer-lock support but never locks (`pointerLockSupported=1, locked=0`) — accepted as cosmetic. **EV-0048 (`PASS`)** lifecycle/audio retest: background/foreground resumes with sound after SceneDelegate+audio-session fix. `task-1/2/3` closed. |
+| 2026-11-01 | **EV-0049 (`PASS`): W1 reproducible launcher build** — `scripts/build_launcher.sh` + `patches/vrmc-m1-amethyst-1.2.0.patch` + `docs/mvp/LAUNCHER_BUILD.md`; tested from a fresh Amethyst 1.2.0 tree with submodules and cached depends (no `dep_mg`/`dep_mobilegl`; payload 1.2.0, Java 25 + LWJGL 3.4.1). |

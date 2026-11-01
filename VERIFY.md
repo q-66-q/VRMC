@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0049`.
+**Next evidence ID:** `EV-0050`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1497,6 +1497,22 @@ session. `task-3` closed.
 
 **Artifacts:** `evidence/EV-0048/latestlog.txt`.
 
+### EV-0049 — M1 W1: reproducible launcher build script tested from a fresh Amethyst 1.2.0 tree + VRMC patches
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:10:30-10:00 |
+| Status | `PASS` |
+
+**Actual:** committed `scripts/build_launcher.sh`, `patches/vrmc-m1-amethyst-1.2.0.patch` and
+`docs/mvp/LAUNCHER_BUILD.md`; ran the script against a fresh copy of the reference tree with submodules
+and cached depends: exit 0, payload version 1.2.0 with `lwjgl_versions.txt`, `Frameworks/lwjgl34` and
+bundled `java-25-openjdk`; unsigned payload tree `sha256 0b0b80ec…` (rebuild hashes are not bit-identical
+because of zip/asset timestamps; inputs are pinned by `AMETHYST_SOURCE_TREE_SHA256` and
+`VRMC_PATCH_SHA256`).
+
+**Artifacts:** `evidence/EV-0049/buildtest.log`, `summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1532,6 +1548,7 @@ session. `task-3` closed.
 |---|---|---|
 | M1 T6: 30-minute device soak | **DONE** | 1805 s continuous world session, no game crash/watchdog kill, thermal `serious` recorded (EV-0044); StikDebug watchdog incident noted |
 | Lifecycle/audio defect | **CLOSED** | Background freeze + sound loss fixed; retest PASS (EV-0048), task-3 closed |
+| M1 W1 — reproducible build | `PASS` | `scripts/build_launcher.sh` + `patches/vrmc-m1-amethyst-1.2.0.patch` + `LAUNCHER_BUILD.md`; tested from a fresh tree (EV-0049) |
 | M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
@@ -1584,7 +1601,7 @@ session. `task-3` closed.
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
 | 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
-| 2026-11-01 | EV-0047 (`PARTIAL`): rotation smooth, cursor visibility accepted cosmetic; EV-0048 (`PASS`): background/audio fixed. Sprint-1 + M1 exit gate (T6) complete. Next ID `EV-0049`. |
+| 2026-11-01 | EV-0047 (`PARTIAL`): rotation smooth, cursor accepted cosmetic; EV-0048 (`PASS`): background/audio fixed; Sprint-1 + M1 exit gate complete. EV-0049 (`PASS`): W1 reproducible launcher build script tested. Next ID `EV-0050`. |
 
 ---
 
