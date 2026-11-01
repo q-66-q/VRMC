@@ -1,6 +1,6 @@
 # Bridge (native VR bridge)
 
-**Status:** not started. S4/S5.
+**Status:** ABI v1 implemented 2026-11-01: `abi/vrmc_abi.h` (fail-closed), `src/vrmc_stub.c` (deterministic fake tracking; host-only), `src/vrmc_jni.c` (JNI shim for `dev.vrmc.provider.bridge.VrmcBridge`). Host compile: `cc -Ibridge/abi -I$JAVA_HOME/include -I$JAVA_HOME/include/darwin -shared -fPIC -o /tmp/libvrmc_bridge.dylib bridge/src/vrmc_stub.c bridge/src/vrmc_jni.c`. Real ARKit/Metal bridge + CompositorServices is M3.
 
 ObjC++/C layer between the JVM provider and visionOS frameworks, and the owner of the frame handoff
 to CompositorServices.

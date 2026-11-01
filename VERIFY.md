@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0060`.
+**Next evidence ID:** `EV-0061`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1659,6 +1659,24 @@ No SteamVR/OpenVR runtime involved. Provider jar `sha256 cc766804…`. S4a stati
 
 **Artifacts:** `evidence/EV-0059/m2-harness.log`, `summary.log`, `vrmc-provider.jar`.
 
+### EV-0060 — M2-W4/W5 host: bridge handshake + provider init + stereo eye targets + per-frame submit loop (no SteamVR)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:48:06-10:00 |
+| Status | `PASS` |
+
+**Actual:** JNI shim (`bridge/src/vrmc_jni.c`) + `VrmcBridge` + bridge-backed `VisionVR`/`VisionRenderer`
+ported from the macstream reference; provider jar `sha256 9c91d7b9…`, bridge dylib
+`sha256 303dbc35…`. Host harness log: `[VRMC-M2] bridge handshake ok (ABI v1)`,
+`VisionVR.init() succeeded`, `VisionRenderer created`, `eye target L/R 1024x1024`,
+`VR Provider supplied texture resolution: 1024 x 1024`, `Total shaded pixels per frame: 2.1MP`,
+tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run hit an
+`MCVR.updateAim` NPE from null controller component transforms — fixed with identity transforms.
+
+**Artifacts:** `evidence/EV-0060/m2-bridge-run2.log`, `summary.log`, `vrmc-provider.jar`,
+`libvrmc_bridge.dylib`.
+
 ---
 
 ## 7. Status dashboard
@@ -1672,7 +1690,7 @@ No SteamVR/OpenVR runtime involved. Provider jar `sha256 cc766804…`. S4a stati
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
-| **M2 milestone** | **IN PROGRESS** | EV-0058 scaffold; **EV-0059 host harness: provider Mixin substitutes VisionVR on desktop, fails closed (no SteamVR)**; S4a static findings recorded (MoltenVK metal objects/shared events) |
+| **M2 milestone** | **IN PROGRESS** | EV-0058 scaffold; EV-0059 provider substitution; **EV-0060 host: bridge handshake + provider init + stereo eye targets + submit loop (no SteamVR)**; next S4a Metal-handle path then device bring-up |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -1753,7 +1771,7 @@ No SteamVR/OpenVR runtime involved. Provider jar `sha256 cc766804…`. S4a stati
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
 | 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
-| 2026-11-01 | EV-0057 (`PASS`) M1 CLOSED; EV-0058 (`PASS`) M2 started. **EV-0059 (`PASS`) M2-W1 host harness**: provider substitutes `VisionVR` on desktop Fabric and fails closed without the bridge; S4a findings recorded. Next ID `EV-0060`. |
+| 2026-11-01 | EV-0057 M1 CLOSED; EV-0058 M2 scaffold; EV-0059 M2-W1 host harness. **EV-0060 (`PASS`) M2-W4/W5 host integration**: bridge ABI v1 handshake, provider init, stereo eye targets, per-frame `vrmc_submit_eyes`, no SteamVR; macstream reference mapped in `docs/mvp/MACSTREAM_REFERENCE.md`. Next ID `EV-0061`. |
 
 ---
 

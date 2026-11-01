@@ -1,6 +1,6 @@
 # M2 plan — Provider + Vulkan VR (started 2026-11-01)
 
-Status: **in progress**. M1 closed (EV-0057); M2-W1 host harness PASS (EV-0059) — provider Mixin substitutes `VisionVR` on desktop Fabric and fails closed. S4a static findings in `docs/mvp/S4A_FINDINGS.md`. This plan turns the S3 evidence (EV-0006 static + EV-0009
+Status: **in progress**. M1 closed (EV-0057). Host harness complete: M2-W1 (EV-0059) and M2-W4/W5 host-level (EV-0060) — bridge ABI v1 handshake, provider init, stereo eye targets, per-frame submit, no SteamVR. S4a static findings in `docs/mvp/S4A_FINDINGS.md`; macstream reference mapping in `docs/mvp/MACSTREAM_REFERENCE.md`. This plan turns the S3 evidence (EV-0006 static + EV-0009
 desktop runtime) into a device-buildable provider that renders Minecraft's two eyes through
 Vulkan/MoltenVK without SteamVR or any OpenVR runtime.
 
@@ -75,9 +75,10 @@ Timebox: 3–5 days. Evidence: EV with artifacts (spike code, hashes, screenshot
 1. ~~M2-W2 bridge ABI/stub + host compile test~~ **done** (EV-0058).
 2. ~~M2-W1 host harness provider scaffold~~ **done** (EV-0059).
 3. **S4a** runtime interop spike on host with MoltenVK (capability check → export/sample test) then visionOS; write note; go/no-go.
-4. **M2-W4** bridge JNI binding: load `libvrmc_bridge.dylib` from the provider, `vrmc_init` handshake,
-   then make `VisionVR.init()` return success against the stub.
-5. **M2-W5** stereo eye targets on host; then **M2-W6** device bring-up.
+4. ~~M2-W4 bridge JNI binding~~ **done (EV-0060)**.
+5. ~~M2-W5 stereo eye targets on host~~ **done (EV-0060)**; the GL id handoff is host-only — on visionOS Vulkan the S4a Metal-handle path applies.
+6. **S4a runtime** capability check + export/sample prototype (host then visionOS).
+7. **M2-W6** device bring-up: provider jar + bridge dylib in the VRMC app, MC+Vivecraft VR, capture evidence.
 
 ## 7. Test harness
 

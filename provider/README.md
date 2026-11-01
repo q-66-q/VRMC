@@ -1,6 +1,6 @@
 # Provider (Vivecraft companion mod)
 
-**Status:** M2 started 2026-11-01. Scaffold committed: `VisionVR` (fail-closed init), `VisionRenderer` (eye-target TODOs), `VRStateMixin` from EV-0006/EV-0009; bridge ABI v1 stub lives in `bridge/`. Next: M2-W2/W5 and S4a.
+**Status:** M2 in progress 2026-11-01. Host harness PASS (EV-0060): bridge ABI v1 handshake, `VisionVR.init()` success, stereo eye targets and per-frame `vrmc_submit_eyes` on desktop Fabric (GL texture ids). VisionVR/VisionRenderer structure is adapted from macstream's proven RemoteVR backend (`docs/mvp/MACSTREAM_REFERENCE.md`). Next: S4a Metal-handle path + device bring-up (M2-W6).
 
 LGPL-3.0 Fabric mod that integrates VRMC with Vivecraft without forking it: it Mixins the provider
 selection in `VRState.initializeVR` and implements `VisionVR extends MCVR` plus a
