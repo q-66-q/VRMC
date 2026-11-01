@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0022`.
+**Next evidence ID:** `EV-0023`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -967,6 +967,32 @@ then continued compilation/execution; (4) cold relaunch reproduces — five dist
 needs StikDebug with a script assigned to the app per install (free-profile 7-day re-sign), so A2 stays
 MEDIUM.
 
+### EV-0022 — S1b native visionOS harness: built and signed with a VISIONOS-relabelled JRE (device run pending)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:12:16-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) — install blocked |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:** copy the iOS JRE and relabel all 39 Mach-O files to platform VISIONOS with `vtool`;
+create a native visionOS console harness (`S1BProbe`) embedding the relabelled JRE and `HelloJit`;
+build (`generic/platform=visionOS`), sign nested JRE + app, verify; attempt install on D1.
+
+**Actual:** build, sign and verify pass; both the app and `libjvm.dylib` report platform VISIONOS
+(minos 27.0/27.2). Uninstall of `dev.vrmc.s1a` fails
+(`AMDeviceRemoteCopyMountedDevicesList returned no mount information`) and install fails
+`ApplicationVerificationFailed`: the free-profile 3-app limit already counts `dev.vrmc.s1a`,
+StikDebug and SideStore. The attempts also hit `IXRemoteErrorDomain 6` (connection invalid),
+consistent with a locked/asleep device.
+
+**Artifacts:** `evidence/EV-0022/build.log`, `summary.log`, `main.c`, `project.yml`,
+`install-error.log`.
+
+**Next:** unlock D1, free the slot (uninstall `dev.vrmc.s1a`), install `dev.vrmc.s1b`, control-run
+(expect a JIT26 trap), then one StikDebug Enable JIT pass with a script assigned to `dev.vrmc.s1b`.
+
 ---
 
 ## 7. Status dashboard
@@ -984,6 +1010,7 @@ MEDIUM.
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
 | S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
+| S1b harness (native visionOS) | `PARTIAL` | Built/signed with 39 JRE Mach-O relabelled VISIONOS (EV-0022); install blocked by app slot/device state |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -993,7 +1020,7 @@ MEDIUM.
 
 | Blocker | Owner | Unblock condition |
 |---|---|---|
-| S1b native visionOS harness | Lead | S1a compat `PASS` (EV-0021); relabel the JRE to VISIONOS and run it under the enabler in a native app |
+| S1b native visionOS harness | Lead/user | Built and signed (EV-0022); unlock D1, free the app slot, install `dev.vrmc.s1b`, then one StikDebug JIT pass |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -1023,7 +1050,8 @@ MEDIUM.
 | 2026-10-31 | EV-0017 (`FAIL`): UIKit/SwiftUI probe crashed before JVM output; root cause is `JLI_Launch` re-entering the app main. EV-0018: console-style harness starts the JVM and traps at `BreakGetJITMapping` without an enabler. |
 | 2026-10-31 | EV-0019 (`FAIL`): post-patch launches still trap at `BreakGetJITMapping`. |
 | 2026-10-31 | EV-0020 (`FAIL`, BLOCKED): StikDebug launches/attaches then detaches without JIT26 preparation; all four on-device scripts patched. |
-| 2026-10-31 | EV-0021 (`PASS (compat)`): Assign-Script + JIT26 extension handshake; five cold launches with `[JIT26]` mapping, tier 3/4, `HELLOJIT`, exit 0. Next ID `EV-0022`. |
+| 2026-10-31 | EV-0021 (`PASS (compat)`): Assign-Script + JIT26 extension handshake; five cold launches with `[JIT26]` mapping, tier 3/4, `HELLOJIT`, exit 0. |
+| 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; 39 JRE Mach-O relabelled VISIONOS; install blocked by the 3-app free-profile limit and device state. Next ID `EV-0023`. |
 
 ---
 

@@ -1,0 +1,47 @@
+name: S1BProbe
+options:
+  bundleIdPrefix: dev.vrmc
+  deploymentTarget:
+    visionOS: "1.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.s1b
+    CODE_SIGN_ENTITLEMENTS: s1b.entitlements
+    SWIFT_VERSION: "5.0"
+targets:
+  S1BProbe:
+    type: application
+    platform: visionOS
+    sources:
+      - path: main.c
+    settings:
+      base:
+        PRODUCT_NAME: S1BProbe
+    info:
+      path: GeneratedInfo.plist
+      properties:
+        CFBundleDisplayName: S1BProbe
+        UIDeviceFamily: [7]
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities: [arm64]
+        MinimumOSVersion: "1.0"
+    postBuildScripts:
+      - name: Compile HelloJit and embed VISIONOS JRE
+        shell: /bin/bash
+        script: |
+          set -e
+          RES="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$RES/s1b"
+          javac -d "$RES/s1b" "$SRCROOT/HelloJit.java"
+          if [ -n "${JRE_DIR:-}" ] && [ -f "$JRE_DIR/lib/libjli.dylib" ]; then
+            FR="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/jre"
+            rm -rf "$FR"
+            mkdir -p "$(dirname "$FR")"
+            rsync -a --exclude bin --exclude include --exclude legal "$JRE_DIR/" "$FR/"
+            echo "embedded VISIONOS JRE from $JRE_DIR"
+          else
+            echo "warning: JRE_DIR not set; app will not find a JRE"
+          fi
