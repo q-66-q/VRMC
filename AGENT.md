@@ -594,3 +594,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0026 (`PASS`): all 12 retagged VISIONOS natives dlopen on D1; representative exports resolve. |
 | 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer → VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean. |
 | 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO). S2 device graphics primitives complete; MC boot/title/world (S2 step 6) is next. |
+| 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug dies immediately (attach→continue→detach, no crash report); normal launch stays alive. Workaround: set up MC normally, then relaunch under StikDebug for the game JVM. |

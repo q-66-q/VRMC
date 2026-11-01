@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0030`.
+**Next evidence ID:** `EV-0031`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1139,6 +1139,28 @@ Vulkan bridge, so it is the fastest path to an MC-on-device boot test.
 **Next:** assign `universal.js` in StikDebug to Amethyst, launch it with Enable JIT, set up a demo/
 offline account, install MC 26.2 and start a world; capture the MC logs and crash state.
 
+### EV-0030 — Amethyst launched via StikDebug dies immediately (attach→continue→detach, no crash report)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:59:44-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `FAIL` |
+
+**Procedure:** launch the re-signed Amethyst via StikDebug Enable JIT to configure Minecraft; inspect
+StikDebug `idevice_log`, Amethyst `latestlog.txt`, process list and system crash logs.
+
+**Actual:** StikDebug sends `$vAttach`, `$c`, `$D` within ~28 ms; the Amethyst process is gone
+afterwards. No new crash report in `systemCrashLogs` (only the older 12:46 entry). A normal devicectl
+launch keeps the process alive (pid 1889). Amethyst's log stops at version-list startup; no account or
+version is installed yet.
+
+**Likely cause / next:** the JIT launch path kills the app before setup, or Amethyst aborts at startup
+when no script is assigned. Workaround to test: configure Minecraft with a normal launch, then relaunch
+under StikDebug only for the game JVM (next evidence ID).
+
+**Artifacts:** `evidence/EV-0030/summary.log`, `latestlog.txt`.
+
 ---
 
 ## 7. Status dashboard
@@ -1157,7 +1179,7 @@ offline account, install MC 26.2 and start a world; capture the MC logs and cras
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
 | S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
 | S1b harness (native visionOS) | `PASS` | VISIONOS-relabelled JRE builds/signs (EV-0022), launches (EV-0023), and JITs + executes on D1 (EV-0024) |
-| M1 launcher probe (Amethyst) | `PARTIAL` | Re-signed launcher installs and runs on D1 (EV-0029); MC setup/JIT/Vulkan world pending |
+| M1 launcher probe (Amethyst) | `PARTIAL` | Re-signed launcher installs and runs normally on D1 (EV-0029); dies when launched via StikDebug before setup (EV-0030); MC setup/JIT/world pending |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -1205,7 +1227,8 @@ offline account, install MC 26.2 and start a world; capture the MC logs and cras
 | 2026-10-31 | EV-0026 (`PASS`): all 12 retagged VISIONOS natives dlopen in the D1 probe. |
 | 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer→VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean with 12 natives. |
 | 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO, submit/present 0). S2 device graphics primitives complete; MC boot/title/world remains. |
-| 2026-10-31 | EV-0029 (`PARTIAL`): release Amethyst re-signed for <TEAM_ID> installs and launches on D1. Next: StikDebug JIT + MC 26.2 setup/world. Next ID `EV-0030`. |
+| 2026-10-31 | EV-0029 (`PARTIAL`): release Amethyst re-signed for <TEAM_ID> installs and launches on D1. |
+| 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug attaches/continues/detaches in ~28 ms and dies with no crash report; normal launch works. Workaround: set up MC normally, then relaunch under StikDebug for the game JVM. Next ID `EV-0031`. |
 
 ---
 
