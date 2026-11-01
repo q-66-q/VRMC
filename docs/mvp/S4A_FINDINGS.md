@@ -39,11 +39,18 @@ Host spike (`runtime/probes/s4a-host/spike_s4a.mm`, macOS MoltenVK 1.4.2) proved
   (`VK_SEMAPHORE_TYPE_TIMELINE`, timelineSemaphore feature). A binary semaphore exports `nil`.
   Signaled value 42 from Vulkan was observed by `MTLSharedEvent`.
 
-Device gate (S4a-device) is **NOT RUN** — macOS Metal handles do not prove visionOS MoltenVK/Metal.
-A device probe is staged inside the VRMC app (`runtime/probes/s4a-device/`): it is triggered by
-`Documents/vrmc_s4a_device.flag`, loads the bundled MoltenVK 1.4.3, repeats this test and writes
-`Documents/s4a-device.log`. First attempt was blocked by a locked device (EV-0064); unlock and launch
-VRMC to execute.
+## Device gate result — PASS (EV-0065)
+
+The in-app probe (`runtime/probes/s4a-device/`, triggered by `Documents/vrmc_s4a_device.flag`) ran on
+D1 with the **bundled MoltenVK 1.4.3**:
+
+- `VK_EXT_metal_objects` present; `MTLDevice` export works.
+- `VkImage` → `MTLTexture` export works (64×64 RGBA8Unorm); Metal readback of the Vulkan red clear
+  = `255,0,0,255`.
+- Timeline `MTLSharedEvent` export + Vulkan signal(42) visible to Metal.
+
+Both S4a gates PASS. This is the zero-copy eye-texture/compositor substrate for M3 (M3 itself remains
+NOT RUN).
 
 ## Gates (separate — host PASS does not imply device PASS)
 

@@ -100,8 +100,7 @@ static int runProbe(void) {
     if (gipa == NULL) { PROBE_LOG("no vkGetInstanceProcAddr"); return 12; }
 
     PFN_vkCreateInstance createInstance = (PFN_vkCreateInstance)gipa(NULL, "vkCreateInstance");
-    PFN_vkEnumeratePhysicalDevices enumPhys = (PFN_vkEnumeratePhysicalDevices)gipa(NULL, "vkEnumeratePhysicalDevices");
-    if (createInstance == NULL || enumPhys == NULL) { PROBE_LOG("instance entrypoints missing"); return 13; }
+    if (createInstance == NULL) { PROBE_LOG("vkCreateInstance missing"); return 13; }
 
     VkApplicationInfo app = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app.pApplicationName = "VRMC S4a device probe";
@@ -115,6 +114,8 @@ static int runProbe(void) {
 
     VkProbe p; memset(&p, 0, sizeof(p));
     if (loadProbe(&p, instance) != 0) { p.pDestroyInstance(instance, NULL); return 15; }
+    PFN_vkEnumeratePhysicalDevices enumPhys = (PFN_vkEnumeratePhysicalDevices)gipa(instance, "vkEnumeratePhysicalDevices");
+    if (enumPhys == NULL) { PROBE_LOG("vkEnumeratePhysicalDevices missing"); p.pDestroyInstance(instance, NULL); return 15; }
 
     uint32_t count = 0;
     rc = enumPhys(instance, &count, NULL);

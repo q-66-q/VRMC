@@ -380,7 +380,7 @@
      if (grabbing) {
 --- a/Natives/vrmc_s4a_probe.m
 +++ b/Natives/vrmc_s4a_probe.m
-@@ -0,0 +1,294 @@
+@@ -0,0 +1,295 @@
 +// VRMC S4a-device probe — runs inside the VRMC app (native, no extra app slot).
 +// Trigger: create $AME_HOME/vrmc_s4a_device.flag, then launch the app. Results are written to
 +// $AME_HOME/s4a-device.log and NSLog. This is a probe, not product code.
@@ -483,8 +483,7 @@
 +    if (gipa == NULL) { PROBE_LOG("no vkGetInstanceProcAddr"); return 12; }
 +
 +    PFN_vkCreateInstance createInstance = (PFN_vkCreateInstance)gipa(NULL, "vkCreateInstance");
-+    PFN_vkEnumeratePhysicalDevices enumPhys = (PFN_vkEnumeratePhysicalDevices)gipa(NULL, "vkEnumeratePhysicalDevices");
-+    if (createInstance == NULL || enumPhys == NULL) { PROBE_LOG("instance entrypoints missing"); return 13; }
++    if (createInstance == NULL) { PROBE_LOG("vkCreateInstance missing"); return 13; }
 +
 +    VkApplicationInfo app = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
 +    app.pApplicationName = "VRMC S4a device probe";
@@ -498,6 +497,8 @@
 +
 +    VkProbe p; memset(&p, 0, sizeof(p));
 +    if (loadProbe(&p, instance) != 0) { p.pDestroyInstance(instance, NULL); return 15; }
++    PFN_vkEnumeratePhysicalDevices enumPhys = (PFN_vkEnumeratePhysicalDevices)gipa(instance, "vkEnumeratePhysicalDevices");
++    if (enumPhys == NULL) { PROBE_LOG("vkEnumeratePhysicalDevices missing"); p.pDestroyInstance(instance, NULL); return 15; }
 +
 +    uint32_t count = 0;
 +    rc = enumPhys(instance, &count, NULL);

@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0065`.
+**Next evidence ID:** `EV-0066`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1783,6 +1783,30 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Unlock the AVP and launch VRMC to execute the probe; then pull Documents/s4a-device.log. This is a separate gate from S4a-host (EV-0063).
 
+### EV-0065 — S4a-device PASS: bundled MoltenVK 1.4.3 exports MTLDevice/MTLTexture and timeline MTLSharedEvent sync works on D1
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:14:36-10:00 |
+| Commit | `a95cfe133faa1e506ecb9f6fcabe3b47a9b0ef22` |
+| Dirty state | untime/probes/s4a-device/vrmc_s4a_probe.m |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. probe compiled into the VRMC app (runtime/probes/s4a-device), triggered by Documents/vrmc_s4a_device.flag on launch
+2. load Frameworks/libMoltenVK.dylib; VK_EXT_metal_objects device extension; export MTLDevice; create exportable VkImage; clear red via Vulkan; export MTLTexture; read back via Metal; timeline MTLSharedEvent export + signal 42 via Vulkan
+
+**Expected:** MTLDevice+MTLTexture export works, Metal pixel readback correct, timeline MTLSharedEvent sees Vulkan signal
+
+**Actual:** PASS on D1: VK_EXT_metal_objects=1; MTLDevice export yes; MTLTexture 64x64 RGBA8Unorm export yes; Metal readback=255,0,0,255; timeline MTLSharedEvent export yes, signaledValue=42 after Vulkan signal. App tree 5089b4a8... . S4a-host and S4a-device gates both PASS.
+
+**Artifacts:** evidence/EV-0065/s4a-device.log (f938eae4da2c); evidence/EV-0065/vrmc_s4a_probe.m (c10d310bd021); evidence/EV-0065/summary.log (a9503ebdde39); evidence/EV-0065/build.log (c25ce90131de)
+
+**Limitations:** This validates the M3 eye-texture/compositor substrate on device. M2-W6 (provider init on device) and M3 (compositor stereo/head tracking) remain NOT RUN.
+
 ---
 
 ## 7. Status dashboard
@@ -1796,12 +1820,12 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
-| **M2 milestone** | **IN PROGRESS (host only)** | EV-0058 scaffold; EV-0059 provider substitution; **EV-0060 = M2-W4/W5 host PASS** (bridge handshake, provider init, stereo eye targets, submit loop, no SteamVR). **M2-W6 device bring-up NOT RUN**; **S4a-host/S4a-device NOT RUN**; **M3 NOT RUN**. Host progress is not device completion |
+| **M2 milestone** | **IN PROGRESS** | EV-0058 scaffold; EV-0059 provider substitution; EV-0060 M2-W4/W5 host PASS; **S4a-host PASS (EV-0063)** and **S4a-device PASS (EV-0065)**. **M2-W6 device bring-up NOT RUN**; **M3 NOT RUN** |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
 | S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063) |
-| S4a-device eye handoff | `NOT RUN (probe staged)` | Probe compiled into the VRMC app, flag pushed; execution blocked by locked device (EV-0064) |
+| S4a-device eye handoff | `PASS` | Bundled MoltenVK 1.4.3: MTLDevice+MTLTexture export, Metal readback correct, timeline MTLSharedEvent sync on D1 (EV-0065) |
 | M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
 | PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
@@ -1896,3 +1920,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0061 (`PASS`): M2 review fixes applied** (host/device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy). **EV-0062 (`DEFERRED`): PSVR2 Sense controller input — out of MVP scope (P1), not BLOCKED.** Next ID `EV-0063`. |
 | 2026-11-01 | **EV-0063 (`PASS`): S4a-host** — exportable VkImage → MTLTexture works, Metal reads the Vulkan clear correctly, and MTLSharedEvent sync works with a **timeline** semaphore. **S4a-device remains NOT RUN** (separate gate). Next ID `EV-0064`. |
 | 2026-11-01 | **EV-0064 (`NOT RUN`)**: S4a-device probe staged inside the VRMC app (bundled MoltenVK 1.4.3), marker pushed, but the device was locked (passcodeRequired=true) so it could not be launched. Unlock AVP and launch VRMC to execute; log = Documents/s4a-device.log. Next ID `EV-0065`. |
+| 2026-11-01 | **EV-0065 (`PASS`): S4a-device** — bundled MoltenVK 1.4.3 on D1 exports MTLDevice/MTLTexture, Metal reads back the Vulkan clear correctly, and timeline MTLSharedEvent sync works (signaledValue 42). M3's zero-copy eye-handoff substrate is device-validated; **M2-W6 (provider init on device) and M3 remain NOT RUN**. Next ID `EV-0066`. |

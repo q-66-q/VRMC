@@ -29,7 +29,7 @@ M2 exit criteria (all evidenced):
 | M2-W4/W5 bridge + provider + stereo host integration | **PASS (host)** | EV-0060 |
 | M2-W6 device bring-up | **NOT RUN** | — |
 | S4a-host (macOS MoltenVK export/shared-event) | **PASS** | EV-0063: MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync |
-| S4a-device (visionOS MoltenVK/Metal) | **NOT RUN — probe staged** | EV-0064: probe in the VRMC app, flag pushed; device locked at launch |
+| S4a-device (visionOS MoltenVK/Metal) | **PASS** | EV-0065: bundled MoltenVK 1.4.3 on D1 — MTLDevice/MTLTexture export, Metal readback, timeline MTLSharedEvent sync |
 | M3 compositor stereo + head tracking | **NOT RUN** | — |
 | PSVR2 controllers (F1–F3) | **DEFERRED (out of MVP scope)** | P1 register; not BLOCKED |
 | Hands-only P0 input (G2/G3/G4) | **HIGH** | sole input path, no controller fallback |
@@ -83,8 +83,9 @@ a full GPU copy, and what synchronization is required?
 
 **Two separate gates — do not collapse them (host PASS ≠ device PASS):**
 
-- **S4a-host: PASS (EV-0063)** — `MTLTexture` export + Metal readback pixel-correct + timeline `MTLSharedEvent`
-  sync. Caveat: shared-event export requires a **timeline** `VkSemaphore` (binary exports nil).
+- **S4a-host: PASS (EV-0063); S4a-device: PASS (EV-0065)** — `MTLTexture` export + Metal readback pixel-correct +
+  timeline `MTLSharedEvent` sync on both macOS and D1. Caveat: shared-event export requires a **timeline**
+  `VkSemaphore` (binary exports nil).
 - **S4a-device:** the same path works on visionOS (visionOS Metal may differ; shared events may have
   different semantics). Separate EV required.
 
