@@ -34,6 +34,47 @@
      if (requiresTXMWorkaround) {
          static void *result;
          if(!result) result = JIT26CreateRegionLegacy(getpagesize());
+--- a/Natives/LauncherMenuViewController.m
++++ b/Natives/LauncherMenuViewController.m
+@@ -164,9 +164,38 @@
+     }
+ }
+ 
++- (void)showVRMCWelcomeIfNeeded {
++    static BOOL shown = NO;
++    if (shown || getPrefBool(@"vrmc.first_run_done")) {
++        return;
++    }
++    shown = YES;
++    NSLog(@"[VRMC] first-run checklist shown");
++    NSString *message =
++        @"VRMC is a visionOS launcher for Minecraft Java 26.2.\n\n"
++        @"Before your first launch:\n"
++        @"1. StikDebug: long-press VRMC -> Assign Script -> amethyst.js.\n"
++        @"2. StikDebug: Enable JIT -> VRMC.\n"
++        @"3. Sign in with a demo or Microsoft account.\n"
++        @"4. Install Minecraft 26.2 from the profile menu, then press Play.\n\n"
++        @"The launcher bundles Java 25 + LWJGL 3.4.1 and forces Vulkan/MoltenVK. "
++        @"If StikDebug does not open by itself, enable JIT before pressing Play.";
++    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Welcome to VRMC"
++                                                                   message:message
++                                                            preferredStyle:UIAlertControllerStyleAlert];
++    [alert addAction:[UIAlertAction actionWithTitle:@"Got it" style:UIAlertActionStyleDefault
++                                            handler:^(UIAlertAction *action) {
++        setPrefBool(@"vrmc.first_run_done", YES);
++    }]];
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
++        [self presentViewController:alert animated:YES completion:nil];
++    });
++}
++
+ - (void)viewWillAppear:(BOOL)animated {
+     [super viewWillAppear:animated];
+     [self restoreHighlightedSelection];
++    [self showVRMCWelcomeIfNeeded];
+ }
+ 
+ - (UIBarButtonItem *)drawAccountButton {
 --- a/Natives/LauncherNavigationController.m
 +++ b/Natives/LauncherNavigationController.m
 @@ -427,6 +427,9 @@

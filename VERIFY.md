@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0053`.
+**Next evidence ID:** `EV-0055`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1555,6 +1555,36 @@ enabled. Installed build tree `sha256 01804065…`.
 
 **Artifacts:** `evidence/EV-0052/latestlog.txt`, `w7-summary.log`.
 
+### EV-0053 — M1 W6: log/crash retrieval path confirmed — in-app Send logs/Log output share + repo capture scripts
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:29:57-10:00 |
+| Status | `PASS` |
+
+**Actual:** launcher menu `Send logs` shares `latestlog.old.txt`; in-game **Log output** overlay
+(`PLLogOutputView`) has a *Share latestlog.txt* action and per-line share, and appears on fatal exit;
+MC crash reports are stored under `Documents/instances/default/crash-reports/`; repo scripts retrieve
+logs (EV-0039). Device share-sheet not exercised per user decision.
+
+**Artifacts:** `evidence/EV-0053/summary.log`.
+
+### EV-0054 — M1 W1 polish: VRMC app icon + first-run welcome checklist built/signed (install pending device wake)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:34:30-10:00 |
+| Status | `PARTIAL` |
+
+**Actual:** committed `assets/branding/` (VRMC icon PNGs) + `scripts/make_icon.py`, wired them into
+`scripts/build_launcher.sh`; added a one-time “Welcome to VRMC” checklist in
+`LauncherMenuViewController` (StikDebug script/JIT, account, MC install, Play; Java 25/LWJGL/Vulkan
+note). Built and re-signed (tree `e9ad22b6…`); install failed 8× because the device is asleep/locked
+(`AMDeviceCreate`/`IXRemoteError`). Install and visual verification pending the next awake-device
+session.
+
+**Artifacts:** `evidence/EV-0054/summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1593,6 +1623,8 @@ enabled. Installed build tree `sha256 01804065…`.
 | M1 W1 — reproducible build | `PASS` | `scripts/build_launcher.sh` + `patches/vrmc-m1-amethyst-1.2.0.patch` + `LAUNCHER_BUILD.md`; tested from a fresh tree (EV-0049) |
 | M1 W3 — JIT readiness | `PASS` | explicit TXM alert + `[JIT] preflight` log (EV-0050); no-JIT flow verified (EV-0051) |
 | M1 W7 — save/relaunch | `PASS` | clean save/quit + reload preserved (EV-0052) |
+| M1 W6 — observability | `PASS` | in-app Send logs / Log output share + repo capture scripts (EV-0053) |
+| M1 W1 polish — icon + first-run | `PARTIAL` | icon assets + first-run checklist built/signed (EV-0054); install pending device wake |
 | M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
@@ -1645,7 +1677,7 @@ enabled. Installed build tree `sha256 01804065…`.
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
 | 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
-| 2026-11-01 | EV-0047/0048/0049/0050 recorded. **EV-0051 (W3 no-JIT flow PASS)**, **EV-0052 (W7 save/relaunch PASS)**; M1 acceptance #2 and #4 move to PASS. Next ID `EV-0053`. |
+| 2026-11-01 | EV-0051/0052 (W3/W7), **EV-0053 (W6 PASS)**, **EV-0054 (W1 icon/first-run built; install pending device wake)**. Next ID `EV-0055`. |
 
 ---
 

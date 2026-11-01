@@ -25,6 +25,10 @@ done
 echo "[build] staging $AME_SRC -> $BUILD_DIR"
 rm -rf "$BUILD_DIR"
 rsync -a --exclude build --exclude artifacts --exclude depends "$AME_SRC/" "$BUILD_DIR/"
+if [ -d "$ROOT/assets/branding" ]; then
+  echo "[build] installing VRMC branding assets"
+  rsync -a "$ROOT/assets/branding/" "$BUILD_DIR/Natives/Assets.xcassets/"
+fi
 for p in "$ROOT"/patches/*.patch; do
   echo "[build] applying $(basename "$p")"
   patch -p1 -d "$BUILD_DIR" < "$p"

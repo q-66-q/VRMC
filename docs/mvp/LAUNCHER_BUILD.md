@@ -51,6 +51,12 @@ Output: `artifacts/Payload/AngelAuraAmethyst.app` (bundled `java_runtimes/java-{
 - `MinecraftOptionUtils` forces the launcher-decided backend and `startedCleanly:true`; Minecraft's
   crash recovery would otherwise reset to OpenGL/ANGLE, which crashes on 26.2 cloud shaders.
 
+## 3a. Branding assets
+
+`assets/branding/` contains the VRMC app-icon PNGs; `scripts/build_launcher.sh` copies them into
+`Natives/Assets.xcassets/` before the build (regenerate with `scripts/make_icon.py <Amethyst tree>`).
+The app is branded as `dev.vrmc.vrmc` / display name VRMC in the signing step below.
+
 ## 4. Branding and signing
 
 The built app is `org.angelauramc.amethyst` by default. The device build is branded as
