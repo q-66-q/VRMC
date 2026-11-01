@@ -184,9 +184,57 @@ static int vrmc_render_test(VkInstance instance, VkPhysicalDevice phys, uint32_t
     return ok ? 0 : 1;
 }
 
+
+// ---------------------------------------------------------------------------
+// Load test for the retagged native dylibs embedded in Frameworks/.
+// Proves each VISIONOS-slice native can be dlopen'ed in this process and that a
+// representative export resolves.
+// ---------------------------------------------------------------------------
+#include <dirent.h>
+
+static const struct { const char *name; const char *symbol; } LOAD_SYMS[] = {
+    { "libMoltenVK.dylib",        "vkGetInstanceProcAddr" },
+    { "libSDL3.dylib",            "SDL_Init" },
+    { "libfreetype.dylib",        "FT_Init_FreeType" },
+    { "liblwjgl.dylib",           "JNI_OnLoad" },
+    { "liblwjgl_nanovg.dylib",    "JNI_OnLoad" },
+    { "liblwjgl_opengl.dylib",    "JNI_OnLoad" },
+    { "liblwjgl_stb.dylib",       "JNI_OnLoad" },
+    { "liblwjgl_tinyfd.dylib",    "JNI_OnLoad" },
+    { "liblwjgl_vma.dylib",       "JNI_OnLoad" },
+    { "libopenal.dylib",          "alcOpenDevice" },
+    { "libshaderc.dylib",         "shaderc_compiler_initialize" },
+    { "libspirv-cross.dylib",     "spvc_context_create" },
+    { NULL, NULL }
+};
+
+static int vrmc_load_test(const char *dir) {
+    printf("\n## native load test (%s)\n", dir);
+    int ok = 0, fail = 0;
+    for (int i = 0; LOAD_SYMS[i].name; i++) {
+        char path[4096];
+        snprintf(path, sizeof(path), "%s/%s", dir, LOAD_SYMS[i].name);
+        void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        if (!h) {
+            printf("  %-26s LOAD FAIL: %s\n", LOAD_SYMS[i].name, dlerror());
+            fail++;
+            continue;
+        }
+        void *sym = dlsym(h, LOAD_SYMS[i].symbol);
+        printf("  %-26s %s (sym %s = %p)\n", LOAD_SYMS[i].name,
+               sym ? "OK" : "LOADED, symbol missing", LOAD_SYMS[i].symbol, sym);
+        if (sym) ok++; else fail++;
+        // keep loaded: dlclose would unload shared deps still in use by later libs
+    }
+    printf("## native load test: %d ok, %d failed\n", ok, fail);
+    return fail == 0 ? 0 : 1;
+}
+
 int vrmc_probe_main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
-    if (argc < 2) { fprintf(stderr, "usage: probe <libMoltenVK.dylib>\n"); return 2; }
+    if (argc < 2) { fprintf(stderr, "usage: probe <libMoltenVK.dylib> [FrameworksDir]\n"); return 2; }
+    int load_fail = 0;
+    if (argc >= 3) load_fail = vrmc_load_test(argv[2]);
     void *h = dlopen(argv[1], RTLD_LOCAL | RTLD_NOW);
     if (!h) { fprintf(stderr, "dlopen failed: %s\n", dlerror()); return 1; }
     GIPA = (PFN_vkGetInstanceProcAddr)dlsym(h, "vkGetInstanceProcAddr");
@@ -318,5 +366,5 @@ int vrmc_probe_main(int argc, char **argv) {
     }
     pDestroyInstance(instance, NULL);
     printf("\n## done\n");
-    return 0;
+    return load_fail ? 3 : 0;
 }

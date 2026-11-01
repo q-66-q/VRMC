@@ -38,8 +38,9 @@ static void s2probe_start(void) {
         int rc = -1;
         printf("=== VRMC S2 probe ===\nlib=%s\n", lib ? lib.UTF8String : "(missing)");
         if (lib != nil) {
-            char *argv[] = { "probe", (char *)lib.UTF8String, NULL };
-            rc = vrmc_probe_main(2, argv);
+            NSString *fw = [lib stringByDeletingLastPathComponent];
+            char *argv[] = { "probe", (char *)lib.UTF8String, (char *)fw.UTF8String, NULL };
+            rc = vrmc_probe_main(3, argv);
         }
         printf("probe rc=%d\n", rc);
         fflush(stdout);
