@@ -237,3 +237,24 @@ Mitigations staged for the next attempt:
 Next: retest; if the game still device-loses, run with sampling disabled to determine whether the
 immersive-scene transition or the cross-queue texture sampling is the cause; then add timeline
 `MTLSharedEvent`/Vk timeline semaphore sync (S4a) before re-enabling sampling.
+
+
+## 13. M3-W3/W4 first light (EV-0083, 2026-11-01)
+
+Mitigations worked: with the 15 s settle delay, no compositor `waitUntilCompleted`, and layer-state guard,
+the **game stayed alive** and the immersive space auto-opened. The compositor reported `eyes=1` with the
+provider's eye `MTLTexture` handles, ARKit anchor success, and the provider logged real head poses
+(`tracking frame ... head=(-0.02,1.20,0.03)`), i.e. the eye-texture and pose data path is proven.
+
+Remaining problems observed by the operator:
+1. **Presentation alignment**: the compositor maps each 1024×1024 eye texture fullscreen (flat blit)
+   without CompositorServices per-eye projection/FOV parity; the image does not line up with the
+   immersive view.
+2. **Game window remains visible** in the immersive session (the UIKit `SurfaceViewController` window
+   replaced the SwiftUI root).
+3. **Immersive space quits when the app goes to background** — shell has no scenePhase handling yet.
+
+Next implementation order: (a) window visibility/parking while immersive is active; (b) scenePhase
+handling to keep/reopen the immersive space; (c) per-eye alignment — either pass CompositorServices
+tangents/FOV into the provider so MC renders a matching projection, or reproject in the compositor;
+(d) timeline `MTLSharedEvent` sync; then pacing/acceptance.
