@@ -595,3 +595,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer → VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean. |
 | 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO). S2 device graphics primitives complete; MC boot/title/world (S2 step 6) is next. |
 | 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug dies immediately (attach→continue→detach, no crash report); normal launch stays alive. Workaround: set up MC normally, then relaunch under StikDebug for the game JVM. |
+| 2026-10-31 | EV-0031 (`PARTIAL`): Amethyst external Java 25 + always-attached JIT + dyld bypass reach MC 26.2 main on D1; boot aborts on missing LWJGL 3.4.1 spvc (release bundles 3.3.3). Next: install the current development build. |

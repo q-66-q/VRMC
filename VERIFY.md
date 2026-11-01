@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0031`.
+**Next evidence ID:** `EV-0032`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1161,6 +1161,31 @@ under StikDebug only for the game JVM (next evidence ID).
 
 **Artifacts:** `evidence/EV-0030/summary.log`, `latestlog.txt`.
 
+### EV-0031 — MC 26.2 on D1: Amethyst JIT + Java 25 work; boot aborts on missing LWJGL 3.4.1 spvc
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T18:00:12-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** install Java 25 as an Amethyst external runtime; enable
+`debug.debug_always_attached_jit` so its dyld bypass loads the external JRE; launch Amethyst via
+StikDebug with `amethyst.js` assigned and press Play on MC 26.2; pull the launcher log and the
+Minecraft crash report.
+
+**Actual:** `[JIT26] Requesting 240 MB` → mapping granted; `[DyldLVBypass]` hooks active; Java 25
+selected from `Documents/java_runtimes/java-25-openjdk`; `Launching Minecraft 26.2` and
+`NativeLibrariesBootstrap` run. Crash: `Loading library spvc` →
+`NoClassDefFoundError: org/lwjgl/util/spvc/Spvc`. The log reports **LWJGL 3.3.3-snapshot**; the released
+IPA has no `lwjgl_versions.txt` or 3.4.1 assets, while MC 26.2 requires LWJGL 3.4.1.
+
+**Conclusion:** the device launch stack (JIT → JVM → dyld bypass → Java 25 → MC main) is proven; the
+remaining blocker is the launcher's bundled LWJGL version. Next: install the current Amethyst
+development build (source supports LWJGL 3.4.1).
+
+**Artifacts:** `evidence/EV-0031/latestlog.txt`, `crash.txt`, `summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1179,7 +1204,7 @@ under StikDebug only for the game JVM (next evidence ID).
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
 | S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
 | S1b harness (native visionOS) | `PASS` | VISIONOS-relabelled JRE builds/signs (EV-0022), launches (EV-0023), and JITs + executes on D1 (EV-0024) |
-| M1 launcher probe (Amethyst) | `PARTIAL` | Re-signed launcher installs and runs normally on D1 (EV-0029); dies when launched via StikDebug before setup (EV-0030); MC setup/JIT/world pending |
+| M1 launcher probe (Amethyst) | `PARTIAL` | Re-signed launcher runs (EV-0029); StikDebug startup crash workaround (EV-0030); **JIT + Java 25 reach MC 26.2 main (EV-0031)**, blocked by release's LWJGL 3.3.3 vs required 3.4.1 |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -1228,7 +1253,8 @@ under StikDebug only for the game JVM (next evidence ID).
 | 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer→VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean with 12 natives. |
 | 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO, submit/present 0). S2 device graphics primitives complete; MC boot/title/world remains. |
 | 2026-10-31 | EV-0029 (`PARTIAL`): release Amethyst re-signed for <TEAM_ID> installs and launches on D1. |
-| 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug attaches/continues/detaches in ~28 ms and dies with no crash report; normal launch works. Workaround: set up MC normally, then relaunch under StikDebug for the game JVM. Next ID `EV-0031`. |
+| 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug attaches/continues/detaches in ~28 ms and dies with no crash report; normal launch works. |
+| 2026-10-31 | EV-0031 (`PARTIAL`): external Java 25 + always-attached JIT + dyld bypass work; MC 26.2 reaches `NativeLibrariesBootstrap` but aborts on missing `org.lwjgl.util.spvc.Spvc` because the release bundles LWJGL 3.3.3. Next: current Amethyst development build. Next ID `EV-0032`. |
 
 ---
 
