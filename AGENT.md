@@ -87,7 +87,10 @@ comfort polish.
   (EV-0025–EV-0028) and **MC 26.2 renders a world on D1 through Vulkan/MoltenVK (EV-0034)** with a
   4m20s clean session (EV-0035); the 30-minute device soak is **deferred** (user stopped early) and is
   the only outstanding ST-S2 item. The re-signed Amethyst launcher (bundled UniversalJIT26, MoltenVK,
-  Vulkan bridge) installs and runs on D1 (EV-0029), giving an MC-on-device test path.
+  Vulkan bridge) installs and runs on D1 (EV-0029), giving an MC-on-device test path. MC 26.2 now
+  renders a Vulkan world on D1 (EV-0034) with a 4m20s clean session (EV-0035); the 30-minute soak is
+  deferred. **M1 execution plan: `docs/mvp/M1_PLAN.md`** (launcher shell, runtime provisioning, JIT
+  readiness, MC install, input, soak).
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -430,7 +433,7 @@ ADR; it is never quietly downgraded.
 | Milestone | Scope | Exit criteria | Hardness | Est. |
 |---|---|---|---|---|
 | **M0** | Docs, skeleton, versions.env, S1/S2, S3 decision | S1 internal reproduction EV (EV-0002 is external only); status propagated per §4.7; S2 pass; S3 Mixin-vs-fork decision recorded | **HIGH** | 3–4 wk |
-| **M1** | Launcher shell + install + flat MC boot | Fresh install → flat world | MEDIUM | 4–6 wk |
+| **M1** | Launcher shell + install + flat MC boot | Fresh install → flat world | MEDIUM | 4–6 wk (plan: `docs/mvp/M1_PLAN.md`) |
 | **M2** | Provider + Vulkan VR | Provider init, stereo eye targets, no SteamVR | **HIGH** | 4–5 wk |
 | **M3** | Compositor stereo + head tracking | 30-min immersive session | **HIGH** | 4 wk |
 | **M4** | Input (controllers, hands, gestures) | P0 action checklist passes | MEDIUM | 4–6 wk |
@@ -599,3 +602,5 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0031 (`PARTIAL`): Amethyst external Java 25 + always-attached JIT + dyld bypass reach MC 26.2 main on D1; boot aborts on missing LWJGL 3.4.1 spvc (release bundles 3.3.3). Next: install the current development build. |
 | 2026-10-31 | EV-0032 (`FAIL`): grafting LWJGL 3.4.1 Java/natives clears the spvc error but the JVM SIGSEGVs in the app's embedded 3.3.3 `JNI_OnLoadGLFW`; the launcher must be rebuilt from current source. Full problem exported to `export/` with logs, hs_err and evidence. |
 | 2026-10-31 | EV-0033 (`PARTIAL`): StikDebug 3.2.0 reinstalled for <TEAM_ID> (pairing/DDI/scripts preserved, amethyst.js present); launch verification blocked by device lock. Next: wake/unlock and reassign the script. |
+
+| 2026-10-31 | M1 planning started while the ST-S2 30-min soak is deferred: `docs/mvp/M1_PLAN.md` covers the tested device stack (Amethyst 1.2.0, StikDebug 3.2.0, Java 25, LWJGL 3.4.1, MoltenVK 1.4.3), workstreams W1–W7, and sprint-1 tasks T1–T6. |
