@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build the VRMC launcher (branded Amethyst 1.2.0) reproducibly from a prepared Amethyst 1.2.0 tree.
-# Usage (one line): AME_SRC=/path/to/Amethyst-iOS-main BOOTJDK=/path/to/jdk8/bin [DEPENDS_DIR=/path/to/depends] scripts/build_launcher.sh
+# Usage (one line): AME_SRC=/path/to/Amethyst-iOS-main BOOTJDK=/path/to/jdk8/bin [PLATFORM=2|11] [DEPENDS_DIR=/path/to/depends] scripts/build_launcher.sh
+# PLATFORM=2  -> iOS-compatibility app (default, current product launcher)
+# PLATFORM=11 -> native visionOS app (required for immersive spaces; M3/M3-W1 testing)
 # Requirements: AME_SRC must be the Amethyst 1.2.0 source tree with the four submodules populated
 # (Natives/external/{AFNetworking,DBNumberedSlider,MobileGlues,fishhook}); a JDK 8 boot JDK; Xcode.
 # The script applies patches/*.patch, drops MobileGlues/MobileGL from payload (Vulkan/MoltenVK path)
@@ -11,6 +13,7 @@ AME_SRC=${AME_SRC:?set AME_SRC to the Amethyst 1.2.0 source tree}
 BOOTJDK=${BOOTJDK:?set BOOTJDK to the JDK 8 bin directory}
 BUILD_DIR=${BUILD_DIR:-$ROOT/.build/launcher}
 JOBS=${JOBS:-$(sysctl -n hw.logicalcpu)}
+PLATFORM=${PLATFORM:-2}
 DEPENDS_DIR=${DEPENDS_DIR:-}
 
 [ -f "$AME_SRC/Makefile" ] || { echo "AME_SRC has no Makefile: $AME_SRC" >&2; exit 1; }
@@ -21,6 +24,11 @@ for m in AFNetworking DBNumberedSlider MobileGlues fishhook; do
   [ -n "$(ls -A "$AME_SRC/Natives/external/$m" 2>/dev/null)" ] || { echo "submodule not populated: Natives/external/$m" >&2; exit 1; }
 done
 [ -x "$BOOTJDK/javac" ] || { echo "no javac in BOOTJDK: $BOOTJDK" >&2; exit 1; }
+case "$PLATFORM" in
+  2|11) ;;
+  *) echo "PLATFORM must be 2 (iOS-compat) or 11 (native visionOS), got: $PLATFORM" >&2; exit 1 ;;
+esac
+echo "[build] PLATFORM=$PLATFORM"
 
 echo "[build] staging $AME_SRC -> $BUILD_DIR"
 rm -rf "$BUILD_DIR"
@@ -52,10 +60,20 @@ if [ -n "$DEPENDS_DIR" ]; then
   rsync -a "$DEPENDS_DIR/" "$BUILD_DIR/depends/"
 fi
 echo "[build] make payload (JOBS=$JOBS)"
-make -C "$BUILD_DIR" PLATFORM=2 RELEASE=0 BOOTJDK="$BOOTJDK" JOBS="$JOBS" payload
+make -C "$BUILD_DIR" PLATFORM="$PLATFORM" RELEASE=0 BOOTJDK="$BOOTJDK" JOBS="$JOBS" payload
 APP="$BUILD_DIR/artifacts/Payload/AngelAuraAmethyst.app"
 [ -d "$APP" ] || { echo "payload missing: $APP" >&2; exit 1; }
 plutil -p "$APP/Info.plist" | grep -E 'CFBundleShortVersionString.*1\.2\.0' >/dev/null || { echo "unexpected app version" >&2; exit 1; }
+if [ "$PLATFORM" = "11" ]; then
+  echo "[build] adjusting Info.plist for native visionOS"
+  PB=/usr/libexec/PlistBuddy
+  $PB -c "Set :MinimumOSVersion 1.0" "$APP/Info.plist" 2>/dev/null || true
+  $PB -c "Delete :LSRequiresIPhoneOS" "$APP/Info.plist" 2>/dev/null || true
+  $PB -c "Delete :UIDeviceFamily" "$APP/Info.plist" 2>/dev/null || true
+  $PB -c "Add :UIDeviceFamily array" "$APP/Info.plist"
+  $PB -c "Add :UIDeviceFamily:0 integer 7" "$APP/Info.plist"
+  echo "[build] native payload ready; brand/sign with the visionOS dev.vrmc.vrmc profile and install (see docs)"
+fi
 echo "[build] ok: $APP"
 # hash best-effort: pipefail is disabled because a transient per-file read error must not fail the build
 set +o pipefail
