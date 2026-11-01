@@ -99,3 +99,19 @@ Next options, in order:
 2. **ADR-0010 fallback (B):** keep the proven compat app for JVM/MC/JIT and add a native immersive
    companion that receives the provider's eye textures over IPC/shared memory (IOSurface handoff) and
    ARKit poses back. Needs an app-slot plan (free-team limit 3) and a new ADR; larger than option 1.
+
+
+## 7. Gate-3 diagnostics (EV-0076)
+
+The native app's window hierarchy is correct: `willConnect` gets a 1280×720 window scene;
+`rootViewController` is `LauncherSplitViewController`; the window is visible with alpha 1; the split
+view's impl view is 1280×720 with 2 subviews after layout. The user still sees blank content, so the
+failure is in **UIKit content rendering/presentation on native visionOS**, not in scene setup or
+sizing.
+
+Implication: the native-app route needs a UI workaround before gate 3 can be tested:
+- **Option 1 (next, M3-W1):** host the launcher view controller from a minimal **SwiftUI window shell**
+  (`UIViewControllerRepresentable`) or replace the initial VC with a plain `UIViewController`
+  containing the launcher menu, to isolate the split-view rendering issue.
+- **Option 2 (fallback B, ADR-0010):** compat JVM/MC app (proven JIT) + native immersive companion
+  receiving eye textures over IPC/IOSurface and returning ARKit poses; needs an app-slot plan.
