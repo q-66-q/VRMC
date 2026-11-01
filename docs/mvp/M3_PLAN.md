@@ -1,6 +1,6 @@
 # M3 plan — Compositor stereo + head tracking (started 2026-11-01)
 
-Status: **IN PROGRESS** — gate 1 **PASS (EV-0071)**; **gate 2 PASS (EV-0074)**: immersive space opens and the CompositorServices loop runs (2700+ frames, no crash), but stereo content is not presented (passthrough) and ARKit anchor/presentation-time wiring is missing. M2 CLOSED (EV-0070). M3 turns the provider's two exported `MTLTexture`s into an
+Status: **IN PROGRESS — M3a COMPLETE**: gate 1 **PASS (EV-0071)**; **gate 2 PASS (EV-0074)**; **gate 3 PASS (EV-0077)**: immersive space opens and the CompositorServices loop runs (2700+ frames, no crash), but stereo content is not presented (passthrough) and ARKit anchor/presentation-time wiring is missing. M2 CLOSED (EV-0070). M3 turns the provider's two exported `MTLTexture`s into an
 **immersive CompositorServices stereo view with real head tracking**.
 
 ## 0. Architectural gate (M3a) — native visionOS app required
@@ -115,3 +115,23 @@ Implication: the native-app route needs a UI workaround before gate 3 can be tes
   containing the launcher menu, to isolate the split-view rendering issue.
 - **Option 2 (fallback B, ADR-0010):** compat JVM/MC app (proven JIT) + native immersive companion
   receiving eye textures over IPC/IOSurface and returning ARKit poses; needs an app-slot plan.
+
+
+## 8. M3a complete (EV-0071/EV-0074/EV-0077)
+
+All three M3a gates pass:
+1. Native visionOS payload builds (EV-0071).
+2. Native app opens a CompositorServices immersive space and presents per-eye stereo; the missing piece
+   was the drawable depth attachment/rasterization-rate map (EV-0074).
+3. The native app hosts the whole MC stack: JVM (Java 25) + JIT (always-attached TXM path) + MC 26.2 +
+   Fabric Loader 0.20.1 + Vivecraft + VRMC provider/bridge ABI 2 + Vulkan/MoltenVK + device
+   `VkImage→MTLTexture` eye export + tracking frames (EV-0077).
+
+Gate 3 was reached via a **programmatic auto-launch** (`Documents/autolaunch.flag`) because the native
+UIKit launcher content still renders blank (`LauncherSplitViewController` is created and sized
+correctly, EV-0076). That UI issue is now **M3-W1** (not a hostability risk). The auto-launch hook is
+currently a local refbuild patch; refresh `patches/vrmc-m1-amethyst-1.2.0.patch` before release.
+
+Next: **M3-W1** native launcher UI, then **M3-W2/W3** (CompositorServices consumes the provider's two
+`MTLTexture`s with timeline shared-event sync), **M3-W4** ARKit pose → bridge → provider hmdPose,
+**M3-W5/W6** pacing and device acceptance.
