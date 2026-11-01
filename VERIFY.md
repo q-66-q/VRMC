@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0043`.
+**Next evidence ID:** `EV-0047`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1406,6 +1406,68 @@ acceptance (VRMC-specific `amethyst.js` assignment, account, MC 26.2 download, w
 
 **Artifacts:** `evidence/EV-0042/summary.log`.
 
+### EV-0043 — M1 T4 acceptance: fresh VRMC install reaches the MC 26.2 world with app-side provisioning
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:09:24-10:00 |
+| Status | `PASS` |
+
+**Actual:** fresh `dev.vrmc.vrmc` container, no test-build data; log shows forced always-attached JIT
+on TXM, `DyldLVBypass` hooks active, internal `java-25-openjdk`, `preferredGraphicsBackend=vulkan`,
+`Using graphics backend Vulkan … MoltenVK 1.4.3`, world joined 23:08:23. No Mac-side pushes for
+JRE/options/script after install; only the on-device StikDebug script assignment and the launcher's
+account/version flow.
+
+**Artifacts:** `evidence/EV-0043/latestlog.txt`, `summary.log`.
+
+---
+
+### EV-0044 — M1 T6: 30-minute MC 26.2 world soak — no game crash, no watchdog kill; thermal recorded
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:40:30-10:00 |
+| Status | `PASS` |
+
+**Actual:** 1805 s continuous in-world (23:08:23–23:38:28); process alive at check; 0 ERROR/Exception
+lines after join; no game crash, no game watchdog kill. Thermal recorded from system metadata:
+`Thermal Level: 0 / Thermal State: serious` at 23:11:09. Incident: StikDebug 3.2.0 was SIGKILLed by a
+FrontBoard scene-update watchdog at 23:11:09 (background); the game was unaffected.
+
+**Artifacts:** `evidence/EV-0044/latestlog.txt`, `summary.log`, `StikDebug-…ips`.
+
+---
+
+### EV-0045 — T5-FUP1: in-world cursor does not hide and camera rotation is not smooth — FAIL
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:46:26-10:00 |
+| Status | `FAIL` |
+
+**Actual:** user report; source analysis shows the SDL3 path feeds absolute cursor positions when
+`isGrabbing` is false (visible pointer + jerky rotation), raw deltas when true. SDL3 grab forwarding not
+confirmed on visionOS. Follow-up `task-2`; T5 itself stays closed PARTIAL.
+
+**Artifacts:** `evidence/EV-0045/summary.log`.
+
+---
+
+### EV-0046 — Background once freezes Minecraft (needs refresh) and audio is lost — FAIL, fix in progress
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:46:26-10:00 |
+| Status | `FAIL` |
+
+**Actual:** user backgrounded the game once; it froze and needed a refresh/relaunch, sound was lost.
+Source: `SceneDelegate` lifecycle callbacks are empty; `updateAudioSettings()` only runs at `viewDidLoad`;
+the render gate depends on `UIApplication` notifications. Fix in progress (scene callbacks + audio
+reactivation/interruption handling); follow-up `task-3`.
+
+**Artifacts:** `evidence/EV-0046/summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1422,7 +1484,7 @@ acceptance (VRMC-specific `amethyst.js` assignment, account, MC 26.2 download, w
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
-| M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch installed; post-patch behavior unverified; follow-up task-1 (EV-0040) |
+| M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch installed (EV-0040); follow-up verdict FAIL (EV-0045: cursor visible, rotation jerky) → task-2 |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1439,8 +1501,9 @@ acceptance (VRMC-specific `amethyst.js` assignment, account, MC 26.2 download, w
 
 | Blocker | Owner | Unblock condition |
 |---|---|---|
-| M1 T6: 30-minute device soak | Lead/user | Defined as the M1 exit gate (K4 precursor): continuous 30-min in-world session, no crash, no watchdog kill, thermal state recorded. Blocked on device time (needs a 30-min on-headset session). EV-0035 is feasibility only. |
-| M1 T4: fresh-install acceptance | Lead/user | Branded VRMC app installed with a fresh container (EV-0042); app-side defaults + bundled JRE done (EV-0037). Remaining: VRMC-specific `amethyst.js` assignment + account + MC 26.2 download + world on device. |
+| M1 T6: 30-minute device soak | **DONE** | 1805 s continuous world session, no game crash/watchdog kill, thermal `serious` recorded (EV-0044); StikDebug watchdog incident noted |
+| Lifecycle/audio defect | Open | Background freeze + sound loss reported (EV-0046); fix installed for retest; task-3 |
+| M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -1490,7 +1553,8 @@ acceptance (VRMC-specific `amethyst.js` assignment, account, MC 26.2 download, w
 | 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — our own source-built Amethyst v1.2.0 (167 binaries re-signed) boots MC 26.2 to a Vulkan/MoltenVK world on D1. |
 | 2026-10-31 | EV-0037 (`PASS`): app-side defaults force Vulkan + clear the crash marker; MC boots from a deliberately reset options.txt. |
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
-| 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed on D1 with a fresh container; test app uninstalled. Next ID `EV-0043`. |
+| 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
+| 2026-10-31 | EV-0043 (`PASS`, T4 fresh-install acceptance), EV-0044 (`PASS`, T6 30-min soak), EV-0045 (`FAIL`, cursor/smoothness follow-up), EV-0046 (`FAIL`, background freeze/audio; fix in progress). Next ID `EV-0047`. |
 
 ---
 
