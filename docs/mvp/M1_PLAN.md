@@ -66,8 +66,10 @@ Acceptance criteria:
 3. **T3 choose W1 route** and produce the first `dev.vrmc.vrmc` app bundle — **build path done (EV-0036)**: our source build boots MC 26.2; still to brand/re-sign as `dev.vrmc.vrmc` and run the clean-container acceptance:
    - preferred: build Amethyst from source with submodules and our branding;
    - fallback: pin the tested 1.2.0 binary, re-sign as our bundle id, add first-run shell.
-4. **T4 first-run provisioning**: copy MC options defaults + JIT script + Java 25 runtime from the app
-   (no Mac pushes); show a JIT checklist screen.
+4. **T4 first-run provisioning** — **app-side options done (EV-0037)**: `MinecraftOptionUtils` now forces
+   the launcher-decided backend (Vulkan for 26.x) and clears `startedCleanly` before every launch; the
+   JREs are bundled in the app. Remaining: JIT readiness checklist/guidance and the clean-container
+   acceptance.
 5. **T5 input triage**: reproduce the mouse/cursor issue and either fix or document a controller-first
    default.
 6. **T6 when the user is available**: 30-minute world soak on D1 → closes ST-S2/M0 (EV-0036+).

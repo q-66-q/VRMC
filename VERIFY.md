@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0037`.
+**Next evidence ID:** `EV-0038`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1301,6 +1301,26 @@ on fresh-install acceptance, app-side defaults, BundleScriptMap re-check, input,
 
 **Artifacts:** `evidence/EV-0036/latestlog.txt`, `summary.log`.
 
+### EV-0037 — M1 T4: app-side defaults force Vulkan and clear the crash marker — MC boots from a reset options.txt
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:37:38-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PASS` |
+
+**Procedure:** patch Amethyst `MinecraftOptionUtils` to force `preferredGraphicsBackend` (the
+launcher-decided value) and set `startedCleanly:true` before every launch; deliberately reset device
+`options.txt` to `preferredGraphicsBackend:"default"` + `startedCleanly:false` (the old failing state);
+launch via StikDebug with `amethyst.js` and press Play.
+
+**Actual:** post-launch options show `preferredGraphicsBackend:"vulkan"` and `startedCleanly:true`; no
+“Detected unexpected shutdown” reset in the log; `Using graphics backend Vulkan, using drivers:
+1.2.357 MoltenVK 1.4.3`; world joined 22:36:25; process alive. Patched app tree
+`sha256 d8e7a6f6f95d1b4f5a77e70cae2e64a2ed816a32488070d4b36efd3d9a7c1156`.
+
+**Artifacts:** `evidence/EV-0037/latestlog.txt`, `summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1314,7 +1334,7 @@ on fresh-install acceptance, app-side defaults, BundleScriptMap re-check, input,
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
-| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); fresh-install/defaults/soak remain |
+| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); **T4 app-side Vulkan defaults validated from a reset options.txt (EV-0037)**; fresh-install/soak remain |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1378,7 +1398,8 @@ on fresh-install acceptance, app-side defaults, BundleScriptMap re-check, input,
 | 2026-10-31 | EV-0035 (`PARTIAL`): 4m20s in-world with clean save/shutdown, no crash; user stopped early so the 30-min soak is deferred. |
 | 2026-10-31 | **M0 formally CLOSED on EV-0034** (Decision 45=A): S2's M0 gate is device world render only; the 30-minute soak is now an **M1 exit gate** (EV-0035 = feasibility, not the gate). Recorded in AGENT §4.5/§5/§6/§7/§11/§13 and this dashboard. |
 | 2026-10-31 | M1 stack pinning (Decision 46=A+C fact record): Amethyst → 1.2.0, MoltenVK → 1.4.3, StikDebug script → amethyst.js; ADR-0007 records the changes and evidence impact. |
-| 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — our own source-built Amethyst v1.2.0 (167 binaries re-signed, app tree hash recorded) boots MC 26.2 to a Vulkan/MoltenVK world on D1. Next ID `EV-0037`. |
+| 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — our own source-built Amethyst v1.2.0 (167 binaries re-signed) boots MC 26.2 to a Vulkan/MoltenVK world on D1. |
+| 2026-10-31 | EV-0037 (`PASS`): app-side defaults force Vulkan + clear the crash marker; MC boots from a deliberately reset options.txt. T1 hashes completed. Next ID `EV-0038`. |
 
 ---
 
