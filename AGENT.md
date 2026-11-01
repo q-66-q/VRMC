@@ -79,7 +79,8 @@ comfort polish.
   Xcode 27.2, visionOS 27.2 SDK, visionOS 27.0 simulator runtime).
 - Spike progress: S1 host pre-test `PARTIAL` (EV-0004); **S1a `PASS (compat)` (EV-0021: five cold runs
   with JIT26 mappings, tier 3/4 compiles, `HELLOJIT`, exit 0)**; S1b native visionOS harness built/signed
-  (EV-0022, 39 JRE Mach-O relabelled VISIONOS, device run pending); S2 host boot `PARTIAL` (EV-0005); S3
+  (EV-0022, 39 JRE Mach-O relabelled VISIONOS; EV-0023 installs and launches on D1, enabler run pending);
+  S2 host boot `PARTIAL` (EV-0005); S3
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
   fork); S1a scaffold EV-0007. S3's M0 gate is closed; S1's internal reproduction gate is now met in
   compatibility mode; S1b native xros and S2 device render remain `NOT RUN`.
@@ -584,3 +585,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0020 (`FAIL`, BLOCKED): StikDebug attaches/detaches without JIT26 preparation even with all four scripts patched; S1a device JIT is blocked pending an enabler decision (Apparition / custom enabler / AOT). |
 | 2026-10-31 | **EV-0021 (`PASS (compat)`): S1 gate closed in compatibility mode** — assign `universal.js` to the app in StikDebug and use the harness JIT26 extension handshake; five cold launches got JIT26 mappings, compiled tier 3/4 and executed `HELLOJIT` with clean exits. S1b native xros and S2 device render remain open; A2 stays MEDIUM. |
 | 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; the iOS JRE's 39 Mach-O files relabelled to VISIONOS. Device install blocked by the free-profile 3-app limit (S1AProbe still counted) and a locked/asleep device; S1AProbe must be uninstalled before S1BProbe can install. |
+| 2026-10-31 | EV-0023 (`PARTIAL`): after uninstalling S1AProbe, `dev.vrmc.s1b` installs and launches natively on D1 with no scene crash; it waits for the JIT debugger and exits cleanly without one. Next: StikDebug Enable JIT pass on S1BProbe. |

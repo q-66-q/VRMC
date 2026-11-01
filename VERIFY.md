@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0023`.
+**Next evidence ID:** `EV-0024`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -993,6 +993,27 @@ consistent with a locked/asleep device.
 **Next:** unlock D1, free the slot (uninstall `dev.vrmc.s1a`), install `dev.vrmc.s1b`, control-run
 (expect a JIT26 trap), then one StikDebug Enable JIT pass with a script assigned to `dev.vrmc.s1b`.
 
+### EV-0023 — S1b native visionOS harness runs on D1: launches without UI/scene and waits for the JIT debugger
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:23:52-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native app) |
+| Status | `PARTIAL` |
+
+**Procedure:** uninstall `dev.vrmc.s1a` to free the free-profile slot; install `dev.vrmc.s1b`; launch the
+native visionOS console harness via devicectl (no enabler); pull `Documents/s1b-jit.log` and crashes.
+
+**Actual:** the native app launches; the log shows `[S1B] console-start`, the resolved bundle/classes
+paths, and `no JIT debugger attached (CS_DEBUGGED=0 ppid=1)` with the StikDebug instruction. It exits
+cleanly with no crash report and no scene-lifecycle failure. The JVM is not started because the
+handshake requires an attached debugger.
+
+**Artifacts:** `evidence/EV-0023/s1b-jit.log`, `summary.log`.
+
+**Next:** assign `universal.js` to S1BProbe in StikDebug, launch with Enable JIT, then check for the
+native JIT26 mapping + `HELLOJIT`.
+
 ---
 
 ## 7. Status dashboard
@@ -1010,7 +1031,7 @@ consistent with a locked/asleep device.
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
 | S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
-| S1b harness (native visionOS) | `PARTIAL` | Built/signed with 39 JRE Mach-O relabelled VISIONOS (EV-0022); install blocked by app slot/device state |
+| S1b harness (native visionOS) | `PARTIAL` | Built/signed (EV-0022); installed and launches on D1, waits cleanly for the enabler (EV-0023); JIT run pending |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -1051,7 +1072,8 @@ consistent with a locked/asleep device.
 | 2026-10-31 | EV-0019 (`FAIL`): post-patch launches still trap at `BreakGetJITMapping`. |
 | 2026-10-31 | EV-0020 (`FAIL`, BLOCKED): StikDebug launches/attaches then detaches without JIT26 preparation; all four on-device scripts patched. |
 | 2026-10-31 | EV-0021 (`PASS (compat)`): Assign-Script + JIT26 extension handshake; five cold launches with `[JIT26]` mapping, tier 3/4, `HELLOJIT`, exit 0. |
-| 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; 39 JRE Mach-O relabelled VISIONOS; install blocked by the 3-app free-profile limit and device state. Next ID `EV-0023`. |
+| 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; 39 JRE Mach-O relabelled VISIONOS; install blocked by the 3-app free-profile limit and device state. |
+| 2026-10-31 | EV-0023 (`PARTIAL`): after freeing the slot, `dev.vrmc.s1b` installs and launches natively on D1 without a scene crash; waits for the JIT debugger and exits cleanly when none is attached. Next ID `EV-0024`. |
 
 ---
 
