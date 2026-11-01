@@ -157,3 +157,23 @@ Conclusion: the existing launcher VCs hard-depend on the split-view container. M
 Interim: the `VRMC_NATIVE_AUTOLAUNCH`/`Documents/autolaunch.flag` path remains the only proven way to
 boot the game in the native app (EV-0077). The current-issue dossier is in `export/`
 (`VRMC-native-ui-blocker-2026-11-01.zip`).
+
+
+## 10. M3-W1 PASS (EV-0079)
+
+The earlier blank-window/crash finding was superseded by the real root cause: `init_hookUIKitConstructor()`
+spoofed `UIDevice`/`UIScreen` to Phone/Pad, which hides window content in a **native visionOS** app
+(real idiom `Vision` = 6). Patch `patches/vrmc-m3w1-visionos-idiom.patch` skips the spoof when
+`realUIIdiom == 6`; the compat app is unchanged.
+
+Verified on D1 (EV-0079): native launcher UI renders; **Play** launches
+`fabric-loader-0.20.1-26.2` without any autolaunch flag, then MC 26.2/Fabric/Vivecraft/provider run
+with JIT, Vulkan/MoltenVK, LEFT/RIGHT passes and `VkImage→MTLTexture` eye export (901+ tracking frames).
+
+`scripts/build_launcher.sh` now accepts `PLATFORM=11` (native payload + Info.plist adjustment); patches
+are applied in order (`vrmc-m1…` then `vrmc-m3w1…`). `export/` was replaced with the resolved
+build/evidence notes.
+
+Remaining M3 work: **M3-W2/W3** — the CompositorServices layer must consume the provider's exported eye
+`MTLTexture`s (timeline `MTLSharedEvent` sync) instead of the test pattern; **M3-W4** — ARKit pose →
+bridge → provider `hmdPose`; **M3-W5/W6** — pacing and device acceptance.
