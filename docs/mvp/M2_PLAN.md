@@ -1,6 +1,6 @@
 # M2 plan — Provider + Vulkan VR (started 2026-11-01)
 
-Status: **in progress — HOST only so far**. M1 closed (EV-0057). **M2-W4/W5 = host PASS (EV-0060)**; **M2-W6 = NOT RUN** (device bring-up); **M3 = NOT RUN**; **S4a-host/S4a-device = NOT RUN**. Host progress is not device completion: device stereo, head tracking, hands, and thermal/frame-rate remain unproven. macstream reference mapping: `docs/mvp/MACSTREAM_REFERENCE.md` (LGPL-3.0, upstream `ec5a851c…`); S4a static findings: `docs/mvp/S4A_FINDINGS.md`. This plan turns the S3 evidence (EV-0006 static + EV-0009
+Status: **CLOSED 2026-11-01 (EV-0070)** — all exit criteria evidenced (host + device); acceptance matrix `docs/mvp/M2_ACCEPTANCE.md`. M1 closed (EV-0057). **M2-W4/W5 = host PASS (EV-0060)**; **M2-W6 = NOT RUN** (device bring-up); **M3 = NOT RUN**; **S4a-host/S4a-device = NOT RUN**. Host progress is not device completion: device stereo, head tracking, hands, and thermal/frame-rate remain unproven. macstream reference mapping: `docs/mvp/MACSTREAM_REFERENCE.md` (LGPL-3.0, upstream `ec5a851c…`); S4a static findings: `docs/mvp/S4A_FINDINGS.md`. This plan turns the S3 evidence (EV-0006 static + EV-0009
 desktop runtime) into a device-buildable provider that renders Minecraft's two eyes through
 Vulkan/MoltenVK without SteamVR or any OpenVR runtime.
 

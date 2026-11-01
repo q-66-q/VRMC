@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0069`.
+**Next evidence ID:** `EV-0071`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1879,6 +1879,54 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Fabric pin is 0.19.3 in versions.env; device used 0.20.1 as a compatibility candidate and the provider loaded + initialized successfully. M2 remainder: wire S4a device eye export/submit into VisionRenderer; M3/M4 next.
 
+### EV-0069 — M2-W5 device eye handoff PASS: Vulkan VkImage exported to MTLTexture (ABI v2) and submitted from the provider
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:55:52-10:00 |
+| Commit | `09646565f8bd8083d3fc24ea1bf6ebe5bbdb7e8c` |
+| Dirty state | ridge/abi/vrmc_abi.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2; Fabric 0.20.1, Vivecraft 26.2-1.3.15) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. provider VisionRenderer reads the Vulkan eye VkImage via GraphicsHelper.getTextureHandle; bridge ABI v2 vrmc_export_mtl_texture exports MTLTexture (vkGetMTLTextureMVK); vrmc_submit_eyes receives real Metal handles
+
+**Expected:** first frame logs a non-zero VkImage->MTLTexture export and submit succeeds, no crash
+
+**Actual:** device log: '[VRMC-M2] vulkan eye export: VkImage=0x139dccf00 -> MTLTexture=0x7107982300'; ABI 2 handshake; LEFT/RIGHT render passes; 9*300 tracking frames; no export/submit failures; clean stop.
+
+**Artifacts:** evidence/EV-0069/latestlog.txt (456598e4b757); evidence/EV-0069/summary.log (9d696e716cae)
+
+**Limitations:** Completes M2-W5's device eye-handoff item. Immersive presentation/head tracking remain M3; input remains M4.
+
+---
+
+### EV-0070 — M2 milestone CLOSED — provider init + stereo eye targets + ABI v2 eye handoff + no VR runtime, all evidenced
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:56:02-10:00 |
+| Commit | `09646565f8bd8083d3fc24ea1bf6ebe5bbdb7e8c` |
+| Dirty state | ridge/abi/vrmc_abi.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java, docs/mvp/M2_ACCEPTANCE.md |
+| Device | D1 Apple Vision Pro (device bring-up) + host harness |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. review M2 exit criteria against the recorded evidence; verify the 2026-11-01 review's host-vs-device split is respected
+
+**Expected:** M2 exit criteria 1-6 evidenced; M3/M4 explicitly NOT RUN
+
+**Actual:** M2 CLOSED: provider init (EV-0068), stereo targets (EV-0068), handshake (EV-0068), eye handoff (host EV-0060; substrate EV-0063/EV-0065; device VkImage->MTLTexture EV-0069), no VR runtime (EV-0068), host harness (EV-0060). M3 compositor/head tracking and M4 input remain NOT RUN; game not playable yet by design.
+
+**Artifacts:** evidence/EV-0070/summary.log (4c16ecfc39f8); evidence/EV-0070/M2_ACCEPTANCE.md (f44f89c6301a)
+
+**Limitations:** Fabric 0.20.1 vs pin 0.19.3 recorded as candidate; pin/ADR decision carried to M3. Next milestone: M3.
+
 ---
 
 ## 7. Status dashboard
@@ -1892,12 +1940,13 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
-| **M2 milestone** | **IN PROGRESS** | EV-0058/0059/0060 host; **S4a-host/device PASS (EV-0063/EV-0065)**; **M2-W6 device provider init PASS (EV-0068)**. Remaining M2: wire S4a device eye export/submit into `VisionRenderer` (M2-W5 remainder). **M3/M4 NOT RUN** |
+| **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
 | S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063) |
 | S4a-device eye handoff | `PASS` | Bundled MoltenVK 1.4.3: MTLDevice+MTLTexture export, Metal readback correct, timeline MTLSharedEvent sync on D1 (EV-0065) |
+| M2-W5 device eye handoff | `PASS` | ABI v2 `vrmc_export_mtl_texture` on device: VkImage→MTLTexture + submit (EV-0069) |
 | M2-W6 device provider init | `PASS` | Device: bridge handshake ABI v1, `VisionVR.init()`, stereo render passes LEFT/RIGHT, 1501+ tracking frames, no SteamVR (EV-0068); Fabric 0.20.1 compatibility candidate |
 | M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
 | PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
@@ -1997,3 +2046,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0065 (`PASS`): S4a-device** — bundled MoltenVK 1.4.3 on D1 exports MTLDevice/MTLTexture, Metal reads back the Vulkan clear correctly, and timeline MTLSharedEvent sync works (signaledValue 42). M3's zero-copy eye-handoff substrate is device-validated; **M2-W6 (provider init on device) and M3 remain NOT RUN**. Next ID `EV-0066`. |
 | 2026-11-01 | **EV-0066 (`PARTIAL`): M2-W6 prep** — arm64-ios JNI bridge dylib built/embedded/signed; launcher passes `-Dvrmc.bridge.lib`; `vrmc-provider.jar` + Vivecraft jar staged in the device instance mods. **Remaining device step: install Fabric 0.19.3 loader**; W6 provider run still NOT RUN. Next ID `EV-0067`. |
 | 2026-11-01 | **EV-0067 (`FAIL`)**: first W6 device attempt reached provider init + bridge handshake + eye targets, then crashed on the host-only identity guard applied to static component transforms; fix: identity component offsets + tracking-pose validity guard. **EV-0068 (`PASS`)**: after the fix, device provider init + stereo render passes (LEFT/RIGHT) + 1501+ tracking frames + no SteamVR; device used Fabric Loader **0.20.1** (pin is 0.19.3 → compatibility candidate; pin/ADR decision pending). Game remains unplayable by design: M3 compositor/head tracking and M4 input are NOT RUN. Next ID `EV-0069`. |
+| 2026-11-01 | **EV-0069 (`PASS`): M2-W5 device eye handoff** — ABI v2 `vrmc_export_mtl_texture` on D1: `VkImage=0x139dccf00 -> MTLTexture=0x7107982300`, submitted; clean run. **EV-0070 (`PASS`): M2 milestone CLOSED** — all exit criteria evidenced; M2 acceptance matrix added. M3 compositor/head tracking and M4 input remain NOT RUN (game not playable yet). Fabric 0.20.1 vs pin 0.19.3 carry-over. Next ID `EV-0071`. |
