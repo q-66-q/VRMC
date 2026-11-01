@@ -1,0 +1,27 @@
+name: VRMCShell
+options:
+  bundleIdPrefix: dev.vrmc
+  deploymentTarget:
+    visionOS: "27.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.shell
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "7"
+targets:
+  VRMCShell:
+    type: framework
+    platform: visionOS
+    sources:
+      - Sources
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: YES
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Bridging.h
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/../../bridge/abi"
+        OTHER_LDFLAGS: "-framework SwiftUI -framework CompositorServices -framework ARKit -framework Metal -framework UIKit"
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/Frameworks @loader_path/Frameworks"

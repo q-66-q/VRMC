@@ -63,6 +63,17 @@ echo "[build] make payload (JOBS=$JOBS)"
 make -C "$BUILD_DIR" PLATFORM="$PLATFORM" RELEASE=0 BOOTJDK="$BOOTJDK" JOBS="$JOBS" payload
 APP="$BUILD_DIR/artifacts/Payload/AngelAuraAmethyst.app"
 [ -d "$APP" ] || { echo "payload missing: $APP" >&2; exit 1; }
+SHELL_FRAMEWORK="$ROOT/runtime/native-shell/build/VRMCShell.framework"
+if [ "$PLATFORM" = "11" ]; then
+  if [ -d "$SHELL_FRAMEWORK" ]; then
+    echo "[build] embedding SwiftUI shell framework"
+    mkdir -p "$APP/Frameworks"
+    rm -rf "$APP/Frameworks/VRMCShell.framework"
+    rsync -a "$SHELL_FRAMEWORK" "$APP/Frameworks/"
+  else
+    echo "[build] warning: VRMCShell.framework missing (run scripts/build_shell.sh); native app will fall back to UIKit lifecycle" >&2
+  fi
+fi
 plutil -p "$APP/Info.plist" | grep -E 'CFBundleShortVersionString.*1\.2\.0' >/dev/null || { echo "unexpected app version" >&2; exit 1; }
 if [ "$PLATFORM" = "11" ]; then
   echo "[build] adjusting Info.plist for native visionOS"
@@ -72,6 +83,15 @@ if [ "$PLATFORM" = "11" ]; then
   $PB -c "Delete :UIDeviceFamily" "$APP/Info.plist" 2>/dev/null || true
   $PB -c "Add :UIDeviceFamily array" "$APP/Info.plist"
   $PB -c "Add :UIDeviceFamily:0 integer 7" "$APP/Info.plist"
+  # SwiftUI lifecycle (VRMCShell.framework) needs a SwiftUI-shaped scene manifest: no SceneDelegate,
+  # multiple scenes allowed. Keep the AppDelegate/SceneDelegate classes compiled in for the fallback.
+  $PB -c "Delete :UIApplicationSceneManifest" "$APP/Info.plist" 2>/dev/null || true
+  $PB -c "Add :UIApplicationSceneManifest dict" "$APP/Info.plist"
+  $PB -c "Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool true" "$APP/Info.plist"
+  $PB -c "Add :UIApplicationSceneManifest:UISceneConfigurations dict" "$APP/Info.plist"
+  # Immersive space / ARKit world tracking privacy strings (required before opening the space).
+  $PB -c "Add :NSWorldSensingUsageDescription string 'VRMC uses world sensing for immersive Minecraft.'" "$APP/Info.plist" 2>/dev/null || true
+  $PB -c "Add :NSHandsTrackingUsageDescription string 'VRMC uses hand tracking for input.'" "$APP/Info.plist" 2>/dev/null || true
   echo "[build] native payload ready; brand/sign with the visionOS dev.vrmc.vrmc profile and install (see docs)"
 fi
 echo "[build] ok: $APP"

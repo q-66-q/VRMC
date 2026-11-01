@@ -1,0 +1,44 @@
+--- a/Natives/main.m
++++ b/Natives/main.m
+@@ -15,6 +15,7 @@
+ #import "config.h"
+ 
+ #include <libgen.h>
++#include <dlfcn.h>
+ #include <pthread.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -356,6 +357,23 @@
+     }
+ 
+     @autoreleasepool {
++        // VRMC M3-W2: run the SwiftUI app-lifecycle shell (visionOS framework) so ImmersiveSpace /
++        // CompositorLayer exist. The shell hosts the existing LauncherSplitViewController and the
++        // immersive renderer; if it cannot be loaded we fall back to the old UIKit lifecycle.
++        NSString *shellPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/VRMCShell.framework/VRMCShell"];
++        void *shellHandle = dlopen(shellPath.UTF8String, RTLD_NOW | RTLD_GLOBAL);
++        if (shellHandle != NULL) {
++            typedef int32_t (*vrmc_shell_start_fn)(void);
++            vrmc_shell_start_fn shellStart = (vrmc_shell_start_fn)dlsym(shellHandle, "vrmc_shell_start");
++            if (shellStart != NULL) {
++                NSLog(@"[VRMCShell] starting SwiftUI app-lifecycle shell");
++                return shellStart();
++            }
++            NSLog(@"[VRMCShell] dlsym vrmc_shell_start failed: %s", dlerror());
++        } else {
++            NSLog(@"[VRMCShell] dlopen failed: %s", dlerror());
++        }
++        NSLog(@"[VRMCShell] falling back to UIKit UIApplicationMain");
+         return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+     }
+ }
+--- a/Natives/ios_uikit_bridge.m
++++ b/Natives/ios_uikit_bridge.m
+@@ -108,6 +108,7 @@
+ }
+ 
+ void UIKit_launchMinecraftSurfaceVC(UIWindow* window, NSDictionary* metadata) {
++    [[NSNotificationCenter defaultCenter] postNotificationName:@"VRMCGameStarted" object:nil]; // VRMC M3-W2: shell opens immersive space before game surface replaces the root VC
+     // Leave this pref, might be useful later for launching with Quick Actions/Shortcuts/URL Scheme
+     //setPreference(@"internal_launch_on_boot", getPreference(@"restart_before_launch"));
+     setPrefObject(@"internal.selected_account", BaseAuthenticator.current.authData[@"username"]);

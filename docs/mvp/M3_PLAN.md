@@ -209,3 +209,31 @@ slot) and not preferred given the in-process bridge now exists.
 small Swift static lib linked into the app); (2) bootstrap conversion (remove `UIApplicationMain` path,
 host launcher VC from SwiftUI, keep JIT/Scene lifecycle); (3) add `ImmersiveSpace` + CompositorLayer
 test pattern, then swap in provider eye textures + tracking; (4) device test with MC.
+
+
+## 12. M3-W2 PASS / M3-W3-W4 status (EV-0081/EV-0082, 2026-11-01)
+
+**M3-W2 PASS (EV-0081).** The native app now embeds a visionOS SwiftUI framework
+(`runtime/native-shell`, `VRMCShell.framework`); C `main()` dlopens it and calls
+`vrmc_shell_start()`. `WindowGroup` hosts the existing `LauncherSplitViewController`, and
+`ImmersiveSpace(id:"vr")` with `CompositorLayer` presents a Metal renderer. Verified: launcher UI +
+immersive red/green test pattern.
+
+**M3-W3/W4 PARTIAL (EV-0082).** The shell auto-opens the immersive space when the game starts
+(`VRMCGameStarted` notification from `UIKit_launchMinecraftSurfaceVC`); the compositor samples the
+provider's exported eye `MTLTexture`s (via `vrmc_shared_eye_textures`) and pushes ARKit poses
+(`vrmc_shared_set_tracking`). Observed: compositor ran 1080 frames with ARKit anchor success, but
+`eyes=0` (provider had not submitted), and Minecraft crashed with
+`VkDeviceLostException: VK_ERROR_DEVICE_LOST: Failed to wait for semaphore` (Render Frame/GuiRenderer);
+the app also crashed at `cp_frame_end_submission` on layer invalidation.
+
+Mitigations staged for the next attempt:
+- 15 s settle delay after game start before opening the immersive space;
+- no `waitUntilCompleted` in the compositor;
+- `endSubmission` guarded by layer state;
+- eye-texture `MTLDevice` identity check;
+- `Documents/vrmc-no-sampling.flag` kill switch to isolate presentation vs sampling.
+
+Next: retest; if the game still device-loses, run with sampling disabled to determine whether the
+immersive-scene transition or the cross-queue texture sampling is the cause; then add timeline
+`MTLSharedEvent`/Vk timeline semaphore sync (S4a) before re-enabling sampling.
