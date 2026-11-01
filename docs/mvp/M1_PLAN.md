@@ -82,3 +82,23 @@ Acceptance criteria:
 - **Free-team expiry**: profiles expire ~7 days; A2 remains MEDIUM and re-signing is a recurring task.
 - **visionOS input quirks** (mouse/cursor) may require Amethyst-side patches.
 - GPL obligations: publish corresponding source + build steps for every distributed build (ADR-0006).
+
+
+## 6. M1 startup decisions (recorded, not M0 blockers)
+
+These came out of the 2026-10-31 review; resolve during Sprint-1 day 1 so M1 does not inherit ambiguous
+scope:
+
+| ID | Topic | Why it matters | Proposed resolution |
+|---|---|---|---|
+| **47** | EV-0034 vs EV-0035 scope distinction | M0 gate cites EV-0034; the soak record cites EV-0035. Without an explicit split, future readers will diverge | M0 gate evidence = EV-0034 (device world render). EV-0035 = feasibility partial for the **M1** 30-minute soak gate (Decision 45=A). State this in every status table that cites both |
+| **48** | T3 app-shell route timing | If deferred past Sprint-1 day 1, T4/T5 hit the decision under time pressure | Decide on Sprint-1 day 1: (a) build Amethyst from source with submodules + branding, or (b) pin the tested 1.2.0 IPA, re-sign as `dev.vrmc.vrmc`, add first-run shell |
+| **49** | 30-minute soak ownership | Resolved by Decision 45=A | Soak is an **M1 exit gate**, tracked in §7 of AGENT; assigned to Lead/user |
+| **50** | M1_PLAN hardness ratings | M1 exit must be checkable against AGENT §4.3 without re-deriving coverage | During T1, mark each workstream W1–W7 with a hardness (LOW/MEDIUM/HIGH) and map it to §4.3 feature IDs |
+| **36** | BundleScriptMap persistence | `amethyst.js` must be assigned per install; mapping persistence was observed unstable once | Re-confirm before M1 uses `amethyst.js` in any automated flow; W3 readiness must detect missing/wrong assignment |
+
+## 7. T1 stack-pin hashes
+
+See `docs/mvp/DEVICE_STACK.md` for the full table and hash method. Recorded today: StikDebug 3.2.0 IPA,
+`amethyst.js`, OpenJDK 25.0.4 deployed tree, LWJGL 3.4.1 jars tree. Pending: Amethyst 1.2.0 IPA hash,
+MoltenVK 1.4.3 dylib hash, MC 26.2 version JSON hash, BundleScriptMap re-check.
