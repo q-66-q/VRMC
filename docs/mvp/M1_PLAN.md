@@ -146,8 +146,8 @@ dylib hash (same IPA), MC 26.2 version JSON hash, BundleScriptMap re-check. Ask 
 | T5 mouse verification | **CLOSED PARTIAL** | EV-0040; patch installed, post-patch behavior unverified; follow-up `task-1` (T5-FUP1) |
 | T4 first-run provisioning | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); app-side defaults (EV-0037) |
 | T6 30-minute device soak (K4 precursor) | **DONE** | 1805 s continuous world session; no game crash/watchdog kill; thermal `serious` recorded (EV-0044) |
-| Follow-up: cursor hide + rotation smoothness | Open | EV-0045 FAIL; `task-2` (diagnostics + forced capture/hide) |
-| Follow-up: background freeze + audio loss | Open | EV-0046 FAIL; `task-3` (scene lifecycle + audio reactivation); fix installed for retest |
+| Follow-up: cursor hide + rotation smoothness | **CLOSED** | Rotation smooth via grab/relative path; cursor visibility is a visionOS pointer-lock limitation accepted as cosmetic (EV-0045/EV-0047); task-2 closed |
+| Follow-up: background freeze + audio loss | **CLOSED** | Scene lifecycle + audio reactivation fix; retest PASS (EV-0048); task-3 closed |
 
 ### T6 definition (as required)
 

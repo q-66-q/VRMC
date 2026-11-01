@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0047`.
+**Next evidence ID:** `EV-0049`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1468,6 +1468,35 @@ reactivation/interruption handling); follow-up `task-3`.
 
 **Artifacts:** `evidence/EV-0046/summary.log`.
 
+### EV-0047 — T5-FUP1 retest: rotation smooth (grab path active); cursor still visible (cosmetic, accepted)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:07:09-10:00 |
+| Status | `PARTIAL` |
+
+**Actual:** log shows `[Input] nativeSetGrabbing 1` → `grabState isGrabbing=1`; user confirms rotation is
+now smooth. Cursor still visible: `pointerLockSupported=1` but `pointerLockState.locked=0` even while
+grabbing, so visionOS never hides the system pointer through `prefersPointerLocked`. User accepted the
+cursor visibility as cosmetic. `task-2` closed.
+
+**Artifacts:** `evidence/EV-0047/latestlog.txt`, `summary.log`.
+
+---
+
+### EV-0048 — Lifecycle/audio retest: background/foreground resumes with sound after scene+audio fix
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:07:09-10:00 |
+| Status | `PASS` |
+
+**Actual:** user reports “everything else is good” with only the accepted cursor cosmetic issue; no
+freeze and no sound loss on background/foreground. Log shows OpenAL CoreAudio initialized and a normal
+session. `task-3` closed.
+
+**Artifacts:** `evidence/EV-0048/latestlog.txt`.
+
 ---
 
 ## 7. Status dashboard
@@ -1484,7 +1513,7 @@ reactivation/interruption handling); follow-up `task-3`.
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
-| M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch installed (EV-0040); follow-up verdict FAIL (EV-0045: cursor visible, rotation jerky) → task-2 |
+| M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch (EV-0040); follow-up: rotation now smooth, cursor visibility accepted cosmetic (EV-0045/EV-0047), task-2 closed |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1502,7 +1531,7 @@ reactivation/interruption handling); follow-up `task-3`.
 | Blocker | Owner | Unblock condition |
 |---|---|---|
 | M1 T6: 30-minute device soak | **DONE** | 1805 s continuous world session, no game crash/watchdog kill, thermal `serious` recorded (EV-0044); StikDebug watchdog incident noted |
-| Lifecycle/audio defect | Open | Background freeze + sound loss reported (EV-0046); fix installed for retest; task-3 |
+| Lifecycle/audio defect | **CLOSED** | Background freeze + sound loss fixed; retest PASS (EV-0048), task-3 closed |
 | M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
@@ -1554,7 +1583,8 @@ reactivation/interruption handling); follow-up `task-3`.
 | 2026-10-31 | EV-0037 (`PASS`): app-side defaults force Vulkan + clear the crash marker; MC boots from a deliberately reset options.txt. |
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
-| 2026-10-31 | EV-0043 (`PASS`, T4 fresh-install acceptance), EV-0044 (`PASS`, T6 30-min soak), EV-0045 (`FAIL`, cursor/smoothness follow-up), EV-0046 (`FAIL`, background freeze/audio; fix in progress). Next ID `EV-0047`. |
+| 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
+| 2026-11-01 | EV-0047 (`PARTIAL`): rotation smooth, cursor visibility accepted cosmetic; EV-0048 (`PASS`): background/audio fixed. Sprint-1 + M1 exit gate (T6) complete. Next ID `EV-0049`. |
 
 ---
 
