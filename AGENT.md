@@ -89,8 +89,9 @@ comfort polish.
   the only outstanding ST-S2 item. The re-signed Amethyst launcher (bundled UniversalJIT26, MoltenVK,
   Vulkan bridge) installs and runs on D1 (EV-0029), giving an MC-on-device test path. MC 26.2 now
   renders a Vulkan world on D1 (EV-0034) with a 4m20s clean session (EV-0035); the 30-minute soak is
-  deferred. **M1 execution plan: `docs/mvp/M1_PLAN.md`** (launcher shell, runtime provisioning, JIT
-  readiness, MC install, input, soak).
+  deferred. **M0 formally closed as of EV-0034** (Decision 45=A); the 30-minute soak is now an M1 gate.
+  **M1 execution plan: `docs/mvp/M1_PLAN.md`** (launcher shell, runtime provisioning, JIT readiness,
+  MC install, input, soak).
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -339,7 +340,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | Spike | Question | Hardness | Status | Fallback |
 |---|---|---|---|---|
 | S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `PASS` — EV-0021 (compat, five cold runs) and EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) | Pivot to AOT; launcher scope reduces |
-| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `PARTIAL` — **D1 MC 26.2 world renders (EV-0034)** + 4m20s clean session (EV-0035); 30-min soak deferred; host EV-0005/EV-0014; D1 EV-0025–EV-0028 | GL/LTW→ANGLE path |
+| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `PASS (M0 gate)` — Device graphics substrate PASS (EV-0025 + EV-0026 + EV-0027); device world render PASS (EV-0034). Full 30-minute soak NOT RUN — deferred to M1 per Decision 45=A. | GL/LTW→ANGLE path |
 | S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
 | S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
 | S5 | PSVR2 + hands drive all P0 actions | MEDIUM | `NOT RUN` | Hands-only MVP |
@@ -355,7 +356,7 @@ spike changes status, apply §4.7 in the same commit.
 |---|---|---|
 | JIT mechanism (S1) | MEDIUM | JIT26 executes on D1 in compatibility mode (EV-0021) and in a **native visionOS app** (EV-0024); relabelled iOS JRE works, so no fresh xros OpenJDK build is needed |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache (C3) | **HIGH** | Runtime build and in-MC integration unproven |
-| Graphics translation | **HIGH** | Host boot EV-0005; MoltenVK xros EV-0010; D1 executes Vulkan render + present (EV-0025/EV-0028); **MC 26.2 world renders via Vulkan/MoltenVK on D1 (EV-0034)** |
+| Graphics translation | **HIGH** | Host boot EV-0005; D1 executes Vulkan render + present (EV-0025/EV-0028); **MC 26.2 world renders via Vulkan/MoltenVK on D1 (EV-0034)**; device world render closes S2's M0 gate, 30-min soak is an M1 gate |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
 | Performance/thermal | **HIGH** | Watchdog kills on missed frames |
 | VR provider | MEDIUM | Injection proven on desktop (EV-0006 + EV-0009); full provider/renderer and device runtime are M2 |
@@ -395,10 +396,11 @@ Evidence IDs are allocated only by recording an entry in `VERIFY.md` §6.
 | Vivecraft | 26.2-1.3.15 | LGPL-3.0; supports `26.2.x` only |
 | Java runtime | OpenJDK 25 (xros build, TBD) | Component `java-runtime-epsilon` upstream |
 | LWJGL | 3.4.1 | visionOS natives TBD |
-| MoltenVK | Pinned build TBD | visionOS support required |
+| MoltenVK | 1.4.3 | Prior pin: 1.4.2. EV-0016's 5/5 extensions and 9/9 features were verified against 1.4.2; either re-verify against 1.4.3 or record in ADR-0007 that the 1.4.2 verification stands in for 1.4.3 unless a behavioral difference is found |
 | Xcode / SDK | 27.2 / visionOS 27.2 | Build host measured |
 | Sideload | SideStore / iloader | No TrollStore/Ad Hoc on visionOS |
-| Amethyst reference | Upstream `AngelAuraMC/Amethyst-iOS` | GPL-3.0; do not commit |
+| Amethyst (app build) | 1.2.0 | Prior pin: 1.0-development. ADR-0007 records the change; EV-0001/EV-0004/EV-0005 reference 1.0-development and are retained as historical records. Upstream reference `AngelAuraMC/Amethyst-iOS`, GPL-3.0, do not commit |
+| StikDebug script | amethyst.js | Prior script: universal.js. BundleScriptMap persistence must be re-confirmed for amethyst.js |
 | Prior art (benchmark) | `rebelancap/vivecraft-visionos` | Not a dependency; no code copied |
 
 All pins move to `versions.env` in M0; changes require an ADR.
@@ -410,7 +412,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. **EV-0021 `PASS` (compat, five cold runs)** and **EV-0024 `PASS` (native visionOS, JIT26 mapping + tier 3/4 + `HELLOJIT`)**; the relabelled iOS JRE removes the fresh-xros-build need | `PASS` EV-0021 + EV-0024; S2 device render next | 3–4 wk (done inside M0) |
-| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | Host EV-0005/EV-0014; D1 capability EV-0016; render/surface/swapchain EV-0025–EV-0028; **D1 MC 26.2 world EV-0034**; 4m20s clean session EV-0035; 30-min soak deferred | 2–3 wk |
+| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders (M0 gate). The 30-minute soak is an **M1 gate** (Decision 45=A) | `PASS (M0 gate)` — Host EV-0005/EV-0014; D1 capability EV-0016; render/surface/swapchain EV-0025–EV-0028; **D1 MC 26.2 world EV-0034**. Soak: NOT RUN, deferred to M1 (EV-0035 feasibility) | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
 | S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |
@@ -432,8 +434,8 @@ ADR; it is never quietly downgraded.
 
 | Milestone | Scope | Exit criteria | Hardness | Est. |
 |---|---|---|---|---|
-| **M0** | Docs, skeleton, versions.env, S1/S2, S3 decision | S1 internal reproduction EV (EV-0002 is external only); status propagated per §4.7; S2 pass; S3 Mixin-vs-fork decision recorded | **HIGH** | 3–4 wk |
-| **M1** | Launcher shell + install + flat MC boot | Fresh install → flat world | MEDIUM | 4–6 wk (plan: `docs/mvp/M1_PLAN.md`) |
+| **M0** | Docs, skeleton, versions.env, S1/S2, S3 decision | **CLOSED 2026-10-31** — S1 PASS (EV-0021 + EV-0024); S3 CLOSED (EV-0006 + EV-0009); S2 device world render PASS (EV-0034). The 30-minute device soak (K4 precursor) is deferred to M1 and recorded in §7 M1 exit criteria. | **HIGH** | 3–4 wk |
+| **M1** | Launcher shell + install + flat MC boot | Fresh install → flat world. **30-minute device soak (K4 precursor) PASS** — deferred from M0 per Decision 45=A; EV-0035 (4m20s) is feasibility, not the gate; a dated M1 obligation. | MEDIUM | 4–6 wk (plan: `docs/mvp/M1_PLAN.md`) |
 | **M2** | Provider + Vulkan VR | Provider init, stereo eye targets, no SteamVR | **HIGH** | 4–5 wk |
 | **M3** | Compositor stereo + head tracking | 30-min immersive session | **HIGH** | 4 wk |
 | **M4** | Input (controllers, hands, gestures) | P0 action checklist passes | MEDIUM | 4–6 wk |
@@ -444,10 +446,15 @@ Total ≈ 12–17 engineer-months. S1's internal reproduction is the M0 gate; S2
 also bound M0.
 
 **M0 timing and exit rule.** M0 is **evidence-gated, not calendar-gated**. Target 3–4 weeks with S3
-run in parallel and the AVP provisioning profile started early. If the calendar slips, M0 may close
-only when all three gates pass — S1 internal EV (**compat PASS**, EV-0021), S2 device pass, S3
-decision — plus a written documentation-convergence plan. S2 device render/soak remains open; no
-`NOT RUN` item may be presented as passed.
+run in parallel and the AVP provisioning profile started early.
+
+**M0 closed 2026-10-31.** S1 PASS (EV-0021 + EV-0024); S3 CLOSED (EV-0006 + EV-0009); S2 device world
+render PASS (EV-0034). The 30-minute device soak (K4 precursor) is deferred to M1 per Decision 45=A.
+No `NOT RUN` item may be presented as passed.
+
+**M1 exit criteria addendum (Decision 45=A).** 30-minute device soak (K4 precursor) PASS. Deferred from
+M0 per Decision 45=A; EV-0035 (4m20s) is the partial that establishes feasibility, not the gate. This
+must not be forgotten once M1 starts — it is a dated M1 obligation, not an optional extension.
 
 ---
 
@@ -539,7 +546,7 @@ and never record personal data (accounts, serials beyond the standard evidence f
 |---|---|---|
 | JIT mechanism on visionOS (S1) | MEDIUM | Externally demonstrated (EV-0002) and host-reproduced (EV-0004, `PARTIAL`); device reproduction is the M0 gate. AOT pivot if it fails |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache inside MC (C3) | **HIGH** | EV-0002 does not cover it; runtime build and in-MC integration unproven |
-| MC Vulkan on MoltenVK fails | **HIGH** | Host boot verified (EV-0005); the xros stack (MoltenVK-xros, LWJGL-xros, GLFW/CAMetalLayer) is the risk. GL/LTW fallback |
+| MC Vulkan on MoltenVK fails | **HIGH** (device substrate closed; soak + M2 VR remain) | Host boot EV-0005; **device world render PASS EV-0034** via MoltenVK 1.4.3; the 30-minute soak is now an M1 gate (Decision 45=A). GL/LTW fallback |
 | Eye-texture handoff unstable | **HIGH** | S4; GPU blit fallback |
 | Performance/thermals on device | **HIGH** | Presets, 45 Hz repeat, caps |
 | JIT onboarding friction | MEDIUM | Guided setup + docs |
@@ -604,3 +611,5 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0033 (`PARTIAL`): StikDebug 3.2.0 reinstalled for <TEAM_ID> (pairing/DDI/scripts preserved, amethyst.js present); launch verification blocked by device lock. Next: wake/unlock and reassign the script. |
 
 | 2026-10-31 | M1 planning started while the ST-S2 30-min soak is deferred: `docs/mvp/M1_PLAN.md` covers the tested device stack (Amethyst 1.2.0, StikDebug 3.2.0, Java 25, LWJGL 3.4.1, MoltenVK 1.4.3), workstreams W1–W7, and sprint-1 tasks T1–T6. |
+| 2026-10-31 | M0 gate formally closed. S2's M0 exit gate is device world render only (Decision 45=A); the 30-minute soak is an M1 gate. This is not a redefinition of S2 — it is the explicit split between S2's device-proven state and the soak-quality state that M1 must complete. |
+| 2026-10-31 | M1 stack pinning: Amethyst → 1.2.0, MoltenVK → 1.4.3, StikDebug script → amethyst.js. Justification ADR pending (see ADR-0007). Prior M0 evidence (EV-0001, EV-0010, EV-0016, EV-0021) retains its original values with a forward-reference to the new pins. |
