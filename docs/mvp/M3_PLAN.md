@@ -177,3 +177,35 @@ build/evidence notes.
 Remaining M3 work: **M3-W2/W3** — the CompositorServices layer must consume the provider's exported eye
 `MTLTexture`s (timeline `MTLSharedEvent` sync) instead of the test pattern; **M3-W4** — ARKit pose →
 bridge → provider `hmdPose`; **M3-W5/W6** — pacing and device acceptance.
+
+
+## 11. M3-W2/W3/W4 architecture decision point (2026-11-01)
+
+Bridge groundwork is in place (EV-0080): the app-side renderer can read the latest provider
+`MTLTexture` handles and push ARKit poses in-process, with Java ABI v2 unchanged.
+
+**Hard constraint:** `CompositorLayer`/`ImmersiveSpace` are SwiftUI-only; UIKit cannot create a
+`LayerRenderer`, and no programmatic creation API exists in CompositorServices. Amethyst is a UIKit
+(`UIApplicationMain`) app. To present the provider's eye textures immersively, the native app must
+adopt a **SwiftUI app-lifecycle shell**:
+
+- `@main struct VRMCApp: App` with:
+  - `WindowGroup` hosting the existing UIKit launcher (`UIViewControllerRepresentable` around
+    `LauncherSplitViewController`), so launcher/game UI keeps working;
+  - `ImmersiveSpace(id:)` with `CompositorLayer` whose renderer samples the provider's exported
+    `MTLTexture` eye targets (via `vrmc_shared_eye_textures`) and consumes ARKit poses;
+- Amethyst bootstrap (JIT env/home/log/prefs/hooks) runs before the SwiftUI scene; scene-phase
+  notifications replace `SceneDelegate` foreground/pause calls (`pojavSetAppForeground`);
+- game launch stays in the existing JavaLauncher/UIKit path (in-process JVM), and the immersive space
+  is opened when the game starts (or from a launcher action);
+- texture sync: timeline `MTLSharedEvent`/Vk timeline semaphore per S4a findings; first prototype may
+  sample unsynchronized and be validated visually, then W5 adds sync/pacing.
+
+Alternative (fallback): keep Amethyst UIKit for JVM/MC and move only the immersive layer to a separate
+SwiftUI companion app, sharing IOSurfaces + poses over IPC. Larger total work (IPC/shared surfaces, app
+slot) and not preferred given the in-process bridge now exists.
+
+**Next implementation steps:** (1) add Swift build input for the SwiftUI shell (CMake/Swift compile or a
+small Swift static lib linked into the app); (2) bootstrap conversion (remove `UIApplicationMain` path,
+host launcher VC from SwiftUI, keep JIT/Scene lifecycle); (3) add `ImmersiveSpace` + CompositorLayer
+test pattern, then swap in provider eye textures + tracking; (4) device test with MC.

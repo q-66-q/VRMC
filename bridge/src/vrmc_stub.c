@@ -7,6 +7,7 @@
  * eye-submission contract.
  */
 #include "vrmc_abi.h"
+#include "vrmc_native_shared.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +17,12 @@ static int32_t g_initialized = 0;
 static uint64_t g_frames = 0;
 static char g_error[256] = "no error";
 static vrmc_tracking_state g_tracking;
+
+/* M3-W2/W3/W4 native-side shared state (same-process app <-> bridge; Java ABI v2 unchanged). */
+static vrmc_eye_targets g_eye_targets;
+static int g_has_eye_targets = 0;
+static vrmc_tracking_state g_tracking_override;
+static int g_has_tracking_override = 0;
 
 static int32_t set_error(const char *msg) {
     snprintf(g_error, sizeof(g_error), "%s", msg);
@@ -46,6 +53,10 @@ int32_t vrmc_init(const char *caps_json, size_t caps_len) {
 int32_t vrmc_get_tracking(vrmc_tracking_state *out, uint64_t timestamp_ns) {
     if (!g_initialized) return set_error("not initialized");
     if (out == NULL) return set_error("out is null");
+    if (g_has_tracking_override) {
+        *out = g_tracking_override;
+        return 0;
+    }
     g_tracking.presentation_time_ns = timestamp_ns;
     *out = g_tracking;
     return 0;
@@ -65,7 +76,29 @@ int32_t vrmc_submit_eyes(const vrmc_eye_targets *targets) {
         return set_error("eye texture handles missing");
     }
     g_frames++;
+    g_eye_targets = *targets;
+    g_has_eye_targets = 1;
     return 0;
+}
+
+int32_t vrmc_shared_eye_textures(vrmc_eye_targets *out) {
+    if (!g_initialized) return set_error("not initialized");
+    if (out == NULL) return set_error("bad shared eye output");
+    if (!g_has_eye_targets) return set_error("no eye targets submitted yet");
+    *out = g_eye_targets;
+    return 0;
+}
+
+int32_t vrmc_shared_set_tracking(const vrmc_tracking_state *state) {
+    if (!g_initialized) return set_error("not initialized");
+    if (state == NULL) return set_error("bad shared tracking state");
+    g_tracking_override = *state;
+    g_has_tracking_override = 1;
+    return 0;
+}
+
+void vrmc_shared_clear_tracking(void) {
+    g_has_tracking_override = 0;
 }
 
 typedef void (*PFN_vrmc_vkGetMTLTextureMVK)(uint64_t image, void **out_texture);
@@ -128,12 +161,24 @@ int main(void) {
     vrmc_eye_targets e = {0};
     vrmc_frame_timing_t ft;
     if (vrmc_abi_version() != VRMC_ABI_VERSION) return 1;
-    if (vrmc_init("{\"abi\":1,\"eyes\":2}", 18) != 0) { printf("init fail: %s\n", vrmc_last_error()); return 2; }
+    if (vrmc_init("{\"abi\":2,\"eyes\":2}", 18) != 0) { printf("init fail: %s\n", vrmc_last_error()); return 2; }
+    vrmc_eye_targets shared;
+    if (vrmc_shared_eye_textures(&shared) == 0) { printf("shared eyes before submit should fail\n"); return 6; }
+    vrmc_tracking_state ov = {0};
+    ov.head.position.x = 1.25f;
+    ov.ipd_m = 0.063f;
+    if (vrmc_shared_set_tracking(&ov) != 0) { printf("set tracking fail: %s\n", vrmc_last_error()); return 7; }
     e.frame_index = 1; e.left_texture = 0xAAA; e.right_texture = 0xBBB;
     if (vrmc_submit_eyes(&e) != 0) { printf("submit fail: %s\n", vrmc_last_error()); return 3; }
     if (vrmc_get_tracking(&t, 123) != 0) return 4;
     if (vrmc_frame_timing(&ft) != 0) return 5;
-    printf("[vrmc-stub-test] ok version=%d frames=%llu ipd=%.3f\n", vrmc_abi_version(), (unsigned long long)ft.frame_index, t.ipd_m);
+    if (vrmc_shared_eye_textures(&shared) != 0 || shared.left_texture != 0xAAA || shared.right_texture != 0xBBB) {
+        printf("shared eyes after submit failed\n"); return 8;
+    }
+    if (t.head.position.x != 1.25f || t.ipd_m != 0.063f) { printf("tracking override not honored\n"); return 9; }
+    vrmc_shared_clear_tracking();
+    if (vrmc_get_tracking(&t, 456) != 0 || t.ipd_m != 0.064f) { printf("tracking clear failed\n"); return 10; }
+    printf("[vrmc-stub-test] ok version=%d frames=%llu ipd=%.3f shared_left=0x%llx\n", vrmc_abi_version(), (unsigned long long)ft.frame_index, t.ipd_m, (unsigned long long)shared.left_texture);
     return 0;
 }
 #endif
