@@ -1,0 +1,19 @@
+--- a/Natives/UIKit+hook.m
++++ b/Natives/UIKit+hook.m
+@@ -29,9 +29,13 @@
+ }
+ 
+ void init_hookUIKitConstructor(void) {
+-    UIUserInterfaceIdiom idiom = getPrefBool(@"debug.debug_ipad_ui") ? UIUserInterfaceIdiomPad : UIUserInterfaceIdiomPhone;
+-    [UIDevice.currentDevice _setActiveUserInterfaceIdiom:idiom];
+-    [UIScreen.mainScreen _setUserInterfaceIdiom:idiom];
++    // VRMC M3-W1: never spoof the idiom in the native visionOS app (real idiom 6 = Vision).
++    // Forcing Phone/Pad there leaves the UIKit window content invisible (blank launcher, EV-0076; reproduced on the visionOS simulator).
++    if (realUIIdiom != 6) {
++        UIUserInterfaceIdiom idiom = getPrefBool(@"debug.debug_ipad_ui") ? UIUserInterfaceIdiomPad : UIUserInterfaceIdiomPhone;
++        [UIDevice.currentDevice _setActiveUserInterfaceIdiom:idiom];
++        [UIScreen.mainScreen _setUserInterfaceIdiom:idiom];
++    }
+     
+     swizzle(UIImageView.class, @selector(setImage:), @selector(hook_setImage:));
+     if(UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
