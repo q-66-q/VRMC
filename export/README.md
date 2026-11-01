@@ -1,10 +1,21 @@
 # VRMC — native immersive integration (M3-W3/W4) — **current issue**
 
 **Date:** 2026-11-01
-**Status:** PARTIAL / blocked on three integration issues. The native app now launches the game, opens an
+**Status:** PARTIAL / blocked on the three operator-confirmed issues below. The native app now launches the game, opens an
 immersive CompositorServices space by itself, hides the game window's content, samples the provider's
 eye `MTLTexture`s (`eyes=1`) and feeds real ARKit tracking into the provider. Remaining issues are
 listed below (evidence EV-0083/EV-0084/EV-0085).
+
+
+## Issue summary (operator-confirmed, 2026-11-01)
+
+1. **The window cannot be hidden.** Parking the window (alpha = 0 / isHidden) hides its content, but the
+   visionOS window bottom bar/ornament still shows in immersive mode.
+2. **The game cannot present again after running in the background.** The game keeps running after
+   backgrounding, but the immersive space cannot be re-entered/presented again.
+3. **The perspective is exotropia.** The stereo eye images diverge outward (exotropia); swapping the
+   eye/view mapping did not fix it. Presentation is still a flat fullscreen sample without per-eye
+   projection/FOV parity.
 
 ## What already works
 
@@ -20,12 +31,12 @@ listed below (evidence EV-0083/EV-0084/EV-0085).
 
 ## Current issues
 
-### 1. Window chrome remains despite parking
+### 1. Window cannot be hidden (window chrome remains despite parking)
 `alpha = 0` and `isHidden = true` hide the window content, but the visionOS **window bottom bar / ornament
 still shows** (it is scene-level chrome, not window content). Need to close/deactivate the window scene
 while immersive is active, or avoid having a game window scene in immersive mode.
 
-### 2. Cannot return to immersive after background
+### 2. Game cannot present again after running in the background
 After the game starts, `UIKit_launchMinecraftSurfaceVC` replaces the window's root view controller with
 `SurfaceViewController`. That **destroys the SwiftUI `WindowGroup` view and its NotificationCenter
 subscriptions** (`willResignActive` / `didEnterBackground` / `VRMCImmersiveEnded` / `scenePhase`). Shell
@@ -36,7 +47,7 @@ keeps running, but the shell cannot reopen the immersive space.
 the SwiftUI hosting controller instead of replacing the window root, or move lifecycle handling to an
 app-level observer (AppDelegate/global object) that does not depend on the WindowGroup view.
 
-### 3. Exotropia / stereo misalignment
+### 3. Perspective is exotropia (stereo misalignment)
 The compositor samples each 1024×1024 eye texture and draws it as a flat fullscreen image. It has no
 per-eye projection/FOV parity with Minecraft; swapping view 0/view 1 did not fix the exotropia.
 **Fix direction:** pass CompositorServices per-eye tangents/FOV to the provider so MC renders a matching
