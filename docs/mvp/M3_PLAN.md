@@ -135,3 +135,25 @@ currently a local refbuild patch; refresh `patches/vrmc-m1-amethyst-1.2.0.patch`
 Next: **M3-W1** native launcher UI, then **M3-W2/W3** (CompositorServices consumes the provider's two
 `MTLTexture`s with timeline shared-event sync), **M3-W4** ARKit pose → bridge → provider hmdPose,
 **M3-W5/W6** pacing and device acceptance.
+
+
+## 9. M3-W1 status (EV-0078)
+
+Two UI attempts failed:
+1. Keep `LauncherSplitViewController` as root → valid window/scene (1280×720) but **blank content**
+   (EV-0076).
+2. Swap to a plain `LauncherNavigationController(root: LauncherProfilesViewController)` (native-only
+   Info.plist marker) → branch executes, then **crash** in
+   `-[LauncherProfilesViewController viewWillAppear:]` because
+   `@[sidebarViewController drawAccountButton, ...]` uses `self.splitViewController.viewControllers[0]`
+   and `splitViewController` is nil (EV-0078).
+
+Conclusion: the existing launcher VCs hard-depend on the split-view container. M3-W1 needs one of:
+- a native-specific UI shell (SwiftUI/UIKit) that calls the existing launch path without instantiating
+  split-dependent VCs;
+- a split-view-compatible shim/container that keeps `self.splitViewController` valid while rendering
+  in a visionOS-friendly way.
+
+Interim: the `VRMC_NATIVE_AUTOLAUNCH`/`Documents/autolaunch.flag` path remains the only proven way to
+boot the game in the native app (EV-0077). The current-issue dossier is in `export/`
+(`VRMC-native-ui-blocker-2026-11-01.zip`).

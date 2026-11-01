@@ -1,2 +1,0 @@
-summary.log	/tmp/amethyst-stik-ev/summary.log
-latestlog.txt	/tmp/amethyst-stik-ev/latestlog.txt

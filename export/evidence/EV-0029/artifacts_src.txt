@@ -1,2 +1,0 @@
-summary.log	/tmp/amethyst-ev/summary.log
-amethyst-install.log	/tmp/amethyst-ev/amethyst-install.log

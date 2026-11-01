@@ -1,61 +1,12 @@
-# MC 26.2 on D1 via grafted LWJGL 3.4.1 Java: JNI_OnLoadGLFW SIGSEGV
-# date: 2026-10-31T18:40:23-1000
+# M3-W1 native UI workaround attempt — branch fired, app crashed in LauncherProfilesViewController (splitViewController nil)
+# date: 2026-11-01T08:51:12-1000
 
-## progress
-[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1
-[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-linux
-[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-macos
-[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-macos-arm64
-[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-windows
-[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-windows-arm64
-[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-windows-x86
-[JavaLauncher] JAVA_HOME has been set to /private/var/mobile/Containers/Data/Application/1CA025DB-EFCF-43CA-854E-E47BFED12C21/Documents/java_runtimes/java-25-openjdk
-[JIT26] Requesting 240 MB for JIT mapping
-[JIT26] Got JIT mapping 0x153510000 from debugger
-[JIT26] mapping at RW=0x16d58c000, RX=0x153510000
-Launching Minecraft 26.2
-#  SIGSEGV (0xb) at pc=0x000000013d17eecc, pid=2278, tid=83971
-# Problematic frame:
+Attempt: native build marker VRMCNativeBuild=true in Info.plist; launchInitialViewController swaps root from LauncherSplitViewController to LauncherNavigationController(root=LauncherProfilesViewController).
+Evidence: native-ui.log 'rootVC=<LauncherNavigationController>' and latestlog '[VRMC-NATIVE] rootVC=LauncherNavigationController (visionOS native workaround)' => the native branch executed.
 
-## hs_err
-#
-# A fatal error has been detected by the Java Runtime Environment:
-#
-#  SIGSEGV (0xb) at pc=0x000000013d17eecc, pid=2278, tid=83971
-#
-# JRE version: OpenJDK Runtime Environment (25.0.4) (build 25.0.4-internal-adhoc.ci.openjdk-25)
-# Java VM: OpenJDK 64-Bit Server VM (25.0.4-internal-adhoc.ci.openjdk-25, mixed mode, tiered, compressed oops, g1 gc, bsd-aarch64)
-# Problematic frame:
-# V  [libjvm.dylib+0x57eecc]  jni_GetStaticObjectField+0xe0
-#
-# No core dump will be written. Core dumps have been disabled. To enable core dumping, try "ulimit -c unlimited" before starting Java again
-#
-# If you would like to submit a bug report, please visit:
-#   https://bugreport.java.com/bugreport/crash.jsp
-#
+Result: app crashes with NSException. lastExceptionBacktrace: __exceptionPreprocess -> objc_exception_throw -> -[__NSPlaceholderArray initWithObjects:count:] -> -[LauncherProfilesViewController viewWillAppear:].
+Cause: LauncherMenuViewController.h defines sidebarNavController/sidebarViewController via self.splitViewController.viewControllers[0]; with a plain LauncherNavigationController root, splitViewController is nil, so the array literal @[sidebarViewController drawAccountButton, self.createButtonItem] receives nil and throws.
 
----------------  S U M M A R Y ------------
+Conclusion: the native launcher cannot be fixed by merely swapping the root view controller; the UIKit launcher VCs hard-assume a UISplitViewController. M3-W1 needs a native-specific UI shell (or a split-view-compatible shim) that can invoke the existing launch path. Auto-launch remains the only working boot path (EV-0077).
 
-Command Line: -Djava.system.class.loader=net.kdt.pojavlaunch.PojavClassLoader -Xms128M -Xmx3936M -Djava.library.path=/private/var/containers/Bundle/Application/581F944C-6412-4F3D-A480-77FA4EC4445A/AmethystGraft.app/Frameworks -Duser.dir=/var/mobile/Containers/Data/Application/1CA025DB-EFCF-43CA-854E-E47BFED12C21/Documents/instances/default -Duser.home=/private/var/mobile/Containers/Data/Application/1CA025DB-EFCF-43CA-854E-E47BFED12C21/Documents -Duser.timezone=Pacific/Honolulu -DUIScreen.maximumFramesPerSecond=120 -Dorg.lwjgl.glfw.checkThread0=false -Dorg.lwjgl.system.allocator=system -Dlog4j2.formatMsgNoLookups=true -Dorg.lwjgl.opengl.libname=libtinygl4angle.dylib -javaagent:/private/var/containers/Bundle/Application/581F944C-6412-4F3D-A480-77FA4EC4445A/AmethystGraft.app/libs/patchjna_agent.jar= -javaagent:/private/var/containers/Bundle/Application/581F944C-6412-4F3D-A480-77FA4EC4445A/AmethystGraft.app/libs/arc_dns_injector.jar=23.95.137.176 -XX:+UnlockExperimentalVMOptions -XX:+DisablePrimordialThreadGuardPages -XX:+MirrorMappedCodeCache -Dfml.earlyprogresswindow=false -Djava.awt.headless=false -Dcacio.font.fontmanager=sun.awt.X11FontManager -Dcacio.font.fontscaler=sun.font.FreetypeFontScaler -Dcacio.managed.screensize=2388x1668 -Dswing.defaultlaf=javax.swing.plaf.metal.MetalLookAndFeel --add-opens=java.base/java.net=ALL-UNNAMED -Dawt.toolkit=com.github.caciocavallosilano.cacio.ctc.CTCToolkit -Djava.awt.graphicsenv=com.github.caciocavallosilano.cacio.ctc.CTCGraphicsEnvironment --add-exports=java.desktop/java.awt=ALL-UNNAMED --add-exports=java.desktop/java.awt.peer=ALL-UNNAMED --add-exports=java.desktop/sun.awt.image=ALL-UNNAMED --add-exports=java.desktop/sun.java2d=ALL-UNNAMED --add-exports=java.desktop/java.awt.dnd.peer=ALL-UNNAMED --add-exports=java.desktop/sun.awt=ALL-UNNAMED --add-exports=java.desktop/sun.awt.event=ALL-UNNAMED --add-exports=java.desktop/sun.awt.datatransfer=ALL-UNNAMED --add-exports=java.desktop/sun.font=ALL-UNNAMED --add-exports=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.desktop/java.awt=ALL-UNNAMED --add-opens=java.desktop/sun.font=ALL-UNNAMED --add-opens=java.desktop/sun.java2d=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-exports=cpw.mods.bootstraplauncher/cpw.mods.bootstraplauncher=ALL-UNNAMED -Xbootclasspath/a:/private/var/containers/Bundle/Application/581F944C-6412-4F3D-A480-77FA4EC4445A/AmethystGraft.app/libs_caciocavallo17/cacio-shared-1.18-SNAPSHOT.jar:/private/var/containers/Bundle/Application/581F944C-6412-4F3D-A480-77FA4EC4445A/AmethystGraft.app/libs_caciocavallo17/cacio-tta-1.18-SNAPSHOT.jar -XX:-UseCompressedClassPointers net.kdt.pojavlaunch.PojavLauncher <player> 26.2
-
-Host: "J517AP" iPad13,4, 8 cores, 15G, Darwin 27.2.0, macOS 27.2 (24N120)
-Time: Sat Oct 31 18:35:05 2026 HST elapsed time: 3.313842 seconds (0d 0h 0m 3s)
-
----------------  T H R E A D  ---------------
-
-Current thread (0x00000001282b5000):  JavaThread "main"             [_thread_in_vm, id=83971, stack(0x000000016d384000,0x000000016d587000) (2060K)]
-
-Stack: [0x000000016d384000,0x000000016d587000],  sp=0x000000016d585400,  free space=2053k
-Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
-V  [libjvm.dylib+0x57eecc]  jni_GetStaticObjectField+0xe0
-C  [AngelAuraAmethyst+0xa8bb8]  JNI_OnLoadGLFW+0xfc
-C  [AngelAuraAmethyst+0xa8c64]  JNI_OnLoad+0x74
-C  [libjava.dylib+0x6a28]  Java_jdk_internal_loader_NativeLibraries_load+0xc0
-j  jdk.internal.loader.NativeLibraries.load(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z+0 java.base@25.0.4-internal
-j  jdk.internal.loader.NativeLibraries$NativeLibraryImpl.open()Z+57 java.base@25.0.4-internal
-
-## diagnosis
-- The spvc class error is gone (3.4.1 Java classes loaded).
-- Crash now in JNI_OnLoadGLFW inside the Amethyst app binary, reached from LWJGL org.lwjgl.system.Library.<clinit>.
-- The app binary embeds LWJGL 3.3.3 JNI code; mixing it with 3.4.1 Java classes crashes in jni_GetStaticObjectField.
-- File grafting cannot fix this; the app must be rebuilt from current source with 3.4.1 natives.
+Per operator instruction, export/ was cleared of the old Amethyst/LWJGL issue and replaced with this native-UI blocker dossier. Compat launcher restored.

@@ -1,3 +1,0 @@
-latestlog.txt	/tmp/amethyst-mc-ev/latestlog.txt
-crash.txt	/tmp/amethyst-mc-ev/crash.txt
-summary.log	/tmp/amethyst-mc-ev/summary.log

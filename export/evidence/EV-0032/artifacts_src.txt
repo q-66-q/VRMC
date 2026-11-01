@@ -1,3 +1,0 @@
-latestlog.txt	/tmp/amethyst-jni-ev/latestlog.txt
-hs_err.log	/tmp/amethyst-jni-ev/hs_err.log
-summary.log	/tmp/amethyst-jni-ev/summary.log
