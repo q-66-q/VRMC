@@ -62,7 +62,9 @@ alias. EV-0004 records the host-only pre-test below. Internal device reproductio
   without an enabler (EV-0018). **Divergence note:** if D1's JIT26 behavior differs from the macOS host
   (no TXM trap, different failure), record it for S1b. Next: launch **from inside StikDebug's Enable JIT
   flow** (a Home tap cannot enable JIT) and select the patched `universal.js` (allocation-aware `0x69`).
-  Post-patch launches still trapped, so JIT was not active (EV-0019).
+  Post-patch launches still trapped, so JIT was not active (EV-0019). StikDebug was then observed to
+  attach and detach without running a preparation script at all (EV-0020), so S1a is `BLOCKED` pending
+  an enabler decision: Apparition custom-script flow, a custom CoreDevice debugserver enabler, or AOT.
 - **S1b (target, 1.5–3 weeks).** Native visionOS harness with the relabelled+re-signed JRE; request
   JIT through the on-device enabler (poll `CS_DEBUGGED`, then `JLI_Launch`). A **custom** script is
   required because the JVM's `0x69` request is allocation-style (`x0 = size`), unlike the enabler's

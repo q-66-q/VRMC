@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0020`.
+**Next evidence ID:** `EV-0021`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -119,7 +119,7 @@ EV that first evidences a test is recorded in the Status column.
 
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
-| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `NOT RUN` (host `PARTIAL` EV-0004; device JVM starts and traps at the request, EV-0018; post-patch launches still trapped because JIT was not active, EV-0019) |
+| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `BLOCKED` (host `PARTIAL` EV-0004; console JVM starts and traps, EV-0018; StikDebug attach/detach performs no JIT26 preparation, EV-0019/EV-0020) |
 | ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; **D1 capability PASS EV-0016**; device render/soak pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
@@ -902,6 +902,30 @@ inside StikDebug's Enable JIT flow, and the selected script must be the patched 
 StikDebug cannot select/import it, switch to Apparition's custom-script flow or patch the JRE's
 `BreakGetJITMapping` to the universal `0xf00d` protocol.
 
+### EV-0020 — S1a: StikDebug attaches then detaches without script preparation; JIT26 still unhandled
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T15:14:34-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `FAIL` |
+
+**Procedure:** patch all four StikDebug scripts for allocation-style `0x69`, push them to the app
+container; user launches S1AProbe from StikDebug Enable JIT; read StikDebug's `idevice_log` and the
+S1AProbe crash logs.
+
+**Actual:** StikDebug launched the app suspended, sent `vAttach`, then **detached after ~1 s without a
+continue or any script/BRK handling**. All four scripts were verified patched on device. S1AProbe still
+traps at `BreakGetJITMapping`. The prefs confirm `bundleID = dev.vrmc.s1a` and
+`overrideTXMForScripts = true`.
+
+**Conclusion:** StikDebug's JIT flow on this visionOS 27.2/TXM build does not perform JIT26 memory
+preparation, so script content cannot fix it. Options: Apparition custom-script flow, a custom
+CoreDevice debugserver enabler, or the AOT fallback.
+
+**Artifacts:** `evidence/EV-0020/summary.log`, `stikdebug-excerpt.log`, `s1a-jit.log`, crash `.ips`,
+StikDebug prefs plist.
+
 ---
 
 ## 7. Status dashboard
@@ -918,7 +942,7 @@ StikDebug cannot select/import it, switch to Apparition's custom-script flow or 
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
-| S1a harness | `PARTIAL` | Console harness starts the JVM (EV-0018); all post-patch launches still trap at the request, so JIT was not active (EV-0019) |
+| S1a harness | `BLOCKED` | Console harness starts the JVM (EV-0018); StikDebug does not prepare JIT26 memory on this OS build (EV-0019/EV-0020) |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -958,7 +982,8 @@ StikDebug cannot select/import it, switch to Apparition's custom-script flow or 
 | 2026-10-31 | Amethyst removed with approval; S1AProbe installed on D1. EV-0015 corrected: UIScene-adoption crash, not JIT26. |
 | 2026-10-31 | EV-0016 (`PASS`, D1): MoltenVK 1.4.2 on visionOS/Apple M2 exposes all 5 required extensions and 9 required features; maxPushDescriptors=287. Device render still pending. |
 | 2026-10-31 | EV-0017 (`FAIL`): UIKit/SwiftUI probe crashed before JVM output; root cause is `JLI_Launch` re-entering the app main. EV-0018: console-style harness starts the JVM and traps at `BreakGetJITMapping` without an enabler. |
-| 2026-10-31 | EV-0019 (`FAIL`): three post-patch launches still trap at `BreakGetJITMapping`; JIT was not active (normal Home launch or script not applied). Next ID `EV-0020`. |
+| 2026-10-31 | EV-0019 (`FAIL`): post-patch launches still trap at `BreakGetJITMapping`. |
+| 2026-10-31 | EV-0020 (`FAIL`, BLOCKED): StikDebug launches/attaches then detaches without JIT26 preparation; all four on-device scripts patched. Decision needed between Apparition, a custom enabler, or AOT. Next ID `EV-0021`. |
 
 ---
 
