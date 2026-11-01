@@ -34,6 +34,35 @@
      if (requiresTXMWorkaround) {
          static void *result;
          if(!result) result = JIT26CreateRegionLegacy(getpagesize());
+--- a/Natives/LauncherNavigationController.m
++++ b/Natives/LauncherNavigationController.m
+@@ -427,6 +427,9 @@
+     BOOL hasTrollStoreJIT = getEntitlementValue(@"jb.pmap_cs.custom_trust");
+     BOOL isLiveContainer = getenv("LC_HOME_PATH") != NULL;
+ 
++    NSLog(@"[JIT] preflight isJITEnabled=%d hasTXM=%d hasMirrored=%d",
++          (int)isJITEnabled(false), (int)DeviceHasJITFlags(JIT_FLAG_HAS_TXM),
++          (int)DeviceHasJITFlags(JIT_FLAG_FORCE_MIRRORED));
+     if (isJITEnabled(false)) {
+         [ALTServerManager.sharedManager stopDiscovering];
+         handler();
+@@ -453,8 +456,15 @@
+ 
+     self.progressText.text = localize(@"launcher.wait_jit.title", nil);
+ 
++    NSString *jitMessage;
++    if (DeviceHasJITFlags(JIT_FLAG_FORCE_MIRRORED | JIT_FLAG_HAS_TXM)) {
++        // VRMC W3: exact on-device flow for our sideloaded StikDebug setup.
++        jitMessage = @"Enabling JIT is required to launch Minecraft.\n\nIn StikDebug:\n1. Long-press VRMC and choose Assign Script -> amethyst.js.\n2. Tap Enable JIT -> VRMC.\n\nKeep VRMC open; the game continues automatically once JIT is enabled.";
++    } else {
++        jitMessage = hasTrollStoreJIT ? localize(@"launcher.wait_jit_trollstore.message", nil) : localize(@"launcher.wait_jit.message", nil);
++    }
+     UIAlertController* alert = [UIAlertController alertControllerWithTitle:localize(@"launcher.wait_jit.title", nil)
+-        message:hasTrollStoreJIT ? localize(@"launcher.wait_jit_trollstore.message", nil) : localize(@"launcher.wait_jit.message", nil)
++        message:jitMessage
+         preferredStyle:UIAlertControllerStyleAlert];
+ /* TODO:
+     UIAlertAction *cancel = [UIAlertAction actionWithTitle:localize(@"Cancel", nil) style:UIAlertActionStyleCancel handler:^{
 --- a/Natives/LauncherPreferences.m
 +++ b/Natives/LauncherPreferences.m
 @@ -101,21 +101,45 @@

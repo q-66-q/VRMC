@@ -149,6 +149,7 @@ dylib hash (same IPA), MC 26.2 version JSON hash, BundleScriptMap re-check. Ask 
 | Follow-up: cursor hide + rotation smoothness | **CLOSED** | Rotation smooth via grab/relative path; cursor visibility is a visionOS pointer-lock limitation accepted as cosmetic (EV-0045/EV-0047); task-2 closed |
 | Follow-up: background freeze + audio loss | **CLOSED** | Scene lifecycle + audio reactivation fix; retest PASS (EV-0048); task-3 closed |
 | W1 reproducible build | **DONE** | `scripts/build_launcher.sh` + `patches/` + `docs/mvp/LAUNCHER_BUILD.md`; fresh-tree build PASS (EV-0049) |
+| W3 JIT readiness | **IN PROGRESS** | explicit TXM alert + `[JIT] preflight` logging installed (EV-0050); no-JIT launch-flow verification pending |
 
 ### T6 definition (as required)
 
