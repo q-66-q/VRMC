@@ -30,3 +30,6 @@
 *.provisionprofile
 .env
 .secrets/
+
+# XcodeGen-generated projects for probes
+runtime/probes/*/*.xcodeproj

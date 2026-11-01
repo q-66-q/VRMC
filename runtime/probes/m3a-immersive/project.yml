@@ -1,0 +1,25 @@
+name: M3AProbe
+options:
+  bundleIdPrefix: dev.vrmc
+  deploymentTarget:
+    visionOS: "27.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.m3a
+    TARGETED_DEVICE_FAMILY: "7"
+    SWIFT_VERSION: "5.9"
+targets:
+  M3AProbe:
+    type: application
+    platform: visionOS
+    sources:
+      - Sources
+    settings:
+      base:
+        INFOPLIST_KEY_NSWorldSensingUsageDescription: "VRMC M3a probe uses world tracking to log head poses."
+        INFOPLIST_KEY_NSHandsTrackingUsageDescription: "VRMC M3a probe may query hand tracking availability."
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
