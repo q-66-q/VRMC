@@ -1,0 +1,31 @@
+# MC 26.2 on D1 via Amethyst: JIT + Java 25 OK, dies on LWJGL 3.4.1 spvc
+# date: 2026-10-31T18:00:12-1000
+
+## JIT + runtime
+[DyldLVBypass] init
+[DyldLVBypass] Using redirectFunctionMirrored
+[DyldLVBypass] found dyld_mmap at 0x183e60700
+[DyldLVBypass] hook dyld_mmap succeed!
+[DyldLVBypass] found dyld_fcntl at 0x183e604c8
+[DyldLVBypass] hook dyld_fcntl succeed!
+[JavaLauncher] RENDERER is set to auto
+[JavaLauncher] JAVA_HOME has been set to /private/var/mobile/Containers/Data/Application/E4243972-6EDB-4886-BBF2-863F305FA9B8/Documents/java_runtimes/java-25-openjdk
+[JIT26] Requesting 240 MB for JIT mapping
+[JIT26] Got JIT mapping 0x14fd10000 from debugger
+
+## failure
+[MCDL] SHA1 passed for 26.2.json
+[MCDL] Warning: JNA version required by 26.2 is 5.17.0 > 5.13.0, skipping JNA replacement.
+[LWJGL] [ThreadLocalUtil] Unsupported JNI version detected, this may result in a crash. Please inform LWJGL developers.
+java.lang.NoClassDefFoundError: org/lwjgl/util/spvc/Spvc
+	LWJGL platform: MACOSX
+	LWJGL architecture: ARM64
+-- LWJGL debug log --
+	Log: [LWJGL] [ThreadLocalUtil] Unsupported JNI version detected, this may result in a crash. Please inform LWJGL developers.
+	Backend library: LWJGL version 3.3.3-snapshot
+#@!@# Game crashed! Crash report saved to: #@!@# /var/mobile/Containers/Data/Application/E4243972-6EDB-4886-BBF2-863F305FA9B8/Documents/instances/default/crash-reports/crash-2026-10-31_17.57.53-client.txt
+
+## analysis
+- Amethyst release IPA bundles LWJGL 3.3.3 (libs/lwjgl.jar); MC 26.2 requires LWJGL 3.4.1 (spvc classes/natives).
+- Source repo supports 3.4.1, but the release binary predates that logic (no lwjgl_versions.txt in app).
+- Fix path: obtain/build current Amethyst (source has Natives/resources/Frameworks/lwjgl34 + JavaApp/libs/lwjgl-3.4.1) or inject 3.4.1 support.

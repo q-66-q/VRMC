@@ -1,0 +1,27 @@
+Environment (VRMC — MC 26.2 on Apple Vision Pro)
+
+Device:
+  Apple Vision Pro, RealityDevice14,1 (Apple M2), visionOS 27.2 (24N120), Developer Mode ON
+Host:
+  MacBook Pro Mac16,7 (M4 Pro), macOS 27.0.1, Xcode 27.2 (27B52), visionOS 27.2 SDK
+Launcher:
+  Amethyst iOS (GPL-3.0). Release IPA 1.0 (bundle org.angelauramc.amethyst.95J8WZ4TN8) and the
+  nightly.link development artifact both bundle LWJGL 3.3.3 in libs/lwjgl.jar.
+  Re-signed by us as dev.vrmc.amethyst with free-team profile <TEAM_ID> (dummy provisioning profile
+  created with Xcode automatic signing; get-task-allow).
+JIT:
+  StikDebug 3.1.15 (on device), script amethyst.js = UniversalJIT26 + JIT26 extension.
+  Amethyst pref debug.debug_always_attached_jit = true is required to enable its dyld bypass.
+Java:
+  external runtime at Documents/java_runtimes/java-25-openjdk
+  JAVA_VERSION="25.0.4", OpenJDK 25.0.4-internal iOS arm64 (MirrorMappedCodeCache patch)
+Minecraft:
+  26.2 (client jar 37 MB, libraries, assets installed on device via Amethyst)
+Key JVM command line (from hs_err):
+  -Xms128M -Xmx3936M -Djava.library.path=.../Frameworks -Dorg.lwjgl.system.allocator=system
+  -XX:+MirrorMappedCodeCache -XX:-UseCompressedClassPointers
+  -Dorg.lwjgl.glfw.checkThread0=false -Dorg.lwjgl.opengl.libname=libtinygl4angle.dylib
+  net.kdt.pojavlaunch.PojavLauncher <account> 26.2
+Failure:
+  SIGSEGV in jni_GetStaticObjectField, from JNI_OnLoadGLFW in the AngelAuraAmethyst binary,
+  reached by org.lwjgl.system.Library.<clinit> while NativeLibrariesBootstrap loads LWJGL.

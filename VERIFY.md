@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0032`.
+**Next evidence ID:** `EV-0033`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1186,6 +1186,28 @@ development build (source supports LWJGL 3.4.1).
 
 **Artifacts:** `evidence/EV-0031/latestlog.txt`, `crash.txt`, `summary.log`.
 
+### EV-0032 — MC 26.2 on D1: after grafting LWJGL 3.4.1 Java, JNI_OnLoadGLFW in the app binary crashes (embedded 3.3.3 natives)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T18:40:23-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `FAIL` |
+
+**Procedure:** graft merged LWJGL 3.4.1 Java jars + the current source's 3.4.1 iOS natives into the
+launcher; re-sign and install; launch via StikDebug with `amethyst.js`; pull `latestlog` and `hs_err`.
+
+**Actual:** the `spvc` class error is gone and MC 26.2's `Main` starts, but the JVM dies with
+`SIGSEGV` in `jni_GetStaticObjectField`, called from `JNI_OnLoadGLFW` **inside the Amethyst app binary**,
+reached from `org.lwjgl.system.Library.<clinit>`. The app binary embeds LWJGL 3.3.3 JNI code, which is
+incompatible with the grafted 3.4.1 Java classes.
+
+**Conclusion:** file grafting cannot fix the LWJGL version. The app must be rebuilt from current
+Amethyst source (which supports 3.4.1), or another launcher/runtime must be used. The full problem
+dossier has been exported to `export/` (and zipped).
+
+**Artifacts:** `evidence/EV-0032/latestlog.txt`, `hs_err.log`, `summary.log`; `export/`.
+
 ---
 
 ## 7. Status dashboard
@@ -1204,7 +1226,7 @@ development build (source supports LWJGL 3.4.1).
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
 | S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
 | S1b harness (native visionOS) | `PASS` | VISIONOS-relabelled JRE builds/signs (EV-0022), launches (EV-0023), and JITs + executes on D1 (EV-0024) |
-| M1 launcher probe (Amethyst) | `PARTIAL` | Re-signed launcher runs (EV-0029); StikDebug startup crash workaround (EV-0030); **JIT + Java 25 reach MC 26.2 main (EV-0031)**, blocked by release's LWJGL 3.3.3 vs required 3.4.1 |
+| M1 launcher probe (Amethyst) | `BLOCKED` | JIT + Java 25 reach MC 26.2 main (EV-0031); LWJGL 3.3.3 vs 3.4.1 mismatch; grafting 3.4.1 Java crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (EV-0032); needs current-source rebuild |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -1254,7 +1276,8 @@ development build (source supports LWJGL 3.4.1).
 | 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO, submit/present 0). S2 device graphics primitives complete; MC boot/title/world remains. |
 | 2026-10-31 | EV-0029 (`PARTIAL`): release Amethyst re-signed for <TEAM_ID> installs and launches on D1. |
 | 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug attaches/continues/detaches in ~28 ms and dies with no crash report; normal launch works. |
-| 2026-10-31 | EV-0031 (`PARTIAL`): external Java 25 + always-attached JIT + dyld bypass work; MC 26.2 reaches `NativeLibrariesBootstrap` but aborts on missing `org.lwjgl.util.spvc.Spvc` because the release bundles LWJGL 3.3.3. Next: current Amethyst development build. Next ID `EV-0032`. |
+| 2026-10-31 | EV-0031 (`PARTIAL`): external Java 25 + always-attached JIT + dyld bypass work; MC 26.2 reaches `NativeLibrariesBootstrap` but aborts on missing `org.lwjgl.util.spvc.Spvc` (release bundles LWJGL 3.3.3). |
+| 2026-10-31 | EV-0032 (`FAIL`): grafting 3.4.1 Java/natives clears `spvc` but crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (JVM SIGSEGV). Needs a current-source Amethyst rebuild; **problem exported to `export/` + zip**. Next ID `EV-0033`. |
 
 ---
 

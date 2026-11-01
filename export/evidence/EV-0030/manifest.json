@@ -1,0 +1,67 @@
+{
+  "id": "EV-0030",
+  "title": "Amethyst launched via StikDebug dies immediately (attach\u2192continue\u2192detach, no crash report); normal launch works",
+  "date": "2026-10-31T16:59:44-10:00",
+  "commit": "e5ef08c2ae4bfd89e60cdacfcee9dd44bd676e87",
+  "dirty": [],
+  "app_build_sha256": null,
+  "device": "D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2)",
+  "host": {
+    "model": "Mac16,7",
+    "macos": "27.0.1",
+    "xcode": "27.2",
+    "xcode_build": "27B52"
+  },
+  "versions": {
+    "VRMC_PRODUCT": "VRMC",
+    "VRMC_PLATFORM": "visionOS",
+    "VRMC_MIN_VISIONOS": "27.0",
+    "MC_VERSION": "26.2",
+    "MC_VERSION_TYPE": "release",
+    "MC_JAVA_MAJOR": "25",
+    "MC_JAVA_COMPONENT": "java-runtime-epsilon",
+    "MC_LWJGL": "3.4.1",
+    "FABRIC_LOADER": "0.19.3",
+    "VIVECRAFT_VERSION": "26.2-1.3.15",
+    "VIVECRAFT_LICENSE": "LGPL-3.0",
+    "XCODE_VERSION": "27.2",
+    "XCODE_BUILD": "27B52",
+    "VISIONOS_SDK": "27.2",
+    "VISIONOS_SIM_RUNTIME": "27.0",
+    "MC_GRAPHICS_API": "prefer-vulkan",
+    "MOLTENVK_VERSION": "TBD",
+    "MOLTENVK_PIN": "TBD",
+    "OPENJDK_VERSION": "25",
+    "JRE_UPSTREAM": "PojavLauncherTeam/android-openjdk-build-multiarch",
+    "JRE_BUILD_STATUS": "not-built",
+    "JIT_PROTOCOL": "JIT26",
+    "JIT_PROTOCOL_DETAIL": "brk #0xf00d; debugger prepares 16 KiB pages",
+    "AMETHYST_UPSTREAM": "AngelAuraMC/Amethyst-iOS",
+    "AMETHYST_PIN": "f98c413",
+    "AMETHYST_LICENSE": "GPL-3.0",
+    "PRIOR_ART_BENCHMARK": "rebelancap/vivecraft-visionos",
+    "MC_VERSION_JSON_SHA256": "TBD",
+    "VIVECRAFT_JAR_SHA256": "TBD",
+    "GRAPHICS_NOTE": "MC Prefer Vulkan -> MoltenVK (fallback: GL/LTW -> ANGLE)"
+  },
+  "procedure": [
+    "user launched the re-signed Amethyst via StikDebug Enable JIT to set up Minecraft",
+    "inspect StikDebug idevice_log, Amethyst latestlog.txt, process list and system crash logs"
+  ],
+  "expected": "Amethyst UI stays up under the JIT enabler so Minecraft can be configured",
+  "actual": "StikDebug sends vAttach, continue and detach within ~28 ms; the Amethyst process is gone afterwards. No new crash report in systemCrashLogs (only the older 12:46 one). A normal devicectl launch keeps the process alive (pid 1889). Amethyst's latestlog stops at version-list startup and shows no account/version installed.",
+  "status": "FAIL",
+  "artifacts": [
+    {
+      "path": "evidence/EV-0030/summary.log",
+      "sha256": "277122d6934747404a180ccac165d138321d4e612b5a56c85a1393745ca56bc6",
+      "source": "/tmp/amethyst-stik-ev/summary.log"
+    },
+    {
+      "path": "evidence/EV-0030/latestlog.txt",
+      "sha256": "563618c7ee51694f2ba22a6c26a33cda2c4bb78cc47fc752b7db517666c287dc",
+      "source": "/tmp/amethyst-stik-ev/latestlog.txt"
+    }
+  ],
+  "limitations": "Likely the JIT script/launch path kills the app before setup, or Amethyst aborts at startup when no script is assigned. Workaround to test next: set up Minecraft with a normal launch, then relaunch under StikDebug only for the game JVM."
+}

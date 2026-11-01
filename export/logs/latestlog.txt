@@ -1,0 +1,163 @@
+[Pre-Init] Amethyst INIT!
+[Pre-Init] Version: 1.0-development
+[Pre-Init] Commit: f98c413 (main)
+[Pre-Init] Device: Apple Vision Pro
+[Pre-Init] iPadOS 27.2 (24N120) (Unjailbroken)
+[Pre-init] Entitlements availability:
+* com.apple.developer.kernel.extended-virtual-addressing: NO
+* com.apple.developer.kernel.increased-memory-limit: NO
+* com.apple.private.security.no-sandbox: NO
+[Debugging] Debug log enabled: YES
+[Pre-init] Restored game directory preference (default)
+[PLPreferences] Using isolated preferences from /var/mobile/Containers/Data/Application/1CA025DB-EFCF-43CA-854E-E47BFED12C21/Documents/instances/default/launcher_preferences.plist
+[VersionList] Got 923 versions
+[MCDL] SHA1 passed for 26.2.json
+[MCDL] Warning: JNA version required by 26.2 is 5.17.0 > 5.13.0, skipping JNA replacement.
+[MDCL] Skipped library org.lwjgl:lwjgl-freetype:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-freetype:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-freetype:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-freetype:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-freetype:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-freetype:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-freetype:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-glfw:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-glfw:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-glfw:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-glfw:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-glfw:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-glfw:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-glfw:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-jemalloc:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-jemalloc:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-jemalloc:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-jemalloc:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-jemalloc:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-jemalloc:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-jemalloc:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-openal:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-openal:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-openal:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-openal:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-openal:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-openal:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-openal:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-opengl:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-opengl:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-opengl:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-opengl:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-opengl:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-opengl:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-opengl:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-shaderc:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-shaderc:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-shaderc:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-shaderc:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-shaderc:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-shaderc:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-shaderc:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-spvc:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-stb:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-stb:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-stb:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-stb:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-stb:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-stb:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-stb:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-tinyfd:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-tinyfd:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-tinyfd:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-tinyfd:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-tinyfd:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-tinyfd:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-tinyfd:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-vma:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-vma:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl-vma:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-vma:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-vma:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl-vma:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl-vma:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl-vulkan:3.4.1
+[MDCL] Skipped library org.lwjgl:lwjgl-vulkan:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl-vulkan:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl:3.4.1:natives-linux
+[MDCL] Skipped library org.lwjgl:lwjgl:3.4.1:natives-macos
+[MDCL] Skipped library org.lwjgl:lwjgl:3.4.1:natives-macos-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl:3.4.1:natives-windows
+[MDCL] Skipped library org.lwjgl:lwjgl:3.4.1:natives-windows-arm64
+[MDCL] Skipped library org.lwjgl:lwjgl:3.4.1:natives-windows-x86
+[MDCL] Skipped library org.lwjgl:lwjgl:3.4.1:unsafe
+[JavaLauncher] Beginning JVM launch
+[JavaLauncher] Reading custom environment variables
+[JavaLauncher] Warning: skipped empty value custom env variable: 
+[JIT] Using computed JIT flags: 0x7
+[DyldLVBypass] init
+[DyldLVBypass] Using redirectFunctionMirrored
+[DyldLVBypass] found dyld_mmap at 0x183e60700
+[DyldLVBypass] hook dyld_mmap succeed!
+[DyldLVBypass] found dyld_fcntl at 0x183e604c8
+[DyldLVBypass] hook dyld_fcntl succeed!
+[JavaLauncher] RENDERER is set to auto
+[JavaLauncher] Looking for Java 25 or later
+[JavaLauncher] JAVA_HOME has been set to /private/var/mobile/Containers/Data/Application/1CA025DB-EFCF-43CA-854E-E47BFED12C21/Documents/java_runtimes/java-25-openjdk
+[JavaLauncher] Max RAM allocation is set to 3936 MB
+[JavaLauncher] Reading custom JVM flags
+[Init] Found JLI lib
+[Init] Calling JLI_Launch
+Input: Mouse connected!
+Input: Got mouse <GCMouse 0x118e0c780 'V-Apple Internal Keyboard / Trackpad'>
+Input: Mouse connected!
+Input: Got mouse <GCMouse 0x118945380 'V-Magic Trackpad'>
+Input: Mouse connected!
+Input: Got mouse <GCMouse 0x118946400 'V-UC Automouse'>
+Input: Mouse connected!
+Input: Got mouse <GCMouse 0x117dbd590 'V-MX Master 3S M'>
+OpenJDK 64-Bit Server VM warning: Option UseCompressedClassPointers was deprecated in version 25.0 and will likely be removed in a future release.
+[JIT26] Requesting 240 MB for JIT mapping
+[JIT26] Got JIT mapping 0x153510000 from debugger
+[JIT26] mapping at RW=0x16d58c000, RX=0x153510000
+WARNING: Unknown module: cpw.mods.bootstraplauncher specified to --add-exports
+WARNING: package sun.security.action not in java.base
+PatchJNAAgent: premain called
+Arc Capes DNS Injector
+Parts of Alibaba's DCM library were used, please read https://github.com/alibaba/java-dns-cache-manipulator/blob/main/README.md for more info
+Added DNS cache entry: s.optifine.net/23.95.137.176
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::staticFieldBase has been called by com.github.caciocavallosilano.cacio.ctc.CTCPreloadClassLoader
+WARNING: Please consider reporting this to the maintainers of class com.github.caciocavallosilano.cacio.ctc.CTCPreloadClassLoader
+WARNING: sun.misc.Unsafe::staticFieldBase will be removed in a future release
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by net.kdt.pojavlaunch.value.MinecraftAccount in an unnamed module (file:/private/var/containers/Bundle/Application/581F944C-6412-4F3D-A480-77FA4EC4445A/AmethystGraft.app/libs/launcher.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Launching Minecraft 26.2
+Args init finished. Now starting game
+2026-11-01T04:35:04.831085Z main ERROR Reconfiguration failed: No configuration found for '26ba2a48' at 'null' in 'null'
+#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x000000013d17eecc, pid=2278, tid=83971
+#
+# JRE version: OpenJDK Runtime Environment (25.0.4) (build 25.0.4-internal-adhoc.ci.openjdk-25)
+# Java VM: OpenJDK 64-Bit Server VM (25.0.4-internal-adhoc.ci.openjdk-25, mixed mode, tiered, compressed oops, g1 gc, bsd-aarch64)
+# Problematic frame:
+# V  [libjvm.dylib+0x57eecc]  jni_GetStaticObjectField+0xe0
+#
+# No core dump will be written. Core dumps have been disabled. To enable core dumping, try "ulimit -c unlimited" before starting Java again
+#
+# An error report file with more information is saved as:
+# /private/var/mobile/Containers/Data/Application/1CA025DB-EFCF-43CA-854E-E47BFED12C21/Documents/instances/default/hs_err_pid2278.log
+#
+# If you would like to submit a bug report, please visit:
+#   https://bugreport.java.com/bugreport/crash.jsp
+#
+abort() called
+# [ timer expired, abort... ]
+abort() called
