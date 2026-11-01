@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0072`.
+**Next evidence ID:** `EV-0073`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1950,6 +1950,30 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** M3a gate 1 of 3. Gates 2 (immersive space + ARKit poses) and 3 (MC/JVM/JIT/Vulkan inside the native app) remain NOT RUN; ADR-0010 chooses the native app route.
 
+### EV-0072 — M3a gate 2 PARTIAL: native immersive space + CompositorServices render loop work on D1; stereo presentation still missing (passthrough)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T07:45:21-10:00 |
+| Commit | `b4ac6ae2c67f9e480405f84b7684355502f8a9fc` |
+| Dirty state | runtime/probes/m3a-immersive/ |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. build/sign native visionOS probe (dev.vrmc.vrmc), install over the existing app, launch, tap Open immersive space
+2. CompositorLayer + Metal clear per-eye test pattern + encodePresent; ARKit world tracking; log to Documents/m3a-probe.log
+
+**Expected:** immersive red/green stereo test pattern visible; ARKit anchor logged
+
+**Actual:** immersive space opened and the CompositorServices render loop ran 2700+ frames without a crash (frame 2400/2700 logs), but the user saw passthrough instead of the test pattern and the ARKit anchor stayed '(pending)'. Three crash modes were fixed (premature endSubmission, missing cp_drawable_encode_present, main-thread blocking watchdog); remaining: device anchor/presentation-time wiring. PARTIAL.
+
+**Artifacts:** evidence/EV-0072/m3a-probe.log (7429c689f551); evidence/EV-0072/summary.log (bb6166ce7e0b); evidence/EV-0072/latest.ips (1d892683991f)
+
+**Limitations:** Next: port probe to the Apple C sample structure (cp_drawable_set_device_anchor + cp_time_to_cf_time_interval) and verify visual presentation before marking gate 2 PASS.
+
 ---
 
 ## 7. Status dashboard
@@ -1964,6 +1988,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
 | **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
+| **M3 milestone** | **IN PROGRESS (M3a)** | Gate 1 PASS (EV-0071); **gate 2 PARTIAL (EV-0072)**: native immersive space opens + CompositorServices loop renders 2700+ frames without crash, but stereo content is not presented (passthrough) and ARKit anchor/presentation-time wiring is missing. Gate 3 (MC/JVM hosting in native app) NOT RUN. VRMC launcher restored after the probe. |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -2071,3 +2096,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0067 (`FAIL`)**: first W6 device attempt reached provider init + bridge handshake + eye targets, then crashed on the host-only identity guard applied to static component transforms; fix: identity component offsets + tracking-pose validity guard. **EV-0068 (`PASS`)**: after the fix, device provider init + stereo render passes (LEFT/RIGHT) + 1501+ tracking frames + no SteamVR; device used Fabric Loader **0.20.1** (pin is 0.19.3 → compatibility candidate; pin/ADR decision pending). Game remains unplayable by design: M3 compositor/head tracking and M4 input are NOT RUN. Next ID `EV-0069`. |
 | 2026-11-01 | **EV-0069 (`PASS`): M2-W5 device eye handoff** — ABI v2 `vrmc_export_mtl_texture` on D1: `VkImage=0x139dccf00 -> MTLTexture=0x7107982300`, submitted; clean run. **EV-0070 (`PASS`): M2 milestone CLOSED** — all exit criteria evidenced; M2 acceptance matrix added. M3 compositor/head tracking and M4 input remain NOT RUN (game not playable yet). Fabric 0.20.1 vs pin 0.19.3 carry-over. Next ID `EV-0071`. |
 | 2026-11-01 | **EV-0071 (`PASS`): M3 started, M3a gate 1** — `PLATFORM=11` native visionOS payload builds (platform VISIONOS, relabelled natives). **NOT RUN:** native app launch on D1, CompositorServices immersive space/ARKit, MC/JVM/JIT/Vulkan hosting in the native app. M2 remains CLOSED; M3 plan `docs/mvp/M3_PLAN.md`, ADR-0010 (native app route; companion fallback only if MC hosting fails). Next ID `EV-0072`. |
+| 2026-11-01 | **EV-0072 (`PARTIAL`): M3a gate 2** — native visionOS immersive space + CompositorServices loop work (2700+ frames; three crash modes fixed: premature endSubmission, missing `cp_drawable_encode_present`, main-thread watchdog), but the user sees passthrough instead of the red/green test pattern and the ARKit anchor never resolves. Next: port to the C sample structure with `cp_drawable_set_device_anchor` + presentation-time conversion; then gate 3. VRMC launcher restored after the probe. Next ID `EV-0073`. |
