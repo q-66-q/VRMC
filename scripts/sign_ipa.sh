@@ -2,12 +2,12 @@
 # Re-sign an .app bundle for a development team / provisioning profile.
 # Used for Amethyst, StikDebug and our own M1 app builds.
 #
-# Usage: IDENTITY="Apple Development: ..." XCENT=/path/app.xcent PROFILE=/path/profile \
-#        BUNDLE_ID=dev.vrmc.vrmc ./scripts/sign_ipa.sh /path/App.app
+# Usage (one line): BUNDLE_ID=... TEAM_ID=... IDENTITY=... XCENT=... PROFILE=... scripts/sign_ipa.sh App.app
 set -euo pipefail
 
 APP=${1:?usage: sign_ipa.sh <App.app>}
 BUNDLE_ID=${BUNDLE_ID:-dev.vrmc.vrmc}
+TEAM_ID=${TEAM_ID:-${VRMC_TEAM_ID:-}}
 IDENTITY=${IDENTITY:?set IDENTITY to a codesigning identity}
 XCENT=${XCENT:?set XCENT to the Xcode-generated .xcent}
 PROFILE=${PROFILE:?set PROFILE to the .mobileprovision}
@@ -28,4 +28,4 @@ done < <(find "$APP" -type f)
 cp "$PROFILE" "$APP/embedded.mobileprovision"
 codesign --force --sign "$IDENTITY" --entitlements "$XCENT" "$APP" >/dev/null 2>&1
 codesign --verify --deep --strict "$APP"
-echo "[sign] ok: $n Mach-O files; bundle=$BUNDLE_ID"
+echo "[sign] ok: $n Mach-O files; bundle=$BUNDLE_ID; team=$TEAM_ID"

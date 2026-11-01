@@ -469,7 +469,7 @@ must not be forgotten once M1 starts — it is a dated M1 obligation, not an opt
 | `scripts/bootstrap.sh` | Prerequisite check + local dirs (no downloads) | IMPLEMENTED (2026-10-31) |
 | `scripts/log_evidence.sh` | Allocate EV ID, bundle artifacts, write manifest + entry template | IMPLEMENTED (self-tested 2026-10-31) |
 | `scripts/build_jre.sh` | Build OpenJDK 25 for xros | NOT IMPLEMENTED |
-| `scripts/build_launcher.sh` | Build the visionOS app | NOT IMPLEMENTED |
+| `scripts/build_launcher.sh` | Build the visionOS app | NOT IMPLEMENTED — recipe proven manually (ADR-0008/EV-0036); W1 must commit the reproducible script |
 | `scripts/build_provider.sh` | Build the provider mod jar | NOT IMPLEMENTED |
 | `scripts/test_local.sh` | Run host-side unit tests | NOT IMPLEMENTED |
 | `scripts/install_device.sh` | Install to a paired Vision Pro | NOT IMPLEMENTED |
@@ -625,3 +625,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | T3 build prep: recursive clone of `AngelAuraMC/Amethyst-iOS` at `f98c413` (Makefile `VERSION := 1.2.0`, 4 submodules) + Temurin/Zulu JDK 8 toolchain obtained; `make PLATFORM=2 payload` started. T5 source finding: Amethyst gates `GCMouse` deltas on `windowScene.pointerLockState.locked`, which visionOS does not provide — documented as the mouse/cursor root cause candidate in `M1_PLAN.md` W5. |
 | 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — source-built Amethyst v1.2.0 (167 binaries re-signed, app tree hash recorded) launched under StikDebug JIT and rendered MC 26.2’s Vulkan world on D1. Build composition and remaining M1 work recorded in `M1_PLAN.md` / `DEVICE_STACK.md`. |
 | 2026-10-31 | **EV-0037 (`PASS`): T4 app-side defaults** — the launcher now forces the Vulkan backend and clears `startedCleanly` before every launch, so a reset `options.txt` (`default`/`false`) still boots MC 26.2’s Vulkan world on D1. T1 hashes completed (MoltenVK 1.4.3 dylib, MC version JSON, source-build app trees). |
+| 2026-10-31 | Sprint-1 close-out: **T1 EV-0038** (stack pins+sha256, `check_versions.sh` 8/8), **T2 EV-0039** (repo scripts parameterized/re-runnable), **T5 EV-0040 PARTIAL** (visionOS mouse-delta patch installed; follow-up `task-1`), **T3 EV-0041** (ADR-0008: build Amethyst 1.2.0 from source and brand `dev.vrmc.vrmc`; pin route only as fallback). T4 (fresh-install provisioning) and T6 (30-minute soak, now defined) remain open. |

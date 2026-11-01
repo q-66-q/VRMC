@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0038`.
+**Next evidence ID:** `EV-0042`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1321,6 +1321,72 @@ launch via StikDebug with `amethyst.js` and press Play.
 
 **Artifacts:** `evidence/EV-0037/latestlog.txt`, `summary.log`.
 
+### EV-0038 — M1 T1: stack pinned with sha256 for Amethyst, StikDebug, OpenJDK, LWJGL, MoltenVK, MC and amethyst.js; check_versions green
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:44:00-10:00 |
+| Status | `PASS` |
+
+**Actual:** `versions.env` rewritten with the M1 pins and per-component sha256 (Amethyst source-build
+tree `3d3a7c18…`, StikDebug IPA `f3b4e1ea…`, JRE tree `7393cf1a…`, LWJGL jars `e6ff1d07…` + natives
+`e5cd4f30…`, MoltenVK `03198606…`, MC JSON `267d4b17…`, `amethyst.js` `7fb4b14b…`); env file made
+bash-sourceable; `scripts/check_versions.sh` → **8 passed, 0 failed**.
+
+**Artifacts:** `evidence/EV-0038/versions.env`, `check_versions.out`, `summary.log`.
+
+---
+
+### EV-0039 — M1 T2: re-sign, install, push-JIT, MC-options and log-capture scripts live in scripts/ and are re-runnable
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:46:27-10:00 |
+| Status | `PASS` |
+
+**Actual:** added `scripts/install_device.sh` (DEVICE/UNINSTALL_BUNDLE_ID/DRY_RUN) and
+`scripts/README.md`; parameterized `sign_ipa.sh` (BUNDLE_ID/TEAM_ID/IDENTITY/XCENT/PROFILE) and the
+push/options/capture scripts (DEVICE + bundle ids). Rehearsals: sign copy of DummyProfile.app (3
+Mach-O, team <TEAM_ID>), re-push `amethyst.js` (device hash matches `7fb4b1…`), re-run
+`set_mc_options` (vulkan/true), capture logs, DRY_RUN install. Push hit one transient device disconnect
+and succeeded on retry.
+
+**Artifacts:** `evidence/EV-0039/summary.log`, rehearsal logs.
+
+---
+
+### EV-0040 — M1 T5: visionOS mouse-delta fix implemented; verdict PARTIAL pending post-patch on-headset verification
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:46:43-10:00 |
+| Status | `PARTIAL` |
+
+**Actual:** root cause: `GCMouse` deltas gated on `windowScene.pointerLockState.locked` (visionOS
+provides no pointer lock). Patch forwards deltas when `isGrabbing` or virtual mouse is enabled;
+installed in app tree `b1955fac…`. Post-patch mouse behaviour was not confirmed on the headset during
+the sprint (device was relaunched with newer builds). **T5 closed as PARTIAL per directive**; follow-up
+`task-1` (T5-FUP1) covers cursor visibility / edge-delta / grab-transition verification.
+
+**Artifacts:** `evidence/EV-0040/summary.log`, `mouse-delta.patch`.
+
+---
+
+### EV-0041 — M1 T3: app-shell route decided — build Amethyst 1.2.0 from source, brand as dev.vrmc.vrmc (ADR-0008)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:47:06-10:00 |
+| Status | `PASS` |
+
+**Actual:** ADR-0008 accepted: build Amethyst 1.2.0 (reference tree + submodules), apply VRMC patches,
+brand `dev.vrmc.vrmc`; pin/re-sign route only as an emergency fallback that requires a recorded blocker
+and transition deadline. Backed by EV-0036 (source build runs MC 26.2 Vulkan world), EV-0037 and
+EV-0040. W1 remaining: branding/display name+icon, repo-committed reproducible build script, first-run
+layer, clean-container acceptance.
+
+**Artifacts:** `evidence/EV-0041/summary.log`, `docs/adr/0008-m1-app-shell-build-from-source.md`.
+
 ---
 
 ## 7. Status dashboard
@@ -1334,7 +1400,10 @@ launch via StikDebug with `amethyst.js` and press Play.
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
-| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); **T4 app-side Vulkan defaults validated from a reset options.txt (EV-0037)**; fresh-install/soak remain |
+| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041 |
+| M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
+| M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
+| M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch installed; post-patch behavior unverified; follow-up task-1 (EV-0040) |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1351,7 +1420,8 @@ launch via StikDebug with `amethyst.js` and press Play.
 
 | Blocker | Owner | Unblock condition |
 |---|---|---|
-| M1 obligation: 30-minute device soak | Lead/user | Deferred from M0 per Decision 45=A. EV-0035 (4m20s) is feasibility evidence, not the gate; record the 30-min M1 soak EV when headset time is available. |
+| M1 T6: 30-minute device soak | Lead/user | Defined as the M1 exit gate (K4 precursor): continuous 30-min in-world session, no crash, no watchdog kill, thermal state recorded. Blocked on device time (needs a 30-min on-headset session). EV-0035 is feasibility only. |
+| M1 T4: fresh-install acceptance | Lead/user | App-side defaults + bundled JRE done (EV-0037); needs a clean container (new bundle id) and on-device account + MC 26.2 download + world creation. Blocked on device operation. |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -1399,7 +1469,8 @@ launch via StikDebug with `amethyst.js` and press Play.
 | 2026-10-31 | **M0 formally CLOSED on EV-0034** (Decision 45=A): S2's M0 gate is device world render only; the 30-minute soak is now an **M1 exit gate** (EV-0035 = feasibility, not the gate). Recorded in AGENT §4.5/§5/§6/§7/§11/§13 and this dashboard. |
 | 2026-10-31 | M1 stack pinning (Decision 46=A+C fact record): Amethyst → 1.2.0, MoltenVK → 1.4.3, StikDebug script → amethyst.js; ADR-0007 records the changes and evidence impact. |
 | 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — our own source-built Amethyst v1.2.0 (167 binaries re-signed) boots MC 26.2 to a Vulkan/MoltenVK world on D1. |
-| 2026-10-31 | EV-0037 (`PASS`): app-side defaults force Vulkan + clear the crash marker; MC boots from a deliberately reset options.txt. T1 hashes completed. Next ID `EV-0038`. |
+| 2026-10-31 | EV-0037 (`PASS`): app-side defaults force Vulkan + clear the crash marker; MC boots from a deliberately reset options.txt. |
+| 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`, stack pins/hashes, check_versions 8/8), T2 EV-0039 (`PASS`, repo scripts), T5 EV-0040 (`PARTIAL`, mouse patch installed, follow-up task-1), T3 EV-0041 (`PASS`, ADR-0008 build-from-source). T4 and T6 remain open, blocked on device operations. Next ID `EV-0042`. |
 
 ---
 

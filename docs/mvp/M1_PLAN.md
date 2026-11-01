@@ -63,7 +63,7 @@ Acceptance criteria:
 2. **T2 move ad-hoc scripts into the repo** — **done 2026-10-31**: `scripts/sign_ipa.sh`,
    `scripts/set_mc_options.sh`, `scripts/push_jit_script.sh`, `scripts/capture_device_logs.sh`, plus
    `runtime/jit/amethyst.js` (GPL-3.0, notices updated). Remaining: exercise them in a full install flow.
-3. **T3 choose W1 route** and produce the first `dev.vrmc.vrmc` app bundle — **build path done (EV-0036)**: our source build boots MC 26.2; still to brand/re-sign as `dev.vrmc.vrmc` and run the clean-container acceptance:
+3. **T3 choose W1 route** and produce the first `dev.vrmc.vrmc` app bundle — **DECIDED (ADR-0008, EV-0041)**: build from source; build path boots MC 26.2 (EV-0036); still to brand/re-sign as `dev.vrmc.vrmc` and run the clean-container acceptance:
    - preferred: build Amethyst from source with submodules and our branding;
    - fallback: pin the tested 1.2.0 binary, re-sign as our bundle id, add first-run shell.
 4. **T4 first-run provisioning** — **app-side options done (EV-0037)**: `MinecraftOptionUtils` now forces
@@ -91,7 +91,8 @@ Acceptance criteria:
 
 **Decision: route (a) — build Amethyst from source with submodules, brand it as our app
 (`dev.vrmc.vrmc`), and add the VRMC first-run layer. Route (b) — pin the tested 1.2.0 binary and
-re-sign it — is retained only as an immediate boot-test vehicle until (a) is reproducible.**
+re-sign it — is retained only as an emergency fallback; a hard blocker must be recorded with a
+transition deadline. Confirmed by ADR-0008 (2026-10-31).**
 
 Rationale:
 - (b) cannot carry our UI/first-run provisioning, icon/branding, or the input fixes without binary
@@ -110,8 +111,10 @@ the Vulkan path). 167 Mach-O were re-signed as `dev.vrmc.amethyst`; our own buil
 rendered the Vulkan world (EV-0036). Remaining for W1/T3: brand it as `dev.vrmc.vrmc`, add the first-run
 layer, and run the fresh-container acceptance.
 
-Sprint-1 follow-through: clone/submodules → build `payload` → brand/sign `dev.vrmc.vrmc` → clean-install
-→ re-run the EV-0034 flow.
+Sprint-1 status: **T3 closed (EV-0041)** — build path proven (EV-0036), app-side defaults (EV-0037),
+scripts (EV-0039). **W1 remaining:** brand `dev.vrmc.vrmc` (Info.plist name/icon/bundle id +
+entitlements/profile), commit a reproducible `scripts/build_launcher.sh`, first-run layer + JIT readiness,
+then clean-container acceptance (T4).
 
 ## 6. M1 startup decisions (recorded, not M0 blockers)
 
@@ -133,3 +136,21 @@ See `docs/mvp/DEVICE_STACK.md` for the full table and hash method. Recorded: Sti
 hash (not cached on device; `ci.angelauramc.dev` unreachable from the build host), MoltenVK 1.4.3
 dylib hash (same IPA), MC 26.2 version JSON hash, BundleScriptMap re-check. Ask the user for the
 1.2.0 IPA or capture it from their AltSource/SideStore install once available.
+
+
+## 8. Sprint-1 close-out status (2026-10-31)
+
+| Item | Status | Evidence / blocker |
+|---|---|---|
+| T1 stack pinning + hashes | **DONE** | EV-0038; `versions.env`, `check_versions.sh` 8/8 PASS |
+| T2 repo scripts + parameterization | **DONE** | EV-0039; `scripts/README.md`, re-run rehearsals |
+| T3 app-shell route | **DONE** | ADR-0008 + EV-0041 (build from source, brand `dev.vrmc.vrmc`) |
+| T5 mouse verification | **CLOSED PARTIAL** | EV-0040; patch installed, post-patch behavior unverified; follow-up `task-1` (T5-FUP1) |
+| T4 first-run provisioning | **IN PROGRESS** | app-side Vulkan/crash defaults + bundled JREs done (EV-0037); fresh-install acceptance blocked on device re-setup (account + MC 26.2 download + world) |
+| T6 30-minute device soak (K4 precursor) | **DEFINED / BLOCKED** | needs a 30-min world session on D1 with no crash/watchdog kill and thermal state recorded; blocked on device time |
+
+### T6 definition (as required)
+
+**T6 = 30-minute device soak (K4 precursor):** one continuous 30-minute in-world session on D1 with no
+crash, no watchdog kill, and the thermal state recorded; EV on completion. It is the M1 exit gate
+deferred from M0 by Decision 45=A.
