@@ -60,8 +60,9 @@ alias. EV-0004 records the host-only pre-test below. Internal device reproductio
   (`build.sh --check`, EV-0007). Build/signing pass with an AVP profile (EV-0011). A console-style
   harness (`JLI_Launch` from `main`, no UI) starts the JVM on D1 and traps at `BreakGetJITMapping`
   without an enabler (EV-0018). **Divergence note:** if D1's JIT26 behavior differs from the macOS host
-  (no TXM trap, different failure), record it for S1b. Next: launch through StikDebug with a patched
-  `universal.js` implementing allocation-style `0x69`; the built-in script rejects legacy `0x69`.
+  (no TXM trap, different failure), record it for S1b. Next: launch **from inside StikDebug's Enable JIT
+  flow** (a Home tap cannot enable JIT) and select the patched `universal.js` (allocation-aware `0x69`).
+  Post-patch launches still trapped, so JIT was not active (EV-0019).
 - **S1b (target, 1.5–3 weeks).** Native visionOS harness with the relabelled+re-signed JRE; request
   JIT through the on-device enabler (poll `CS_DEBUGGED`, then `JLI_Launch`). A **custom** script is
   required because the JVM's `0x69` request is allocation-style (`x0 = size`), unlike the enabler's

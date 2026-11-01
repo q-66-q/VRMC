@@ -80,8 +80,8 @@ comfort polish.
 - Spike progress: S1 host pre-test `PARTIAL` (EV-0004); S2 host boot `PARTIAL` (EV-0005); S3
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
   fork); S1a harness scaffolded (EV-0007), device build `BLOCKED` (EV-0008: AVP must be unlocked).
-  S3's M0 gate is closed; S1a's console harness starts the JVM on D1 and traps at the JIT26 request
-  without an enabler (EV-0018); S2 device capability passed (EV-0016), render stages remain `NOT RUN`.
+  S3's M0 gate is closed; S1a's console harness starts the JVM on D1 (EV-0018) but JIT was not active in
+  the post-patch launches (EV-0019); S2 device capability passed (EV-0016), render stages `NOT RUN`.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -578,3 +578,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0015: Amethyst removed with approval, S1AProbe installed on D1. Correction: the crash is UIKit UIScene-adoption assertion, not JIT26; both probe apps need UIScene before any JVM/JIT conclusion. |
 | 2026-10-31 | EV-0016 (`PASS`, D1): MoltenVK 1.4.2 on visionOS (Apple M2) exposes all 5 required extensions and 9 required features (`maxPushDescriptors=287`). Both probes now adopt UIScene; S1AProbe bundle paths fixed. |
 | 2026-10-31 | EV-0017/0018: fixed the S1a harness by calling `JLI_Launch` from `main()` (no UI); console harness starts the JVM and traps at `BreakGetJITMapping` without an enabler. Patched StikDebug `universal.js` for allocation-style `0x69`; JIT run pending. |
+| 2026-10-31 | EV-0019 (`FAIL`): post-patch launches still trap at the JIT26 request; JIT was not active (Home launch or script not applied). Script-selection/launch-flow confirmation is the next step. |
