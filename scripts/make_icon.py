@@ -36,11 +36,11 @@ def glyph(im, fg=(255, 255, 255), accent=(64, 224, 208)):
     text = "VRMC"
     f = font(int(s*0.17))
     bb = d.textbbox((0, 0), text, font=f)
-    d.text(((s-(bb[2]-bb[0]))/2 - bb[0], int(s*0.40) - (bb[3]-bb[1])/2 - bb[1]), text, font=f, fill=fg)
+    d.text(((s-(bb[2]-bb[0]))/2 - bb[0], int(s*0.47) - (bb[3]-bb[1])/2 - bb[1]), text, font=f, fill=fg)
     sub, f2 = "VISION", font(int(s*0.045))
     bb2 = d.textbbox((0, 0), sub, font=f2)
-    d.text(((s-(bb2[2]-bb2[0]))/2 - bb2[0], int(s*0.60)), sub, font=f2, fill=accent)
-    cx, cy, r = int(s*0.5), int(s*0.30), int(s*0.075)
+    d.text(((s-(bb2[2]-bb2[0]))/2 - bb2[0], int(s*0.64)), sub, font=f2, fill=accent)
+    cx, cy, r = int(s*0.5), int(s*0.245), int(s*0.062)
     pts = [(cx, cy-r), (cx+r, cy-r//2), (cx+r, cy+r//2), (cx, cy+r), (cx-r, cy+r//2), (cx-r, cy-r//2)]
     d.polygon(pts, outline=accent, width=int(s*0.008))
     for a, b in [((cx, cy-r), (cx, cy)), ((cx-r, cy-r//2), (cx, cy)), ((cx+r, cy-r//2), (cx, cy))]:

@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0055`.
+**Next evidence ID:** `EV-0056`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1585,6 +1585,20 @@ session.
 
 **Artifacts:** `evidence/EV-0054/summary.log`.
 
+### EV-0055 — M1 W1: reproducible build re-verified with VRMC branding assets and updated patch set
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:39:00-10:00 |
+| Status | `PASS` |
+
+**Actual:** `scripts/build_launcher.sh` ran from a fresh reference tree with the 11-file VRMC patch and
+`assets/branding/` icon installation: exit 0, payload version 1.2.0 (Java 25/LWJGL 3.4.1), tree
+`sha256 6c17e7b5…`. Icon files were regenerated after this run (layout tweak); branding-copy mechanics
+unchanged.
+
+**Artifacts:** `evidence/EV-0055/buildtest.log`, `summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1624,7 +1638,7 @@ session.
 | M1 W3 — JIT readiness | `PASS` | explicit TXM alert + `[JIT] preflight` log (EV-0050); no-JIT flow verified (EV-0051) |
 | M1 W7 — save/relaunch | `PASS` | clean save/quit + reload preserved (EV-0052) |
 | M1 W6 — observability | `PASS` | in-app Send logs / Log output share + repo capture scripts (EV-0053) |
-| M1 W1 polish — icon + first-run | `PARTIAL` | icon assets + first-run checklist built/signed (EV-0054); install pending device wake |
+| M1 W1 polish — icon + first-run | `PARTIAL` | icon assets + first-run checklist built/signed (EV-0054); reproducible build re-verified with branding (EV-0055); install pending device wake |
 | M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
@@ -1677,7 +1691,7 @@ session.
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
 | 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
-| 2026-11-01 | EV-0051/0052 (W3/W7), **EV-0053 (W6 PASS)**, **EV-0054 (W1 icon/first-run built; install pending device wake)**. Next ID `EV-0055`. |
+| 2026-11-01 | EV-0051/0052 (W3/W7), EV-0053 (W6 PASS), EV-0054 (W1 icon/first-run built; install pending), **EV-0055 (W1 reproducible build + branding PASS)**. Next ID `EV-0056`. |
 
 ---
 
