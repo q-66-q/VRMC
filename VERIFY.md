@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0035`.
+**Next evidence ID:** `EV-0036`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `PASS` — EV-0021 (compat: five cold launches) + EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PARTIAL` — **D1 MC 26.2 world renders on Vulkan/MoltenVK (EV-0034)**; 30-min device soak pending; host 21-min world EV-0014; MoltenVK xros EV-0010; D1 capability EV-0016; render/load/surface/swapchain EV-0025–EV-0028 |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PARTIAL` — **D1 MC 26.2 world renders on Vulkan/MoltenVK (EV-0034)** + 4m20s clean session (EV-0035); **30-min device soak deferred** (user stopped early); host 21-min world EV-0014; D1 capability EV-0016; render/surface/swapchain EV-0025–EV-0028 |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -1256,6 +1256,24 @@ ST-S2 device pass (next evidence ID).
 
 **Artifacts:** `evidence/EV-0034/latestlog.txt`, `summary.log`.
 
+### EV-0035 — S2 device world session: 4m20s of MC 26.2 Vulkan on D1 with a clean save and shutdown (30-min soak deferred)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T20:32:38-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** continue the EV-0034 world session; capture the MC log; measure duration and shutdown
+behaviour.
+
+**Actual:** joined 20:27:54, left/paused 20:32:14, stopped 20:32:16 = **4m20s in-world**, clean chunk
+saves and `Stopping!`; no exception or crash. The user stopped early, so the 30-minute soak is deferred.
+Mouse/cursor behaviour was abnormal on visionOS (noted for M1 input work; user says it does not matter
+now).
+
+**Artifacts:** `evidence/EV-0035/latestlog.txt`, `summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1267,7 +1285,7 @@ ST-S2 device pass (next evidence ID).
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `PASS (device world)` | Host boot EV-0005 + 21-min world EV-0014; D1: capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak pending |
+| Graphics (Vulkan/MoltenVK) | `PASS (device world)` | Host boot EV-0005 + 21-min world EV-0014; D1: capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**, **4m20s clean session EV-0035**; 30-min soak deferred |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1284,7 +1302,7 @@ ST-S2 device pass (next evidence ID).
 
 | Blocker | Owner | Unblock condition |
 |---|---|---|
-| S2 device 30-min soak | Lead/user | MC 26.2 Vulkan world renders on D1 (EV-0034); keep the world running ~30 min to close ST-S2 (next EV) |
+| S2 device 30-min soak | Lead/user | World renders + 4m20s clean session (EV-0034/EV-0035); user stopped early. Re-run when convenient for the ST-S2 30-min criterion (deferred, not failed). |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -1327,7 +1345,8 @@ ST-S2 device pass (next evidence ID).
 | 2026-10-31 | EV-0031 (`PARTIAL`): external Java 25 + always-attached JIT + dyld bypass work; MC 26.2 reaches `NativeLibrariesBootstrap` but aborts on missing `org.lwjgl.util.spvc.Spvc` (release bundles LWJGL 3.3.3). |
 | 2026-10-31 | EV-0032 (`FAIL`): grafting 3.4.1 Java/natives clears `spvc` but crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (JVM SIGSEGV). Needs a current-source Amethyst rebuild; **problem exported to `export/` + zip**. |
 | 2026-10-31 | EV-0033 (`PARTIAL`): StikDebug 3.2.0 reinstalled under the existing bundle id (pairing/DDI/scripts preserved); `amethyst.js` pushed. |
-| 2026-10-31 | **EV-0034 (`PASS`): first Minecraft 26.2 world on Apple Vision Pro** — Vulkan via MoltenVK 1.4.3, LWJGL 3.4.1, JIT26 mapping, world “New World” joined at 20:27:54. 30-min soak running. Next ID `EV-0035`. |
+| 2026-10-31 | **EV-0034 (`PASS`): first Minecraft 26.2 world on Apple Vision Pro** — Vulkan via MoltenVK 1.4.3, LWJGL 3.4.1, JIT26 mapping, world “New World” joined at 20:27:54. |
+| 2026-10-31 | EV-0035 (`PARTIAL`): 4m20s in-world with clean save/shutdown, no crash; user stopped early so the 30-min soak is deferred. M1 planning starts while the soak remains outstanding. Next ID `EV-0036`. |
 
 ---
 

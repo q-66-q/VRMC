@@ -84,8 +84,9 @@ comfort polish.
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
   fork); S1a scaffold EV-0007. S3's M0 gate is closed; S1's internal reproduction gate is now met in
   compatibility and native modes; S1b native JIT `PASS` (EV-0024); S2 device graphics primitives `PASS`
-  (EV-0025–EV-0028) and **MC 26.2 renders a world on D1 through Vulkan/MoltenVK (EV-0034)**; only the
-  30-minute device soak remains for the ST-S2 pass. The re-signed Amethyst launcher (bundled UniversalJIT26, MoltenVK,
+  (EV-0025–EV-0028) and **MC 26.2 renders a world on D1 through Vulkan/MoltenVK (EV-0034)** with a
+  4m20s clean session (EV-0035); the 30-minute device soak is **deferred** (user stopped early) and is
+  the only outstanding ST-S2 item. The re-signed Amethyst launcher (bundled UniversalJIT26, MoltenVK,
   Vulkan bridge) installs and runs on D1 (EV-0029), giving an MC-on-device test path.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
@@ -335,7 +336,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | Spike | Question | Hardness | Status | Fallback |
 |---|---|---|---|---|
 | S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `PASS` — EV-0021 (compat, five cold runs) and EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) | Pivot to AOT; launcher scope reduces |
-| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `PARTIAL` — **D1 MC 26.2 world renders (EV-0034)**; 30-min soak pending; host boot EV-0005 + 21-min world EV-0014; D1 render/surface/swapchain EV-0025–EV-0028 | GL/LTW→ANGLE path |
+| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `PARTIAL` — **D1 MC 26.2 world renders (EV-0034)** + 4m20s clean session (EV-0035); 30-min soak deferred; host EV-0005/EV-0014; D1 EV-0025–EV-0028 | GL/LTW→ANGLE path |
 | S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
 | S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
 | S5 | PSVR2 + hands drive all P0 actions | MEDIUM | `NOT RUN` | Hands-only MVP |
@@ -406,7 +407,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. **EV-0021 `PASS` (compat, five cold runs)** and **EV-0024 `PASS` (native visionOS, JIT26 mapping + tier 3/4 + `HELLOJIT`)**; the relabelled iOS JRE removes the fresh-xros-build need | `PASS` EV-0021 + EV-0024; S2 device render next | 3–4 wk (done inside M0) |
-| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | Host EV-0005/EV-0014; D1 capability EV-0016; render/surface/swapchain EV-0025–EV-0028; **D1 MC 26.2 world EV-0034**; 30-min soak pending | 2–3 wk |
+| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | Host EV-0005/EV-0014; D1 capability EV-0016; render/surface/swapchain EV-0025–EV-0028; **D1 MC 26.2 world EV-0034**; 4m20s clean session EV-0035; 30-min soak deferred | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
 | S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |

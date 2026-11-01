@@ -132,7 +132,7 @@ visionOS?
 5. GLFW stub + `MacosUtil` shadow + CAMetalLayer + `org.lwjgl.vulkan.libname`; boot to title on D1. **Progress:** offscreen render PASS (EV-0025), natives load PASS (EV-0026), CAMetalLayer VkSurfaceKHR PASS (EV-0027); swapchain+present PASS (EV-0028). **MC boot/title and a Vulkan world are now PASS on D1 (EV-0034)**; the Java GLFW stub is therefore working
    (requires the S1/C3 JVM).
 6. World render, F3 screenshot, 30-minute stability -> S2 EV; otherwise document the blocker and
-   **World render PASS on D1 (EV-0034); 30-minute soak in progress; screenshot via devicectl is unavailable on visionOS.**
+   **World render PASS on D1 (EV-0034); 4m20s clean session (EV-0035); 30-minute soak deferred (user stopped early); screenshot via devicectl is unavailable on visionOS.**
    invoke the fallback ADR.
 
 **Prerequisites.** MC 26.2 client/libraries/assets (user-owned), Temurin 25 for the host stage,
