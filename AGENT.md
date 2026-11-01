@@ -91,9 +91,10 @@ comfort polish.
   renders a Vulkan world on D1 (EV-0034) with a 4m20s clean session (EV-0035); the 30-minute soak is
   deferred. **M0 formally closed as of EV-0034** (Decision 45=A); the 30-minute soak is now an M1 gate.
   **M1 execution plan: `docs/mvp/M1_PLAN.md`** (launcher shell, runtime provisioning, JIT readiness,
-  MC install, input, soak). **Our own source-built Amethyst v1.2.0 boots MC 26.2 to a Vulkan/MoltenVK
-  world on D1 (EV-0036)**; the remaining M1 work is branding/clean-install, app-side defaults, input,
-  and the 30-minute soak.
+  MC install, input, soak). **M1 is CLOSED (EV-0057)**: source-built Amethyst v1.2.0 branded as VRMC
+  boots MC 26.2 to a Vulkan/MoltenVK world (EV-0036/EV-0043), JIT readiness UX (EV-0051), 30-minute
+  soak (EV-0044), save/relaunch (EV-0052). **M2 started (EV-0058)**: `docs/mvp/M2_PLAN.md`, native
+  bridge ABI v1 stub, provider mod skeleton — next is the S4a Vulkan→Metal eye-handoff spike.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -438,8 +439,8 @@ ADR; it is never quietly downgraded.
 | Milestone | Scope | Exit criteria | Hardness | Est. |
 |---|---|---|---|---|
 | **M0** | Docs, skeleton, versions.env, S1/S2, S3 decision | **CLOSED 2026-10-31** — S1 PASS (EV-0021 + EV-0024); S3 CLOSED (EV-0006 + EV-0009); S2 device world render PASS (EV-0034). The 30-minute device soak (K4 precursor) is deferred to M1 and recorded in §7 M1 exit criteria. | **HIGH** | 3–4 wk |
-| **M1** | Launcher shell + install + flat MC boot | Fresh install → flat world. **30-minute device soak (K4 precursor) PASS** — deferred from M0 per Decision 45=A; EV-0035 (4m20s) is feasibility, not the gate; a dated M1 obligation. | MEDIUM | 4–6 wk (plan: `docs/mvp/M1_PLAN.md`) |
-| **M2** | Provider + Vulkan VR | Provider init, stereo eye targets, no SteamVR | **HIGH** | 4–5 wk |
+| **M1** | Launcher shell + install + flat MC boot | **CLOSED 2026-11-01 (EV-0057)** — fresh install → world (EV-0043), 30-minute soak (EV-0044), save/relaunch (EV-0052), W1–W7 closed/accepted (input cursor cosmetic accepted); M1_ACCEPTANCE.md matrix | MEDIUM | DONE (4–6 wk plan: `docs/mvp/M1_PLAN.md`) |
+| **M2** | Provider + Vulkan VR | Provider init, stereo eye targets, no SteamVR — **STARTED 2026-11-01 (EV-0058)**: `docs/mvp/M2_PLAN.md`, bridge ABI v1 stub, provider skeleton (S4a eye-handoff spike next) | **HIGH** | 4–5 wk |
 | **M3** | Compositor stereo + head tracking | 30-min immersive session | **HIGH** | 4 wk |
 | **M4** | Input (controllers, hands, gestures) | P0 action checklist passes | MEDIUM | 4–6 wk |
 | **M5** | Gameplay loop + comfort + diagnostics | All H features pass | MEDIUM | 3–4 wk |
@@ -635,3 +636,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-11-01 | **EV-0053 (`PASS`): W6 observability** — launcher Send logs + in-game Log output share path confirmed, crash reports retrievable, scripts capture logs; M1 acceptance #5 PASS. **EV-0054 (`PARTIAL`): W1 polish** — VRMC icon assets + one-time first-run checklist built/signed; install pending device wake. |
 | 2026-11-01 | **EV-0055 (`PASS`)**: reproducible build re-verified end-to-end with VRMC branding assets + the 11-file patch (fresh tree, exit 0, payload 1.2.0 Java 25/LWJGL 3.4.1). W1 icon/first-run build remains pending install on an awake device. |
 | 2026-11-01 | **EV-0056 (`PASS`): W1 app shell complete** — final branded build (VRMC icon + one-time first-run checklist, 167 Mach-O re-signed, tree `ee8d4558…`) installed on D1. M1 acceptance matrix: #1/#2/#3/#4/#5/#7 PASS; #6 (keyboard/controller defaults) PARTIAL; icon/welcome visual check cosmetic. |
+| 2026-11-01 | **EV-0057 (`PASS`): M1 milestone CLOSED** (fresh install→world, 30-min soak, save/relaunch; matrix in `docs/mvp/M1_ACCEPTANCE.md`). **EV-0058 (`PASS`): M2 started** — `docs/mvp/M2_PLAN.md`, bridge `vrmc_abi.h` v1 + compiled/tested stub, provider mod scaffold from S3 evidence. Next: S4a eye-texture interop spike + provider build harness. |

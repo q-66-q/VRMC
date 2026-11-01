@@ -1,6 +1,6 @@
 # Provider (Vivecraft companion mod)
 
-**Status:** not started. S3, then E-series and F/G input.
+**Status:** M2 started 2026-11-01. Scaffold committed: `VisionVR` (fail-closed init), `VisionRenderer` (eye-target TODOs), `VRStateMixin` from EV-0006/EV-0009; bridge ABI v1 stub lives in `bridge/`. Next: M2-W2/W5 and S4a.
 
 LGPL-3.0 Fabric mod that integrates VRMC with Vivecraft without forking it: it Mixins the provider
 selection in `VRState.initializeVR` and implements `VisionVR extends MCVR` plus a

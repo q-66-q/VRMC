@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0057`.
+**Next evidence ID:** `EV-0059`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1613,6 +1613,35 @@ next launch (cosmetic).
 
 **Artifacts:** `evidence/EV-0056/summary.log`.
 
+### EV-0057 — M1 milestone CLOSED — launcher shell + fresh install + flat MC boot + 30-minute soak all evidenced
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:39:13-10:00 |
+| Status | `PASS` |
+
+**Actual:** M1 exit criteria met — fresh install → world (EV-0043), 1805 s soak (EV-0044), save/relaunch
+(EV-0052). Acceptance matrix #1–#5/#7 PASS; #6 PASS with controller-first defaults deferred to M4.
+W1–W7 closed or closed-with-accepted-cosmetic. Matrix: `docs/mvp/M1_ACCEPTANCE.md`.
+
+**Artifacts:** `evidence/EV-0057/summary.log`.
+
+---
+
+### EV-0058 — M2 started: plan + native bridge ABI v1 stub (compiled/tested) + provider mod skeleton
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:40:18-10:00 |
+| Status | `PASS` |
+
+**Actual:** `docs/mvp/M2_PLAN.md` committed; `bridge/abi/vrmc_abi.h` ABI v1 (fail-closed) +
+`bridge/src/vrmc_stub.c` compiled (`libvrmc_bridge.dylib sha256 386e3a92…`) and `VRMC_STUB_TEST` prints
+`ok version=1 frames=1 ipd=0.064`; provider scaffold (`VisionVR` fail-closed init, `VisionRenderer`,
+`VRStateMixin`, resources). Next: S4a Vulkan→Metal eye-handoff spike + provider build harness.
+
+**Artifacts:** `evidence/EV-0058/summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1625,6 +1654,8 @@ next launch (cosmetic).
 | JIT mechanism (S1) | `PASS` | EV-0021 (compat, five cold runs) + EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`) |
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
+| **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
+| **M2 milestone** | **STARTED** | EV-0058: M2 plan, bridge ABI v1 stub (compiled/tested), provider skeleton; S4a eye-handoff spike next |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -1705,7 +1736,7 @@ next launch (cosmetic).
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
 | 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
-| 2026-11-01 | EV-0051/0052 (W3/W7), EV-0053 (W6), EV-0054/0055 (W1 icon/first-run + reproducible build), **EV-0056 (W1 final build installed)**. Next ID `EV-0057`. |
+| 2026-11-01 | EV-0051…EV-0056 recorded (W1/W3/W6/W7). **EV-0057 (`PASS`): M1 milestone CLOSED**; **EV-0058 (`PASS`): M2 started** (plan + ABI v1 stub + provider skeleton). Next ID `EV-0059`. |
 
 ---
 

@@ -1,6 +1,6 @@
 # M1 execution plan — launcher shell + install + flat MC boot
 
-Status: **planning started 2026-10-31**, while the last M0 item (S2 30-minute device soak) is deferred.
+Status: **M1 COMPLETE 2026-11-01 (EV-0057)** — acceptance matrix in `docs/mvp/M1_ACCEPTANCE.md`; M2 plan in `docs/mvp/M2_PLAN.md`.
 
 ## 1. Where we are (device-proven baseline)
 
