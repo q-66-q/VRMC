@@ -80,8 +80,8 @@ comfort polish.
 - Spike progress: S1 host pre-test `PARTIAL` (EV-0004); S2 host boot `PARTIAL` (EV-0005); S3
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
   fork); S1a harness scaffolded (EV-0007), device build `BLOCKED` (EV-0008: AVP must be unlocked).
-  S3's M0 gate is closed; S1a is installed on D1 and traps at the JIT26 request without an enabler
-  (EV-0015); S2 device stages remain `NOT RUN`.
+  S3's M0 gate is closed; S1a builds/signs/installs on D1 but crashed on missing UIScene adoption before
+  the JVM started (EV-0015, corrected); S2 device stages remain `NOT RUN`.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -400,7 +400,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
-| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002/0004/0007 are external/host/scaffold; EV-0015 shows the installed app traps at the JIT26 request without an enabler | EV-0002/0004/0007 `PARTIAL` + EV-0015 device control run; JIT-enabler EV pending | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
+| S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. OpenJDK 25 xros is **C3**, not S1. EV-0002/0004/0007 are external/host/scaffold; EV-0015 installed the app but it crashed on UIScene adoption before JVM start (corrected) | EV-0002/0004/0007 `PARTIAL` + EV-0015 install/launch; JVM start and JIT still unverified | 3–4 wk (S1a ~1 wk, S1b 1.5–3 wk) |
 | S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 boot + EV-0014 21-min world session + EV-0010/0012/0013 xros artifacts; device EV pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
@@ -575,4 +575,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0012: LWJGL 3.4.1 / spirv-cross / openal dylibs retagged to VISIONOS (`vtool`, 12/12); load test pending; jemalloc absent, launch needs `-Dorg.lwjgl.system.allocator=system`. |
 | 2026-10-31 | EV-0013: visionOS S2 capability probe app builds/signs with MoltenVK + the 12 retagged natives embedded; not installed (app-slot limit, EV-0011). |
 | 2026-10-31 | EV-0014: host world render via Vulkan/MoltenVK for 21 minutes with clean shutdown; full 30-minute soak still pending. |
-| 2026-10-31 | EV-0015: Amethyst removed with approval, S1AProbe installed on D1; the embedded JRE runs and traps at the JIT26 request (EXC_BREAKPOINT) without an enabler. |
+| 2026-10-31 | EV-0015: Amethyst removed with approval, S1AProbe installed on D1. Correction: the crash is UIKit UIScene-adoption assertion, not JIT26; both probe apps need UIScene before any JVM/JIT conclusion. |

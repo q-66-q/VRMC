@@ -119,7 +119,7 @@ EV that first evidences a test is recorded in the Status column.
 
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
-| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `NOT RUN` (host `PARTIAL` EV-0004; device app installed and control run traps at the JIT26 request, EV-0015; JIT-enabler run pending) |
+| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `NOT RUN` (host `PARTIAL` EV-0004; device app installs but crashed on UIScene adoption before JVM start, EV-0015; fix + JIT-enabler run pending) |
 | ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005, world session 21 min EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; device pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
@@ -787,9 +787,13 @@ is still required. Host-only; not device evidence.
 **Actual:** the app launched and crashed twice with `EXC_BREAKPOINT` / `SIGTRAP` ("Trace/BPT trap: 5"); no
 Documents log was written; crash reports were captured.
 
-**Interpretation:** the embedded iOS JRE **loads and runs on visionOS**, and the JVM reaches the JIT26
-request (`brk`). The trap is the expected control-run failure because no debugger prepared the code
-memory. Next: launch through StikDebug so its script handles the request.
+**Initial interpretation (superseded by the correction below):** the embedded iOS JRE loads and runs on
+visionOS, and the JVM reaches the JIT26 request (`brk`); the trap is the expected no-enabler failure.
+
+**Correction (added 2026-10-31, original results unchanged):** the crash backtrace is
+`UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` on the main thread. Both probe apps omit
+UIScene adoption, so UIKit traps at scene creation. This crash is **not** the JVM's JIT26 request; JVM
+start is unverified. Fix: adopt UIScene in both probe apps, then re-run the control and JIT runs.
 
 **Artifacts:** `evidence/EV-0015/S1AProbe-2026-10-31-141120.ips` (19749ec0b4f6);
 `evidence/EV-0015/S1AProbe-2026-10-31-141204.ips` (62aaf7266b19);
@@ -813,7 +817,7 @@ memory. Next: launch through StikDebug so its script handles the request.
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
-| S1a harness | `PARTIAL` | Installed on D1 (Amethyst slot freed); control run traps at JIT26 (EV-0015); JIT-enabler run pending |
+| S1a harness | `PARTIAL` | Installed on D1; crashed on missing UIScene adoption before JVM start (EV-0015 correction); fix + JIT run pending |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
