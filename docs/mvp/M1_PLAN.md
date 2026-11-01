@@ -112,9 +112,7 @@ rendered the Vulkan world (EV-0036). Remaining for W1/T3: brand it as `dev.vrmc.
 layer, and run the fresh-container acceptance.
 
 Sprint-1 status: **T3 closed (EV-0041)** — build path proven (EV-0036), app-side defaults (EV-0037),
-scripts (EV-0039). **W1 remaining:** brand `dev.vrmc.vrmc` (Info.plist name/icon/bundle id +
-entitlements/profile), commit a reproducible `scripts/build_launcher.sh`, first-run layer + JIT readiness,
-then clean-container acceptance (T4).
+scripts (EV-0039). **W1 remaining:** brand `dev.vrmc.vrmc` — **installed (EV-0042)**, display name VRMC; still to add our icon, commit a reproducible `scripts/build_launcher.sh`, first-run layer + JIT readiness, then clean-container acceptance (T4).
 
 ## 6. M1 startup decisions (recorded, not M0 blockers)
 

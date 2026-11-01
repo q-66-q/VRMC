@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0042`.
+**Next evidence ID:** `EV-0043`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1387,6 +1387,25 @@ layer, clean-container acceptance.
 
 **Artifacts:** `evidence/EV-0041/summary.log`, `docs/adr/0008-m1-app-shell-build-from-source.md`.
 
+### EV-0042 — M1 T4 progress: branded VRMC app (dev.vrmc.vrmc) installed on D1 with a fresh container
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:55:20-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** create a `dev.vrmc.vrmc` provisioning profile; brand the source-built 1.2.0 payload as
+VRMC (bundle id + display/name); re-sign 167 Mach-O; uninstall the `dev.vrmc.amethyst` test app (fresh
+container) and install VRMC.
+
+**Actual:** profile `<TEAM_ID>.dev.vrmc.vrmc` created; app signed, tree
+`sha256 446862ef3c13a37ec95c8e12d3546ec3dc5ed593eb4fb492b1f2b9f4be91f884`; VRMC 1.2.0 installed.
+Installed apps: SideStore, StikDebug 3.2.0, VRMC 1.2.0. **No Amethyst test app remains.** First-run
+acceptance (VRMC-specific `amethyst.js` assignment, account, MC 26.2 download, world) is pending.
+
+**Artifacts:** `evidence/EV-0042/summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1400,7 +1419,7 @@ layer, clean-container acceptance.
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
-| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041 |
+| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
 | M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
 | M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch installed; post-patch behavior unverified; follow-up task-1 (EV-0040) |
@@ -1421,7 +1440,7 @@ layer, clean-container acceptance.
 | Blocker | Owner | Unblock condition |
 |---|---|---|
 | M1 T6: 30-minute device soak | Lead/user | Defined as the M1 exit gate (K4 precursor): continuous 30-min in-world session, no crash, no watchdog kill, thermal state recorded. Blocked on device time (needs a 30-min on-headset session). EV-0035 is feasibility only. |
-| M1 T4: fresh-install acceptance | Lead/user | App-side defaults + bundled JRE done (EV-0037); needs a clean container (new bundle id) and on-device account + MC 26.2 download + world creation. Blocked on device operation. |
+| M1 T4: fresh-install acceptance | Lead/user | Branded VRMC app installed with a fresh container (EV-0042); app-side defaults + bundled JRE done (EV-0037). Remaining: VRMC-specific `amethyst.js` assignment + account + MC 26.2 download + world on device. |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -1470,7 +1489,8 @@ layer, clean-container acceptance.
 | 2026-10-31 | M1 stack pinning (Decision 46=A+C fact record): Amethyst → 1.2.0, MoltenVK → 1.4.3, StikDebug script → amethyst.js; ADR-0007 records the changes and evidence impact. |
 | 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — our own source-built Amethyst v1.2.0 (167 binaries re-signed) boots MC 26.2 to a Vulkan/MoltenVK world on D1. |
 | 2026-10-31 | EV-0037 (`PASS`): app-side defaults force Vulkan + clear the crash marker; MC boots from a deliberately reset options.txt. |
-| 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`, stack pins/hashes, check_versions 8/8), T2 EV-0039 (`PASS`, repo scripts), T5 EV-0040 (`PARTIAL`, mouse patch installed, follow-up task-1), T3 EV-0041 (`PASS`, ADR-0008 build-from-source). T4 and T6 remain open, blocked on device operations. Next ID `EV-0042`. |
+| 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
+| 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed on D1 with a fresh container; test app uninstalled. Next ID `EV-0043`. |
 
 ---
 
