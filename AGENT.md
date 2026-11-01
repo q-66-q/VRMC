@@ -83,7 +83,9 @@ comfort polish.
   mapping + tier 3/4 + `HELLOJIT`**); S2 host boot `PARTIAL` (EV-0005); S3
   **PASS** (EV-0006 static + EV-0009 desktop runtime: Mixin substitutes `VisionVR`, no SteamVR; no
   fork); S1a scaffold EV-0007. S3's M0 gate is closed; S1's internal reproduction gate is now met in
-  compatibility mode; S1b native xros and S2 device render remain `NOT RUN`.
+  compatibility and native modes; S1b native JIT `PASS` (EV-0024); S2 device graphics primitives `PASS`
+  (EV-0025–EV-0028: capability, render, natives, CAMetalLayer surface, swapchain/present); S2 MC
+  world/soak remain `NOT RUN`.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -332,7 +334,7 @@ and the in-MC code-cache path are built. Any further move must follow §4.7.
 | Spike | Question | Hardness | Status | Fallback |
 |---|---|---|---|---|
 | S1 | JIT mechanism on visionOS (reference JVM + minimal app; OpenJDK 25 build is C3) | MEDIUM | `PASS` — EV-0021 (compat, five cold runs) and EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) | Pivot to AOT; launcher scope reduces |
-| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `NOT RUN` — host boot `PASS` for host stage (EV-0005); device pending | GL/LTW→ANGLE path |
+| S2 | MC 26.2 Vulkan on MoltenVK/xros | **HIGH** | `PARTIAL` — host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016; D1 render/load/surface/swapchain PASS (EV-0025–EV-0028); MC world/soak pending | GL/LTW→ANGLE path |
 | S3 | Vivecraft provider without SteamVR | MEDIUM | `PASS` (desktop injection; EV-0006 + EV-0009); provider/renderer and device runtime are M2 | Fork approved by ADR; not triggered |
 | S4 | Eye textures → CompositorServices | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
 | S5 | PSVR2 + hands drive all P0 actions | MEDIUM | `NOT RUN` | Hands-only MVP |
@@ -348,7 +350,7 @@ spike changes status, apply §4.7 in the same commit.
 |---|---|---|
 | JIT mechanism (S1) | MEDIUM | JIT26 executes on D1 in compatibility mode (EV-0021) and in a **native visionOS app** (EV-0024); relabelled iOS JRE works, so no fresh xros OpenJDK build is needed |
 | OpenJDK 25 xros runtime + LWJGL natives + code cache (C3) | **HIGH** | Runtime build and in-MC integration unproven |
-| Graphics translation | **HIGH** | Host boot verified (EV-0005); visionOS MoltenVK built (EV-0010); xros LWJGL/GLFW stack unproven |
+| Graphics translation | **HIGH** | Host boot EV-0005; MoltenVK xros EV-0010; D1 executes Vulkan render + present (EV-0025/EV-0028); Java GLFW stub + MC world unproven |
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
 | Performance/thermal | **HIGH** | Watchdog kills on missed frames |
 | VR provider | MEDIUM | Injection proven on desktop (EV-0006 + EV-0009); full provider/renderer and device runtime are M2 |
@@ -403,7 +405,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 | ID | Goal | Pass criteria | Evidence | Timebox |
 |---|---|---|---|---|
 | S1 | JIT mechanism on device (internal reproduction) | A **reference JVM** + minimal Java app JIT-compiles and runs on D1 under JIT26; log proves debugger-prepared memory and compiled methods; no W^X failure. **EV-0021 `PASS` (compat, five cold runs)** and **EV-0024 `PASS` (native visionOS, JIT26 mapping + tier 3/4 + `HELLOJIT`)**; the relabelled iOS JRE removes the fresh-xros-build need | `PASS` EV-0021 + EV-0024; S2 device render next | 3–4 wk (done inside M0) |
-| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 boot + EV-0014 21-min world + EV-0010/0012/0013 xros + EV-0016 D1 capability PASS; device render pending | 2–3 wk |
+| S2 | MC 26.2 Vulkan boots | Host: backend Vulkan + MoltenVK, no fallback. Device: world renders; 30 min stable | EV-0005 boot + EV-0014 21-min world + EV-0010/0012/0013 xros + EV-0016 D1 capability + EV-0025–EV-0028 D1 render/load/surface/swapchain PASS; MC world/soak pending | 2–3 wk |
 | S3 | Provider integration | Vivecraft enters VR with `VisionVR`; action debug populated; no SteamVR; **and** the injection point is evidenced in the decompiled 26.2‑1.3.15 jar and holds across 26.2.x patch versions | `PASS` (desktop) — EV-0006 static + EV-0009 runtime; device provider M2 | DONE (M0) |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | pending | 2–3 wk |
 | S5 | Input coverage | Full P0 action checklist from hands and controllers | pending | 2–3 wk |
@@ -587,3 +589,7 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; the iOS JRE's 39 Mach-O files relabelled to VISIONOS. Device install blocked by the free-profile 3-app limit (S1AProbe still counted) and a locked/asleep device; S1AProbe must be uninstalled before S1BProbe can install. |
 | 2026-10-31 | EV-0023 (`PARTIAL`): after uninstalling S1AProbe, `dev.vrmc.s1b` installs and launches natively on D1 with no scene crash; it waits for the JIT debugger and exits cleanly without one. Next: StikDebug Enable JIT pass on S1BProbe. |
 | 2026-10-31 | **EV-0024 (`PASS`): S1 spike complete** — native visionOS app (`dev.vrmc.s1b`) with the VISIONOS-relabelled JRE received a JIT26 mapping, compiled tier 3/4 and executed `HELLOJIT` (616 ms, exit 0). The relabelled iOS JRE works, so C3's remaining risk is LWJGL/natives + full-MC integration. S2 device render is the last open M0 gate. |
+| 2026-10-31 | EV-0025 (`PASS`): D1 executes a Vulkan offscreen clear+readback through MoltenVK/M2 (pixel 64,128,191,255). |
+| 2026-10-31 | EV-0026 (`PASS`): all 12 retagged VISIONOS natives dlopen on D1; representative exports resolve. |
+| 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer → VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean. |
+| 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO). S2 device graphics primitives complete; MC boot/title/world (S2 step 6) is next. |

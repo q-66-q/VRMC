@@ -129,7 +129,7 @@ visionOS?
 3. Run the capability probe on D1 (same 5 extensions + 9 features) and record the JSON. **Built (EV-0013) and run on D1 (EV-0016): all 5 extensions + 9 features present; Apple M2 / MoltenVK 1.4.2.**
 4. Build/retag LWJGL 3.4.1 xros natives (liblwjgl, shaderc, spvc, vma, freetype, stb, tinyfd, openal);
    load test. **Retag done (EV-0012):** 12 dylibs platform VISIONOS; **Load test done (EV-0026):** all 12 dylibs dlopen on D1 and representative exports resolve; jemalloc is still absent (use the system allocator).
-5. GLFW stub + `MacosUtil` shadow + CAMetalLayer + `org.lwjgl.vulkan.libname`; boot to title on D1. **Progress:** offscreen render PASS (EV-0025), natives load PASS (EV-0026), CAMetalLayer VkSurfaceKHR PASS (EV-0027); swapchain/present and the Java GLFW stub remain
+5. GLFW stub + `MacosUtil` shadow + CAMetalLayer + `org.lwjgl.vulkan.libname`; boot to title on D1. **Progress:** offscreen render PASS (EV-0025), natives load PASS (EV-0026), CAMetalLayer VkSurfaceKHR PASS (EV-0027); swapchain+present PASS (EV-0028). The Java GLFW stub + MC boot/title remain
    (requires the S1/C3 JVM).
 6. World render, F3 screenshot, 30-minute stability -> S2 EV; otherwise document the blocker and
    invoke the fallback ADR.
