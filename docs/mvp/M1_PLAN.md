@@ -63,7 +63,7 @@ Acceptance criteria:
 2. **T2 move ad-hoc scripts into the repo** — **done 2026-10-31**: `scripts/sign_ipa.sh`,
    `scripts/set_mc_options.sh`, `scripts/push_jit_script.sh`, `scripts/capture_device_logs.sh`, plus
    `runtime/jit/amethyst.js` (GPL-3.0, notices updated). Remaining: exercise them in a full install flow.
-3. **T3 choose W1 route** and produce the first `dev.vrmc.vrmc` app bundle:
+3. **T3 choose W1 route** and produce the first `dev.vrmc.vrmc` app bundle — **build path done (EV-0036)**: our source build boots MC 26.2; still to brand/re-sign as `dev.vrmc.vrmc` and run the clean-container acceptance:
    - preferred: build Amethyst from source with submodules and our branding;
    - fallback: pin the tested 1.2.0 binary, re-sign as our bundle id, add first-run shell.
 4. **T4 first-run provisioning**: copy MC options defaults + JIT script + Java 25 runtime from the app
@@ -101,8 +101,15 @@ Rationale:
   with a recursive clone and a reproducible `payload` build. If the build proves blocked, fall back to
   (b) for the M1 boot acceptance while (a) is fixed.
 
-Sprint-1 follow-through: clone with submodules → build `payload` with our team/signing → produce
-`dev.vrmc.vrmc` → install and re-run the EV-0034 flow from a clean container.
+**Status 2026-10-31: build works (EV-0036).** The Amethyst 1.2.0 reference tree was assembled with
+submodules and `make payload` completed with the JDK 8 toolchain; payload deps were `native`,
+`dep_mcmetal`, `dep_ame_vulkan`, `java`, `jre`, `assets` (MobileGlues/MobileGL renderer deps dropped for
+the Vulkan path). 167 Mach-O were re-signed as `dev.vrmc.amethyst`; our own build launched MC 26.2 and
+rendered the Vulkan world (EV-0036). Remaining for W1/T3: brand it as `dev.vrmc.vrmc`, add the first-run
+layer, and run the fresh-container acceptance.
+
+Sprint-1 follow-through: clone/submodules → build `payload` → brand/sign `dev.vrmc.vrmc` → clean-install
+→ re-run the EV-0034 flow.
 
 ## 6. M1 startup decisions (recorded, not M0 blockers)
 

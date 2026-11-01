@@ -91,7 +91,9 @@ comfort polish.
   renders a Vulkan world on D1 (EV-0034) with a 4m20s clean session (EV-0035); the 30-minute soak is
   deferred. **M0 formally closed as of EV-0034** (Decision 45=A); the 30-minute soak is now an M1 gate.
   **M1 execution plan: `docs/mvp/M1_PLAN.md`** (launcher shell, runtime provisioning, JIT readiness,
-  MC install, input, soak).
+  MC install, input, soak). **Our own source-built Amethyst v1.2.0 boots MC 26.2 to a Vulkan/MoltenVK
+  world on D1 (EV-0036)**; the remaining M1 work is branding/clean-install, app-side defaults, input,
+  and the 30-minute soak.
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
@@ -402,6 +404,7 @@ Evidence IDs are allocated only by recording an entry in `VERIFY.md` §6.
 | Amethyst (app build) | 1.2.0 | Prior pin: 1.0-development. ADR-0007 records the change; EV-0001/EV-0004/EV-0005 reference 1.0-development and are retained as historical records. Upstream reference `AngelAuraMC/Amethyst-iOS`, GPL-3.0, do not commit |
 | StikDebug script | amethyst.js | Prior script: universal.js. BundleScriptMap persistence must be re-confirmed for amethyst.js |
 | Prior art (benchmark) | `rebelancap/vivecraft-visionos` | Not a dependency; no code copied |
+| OpenVR reference (external) | `/Volumes/Untitled/Projects/macstream` | Separate project (Vivecraft streaming to Quest 3): ALVR-derived OpenVR server + Vulkan layer spikes. Reference for S3/M2 OpenVR work; outside the repo, not committed |
 
 All pins move to `versions.env` in M0; changes require an ADR.
 
@@ -620,3 +623,4 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-10-31 | **ADR-0007 accepted**: Amethyst 1.2.0 fixes the EV-0032 JNI root cause by shipping matching LWJGL 3.4.1 JNI; MoltenVK 1.4.3 is device-proven (EV-0016's 1.4.2 verification needs re-checking on 1.4.3); `amethyst.js` is a new combined script whose BundleScriptMap assignment must be re-confirmed (Decision 36). `versions.env` + `docs/mvp/DEVICE_STACK.md` updated with pins/hashes. |
 | 2026-10-31 | **T3 resolved (app-shell route): build Amethyst from source with submodules, brand as `dev.vrmc.vrmc`, add the VRMC first-run layer**; pinning/re-signing the tested 1.2.0 binary is retained only as an immediate boot-test vehicle. Rationale and follow-through in `docs/mvp/M1_PLAN.md` §5a. Sprint-1 starts a recursive source clone and `payload` build. |
 | 2026-10-31 | T3 build prep: recursive clone of `AngelAuraMC/Amethyst-iOS` at `f98c413` (Makefile `VERSION := 1.2.0`, 4 submodules) + Temurin/Zulu JDK 8 toolchain obtained; `make PLATFORM=2 payload` started. T5 source finding: Amethyst gates `GCMouse` deltas on `windowScene.pointerLockState.locked`, which visionOS does not provide — documented as the mouse/cursor root cause candidate in `M1_PLAN.md` W5. |
+| 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — source-built Amethyst v1.2.0 (167 binaries re-signed, app tree hash recorded) launched under StikDebug JIT and rendered MC 26.2’s Vulkan world on D1. Build composition and remaining M1 work recorded in `M1_PLAN.md` / `DEVICE_STACK.md`. |

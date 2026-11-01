@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0036`.
+**Next evidence ID:** `EV-0037`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1274,6 +1274,33 @@ now).
 
 **Artifacts:** `evidence/EV-0035/latestlog.txt`, `summary.log`.
 
+### EV-0036 — M1 T3 acceptance: source-built Amethyst v1.2.0 runs Minecraft 26.2 Vulkan world on D1
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:26:08-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:** assemble the Amethyst 1.2.0 source tree (reference tree + submodules) and build `payload`
+with the JDK 8 toolchain (deps: native, mcmetal, ame_vulkan, java, jre, assets; MobileGlues/MobileGL
+renderer deps dropped for the Vulkan path); re-sign 167 Mach-O for <TEAM_ID> as `dev.vrmc.amethyst` and
+install over the existing data container; set `preferredGraphicsBackend:"vulkan"` +
+`startedCleanly:true`; launch via StikDebug with `amethyst.js` and press Play.
+
+**Actual:** JIT26 mapping 240 MB; `LWJGL version 3.4.1-snapshot`;
+`Using graphics backend Vulkan, using drivers: 1.2.357 MoltenVK 1.4.3`; 49 spawn chunks;
+`<player> joined the game` at 22:24:18; process alive. App tree
+`sha256 4b1f959a3ead6ad8cc8d08f3c1c672da1484de1764ba738fa5d74d46347cc20a` (558 MB), version
+`1.2.0-development`.
+
+**Limitations:** new data containers still need the manual `options.txt` defaults (crash-reset resets the
+backend); MobileGlues/MobileGL renderers are not in this build (not needed for Vulkan). M1 remains open
+on fresh-install acceptance, app-side defaults, BundleScriptMap re-check, input, and the 30-minute soak.
+
+**Artifacts:** `evidence/EV-0036/latestlog.txt`, `summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1287,6 +1314,7 @@ now).
 | JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
+| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); fresh-install/defaults/soak remain |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1349,7 +1377,8 @@ now).
 | 2026-10-31 | **EV-0034 (`PASS`): first Minecraft 26.2 world on Apple Vision Pro** — Vulkan via MoltenVK 1.4.3, LWJGL 3.4.1, JIT26 mapping, world “New World” joined at 20:27:54. |
 | 2026-10-31 | EV-0035 (`PARTIAL`): 4m20s in-world with clean save/shutdown, no crash; user stopped early so the 30-min soak is deferred. |
 | 2026-10-31 | **M0 formally CLOSED on EV-0034** (Decision 45=A): S2's M0 gate is device world render only; the 30-minute soak is now an **M1 exit gate** (EV-0035 = feasibility, not the gate). Recorded in AGENT §4.5/§5/§6/§7/§11/§13 and this dashboard. |
-| 2026-10-31 | M1 stack pinning (Decision 46=A+C fact record): Amethyst → 1.2.0, MoltenVK → 1.4.3, StikDebug script → amethyst.js; ADR-0007 records the changes and evidence impact. Next ID `EV-0036`. |
+| 2026-10-31 | M1 stack pinning (Decision 46=A+C fact record): Amethyst → 1.2.0, MoltenVK → 1.4.3, StikDebug script → amethyst.js; ADR-0007 records the changes and evidence impact. |
+| 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — our own source-built Amethyst v1.2.0 (167 binaries re-signed, app tree hash recorded) boots MC 26.2 to a Vulkan/MoltenVK world on D1. Next ID `EV-0037`. |
 
 ---
 

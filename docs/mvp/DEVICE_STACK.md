@@ -7,7 +7,7 @@ machine-readable source of truth.
 
 | Component | Pin | Provenance | Hash | Evidence |
 |---|---|---|---|---|
-| Amethyst (launcher app) | **1.2.0** | Installed on D1 (IPA provenance pending). Source build: upstream `AngelAuraMC/Amethyst-iOS` commit `f98c413`, whose Makefile sets `VERSION := 1.2.0`; recursive clone with 4 submodules (AFNetworking, DBNumberedSlider, MobileGlues, fishhook) | `TBD` (IPA hash pending); source commit `f98c413` | EV-0029, EV-0031, EV-0034 |
+| Amethyst (launcher app) | **1.2.0** | Device-installed IPA provenance pending. **Our source build:** Amethyst 1.2.0 reference tree + submodules (AFNetworking, DBNumberedSlider, MobileGlues, fishhook); remote `main` (`f98c413`, v1.0) and `staging` (`c1f3aea`) lack the multi-LWJGL files present in the reference tree. Payload deps: native, mcmetal, ame_vulkan, java, jre, assets (MobileGlues/MobileGL dropped for Vulkan) | source-build app tree `sha256 4b1f959a3ead6ad8cc8d08f3c1c672da1484de1764ba738fa5d74d46347cc20a` (558 MB, signed as `dev.vrmc.amethyst`) | EV-0029, EV-0031, EV-0034, **EV-0036** |
 | MoltenVK | **1.4.3** | Bundled in Amethyst 1.2.0; our own xros build is 1.4.2 (EV-0010) | `TBD` (dylib hash pending) | EV-0034 (device log) |
 | StikDebug | **3.2.0** | Official IPA: `StikDebug-3.2.0.ipa` (GitHub release 3.2.0), re-signed as `com.stik.stikdebug.<TEAM_ID>` | IPA `sha256 f3b4e1ea39a0b84ced25158c21be8f9c08965bbbe525daf5a18f199b1fc3aced` | EV-0033 |
 | StikDebug script | **`amethyst.js`** | Concatenation of Amethyst `UniversalJIT26.js` + `UniversalJIT26Extension.js` | `sha256 7fb4b14b7a9caa6e4723b9a41125030b15db6e4f7e8fb1d9be41f8be9f0fa9b9` | EV-0021 (mechanism), EV-0034 (device) |
