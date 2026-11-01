@@ -82,3 +82,20 @@ Options considered (ADR-0010):
   `end_submission`, with `cp_time_to_cf_time_interval` for the ARKit timestamp.
 - The probe temporarily replaced the VRMC app; the normal launcher was reinstalled and its data
   container preserved.
+
+
+## 6. Gate-3 status and next options (EV-0075)
+
+The native visionOS launcher **installs, launches, and does not crash**, but it shows only the window
+title/toolbar with **blank content**. Pre-init logging runs (device, visionOS version, entitlements,
+version list 923 versions) and there is no crash report; direct launch behaves the same. JIT is
+therefore inconclusive and MC/JVM/Vulkan hosting in the native app is **unverified** — gate 3 stays NOT
+RUN.
+
+Next options, in order:
+1. **Fix native window content (preferred):** instrument `SceneDelegate` (window frame / root VC /
+   `launchInitialViewController`), try forcing the root view controller after `makeKeyAndVisible`, or
+   provide a minimal SwiftUI window shell that presents the launcher VC. This is M3-W1 work.
+2. **ADR-0010 fallback (B):** keep the proven compat app for JVM/MC/JIT and add a native immersive
+   companion that receives the provider's eye textures over IPC/shared memory (IOSurface handoff) and
+   ARKit poses back. Needs an app-slot plan (free-team limit 3) and a new ADR; larger than option 1.
