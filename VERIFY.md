@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0071`.
+**Next evidence ID:** `EV-0072`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1927,6 +1927,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Fabric 0.20.1 vs pin 0.19.3 recorded as candidate; pin/ADR decision carried to M3. Next milestone: M3.
 
+### EV-0071 — M3a gate 1 PASS: the launcher builds as a native visionOS (xros) payload
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:58:52-10:00 |
+| Commit | `c492da428ef78c456723da4d9731e5dd1d8035e4` |
+| Dirty state | docs/adr/0010-m3-native-visionos-app.md, docs/mvp/M3_PLAN.md |
+| Device | host build only (no device launch yet) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. make PLATFORM=11 RELEASE=0 payload with the VRMC patch set; verify Mach-O platform, Info.plist and relabelled natives
+
+**Expected:** native visionOS payload builds (platform VISIONOS, arm64)
+
+**Actual:** build exit 0; main binary platform VISIONOS minos 1.0 sdk 1.0; Frameworks/lwjgl34/liblwjgl.dylib relabelled VISIONOS; Info version 1.2.0. Native launch/immersive space/MC hosting NOT RUN.
+
+**Artifacts:** evidence/EV-0071/xros-build.log (4ed0a94835cb); evidence/EV-0071/summary.log (5ee957097c35)
+
+**Limitations:** M3a gate 1 of 3. Gates 2 (immersive space + ARKit poses) and 3 (MC/JVM/JIT/Vulkan inside the native app) remain NOT RUN; ADR-0010 chooses the native app route.
+
 ---
 
 ## 7. Status dashboard
@@ -2047,3 +2070,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0066 (`PARTIAL`): M2-W6 prep** — arm64-ios JNI bridge dylib built/embedded/signed; launcher passes `-Dvrmc.bridge.lib`; `vrmc-provider.jar` + Vivecraft jar staged in the device instance mods. **Remaining device step: install Fabric 0.19.3 loader**; W6 provider run still NOT RUN. Next ID `EV-0067`. |
 | 2026-11-01 | **EV-0067 (`FAIL`)**: first W6 device attempt reached provider init + bridge handshake + eye targets, then crashed on the host-only identity guard applied to static component transforms; fix: identity component offsets + tracking-pose validity guard. **EV-0068 (`PASS`)**: after the fix, device provider init + stereo render passes (LEFT/RIGHT) + 1501+ tracking frames + no SteamVR; device used Fabric Loader **0.20.1** (pin is 0.19.3 → compatibility candidate; pin/ADR decision pending). Game remains unplayable by design: M3 compositor/head tracking and M4 input are NOT RUN. Next ID `EV-0069`. |
 | 2026-11-01 | **EV-0069 (`PASS`): M2-W5 device eye handoff** — ABI v2 `vrmc_export_mtl_texture` on D1: `VkImage=0x139dccf00 -> MTLTexture=0x7107982300`, submitted; clean run. **EV-0070 (`PASS`): M2 milestone CLOSED** — all exit criteria evidenced; M2 acceptance matrix added. M3 compositor/head tracking and M4 input remain NOT RUN (game not playable yet). Fabric 0.20.1 vs pin 0.19.3 carry-over. Next ID `EV-0071`. |
+| 2026-11-01 | **EV-0071 (`PASS`): M3 started, M3a gate 1** — `PLATFORM=11` native visionOS payload builds (platform VISIONOS, relabelled natives). **NOT RUN:** native app launch on D1, CompositorServices immersive space/ARKit, MC/JVM/JIT/Vulkan hosting in the native app. M2 remains CLOSED; M3 plan `docs/mvp/M3_PLAN.md`, ADR-0010 (native app route; companion fallback only if MC hosting fails). Next ID `EV-0072`. |
