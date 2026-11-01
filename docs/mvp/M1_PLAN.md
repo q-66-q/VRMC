@@ -85,6 +85,25 @@ Acceptance criteria:
 - GPL obligations: publish corresponding source + build steps for every distributed build (ADR-0006).
 
 
+## 5a. T3 decision — app-shell route (resolved 2026-10-31)
+
+**Decision: route (a) — build Amethyst from source with submodules, brand it as our app
+(`dev.vrmc.vrmc`), and add the VRMC first-run layer. Route (b) — pin the tested 1.2.0 binary and
+re-sign it — is retained only as an immediate boot-test vehicle until (a) is reproducible.**
+
+Rationale:
+- (b) cannot carry our UI/first-run provisioning, icon/branding, or the input fixes without binary
+  patching, and its 1.2.0 IPA provenance is still unavailable (SideStore caches were empty; the
+  Amethyst CI host was unreachable from the build machine, so the IPA hash remains T1-pending).
+- (a) is required anyway for GPL corresponding-source compliance (ADR-0006) and for the M1 acceptance
+  ("no ad-hoc Mac pushes"): the runtime provisioning and JIT checklist must live in our app.
+- Amethyst's build is a Makefile + CMake project; the source zip lacked submodules, so Sprint-1 starts
+  with a recursive clone and a reproducible `payload` build. If the build proves blocked, fall back to
+  (b) for the M1 boot acceptance while (a) is fixed.
+
+Sprint-1 follow-through: clone with submodules → build `payload` with our team/signing → produce
+`dev.vrmc.vrmc` → install and re-run the EV-0034 flow from a clean container.
+
 ## 6. M1 startup decisions (recorded, not M0 blockers)
 
 These came out of the 2026-10-31 review; resolve during Sprint-1 day 1 so M1 does not inherit ambiguous
@@ -100,6 +119,8 @@ scope:
 
 ## 7. T1 stack-pin hashes
 
-See `docs/mvp/DEVICE_STACK.md` for the full table and hash method. Recorded today: StikDebug 3.2.0 IPA,
-`amethyst.js`, OpenJDK 25.0.4 deployed tree, LWJGL 3.4.1 jars tree. Pending: Amethyst 1.2.0 IPA hash,
-MoltenVK 1.4.3 dylib hash, MC 26.2 version JSON hash, BundleScriptMap re-check.
+See `docs/mvp/DEVICE_STACK.md` for the full table and hash method. Recorded: StikDebug 3.2.0 IPA,
+`amethyst.js`, OpenJDK 25.0.4 deployed tree, LWJGL 3.4.1 jars tree. **Blocked:** Amethyst 1.2.0 IPA
+hash (not cached on device; `ci.angelauramc.dev` unreachable from the build host), MoltenVK 1.4.3
+dylib hash (same IPA), MC 26.2 version JSON hash, BundleScriptMap re-check. Ask the user for the
+1.2.0 IPA or capture it from their AltSource/SideStore install once available.
