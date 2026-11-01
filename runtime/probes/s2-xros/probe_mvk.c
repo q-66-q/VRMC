@@ -280,6 +280,165 @@ static int vrmc_surface_test(VkInstance instance, VkPhysicalDevice phys) {
     return 0;
 }
 
+
+// ---------------------------------------------------------------------------
+// Swapchain + present test on the CAMetalLayer VkSurfaceKHR.
+// Creates a device with VK_KHR_swapchain, acquires an image, clears it with
+// vkCmdClearColorImage, presents it, and waits for completion.
+// ---------------------------------------------------------------------------
+static int vrmc_swapchain_test(VkInstance instance, VkPhysicalDevice phys, uint32_t gfx_family) {
+    if (!g_metal_layer) { printf("\n## swapchain test SKIP (no CAMetalLayer)\n"); return 0; }
+    PFN_vkCreateMetalSurfaceEXT pCreateMetalSurface = (PFN_vkCreateMetalSurfaceEXT)GIPA(instance, "vkCreateMetalSurfaceEXT");
+    PFN_vkCreateDevice pCreateDevice = (PFN_vkCreateDevice)GIPA(instance, "vkCreateDevice");
+    PFN_vkGetDeviceProcAddr GDPA = (PFN_vkGetDeviceProcAddr)GIPA(instance, "vkGetDeviceProcAddr");
+    PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR pCaps = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)GIPA(instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+    PFN_vkGetPhysicalDeviceSurfaceFormatsKHR pFormats = (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)GIPA(instance, "vkGetPhysicalDeviceSurfaceFormatsKHR");
+    PFN_vkGetPhysicalDeviceSurfacePresentModesKHR pModes = (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)GIPA(instance, "vkGetPhysicalDeviceSurfacePresentModesKHR");
+    PFN_vkDestroySurfaceKHR pDestroySurface = (PFN_vkDestroySurfaceKHR)GIPA(instance, "vkDestroySurfaceKHR");
+    if (!pCreateMetalSurface || !pCreateDevice || !GDPA || !pCaps || !pFormats || !pModes || !pDestroySurface) {
+        printf("\n## swapchain test FAIL (missing entry points)\n"); return 1;
+    }
+    VkMetalSurfaceCreateInfoEXT sci = {0};
+    sci.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+    sci.pLayer = g_metal_layer;
+    VkSurfaceKHR surf = VK_NULL_HANDLE;
+    VkResult r = pCreateMetalSurface(instance, &sci, NULL, &surf);
+    if (r != VK_SUCCESS) { printf("\n## swapchain test FAIL (surface %d)\n", r); return 1; }
+
+    VkSurfaceCapabilitiesKHR caps = {0};
+    pCaps(phys, surf, &caps);
+    VkSurfaceFormatKHR want = { VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+    VkSurfaceFormatKHR chosen = {0};
+    uint32_t fn = 0; pFormats(phys, surf, &fn, NULL);
+    VkSurfaceFormatKHR *fm = calloc(fn ? fn : 1, sizeof(*fm));
+    if (fn) pFormats(phys, surf, &fn, fm);
+    int have = 0;
+    for (uint32_t i = 0; i < fn; i++) {
+        if (fm[i].format == want.format && fm[i].colorSpace == want.colorSpace) { chosen = fm[i]; have = 1; break; }
+    }
+    if (!have && fn) { chosen = fm[0]; have = 1; }
+    free(fm);
+    if (!have) { printf("\n## swapchain test FAIL (no formats)\n"); pDestroySurface(instance, surf, NULL); return 1; }
+
+    VkPresentModeKHR pmode = VK_PRESENT_MODE_FIFO_KHR;
+    uint32_t pn = 0; pModes(phys, surf, &pn, NULL);
+    VkPresentModeKHR *pm = calloc(pn ? pn : 1, sizeof(*pm));
+    int have_pmode = 0;
+    if (pn) {
+        pModes(phys, surf, &pn, pm);
+        for (uint32_t i = 0; i < pn; i++) if (pm[i] == VK_PRESENT_MODE_FIFO_KHR) have_pmode = 1;
+        if (!have_pmode && pn) pmode = pm[0];
+    }
+    free(pm);
+
+    VkExtent2D extent = caps.currentExtent;
+    if (extent.width == 0xFFFFFFFFu || extent.width == 0) { extent.width = 1280; extent.height = 720; }
+    if (extent.width > caps.maxImageExtent.width) extent = caps.maxImageExtent;
+    if (extent.width < caps.minImageExtent.width) extent = caps.minImageExtent;
+
+    // device with swapchain
+    float prio = 1.0f;
+    VkDeviceQueueCreateInfo qci = {0}; qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    qci.queueFamilyIndex = gfx_family; qci.queueCount = 1; qci.pQueuePriorities = &prio;
+    const char *dev_ext[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    VkDeviceCreateInfo dci = {0}; dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    dci.queueCreateInfoCount = 1; dci.pQueueCreateInfos = &qci;
+    dci.enabledExtensionCount = 1; dci.ppEnabledExtensionNames = dev_ext;
+    VkDevice dev = NULL;
+    r = pCreateDevice(phys, &dci, NULL, &dev);
+    if (r != VK_SUCCESS) { printf("\n## swapchain test FAIL (vkCreateDevice %d)\n", r); pDestroySurface(instance, surf, NULL); return 1; }
+
+#define SFN(name) PFN_##name name = (PFN_##name)GDPA(dev, #name)
+    SFN(vkCreateSwapchainKHR); SFN(vkGetSwapchainImagesKHR); SFN(vkAcquireNextImageKHR);
+    SFN(vkQueuePresentKHR); SFN(vkDestroySwapchainKHR); SFN(vkCreateSemaphore);
+    SFN(vkDestroySemaphore); SFN(vkGetDeviceQueue); SFN(vkCreateCommandPool);
+    SFN(vkAllocateCommandBuffers); SFN(vkBeginCommandBuffer); SFN(vkCmdPipelineBarrier);
+    SFN(vkCmdClearColorImage); SFN(vkEndCommandBuffer); SFN(vkQueueSubmit); SFN(vkQueueWaitIdle);
+    SFN(vkDeviceWaitIdle); SFN(vkDestroyCommandPool); SFN(vkDestroyDevice); SFN(vkCreateFence);
+    SFN(vkWaitForFences); SFN(vkDestroyFence);
+#undef SFN
+    if (!vkCreateSwapchainKHR || !vkGetSwapchainImagesKHR || !vkAcquireNextImageKHR || !vkQueuePresentKHR) {
+        printf("\n## swapchain test FAIL (device entry points)\n");
+        vkDestroyDevice(dev, NULL); pDestroySurface(instance, surf, NULL); return 1;
+    }
+    uint32_t image_count = caps.minImageCount + 1;
+    if (caps.maxImageCount > 0 && image_count > caps.maxImageCount) image_count = caps.maxImageCount;
+    VkCompositeAlphaFlagBitsKHR alpha = (caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+        ? VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR : VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+    VkSwapchainCreateInfoKHR sci2 = {0}; sci2.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    sci2.surface = surf; sci2.minImageCount = image_count; sci2.imageFormat = chosen.format;
+    sci2.imageColorSpace = chosen.colorSpace; sci2.imageExtent = extent;
+    sci2.imageArrayLayers = 1;
+    sci2.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    sci2.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    sci2.preTransform = caps.currentTransform;
+    sci2.compositeAlpha = alpha;
+    sci2.presentMode = pmode; sci2.clipped = VK_TRUE; sci2.oldSwapchain = VK_NULL_HANDLE;
+    VkSwapchainKHR sc = VK_NULL_HANDLE;
+    r = vkCreateSwapchainKHR(dev, &sci2, NULL, &sc);
+    if (r != VK_SUCCESS) { printf("\n## swapchain test FAIL (vkCreateSwapchainKHR %d)\n", r); vkDestroyDevice(dev, NULL); pDestroySurface(instance, surf, NULL); return 1; }
+    uint32_t n = 0; vkGetSwapchainImagesKHR(dev, sc, &n, NULL);
+    VkImage *images = calloc(n ? n : 1, sizeof(*images));
+    vkGetSwapchainImagesKHR(dev, sc, &n, images);
+    printf("\n## swapchain test: %ux%u fmt=%u mode=%u images=%u\n", extent.width, extent.height, chosen.format, pmode, n);
+
+    VkSemaphore sem = VK_NULL_HANDLE;
+    VkSemaphoreCreateInfo semci = {0}; semci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    vkCreateSemaphore(dev, &semci, NULL, &sem);
+    VkCommandPoolCreateInfo cpci = {0}; cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    cpci.queueFamilyIndex = gfx_family;
+    VkCommandPool pool = VK_NULL_HANDLE; vkCreateCommandPool(dev, &cpci, NULL, &pool);
+    VkCommandBufferAllocateInfo cbai = {0}; cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cbai.commandPool = pool; cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; cbai.commandBufferCount = 1;
+    VkCommandBuffer cb = NULL; vkAllocateCommandBuffers(dev, &cbai, &cb);
+    uint32_t idx = 0;
+    r = vkAcquireNextImageKHR(dev, sc, 1000000000ull, sem, VK_NULL_HANDLE, &idx);
+    if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
+        printf("## swapchain test FAIL (acquire %d)\n", r);
+    } else {
+        VkCommandBufferBeginInfo cbbi = {0}; cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        cbbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(cb, &cbbi);
+        VkImageMemoryBarrier b1 = {0}; b1.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        b1.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; b1.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        b1.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; b1.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        b1.image = images[idx];
+        b1.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        b1.subresourceRange.levelCount = 1; b1.subresourceRange.layerCount = 1;
+        b1.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &b1);
+        VkClearColorValue color = {0}; color.float32[0] = 0.1f; color.float32[1] = 0.8f; color.float32[2] = 0.2f; color.float32[3] = 1.0f;
+        VkImageSubresourceRange sr = {0}; sr.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; sr.levelCount = 1; sr.layerCount = 1;
+        vkCmdClearColorImage(cb, images[idx], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color, 1, &sr);
+        VkImageMemoryBarrier b2 = b1;
+        b2.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        b2.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        b2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; b2.dstAccessMask = 0;
+        vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 1, &b2);
+        vkEndCommandBuffer(cb);
+        VkQueue queue = NULL; vkGetDeviceQueue(dev, gfx_family, 0, &queue);
+        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        VkSubmitInfo si = {0}; si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        si.waitSemaphoreCount = 1; si.pWaitSemaphores = &sem; si.pWaitDstStageMask = &wait_stage;
+        si.commandBufferCount = 1; si.pCommandBuffers = &cb;
+        r = vkQueueSubmit(queue, 1, &si, NULL);
+        printf("  submit=%d ", r);
+        vkQueueWaitIdle(queue);
+        VkPresentInfoKHR pi = {0}; pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        pi.swapchainCount = 1; pi.pSwapchains = &sc; pi.pImageIndices = &idx;
+        r = vkQueuePresentKHR(queue, &pi);
+        printf("present=%d ", r);
+        vkDeviceWaitIdle(dev);
+        printf("\n## SWAPCHAIN-TEST %s\n", r == VK_SUCCESS ? "PASS" : "FAIL");
+    }
+    vkDestroySemaphore(dev, sem, NULL);
+    vkDestroyCommandPool(dev, pool, NULL);
+    vkDestroySwapchainKHR(dev, sc, NULL);
+    vkDestroyDevice(dev, NULL);
+    pDestroySurface(instance, surf, NULL);
+    return r == VK_SUCCESS ? 0 : 1;
+}
+
 int vrmc_probe_main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     if (argc < 2) { fprintf(stderr, "usage: probe <libMoltenVK.dylib> [FrameworksDir]\n"); return 2; }
@@ -413,6 +572,7 @@ int vrmc_probe_main(int argc, char **argv) {
                p->limits.maxImageDimension2D);
         if (d == 0) vrmc_surface_test(instance, pds[d]);
         if (gfx) vrmc_render_test(instance, pds[d], (uint32_t)gfx_index);
+        if (gfx && d == 0) vrmc_swapchain_test(instance, pds[d], (uint32_t)gfx_index);
         free(de);
     }
     pDestroyInstance(instance, NULL);
