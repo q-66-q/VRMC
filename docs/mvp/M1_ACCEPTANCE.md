@@ -19,7 +19,7 @@ Status as of **2026-11-01**. This is the single view of the M1 acceptance criter
 
 | ID | Workstream | Status | Notes |
 |---|---|---|---|
-| W1 | Our app shell | **DONE (icon/first-run build pending install)** | Build-from-source (ADR-0008); branded app (EV-0042/0043); reproducible script (EV-0049/EV-0055); VRMC icon + first-run checklist built/signed (EV-0054) — install pending device wake. |
+| W1 | Our app shell | **DONE** | Build-from-source (ADR-0008); branded app (EV-0042/0043); reproducible script (EV-0049/EV-0055); VRMC icon + one-time first-run checklist, final build installed (EV-0054/EV-0056); icon/welcome visual check pending next launch (cosmetic). |
 | W2 | Runtime provisioning | **PASS** | Bundled JRE 8/17/21/25 + LWJGL 3.3.3/3.4.1 + MoltenVK inside the app; fresh container used internal Java 25 with no Mac pushes (EV-0043). |
 | W3 | JIT readiness | **DONE** | Upstream wait-gate retained; explicit TXM instructions + preflight logging (EV-0050); no-JIT flow verified (EV-0051). |
 | W4 | MC install + boot | **PASS** | Fresh container: account + MC 26.2 install + world reached from app UI (EV-0043). Flat preset note above. |
