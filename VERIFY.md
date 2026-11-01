@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0015`.
+**Next evidence ID:** `EV-0016`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -119,7 +119,7 @@ EV that first evidences a test is recorded in the Status column.
 
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
-| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 is external; EV-0004 is host-only | AOT pivot; launcher scope reduces | `NOT RUN` (external `PARTIAL` EV-0002; host `PARTIAL` EV-0004) |
+| ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `NOT RUN` (host `PARTIAL` EV-0004; device app installed and control run traps at the JIT26 request, EV-0015; JIT-enabler run pending) |
 | ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005, world session 21 min EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; device pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
@@ -765,6 +765,38 @@ the session stopped cleanly at 14:03:15 (**21m05s**) with saves flushed and no c
 **Limitations:** partial soak (21 of 30 minutes); clean shutdown, no crash. A full 30-minute host soak
 is still required. Host-only; not device evidence.
 
+### EV-0015 — S1a device control run: embedded JVM reaches the JIT26 request and traps (no enabler)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T14:13:09-10:00 |
+| Commit | `879acf1cfdb6239aed61c8d563898c678dc416e9` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2); app installed |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Install `dev.vrmc.s1a` after freeing the Amethyst app slot.
+2. Launch via `devicectl` with `--console` (no JIT enabler attached).
+3. Collect the crash reports and app-container state.
+
+**Expected:** without a JIT enabler, the JVM's JIT26 request traps in the debugger-prepared-memory path.
+
+**Actual:** the app launched and crashed twice with `EXC_BREAKPOINT` / `SIGTRAP` ("Trace/BPT trap: 5"); no
+Documents log was written; crash reports were captured.
+
+**Interpretation:** the embedded iOS JRE **loads and runs on visionOS**, and the JVM reaches the JIT26
+request (`brk`). The trap is the expected control-run failure because no debugger prepared the code
+memory. Next: launch through StikDebug so its script handles the request.
+
+**Artifacts:** `evidence/EV-0015/S1AProbe-2026-10-31-141120.ips` (19749ec0b4f6);
+`evidence/EV-0015/S1AProbe-2026-10-31-141204.ips` (62aaf7266b19);
+`evidence/EV-0015/launch-console.log` (ee72d0114d9d); `evidence/EV-0015/summary.log` (85d7fb2511c1).
+
+**Limitations:** control run only; no JIT enabled. The device JIT26 execution is still `NOT RUN`.
+
 ---
 
 ## 7. Status dashboard
@@ -781,7 +813,7 @@ is still required. Host-only; not device evidence.
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
 | Performance/thermal | `NOT RUN` | ST-S6 pending |
-| S1a harness | `PARTIAL` | Build+sign PASS, AVP profile created (EV-0011); install `BLOCKED` by free-profile 3-app limit |
+| S1a harness | `PARTIAL` | Installed on D1 (Amethyst slot freed); control run traps at JIT26 (EV-0015); JIT-enabler run pending |
 | Launcher shell | `NOT RUN` | M1 |
 | Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
 
@@ -793,7 +825,7 @@ is still required. Host-only; not device evidence.
 |---|---|---|
 | ST-S1 internal reproduction not yet attempted | Lead | Reference JVM + minimal app under JIT26 on D1 (EV-0002 is external context; OpenJDK build is C3) |
 | S1 internal evidence pending | Lead | Record an internal reference-JVM EV; EV-0002 alone does not satisfy S1 |
-| Free-profile app limit (3) reached | Lead/user | Amethyst, SideStore, StikDebug are installed. Remove Amethyst (or enroll paid) to install `dev.vrmc.s1a`; profile now exists and expires 2026-11-07 |
+| JIT enablement on D1 | Lead/user | S1AProbe is installed; StikDebug must launch it with JIT (on-headset tap: StikDebug > Enable JIT > S1AProbe). Then pull `Documents/s1a-jit.log` |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 
@@ -817,7 +849,8 @@ is still required. Host-only; not device evidence.
 | 2026-10-31 | EV-0011: S1a builds and signs successfully (AVP profile created); install is `BLOCKED` by the free-profile 3-app limit. |
 | 2026-10-31 | EV-0012: 12 LWJGL/helper dylibs retagged to platform VISIONOS (MoltenVK from EV-0010); load test pending. |
 | 2026-10-31 | EV-0013: visionOS S2 probe app builds and signs with MoltenVK + retagged natives embedded; install pending the app-slot decision. |
-| 2026-10-31 | EV-0014: host MC 26.2 world rendered through Vulkan/MoltenVK for 21 minutes, clean shutdown; full 30-min soak still pending. Next ID `EV-0015`. |
+| 2026-10-31 | EV-0014: host MC 26.2 world rendered through Vulkan/MoltenVK for 21 minutes, clean shutdown; full 30-min soak still pending. |
+| 2026-10-31 | Amethyst removed with approval; S1AProbe installed on D1. EV-0015 control run: embedded JRE runs and traps at the JIT26 request without an enabler. Next ID `EV-0016`. |
 
 ---
 
