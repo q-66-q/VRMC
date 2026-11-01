@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0051`.
+**Next evidence ID:** `EV-0053`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -1527,6 +1527,34 @@ open and the game continues automatically). Rebuilt, re-signed (167 Mach-O) and 
 
 **Artifacts:** `evidence/EV-0050/summary.log`.
 
+### EV-0051 — M1 W3 verification: no-JIT launch preflight guides to StikDebug and the game continues after JIT is enabled — PASS
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:24:41-10:00 |
+| Status | `PASS` |
+
+**Actual:** log shows `[JIT] preflight isJITEnabled=0 hasTXM=1 hasMirrored=1`; user confirms the alert
+flow (Assign Script → `amethyst.js`, Enable JIT → VRMC) and that the game continued after JIT was
+enabled. Installed build tree `sha256 01804065…`.
+
+**Artifacts:** `evidence/EV-0051/latestlog.txt`, `w3-summary.log`.
+
+---
+
+### EV-0052 — M1 W7 verification: clean save/quit and save preserved across relaunch — PASS
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:24:41-10:00 |
+| Status | `PASS` |
+
+**Actual:** log shows joined 00:23:17, `Saving and pausing game...` 00:23:56, `left the game` 00:23:57,
+`Stopping!` 00:23:59. User confirms the relaunched world loads with changes preserved. Combined with the
+30-minute soak (EV-0044), acceptance #2 is complete.
+
+**Artifacts:** `evidence/EV-0052/latestlog.txt`, `w7-summary.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1563,7 +1591,8 @@ open and the game continues automatically). Rebuilt, re-signed (167 Mach-O) and 
 | M1 T6: 30-minute device soak | **DONE** | 1805 s continuous world session, no game crash/watchdog kill, thermal `serious` recorded (EV-0044); StikDebug watchdog incident noted |
 | Lifecycle/audio defect | **CLOSED** | Background freeze + sound loss fixed; retest PASS (EV-0048), task-3 closed |
 | M1 W1 — reproducible build | `PASS` | `scripts/build_launcher.sh` + `patches/vrmc-m1-amethyst-1.2.0.patch` + `LAUNCHER_BUILD.md`; tested from a fresh tree (EV-0049) |
-| M1 W3 — JIT readiness | `PARTIAL` | explicit TXM alert + `[JIT] preflight` log installed (EV-0050); no-JIT flow verification pending |
+| M1 W3 — JIT readiness | `PASS` | explicit TXM alert + `[JIT] preflight` log (EV-0050); no-JIT flow verified (EV-0051) |
+| M1 W7 — save/relaunch | `PASS` | clean save/quit + reload preserved (EV-0052) |
 | M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
@@ -1616,7 +1645,7 @@ open and the game continues automatically). Rebuilt, re-signed (167 Mach-O) and 
 | 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
 | 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
 | 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
-| 2026-11-01 | EV-0047 (`PARTIAL`) rotation smooth/cursor cosmetic; EV-0048 (`PASS`) background/audio fixed; EV-0049 (`PASS`) W1 reproducible build; EV-0050 (`PARTIAL`) W3 JIT preflight guidance installed. `docs/mvp/M1_ACCEPTANCE.md` records the M1 acceptance matrix/gaps. Next ID `EV-0051`. |
+| 2026-11-01 | EV-0047/0048/0049/0050 recorded. **EV-0051 (W3 no-JIT flow PASS)**, **EV-0052 (W7 save/relaunch PASS)**; M1 acceptance #2 and #4 move to PASS. Next ID `EV-0053`. |
 
 ---
 
