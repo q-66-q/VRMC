@@ -31,6 +31,159 @@ static const char *OPT_EXT[] = {
     "VK_EXT_metal_surface", "VK_KHR_portability_enumeration", "VK_EXT_layer_settings",
     "VK_EXT_debug_utils", "VK_KHR_surface", NULL };
 
+
+// ---------------------------------------------------------------------------
+// Minimal device render test: clear a 64x64 RGBA8 image to a known colour with
+// vkCmdClearColorImage, copy it to a host-visible buffer, and verify the pixel.
+// Proves the device actually executes work through MoltenVK on this OS, not
+// just that the extensions are advertised.
+// ---------------------------------------------------------------------------
+static int vrmc_find_mem_type(VkPhysicalDevice phys, uint32_t bits, VkMemoryPropertyFlags want) {
+    VkPhysicalDeviceMemoryProperties mp;
+    PFN_vkGetPhysicalDeviceMemoryProperties gpm =
+        (PFN_vkGetPhysicalDeviceMemoryProperties)GIPA(NULL, "vkGetPhysicalDeviceMemoryProperties");
+    if (!gpm) gpm = (PFN_vkGetPhysicalDeviceMemoryProperties)GIPA(NULL, "vkGetPhysicalDeviceMemoryProperties");
+    // GIPA(NULL, ...) may not return it on some loaders; caller passes via global below instead.
+    (void)gpm; (void)phys; (void)bits; (void)want;
+    return -1;
+}
+
+static int vrmc_render_test(VkInstance instance, VkPhysicalDevice phys, uint32_t gfx_family) {
+    PFN_vkCreateDevice pCreateDevice = (PFN_vkCreateDevice)GIPA(instance, "vkCreateDevice");
+    PFN_vkGetDeviceProcAddr GDPA = (PFN_vkGetDeviceProcAddr)GIPA(instance, "vkGetDeviceProcAddr");
+    if (!pCreateDevice || !GDPA) { printf("  RENDER-TEST FAIL (no device funcs)\n"); return 1; }
+
+    float prio = 1.0f;
+    VkDeviceQueueCreateInfo qci = {0};
+    qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    qci.queueFamilyIndex = gfx_family;
+    qci.queueCount = 1;
+    qci.pQueuePriorities = &prio;
+    VkDeviceCreateInfo dci = {0};
+    dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    dci.queueCreateInfoCount = 1;
+    dci.pQueueCreateInfos = &qci;
+    VkDevice dev = NULL;
+    if (pCreateDevice(phys, &dci, NULL, &dev) != VK_SUCCESS) { printf("  RENDER-TEST FAIL (vkCreateDevice)\n"); return 1; }
+
+#define DFN(name) PFN_##name name = (PFN_##name)GDPA(dev, #name)
+    DFN(vkGetDeviceQueue); DFN(vkCreateImage); DFN(vkGetImageMemoryRequirements);
+    DFN(vkAllocateMemory); DFN(vkBindImageMemory); DFN(vkCreateBuffer);
+    DFN(vkGetBufferMemoryRequirements); DFN(vkBindBufferMemory); DFN(vkCreateCommandPool);
+    DFN(vkAllocateCommandBuffers); DFN(vkBeginCommandBuffer); DFN(vkCmdPipelineBarrier);
+    DFN(vkCmdClearColorImage); DFN(vkCmdCopyImageToBuffer); DFN(vkEndCommandBuffer);
+    DFN(vkQueueSubmit); DFN(vkQueueWaitIdle); DFN(vkMapMemory); DFN(vkUnmapMemory);
+    DFN(vkDestroyCommandPool); DFN(vkDestroyDevice); DFN(vkDestroyImage); DFN(vkDestroyBuffer);
+    DFN(vkFreeMemory);
+#undef DFN
+    PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties =
+        (PFN_vkGetPhysicalDeviceMemoryProperties)GIPA(instance, "vkGetPhysicalDeviceMemoryProperties");
+    if (!vkCreateImage || !vkAllocateMemory || !vkGetPhysicalDeviceMemoryProperties) {
+        printf("  RENDER-TEST FAIL (missing device entry points)\n"); vkDestroyDevice(dev, NULL); return 1;
+    }
+
+    const uint32_t W = 64, H = 64;
+    VkImageCreateInfo ici = {0};
+    ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ici.imageType = VK_IMAGE_TYPE_2D;
+    ici.format = VK_FORMAT_R8G8B8A8_UNORM;
+    ici.extent.width = W; ici.extent.height = H; ici.extent.depth = 1;
+    ici.mipLevels = 1; ici.arrayLayers = 1;
+    ici.samples = VK_SAMPLE_COUNT_1_BIT;
+    ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ici.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImage img = NULL;
+    if (vkCreateImage(dev, &ici, NULL, &img) != VK_SUCCESS) { printf("  RENDER-TEST FAIL (vkCreateImage)\n"); vkDestroyDevice(dev,NULL); return 1; }
+    VkMemoryRequirements imr; vkGetImageMemoryRequirements(dev, img, &imr);
+    VkPhysicalDeviceMemoryProperties mp; vkGetPhysicalDeviceMemoryProperties(phys, &mp);
+    int img_type = -1;
+    for (uint32_t i = 0; i < mp.memoryTypeCount; i++)
+        if ((imr.memoryTypeBits & (1u << i)) && (mp.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) { img_type = (int)i; break; }
+    if (img_type < 0) { printf("  RENDER-TEST FAIL (no device-local memory)\n"); vkDestroyImage(dev,img,NULL); vkDestroyDevice(dev,NULL); return 1; }
+    VkMemoryAllocateInfo mai = {0}; mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize = imr.size; mai.memoryTypeIndex = (uint32_t)img_type;
+    VkDeviceMemory img_mem = NULL;
+    if (vkAllocateMemory(dev, &mai, NULL, &img_mem) != VK_SUCCESS) { printf("  RENDER-TEST FAIL (image memory)\n"); vkDestroyImage(dev,img,NULL); vkDestroyDevice(dev,NULL); return 1; }
+    vkBindImageMemory(dev, img, img_mem, 0);
+
+    VkBufferCreateInfo bci = {0}; bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.size = (VkDeviceSize)W * H * 4; bci.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    VkBuffer buf = NULL;
+    if (vkCreateBuffer(dev, &bci, NULL, &buf) != VK_SUCCESS) { printf("  RENDER-TEST FAIL (vkCreateBuffer)\n"); return 1; }
+    VkMemoryRequirements bmr; vkGetBufferMemoryRequirements(dev, buf, &bmr);
+    int buf_type = -1;
+    for (uint32_t i = 0; i < mp.memoryTypeCount; i++)
+        if ((bmr.memoryTypeBits & (1u << i)) && ((mp.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) == (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))) { buf_type = (int)i; break; }
+    if (buf_type < 0) { printf("  RENDER-TEST FAIL (no host-visible memory)\n"); return 1; }
+    VkMemoryAllocateInfo bmai = {0}; bmai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    bmai.allocationSize = bmr.size; bmai.memoryTypeIndex = (uint32_t)buf_type;
+    VkDeviceMemory buf_mem = NULL;
+    if (vkAllocateMemory(dev, &bmai, NULL, &buf_mem) != VK_SUCCESS) { printf("  RENDER-TEST FAIL (buffer memory)\n"); return 1; }
+    vkBindBufferMemory(dev, buf, buf_mem, 0);
+
+    VkCommandPoolCreateInfo cpci = {0}; cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    cpci.queueFamilyIndex = gfx_family;
+    VkCommandPool pool = NULL;
+    if (vkCreateCommandPool(dev, &cpci, NULL, &pool) != VK_SUCCESS) { printf("  RENDER-TEST FAIL (command pool)\n"); return 1; }
+    VkCommandBufferAllocateInfo cbai = {0}; cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cbai.commandPool = pool; cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; cbai.commandBufferCount = 1;
+    VkCommandBuffer cb = NULL;
+    vkAllocateCommandBuffers(dev, &cbai, &cb);
+    VkCommandBufferBeginInfo cbbi = {0}; cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cbbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb, &cbbi);
+
+    VkImageMemoryBarrier b1 = {0}; b1.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    b1.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; b1.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    b1.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; b1.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    b1.image = img; b1.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    b1.subresourceRange.levelCount = 1; b1.subresourceRange.layerCount = 1;
+    b1.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &b1);
+
+    VkClearColorValue color = {0}; color.float32[0] = 0.25f; color.float32[1] = 0.5f; color.float32[2] = 0.75f; color.float32[3] = 1.0f;
+    VkImageSubresourceRange sr = {0}; sr.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; sr.levelCount = 1; sr.layerCount = 1;
+    vkCmdClearColorImage(cb, img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color, 1, &sr);
+
+    VkImageMemoryBarrier b2 = b1;
+    b2.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; b2.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    b2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; b2.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &b2);
+
+    VkBufferImageCopy bic = {0};
+    bic.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    bic.imageSubresource.layerCount = 1;
+    bic.imageExtent.width = W; bic.imageExtent.height = H; bic.imageExtent.depth = 1;
+    vkCmdCopyImageToBuffer(cb, img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buf, 1, &bic);
+
+    VkBufferMemoryBarrier bb = {0}; bb.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; bb.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bb.buffer = buf; bb.offset = 0; bb.size = bci.size;
+    bb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; bb.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, NULL, 1, &bb, 0, NULL);
+    vkEndCommandBuffer(cb);
+
+    VkQueue queue = NULL; vkGetDeviceQueue(dev, gfx_family, 0, &queue);
+    VkSubmitInfo si = {0}; si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.commandBufferCount = 1; si.pCommandBuffers = &cb;
+    int ok = 0;
+    if (vkQueueSubmit(queue, 1, &si, NULL) == VK_SUCCESS && vkQueueWaitIdle(queue) == VK_SUCCESS) {
+        void *mapped = NULL;
+        if (vkMapMemory(dev, buf_mem, 0, VK_WHOLE_SIZE, 0, &mapped) == VK_SUCCESS) {
+            const unsigned char *px = (const unsigned char *)mapped;
+            printf("  RENDER-TEST pixel = (%u,%u,%u,%u)\n", px[0], px[1], px[2], px[3]);
+            ok = (px[0] >= 62 && px[0] <= 66 && px[1] >= 126 && px[1] <= 130 &&
+                  px[2] >= 189 && px[2] <= 193 && px[3] >= 253);
+            vkUnmapMemory(dev, buf_mem);
+        }
+    }
+    printf("  RENDER-TEST %s\n", ok ? "PASS" : "FAIL");
+    vkDestroyCommandPool(dev, pool, NULL);
+    vkDestroyDevice(dev, NULL);
+    return ok ? 0 : 1;
+}
+
 int vrmc_probe_main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     if (argc < 2) { fprintf(stderr, "usage: probe <libMoltenVK.dylib>\n"); return 2; }
@@ -135,8 +288,8 @@ int vrmc_probe_main(int argc, char **argv) {
         pGetQueueFam(pds[d], &qn, NULL);
         VkQueueFamilyProperties *q = calloc(qn, sizeof(*q));
         pGetQueueFam(pds[d], &qn, q);
-        int gfx = 0;
-        for (uint32_t i = 0; i < qn; i++) if (q[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) gfx = 1;
+        int gfx = 0, gfx_index = 0;
+        for (uint32_t i = 0; i < qn; i++) if (q[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) { gfx = 1; gfx_index = (int)i; break; }
         printf("  graphics queue family: %s (families=%u)\n", gfx ? "yes" : "NO", qn);
         free(q);
 
@@ -160,6 +313,7 @@ int vrmc_probe_main(int argc, char **argv) {
         printf("  limits: maxPushDescriptors=%u maxMemoryAllocationCount=%u maxImageDimension2D=%u\n",
                pushp.maxPushDescriptors, p->limits.maxMemoryAllocationCount,
                p->limits.maxImageDimension2D);
+        if (gfx) vrmc_render_test(instance, pds[d], (uint32_t)gfx_index);
         free(de);
     }
     pDestroyInstance(instance, NULL);

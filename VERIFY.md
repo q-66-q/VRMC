@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0025`.
+**Next evidence ID:** `EV-0026`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -120,7 +120,7 @@ EV that first evidences a test is recorded in the Status column.
 | ID | Question | Pass criteria | Fallback | Status |
 |---|---|---|---|---|
 | ST-S1 | Can the JIT26 mechanism be reproduced internally? | Four criteria: (1) JIT-compiled methods **execute**, not only compile; (2) no `brk #0x69` trap; (3) the code cache stays executable after the enabler detaches; (4) a cold relaunch reproduces the result or persistence is proven. **Criterion 4 decides A2 MEDIUM vs LOW.** Reference JVM + minimal app; OpenJDK 25 xros is C3. EV-0002 external; EV-0004 host-only | AOT pivot; launcher scope reduces | `PASS` — EV-0021 (compat: five cold launches) + EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`, exit 0) |
-| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `NOT RUN` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; **D1 capability PASS EV-0016**; device render/soak pending) |
+| ST-S2 | Does MC 26.2 Vulkan boot on MoltenVK/xros? | Host: backend Vulkan + MoltenVK, no GL fallback, world + 30-min soak. Device: world renders, 30 min stable | GL/LTW→ANGLE | `PARTIAL` (host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; D1 capability EV-0016; **D1 offscreen Vulkan render PASS EV-0025**; MC world/swapchain/soak pending) |
 | ST-S3 | Does Vivecraft enter VR with `VisionVR`, no SteamVR? | Provider init; action debug populated; stereo eye targets; **injection point evidenced in the decompiled 26.2‑1.3.15 jar and stable across 26.2.x** | Fork approved by ADR + LGPL source | `PASS` (desktop injection: EV-0006 static + EV-0009 runtime); full provider/renderer and device runtime are M2 |
 | ST-S4 | Can eye textures reach CompositorServices reliably? | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | GPU blit; readback last resort | `NOT RUN` |
 | ST-S5 | Do PSVR2 + hands drive all P0 actions? | Full P0 action checklist in both modes | Hands-only MVP | `NOT RUN` |
@@ -1038,6 +1038,27 @@ integration).
 
 **Next:** S2 device render — MC 26.2 Vulkan world on D1 (M0's last open gate).
 
+### EV-0025 — S2 device render: Vulkan offscreen clear+readback executes on D1 (MoltenVK 1.4.2, Apple M2)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:30:42-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native `dev.vrmc.s2probe`) |
+| Status | `PASS` |
+
+**Procedure:** extend S2Probe with a Vulkan render test — create `VkDevice`, clear a 64×64 RGBA8 image
+to `(0.25, 0.5, 0.75, 1.0)`, copy it to a host-visible buffer, and read the pixel back; build, sign,
+install and launch the native visionOS probe on D1; pull `Documents/s2-probe.log`.
+
+**Actual:** log shows `Created VkDevice ... Apple M2 GPU`, `RENDER-TEST pixel = (64,128,191,255)`,
+`RENDER-TEST PASS`, and `probe rc=0`.
+
+**Scope:** device **executes Vulkan commands** through MoltenVK/M2 — not just extension enumeration.
+Still offscreen only: no swapchain/window/present and no Minecraft world, so ST-S2's device criterion
+remains open.
+
+**Artifacts:** `evidence/EV-0025/s2-probe.log`, `summary.log`, `probe_mvk.c`, `s2probe-build8.log`.
+
 ---
 
 ## 7. Status dashboard
@@ -1049,7 +1070,7 @@ integration).
 | Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
 | JIT mechanism (S1) | `NOT RUN` | External `PARTIAL` (EV-0002); host pre-test `PARTIAL` (EV-0004); device pending |
 | JVM/JIT runtime (C3) | `NOT RUN` | OpenJDK 25 xros build pending |
-| Graphics (Vulkan/MoltenVK) | `NOT RUN` | Host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; probe app EV-0013; **D1 capability PASS EV-0016**; device render pending |
+| Graphics (Vulkan/MoltenVK) | `PARTIAL` | Host boot EV-0005 + 21-min world EV-0014; MoltenVK xros EV-0010; natives EV-0012; D1 capability EV-0016; **D1 offscreen render PASS EV-0025**; MC world/swapchain pending |
 | Provider integration | `PASS` | Desktop injection EV-0006 + EV-0009; full provider/renderer and device runtime are M2 |
 | Stereo compositor | `NOT RUN` | ST-S4 pending |
 | Input (controllers/hands) | `NOT RUN` | ST-S5 pending |
@@ -1098,7 +1119,8 @@ integration).
 | 2026-10-31 | EV-0021 (`PASS (compat)`): Assign-Script + JIT26 extension handshake; five cold launches with `[JIT26]` mapping, tier 3/4, `HELLOJIT`, exit 0. |
 | 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; 39 JRE Mach-O relabelled VISIONOS; install blocked by the 3-app free-profile limit and device state. |
 | 2026-10-31 | EV-0023 (`PARTIAL`): after freeing the slot, `dev.vrmc.s1b` installs and launches natively on D1 without a scene crash; waits for the JIT debugger and exits cleanly when none is attached. |
-| 2026-10-31 | EV-0024 (`PASS`): native visionOS app JITs and executes on D1 with the VISIONOS-relabelled JRE (`HELLOJIT` 616 ms, exit 0). S1 spike complete (compat + native); S2 device render is the remaining M0 gate. Next ID `EV-0025`. |
+| 2026-10-31 | EV-0024 (`PASS`): native visionOS app JITs and executes on D1 with the VISIONOS-relabelled JRE (`HELLOJIT` 616 ms, exit 0). S1 spike complete (compat + native). |
+| 2026-10-31 | EV-0025 (`PASS`): D1 executes a Vulkan offscreen clear+readback through MoltenVK/M2 (`pixel=(64,128,191,255)`). MC world/swapchain/soak still open. Next ID `EV-0026`. |
 
 ---
 
