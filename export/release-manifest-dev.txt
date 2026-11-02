@@ -1,6 +1,6 @@
 # VRMC release manifest
-# generated: 2026-11-02T00:08:52-1000
-source_commit=03297f8313779b70cba5e197a129c7df40e60c47
+# generated: 2026-11-02T00:24:15-1000
+source_commit=a35cc85f616caa57d27621ad9d450b3055a2394e
 source_branch=main
 dirty_tree=no
 product=VRMC
@@ -18,12 +18,12 @@ moltenvk=1.4.3 (source-built-app-bundled)
 xcode=27.2 (27B52)
 visionos_sdk=27.2
 visionos_sim_runtime=27.0
-app_bundle=/tmp/VRMC-native-holdpose.app
-app_bundle_sha256=79b7a0cf99921b16c64c0277ed3f17bc726dba4ccaaa3002a37f7e35006bb000
+app_bundle=/tmp/VRMC-native-asyncheartbeat.app
+app_bundle_sha256=0aebb8069ede92efe478d482b2ebd64c701dbcc5b6d975be94b020362d58a3e2
 bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
 provider_jar=/tmp/vrmc-current/vrmc-provider.jar
-provider_jar_sha256=7a9a1118f0a78d29e1afa56d2bcf7ef25f61cced227426e97edba9cca028dff7
+provider_jar_sha256=fcd1df769cd0a6a25a3664938f1440bdf8c0292d1a3971bd59674f07b8d3cbe2
 license_app=LICENSE:present
 license_provider=provider/LICENSE:present
 third_party_notices=THIRD_PARTY_NOTICES.md:present

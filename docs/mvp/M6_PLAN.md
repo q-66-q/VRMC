@@ -82,6 +82,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Refreshed package with reproducible provider (EV-0155)
+
+- `scripts/m6_reproducibility_check.sh` PASS: two builds both `fcd1df76…` (90,619 bytes).
+- Clean-tree release check PASS; package refreshed to bytes=206,459,027 sha256
+  `3b3fa4feaa9ca2eeb80bff6d504dff89940a98664772597366530f0b2ac1aa03` with app `0aebb806…` +
+  provider `fcd1df76…`; manifest `dirty_tree=no`; metadata refreshed.
+- Development sideload package only; acceptance NOT READY.
+
 ## Reproducibility check (EV-0155)
 
 - `scripts/m6_reproducibility_check.sh` builds the provider twice from the same source and compares
