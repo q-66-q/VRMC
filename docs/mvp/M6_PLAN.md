@@ -1,6 +1,6 @@
 # M6 plan — hardening + acceptance
 
-Status: **PLANNED (offline groundwork only)** — device gates remain `NOT RUN` while D1 is unavailable.
+Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak/release harnesses, privacy + M6 acceptance matrix host/build PASS; device gates remain `NOT RUN` while D1 is unavailable. See `docs/mvp/M6_ACCEPTANCE.md`.
 
 ## Scope (AGENT §7 M6: AC-1…AC-6 + K gates evidenced)
 

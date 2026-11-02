@@ -30,6 +30,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -221,12 +223,15 @@ public class VisionVR extends MCVR {
 
         this.initialized = true;
         this.initSuccess = true;
+        appendShutdownLog("init", "bridgeReady=" + this.bridgeReady + " abi=" + VrmcBridge.ABI_VERSION);
         System.out.println("[VRMC-M2] VisionVR.init() succeeded");
         return true;
     }
 
     @Override
     public void destroy() {
+        appendShutdownLog("destroy-start", "bridgeReady=" + this.bridgeReady
+            + " displayViewsGen=" + this.displayViewsGen + " trackedFrames=" + this.trackedFrames);
         // Shutdown ordering (M4 follow-up, EV-0096 defect): drop the eye-texture handles BEFORE the
         // renderer/VkImages are destroyed so the compositor cannot sample a freed MTLTexture.
         try {
@@ -248,6 +253,24 @@ public class VisionVR extends MCVR {
         }
         this.initialized = false;
         super.destroy();
+        appendShutdownLog("destroy-complete", "no exception during provider teardown");
+    }
+
+    /**
+     * M6: append-only local shutdown/restart journal in the game directory. Used by the soak harness
+     * to distinguish a clean quit from a JVM crash (a crash leaves no destroy-complete line) and to
+     * correlate the shell/game logs. Never throws into game code.
+     */
+    private void appendShutdownLog(String event, String detail) {
+        try {
+            File dir = this.mc.gameDirectory;
+            if (dir == null) return;
+            Path path = dir.toPath().resolve("vrmc-shutdown.log");
+            String line = Instant.now() + " event=" + event + " " + detail + System.lineSeparator();
+            Files.writeString(path, line, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M6][WARN] could not append vrmc-shutdown.log: " + t);
+        }
     }
 
     // ------------------------------------------------------------------------------------------
