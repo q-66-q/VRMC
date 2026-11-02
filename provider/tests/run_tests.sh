@@ -166,6 +166,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionHotbarWheelTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionRingChordTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionThermalStateTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -263,6 +264,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-ring-chord-test\] [0-9]+ checks" "$T/m4-ring.log"
   else
     cat "$T/m4-ring.log"; fail "m4-ring-chord"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionThermalStateTest > "$T/m5-thermal.log" 2>&1 \
+     && grep -q "\[m5-thermal-test\] PASS" "$T/m5-thermal.log"; then
+    echo "[provider-tests] m5-thermal: PASS (shell thermal state reader/advisory)"
+    grep -E "\[m5-thermal-test\] [0-9]+ checks" "$T/m5-thermal.log"
+  else
+    cat "$T/m5-thermal.log"; fail "m5-thermal"
   fi
   # Cross-language fixture: set-but-missing must FAIL; unset is an explicit SKIP (never silent).
   FIXTURE="${VRMC_INPUT_FIXTURE:-}"

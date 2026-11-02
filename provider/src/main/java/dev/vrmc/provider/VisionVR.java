@@ -121,6 +121,7 @@ public class VisionVR extends MCVR {
     private boolean hotbarWheelActive;
     private float hotbarWheelStartX;
     private int hotbarWheelSelected;
+    private String lastThermalState = "";
     private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
     private long rotatePulseUntilNs;
@@ -303,7 +304,8 @@ public class VisionVR extends MCVR {
             json.append("  \"runtimeSettings\": \"").append(this.runtimeSettings.summary().replace("\"", "'")).append("\",\n");
             json.append("  \"hotbarRange\": ").append(this.hotbarRange).append(",\n");
             json.append("  \"inputTuning\": \"").append(this.visionInput == null ? ""
-                : this.visionInput.tuningSummary().replace("\"", "'")).append("\"\n");
+                : this.visionInput.tuningSummary().replace("\"", "'")).append("\",\n");
+            json.append("  \"thermalState\": \"").append(this.lastThermalState).append("\"\n");
             json.append("}\n");
             Files.writeString(dir.toPath().resolve("vrmc-status.json"), json.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -403,6 +405,21 @@ public class VisionVR extends MCVR {
         if (settings.hasVsync) this.mc.options.enableVsync().set(settings.vsync);
         System.out.println("[VRMC-M5] runtime settings: " + settings.summary());
         System.out.println("[VRMC-M5] diagnostics: periodSeconds=" + settings.diagnosticPeriodSeconds);
+    }
+
+    /** M5 thermal awareness: surface shell thermal pressure in-game once per state change. */
+    private void pollThermalState() {
+        java.nio.file.Path dir = this.mc.gameDirectory == null ? null : this.mc.gameDirectory.toPath();
+        String state = VisionThermalState.readState(dir);
+        if (state.equals(this.lastThermalState)) return;
+        this.lastThermalState = state;
+        String advisory = VisionThermalState.advisory(state);
+        if (advisory != null) {
+            System.out.println("[VRMC-M5] thermal state=" + state + " -> " + advisory);
+            showGameMessage(advisory);
+        } else {
+            System.out.println("[VRMC-M5] thermal state=" + state);
+        }
     }
 
     /** M5 command file: consume at most one command every 500 ms; never throws into the frame loop. */
@@ -582,6 +599,7 @@ public class VisionVR extends MCVR {
             this.hmdSampling();
         }
         pollCommandFile();
+        pollThermalState();
         updateDiagnostics();
         if (this.dh.vrRenderer instanceof VisionRenderer r) {
             r.markPolled();

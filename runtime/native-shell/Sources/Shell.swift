@@ -715,7 +715,13 @@ final class ShellCoordinator {
             + "immersive=\(immersiveOpen) presenting=\(presenting) appActive=\(appActive) "
             + "appState=\(UIApplication.shared.applicationState.rawValue)"
         shellLog(line)
-        let url = shellDocumentsURL().appendingPathComponent("vrmc-thermal.log")
+        let docs = shellDocumentsURL()
+        let gameDir = docs.appendingPathComponent("instances/default")
+        try? FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+        let stateFile = "state=\(state)\nlowPower=\(info.isLowPowerModeEnabled)\ntime=\(Date())\n"
+        try? stateFile.write(to: gameDir.appendingPathComponent("vrmc-thermal-state.txt"),
+                             atomically: true, encoding: .utf8)
+        let url = docs.appendingPathComponent("vrmc-thermal.log")
         let entry = "\(Date()) \(line)\n"
         if let handle = try? FileHandle(forWritingTo: url) {
             handle.seekToEndOfFile()

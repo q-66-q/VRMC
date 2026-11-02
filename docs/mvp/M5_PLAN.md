@@ -168,6 +168,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - `VisionInput.tuningSummary()` is written into `vrmc-status.json` with `hotbarRange` for diagnostics.
 - m4-input 172 checks, full provider suite PASS; app installed/provider pushed. Device tuning NOT RUN.
 
+## Thermal pressure awareness (EV-0131)
+
+- Shell thermal monitor writes game-dir `vrmc-thermal-state.txt` (state/lowPower/time).
+- Provider `VisionThermalState` reads it; on `serious`/`critical` state change logs a warning and shows an
+  action-bar advisory. Advisory only — no automatic setting changes; `thermalState` added to
+  `vrmc-status.json`.
+- m5-thermal 8 checks, full provider suite PASS; app installed/provider pushed. Device K5 thermal
+  behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
