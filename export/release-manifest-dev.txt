@@ -1,6 +1,6 @@
 # VRMC release manifest
-# generated: 2026-11-02T00:49:35-1000
-source_commit=17f8c87abdffeec0b11e0e12beeb5fb30c192bc3
+# generated: 2026-11-02T00:52:24-1000
+source_commit=57c57b88b1ba63afc33e490dc1fb11cef41f23da
 source_branch=main
 dirty_tree=no
 product=VRMC
@@ -23,7 +23,7 @@ app_bundle_sha256=2939c509d8522c92504c2cc19923336ddf8fa0d3530e7164f9aee0da403ee4
 bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
 provider_jar=/tmp/vrmc-current/vrmc-provider.jar
-provider_jar_sha256=5379fe2ced32d9cc1ece9bbb6cbf49684d0657584c0f22f06edb8e8df138baf6
+provider_jar_sha256=702e7193510c335bfacbb88543dd0facce1cca30e1d352ae26c1538c7e88e015
 license_app=LICENSE:present
 license_provider=provider/LICENSE:present
 third_party_notices=THIRD_PARTY_NOTICES.md:present

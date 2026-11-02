@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Refreshed package for auto-status build (EV-0183)
+
+- Package refreshed to app `2939c509…` + provider `702e7193…`: bytes=206,470,666 sha256
+  `f6a687ace74facb3e266f4a858fb0618d55b032f46750c70f7f010f711c843c0`; freshness/verifier/release-ready
+  host gates PASS; acceptance NOT READY; metrics refreshed.
+
 ## Status/handoff document (EV-0181)
 
 - `docs/mvp/STATUS.md` summarizes the current installed build identity, milestone states, feature
