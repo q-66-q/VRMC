@@ -4,7 +4,7 @@ VRMC runs **Minecraft: Java Edition 26.2 + Fabric + the real Vivecraft mod** nat
 Vision Pro, with head-tracked stereo and hand-tracked input (PSVR2 controllers are P1, post-MVP)
 when present. No PC, no streaming.
 
-> **Latest build:** current M4/M5/M6 development build installed on D1 (app tree `a2809f6d…`, provider jar `4fa76795…`; behavior NOT RUN — see EV-0113).\n\n> **Status: M3 visual acceptance PASS (EV-0094); M4-W1 immersive input PASSED ON DEVICE (EV-0096); M4-W2–W4, M5 first slice + recenter chord + launcher settings panel/command channel and M6 offline groundwork host/build PASS (EV-0097…EV-0127); device gates still NOT RUN.**
+> **Latest build:** current M4/M5/M6 development build installed on D1 (app tree `bcdb5987…`, provider jar `54353013…`; behavior NOT RUN — see EV-0113).\n\n> **Status: M3 visual acceptance PASS (EV-0094); M4-W1 immersive input PASSED ON DEVICE (EV-0096); M4-W2–W4, M5 first slice + recenter chord + launcher settings panel/command channel and M6 offline groundwork host/build PASS (EV-0097…EV-0128); device gates still NOT RUN.**
 > The launcher, JVM/JIT runtime, Minecraft 26.2 + Fabric + Vivecraft and the VRMC provider (LGPL) run
 > end-to-end on Apple Vision Pro. The black-immersive root cause was found and fixed (drawable
 > depth-clear value; EV-0093), and the immersive path passed on-device acceptance: the stereo/alignment

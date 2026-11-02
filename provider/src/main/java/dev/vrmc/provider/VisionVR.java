@@ -480,6 +480,10 @@ public class VisionVR extends MCVR {
             this.visionInput.isHandTracked(VisionInput.HAND_LEFT) ? 1 : 0,
             this.visionInput.isHandTracked(VisionInput.HAND_RIGHT) ? 1 : 0,
             this.displayViewsGen, this.trackedFrames, hasPlayer ? 1 : 0);
+        if (fs.p95Ms > 16.7 || fs.missed90HzFrames > Math.max(2, this.diagWindowFrames / 10)) {
+            System.out.printf("[VRMC-M5][WARN] frame pacing above 90 Hz budget: p95=%.2f ms missed90=%d/%d%n",
+                fs.p95Ms, fs.missed90HzFrames, this.diagWindowFrames);
+        }
         this.diagWindowStartNs = now;
         this.diagWindowFrames = 0;
         this.diagMaxGapNs = 0L;

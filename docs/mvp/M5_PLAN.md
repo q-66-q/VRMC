@@ -143,6 +143,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   `docs/mvp/M5_DEVICE_RUN.md` (step-by-step D1 procedure/evidence plan) published.
 - Build/install PASS; device run NOT RUN.
 
+## Diagnostics viewer + pacing warning (EV-0128)
+
+- Launcher **Recent diagnostics** disclosure: capped tails of compositor/shell/latestlog/status, extracts
+  `[VRMC-`/WARN/ERROR/FAIL/CRASH lines (last 8, monospaced, refresh); status line reports
+  `providerJar=ok/MISSING`.
+- Provider `[VRMC-M5] diag` emits an explicit WARN when p95 poll interval > 16.7 ms or missed90 exceeds
+  max(2, frames/10).
+- Build/install PASS; device UI/behavior NOT RUN; simulator remains unusable (immediate backgrounding).
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

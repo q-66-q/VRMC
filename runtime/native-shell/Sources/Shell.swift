@@ -1136,6 +1136,7 @@ struct VRControlOverlay: View {
     @State private var exportURL: URL?
     @State private var exportStatus = ""
     @State private var statusLine = ""
+    @State private var diagnosticTail: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1168,6 +1169,18 @@ struct VRControlOverlay: View {
             }
             if !statusLine.isEmpty {
                 Text(statusLine).font(.caption2).foregroundStyle(.secondary)
+            }
+            if !diagnosticTail.isEmpty {
+                DisclosureGroup("Recent diagnostics") {
+                    VStack(alignment: .leading, spacing: 1) {
+                        ForEach(Array(diagnosticTail.enumerated()), id: \.offset) { _, line in
+                            Text(line).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        Button("Refresh") { refreshDiagnosticTail() }.font(.caption2).buttonStyle(.bordered)
+                    }
+                }
+                .font(.caption)
             }
             if !shell.crashGuardMessage.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -1365,6 +1378,8 @@ struct VRControlOverlay: View {
             parts.append("displayGen=\(gen)")
             parts.append("hands=\(left ? "L" : "-")\(right ? "R" : "-")")
             parts.append("seated=\(seated)")
+            let providerJar = game.appendingPathComponent("mods/vrmc-provider.jar")
+            parts.append("providerJar=\(FileManager.default.fileExists(atPath: providerJar.path) ? "ok" : "MISSING")")
         } else {
             parts.append("provider status: no session yet")
         }
@@ -1379,6 +1394,32 @@ struct VRControlOverlay: View {
         parts.append("thermal=\(thermal)")
         parts.append("lowPower=\(ProcessInfo.processInfo.isLowPowerModeEnabled ? "on" : "off")")
         statusLine = parts.joined(separator: " · ")
+        if diagnosticTail.isEmpty { refreshDiagnosticTail() }
+    }
+
+    private func refreshDiagnosticTail() {
+        let docs = shellDocumentsURL()
+        let game = docs.appendingPathComponent("instances/default")
+        let files = [
+            docs.appendingPathComponent("vrmc-compositor.log"),
+            docs.appendingPathComponent("vrmc-shell.log"),
+            docs.appendingPathComponent("latestlog.txt"),
+            game.appendingPathComponent("vrmc-status.json"),
+        ]
+        var lines: [String] = []
+        for url in files {
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let slice = data.count > 131_072 ? data.suffix(131_072) : data
+            guard let text = String(data: slice, encoding: .utf8) else { continue }
+            for line in text.split(whereSeparator: \.isNewline).suffix(2000) {
+                let s = String(line)
+                if s.contains("[VRMC-") || s.contains("WARN") || s.contains("ERROR")
+                    || s.contains("FAIL") || s.contains("CRASH") {
+                    lines.append("\(url.lastPathComponent): \(s.prefix(220))")
+                }
+            }
+        }
+        diagnosticTail = Array(lines.suffix(8))
     }
 
     private func loadSettings() {
