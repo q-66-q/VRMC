@@ -54,6 +54,18 @@ if [ "$SKIP_DEVICE" = "0" ]; then
   if scripts/m6_device_integrity.sh; then echo "[release-ready] OK device integrity"; else echo "[release-ready] FAIL device integrity"; fail=1; fi
 fi
 
+step "imported device checklist"
+if scripts/m6_check_device_checklist.sh; then
+  echo "[release-ready] OK/INFO device checklist"
+else
+  rc=$?
+  if [ "$rc" = "1" ]; then
+    echo "[release-ready] FAIL device checklist contains FAIL"; fail=1
+  else
+    echo "[release-ready] NOTE device checklist incomplete (device acceptance not finished)"
+  fi
+fi
+
 step "acceptance gate"
 if scripts/m6_acceptance_report.sh --require-pass; then
   acceptance_ready=1; echo "[release-ready] OK acceptance"

@@ -50,6 +50,7 @@ scripts/m6_import_device_checklist.sh --require-no-fail
 ```
 
 Writes `export/device-acceptance-report.md` and `export/device-acceptance-status.txt` for VERIFY.
+`m6_release_ready.sh` fails if any imported row is FAIL (incomplete rows are reported).
 
 ## Evidence rules
 

@@ -88,6 +88,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   package verifier/freshness and device integrity: all PASS.
 - Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
 
+## Checklist FAIL release gate (EV-0204)
+
+- `scripts/m6_check_device_checklist.sh` consumes `export/device-acceptance-status.txt`: missing SKIP,
+  FAIL exit1, NOT RUN/PARTIAL exit2, all PASS exit0.
+- `m6_release_ready.sh` runs it before the acceptance gate; FAIL blocks host readiness, incomplete is a
+  note. Host fixtures pass; fixture-generated export artifacts were removed; device checklist NOT RUN.
+
 ## Checklist importer (EV-0203)
 
 - `scripts/m6_import_device_checklist.sh [--input PATH] [--require-no-fail]` imports the in-headset
