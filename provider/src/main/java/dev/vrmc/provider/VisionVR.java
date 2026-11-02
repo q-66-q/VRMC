@@ -116,6 +116,12 @@ public class VisionVR extends MCVR {
     /** M5 seated parity: allow the HMD-aim fallback to drive the controller/GUI pointer when seated. */
     private boolean seatedHmdPointer;
     private final Matrix4f[] tipComponent = {new Matrix4f(), new Matrix4f()};
+    // M4 tracking-dropout hardening: hold the last valid hand pose briefly instead of snapping to the
+    // shoulder fallback. Actions are still released (controllerTracking stays false).
+    private final Matrix4f[] lastTrackedPose = {new Matrix4f(), new Matrix4f()};
+    private final long[] lastTrackedNs = new long[2];
+    private final long[] lastHoldLogNs = new long[2];
+    private long holdLastPoseNanos = 250_000_000L;
     private final Vector3f tipOffsetTmp = new Vector3f();
     private float hotbarRange = VisionHotbarWheel.DEFAULT_HALF_RANGE_METRES;
     private boolean hotbarWheelActive;
@@ -218,6 +224,9 @@ public class VisionVR extends MCVR {
             tuning.getOrDefault("hands.componentMode", "identity"));
         this.handComponentJoints = "joints".equalsIgnoreCase(componentMode);
         this.hotbarRange = floatValue(tuning, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
+        this.holdLastPoseNanos = (long) (Math.max(0.0F, Math.min(2000.0F,
+            floatValue(tuning, "tracking.holdLastPoseMs", "vrmc.input.tracking.holdLastPoseMs", 250.0F)))
+            * 1_000_000L);
         this.visionInput = new VisionInput(tuning);
         this.smoothingConfig = loadSmoothingConfig(tuning);
         this.moveOriginZ = floatValue(tuning, "move.originZ", "vrmc.input.move.originZ", this.moveOriginZ);
@@ -233,7 +242,8 @@ public class VisionVR extends MCVR {
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
         System.out.println("[VRMC-M4] hand components: mode=" + (this.handComponentJoints ? "joints" : "identity")
-            + " (hands.componentMode/-Dvrmc.hands.componentMode)");
+            + " (hands.componentMode/-Dvrmc.hands.componentMode) holdLastPoseMs="
+            + (this.holdLastPoseNanos / 1_000_000L));
         System.out.printf("[VRMC-M4] locomotion: middleEnabled=%s ringEnabled=%s hotbarRange=%.2f "
                 + "swipeEnabled=%s virtual stick originZ=%.2f forwardScale=%.2f "
                 + "strafeScale=%.2f deadzone=%.2f rotatePulseMs=%d middleOn=%.3f middleOff=%.3f "
@@ -763,6 +773,7 @@ public class VisionVR extends MCVR {
      * false for the fallback (honest signal - see design §5.2).
      */
     private void updateControllerPoses() {
+        long nowNs = System.nanoTime();
         for (int hand = 0; hand < VisionInput.HAND_COUNT; hand++) {
             int c = hand == VisionInput.HAND_LEFT ? LEFT_CONTROLLER : RIGHT_CONTROLLER;
             boolean tracked = this.visionInput.isHandTracked(hand);
@@ -776,14 +787,29 @@ public class VisionVR extends MCVR {
                 // slerp orientation). Reset history whenever the hand was untracked, so reacquisition
                 // never lags behind a teleporting wrist.
                 if (this.poseSmoothers != null) {
-                    this.poseSmoothers[c].apply(this.controllerPose[c], System.nanoTime());
+                    this.poseSmoothers[c].apply(this.controllerPose[c], nowNs);
                 }
+                this.lastTrackedPose[c].set(this.controllerPose[c]);
+                this.lastTrackedNs[hand] = nowNs;
             } else {
                 if (this.poseSmoothers != null) {
                     this.poseSmoothers[c].reset();
                 }
-                VisionHandPose.gazeFallback(this.hmdPose, hand == VisionInput.HAND_RIGHT,
-                    this.controllerPose[c]);
+                long trackedAt = this.lastTrackedNs[hand];
+                boolean held = this.holdLastPoseNanos > 0L && trackedAt != 0L
+                    && nowNs - trackedAt <= this.holdLastPoseNanos;
+                if (held) {
+                    this.controllerPose[c].set(this.lastTrackedPose[c]);
+                    if (nowNs - this.lastHoldLogNs[hand] > 2_000_000_000L) {
+                        this.lastHoldLogNs[hand] = nowNs;
+                        System.out.printf("[VRMC-M4] hand %s untracked: holding last pose for %d ms (actions released)%n",
+                            hand == VisionInput.HAND_LEFT ? "left" : "right",
+                            this.holdLastPoseNanos / 1_000_000L);
+                    }
+                } else {
+                    VisionHandPose.gazeFallback(this.hmdPose, hand == VisionInput.HAND_RIGHT,
+                        this.controllerPose[c]);
+                }
             }
             // M5 seated parity (opt-in): when seated with no tracked hand, the HMD-aim fallback pose
             // may drive the controller/GUI pointer. Input actions still require real gestures.

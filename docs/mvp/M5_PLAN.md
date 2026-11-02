@@ -216,6 +216,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   command buttons; adds a **Status** button queueing the existing `status` command.
 - Shell/app build/install PASS; provider unchanged; device UI NOT RUN.
 
+## Tracking pose hold slider (EV-0142)
+
+- Input tuning adds **Tracking-dropout pose hold** (0–1000 ms slider; provider clamps 0–2000) writing
+  `tracking.holdLastPoseMs`; actions still release during dropouts.
+- Build/install PASS; device visual/aim behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

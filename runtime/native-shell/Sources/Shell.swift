@@ -1197,6 +1197,7 @@ struct VRControlOverlay: View {
     @State private var moveDeadzone = 0.10
     @State private var moveOriginZ = 0.05
     @State private var rotatePulseMs = 120.0
+    @State private var holdLastPoseMs = 250.0
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var lastCommandResult = ""
@@ -1343,6 +1344,10 @@ struct VRControlOverlay: View {
                             HStack {
                                 Text("Snap-turn pulse: \(Int(rotatePulseMs)) ms").font(.caption2)
                                 Slider(value: $rotatePulseMs, in: 60...300, step: 10)
+                            }
+                            HStack {
+                                Text("Tracking-dropout pose hold: \(Int(holdLastPoseMs)) ms").font(.caption2)
+                                Slider(value: $holdLastPoseMs, in: 0...1000, step: 50)
                             }
                             Text("Press Reload input to apply while the game runs; otherwise next launch. Keep off > on.").font(.caption2).foregroundStyle(.tertiary)
                         }
@@ -1595,6 +1600,7 @@ struct VRControlOverlay: View {
         moveDeadzone = Double(input["move.deadzone"] ?? "") ?? 0.10
         moveOriginZ = Double(input["move.originZ"] ?? "") ?? 0.05
         rotatePulseMs = Double(input["move.rotatePulseMs"] ?? "") ?? 120.0
+        holdLastPoseMs = Double(input["tracking.holdLastPoseMs"] ?? "") ?? 250.0
     }
 
     private func applySettings() {
@@ -1637,6 +1643,7 @@ struct VRControlOverlay: View {
         input["move.deadzone"] = String(format: "%.2f", moveDeadzone)
         input["move.originZ"] = String(format: "%.2f", moveOriginZ)
         input["move.rotatePulseMs"] = String(format: "%.0f", rotatePulseMs)
+        input["tracking.holdLastPoseMs"] = String(format: "%.0f", holdLastPoseMs)
         let runtimeOK = shellWriteRuntimeSettings(values)
         let inputOK = shellWriteInputTune(input)
         let vignetteOK = shellWriteVignette(enabled: vignetteEnabled, strength: vignetteStrength)

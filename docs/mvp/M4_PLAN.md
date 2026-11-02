@@ -237,6 +237,14 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   m4-input 176 checks).
 - Provider pushed/verified on device; device feel NOT RUN.
 
+## 6o. Tracking-dropout pose hold (2026-11-02, EV-0142)
+
+- When a tracked hand drops out, hold the last valid controller pose for `tracking.holdLastPoseMs`
+  (default 250 ms; 0–2000, launcher slider) before reverting to the shoulder/gaze fallback; actions are
+  still released (`controllerTracking=false`) and no input latches. One throttled log per hand.
+- Full provider suite PASS; app installed; provider pushed + integrity PASS. Device W2 visual/aim
+  dropout behavior NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
