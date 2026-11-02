@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Status-field parity guard (EV-0173)
+
+- `scripts/check_status_fields.sh` extracts the 11 `obj["..."]` fields the launcher reads and requires
+  `VisionStatusJson` to write each; release check runs it and reports PASS.
+- Prevents launcher/provider status-field drift. Device gates NOT RUN.
+
 ## Settings-key parity guard (EV-0172)
 
 - `scripts/check_settings_keys.sh` extracts every runtime/input key literal the launcher writes (31 keys)

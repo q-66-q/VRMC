@@ -56,6 +56,13 @@ else
   cat /tmp/vrmc-settings-keys.log; bad "launcher/provider settings key drift"
 fi
 
+# 4e. Launcher status reads must all be written by the provider status builder.
+if scripts/check_status_fields.sh >/tmp/vrmc-status-fields.log 2>&1; then
+  ok "launcher status fields written by provider ($(grep -o 'checked=[0-9]*' /tmp/vrmc-status-fields.log || true))"
+else
+  cat /tmp/vrmc-status-fields.log; bad "launcher/provider status field drift"
+fi
+
 # 5. Release manifest can be generated (dirty tree is reported, not a release-blocker for this check).
 manifest=$(mktemp -t vrmc-manifest).txt
 if scripts/m6_release_manifest.sh "$manifest" >/dev/null 2>&1 || [ -s "$manifest" ]; then
