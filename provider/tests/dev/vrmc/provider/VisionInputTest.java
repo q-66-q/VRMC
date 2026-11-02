@@ -53,6 +53,7 @@ public final class VisionInputTest {
             bindingTableCoverage();
             tuningOverrides();
             tuningSummary();
+            invalidTuningFailsSafe();
         } catch (Throwable t) {
             t.printStackTrace();
             failures++;
@@ -676,6 +677,36 @@ public final class VisionInputTest {
     // ------------------------------------------------------------------------------------------
     // 12. tuning overrides (file Map + -D system properties, read once)
     // ------------------------------------------------------------------------------------------
+    private static void invalidTuningFailsSafe() {
+        section("invalid hand-edited tuning falls back to safe defaults");
+        VisionInput in = new VisionInput(Map.ofEntries(
+            Map.entry(VisionInput.TUNE_PINCH_ON, "0.080"),
+            Map.entry(VisionInput.TUNE_PINCH_OFF, "0.040"),
+            Map.entry(VisionInput.TUNE_FIST_ON, "2.00"),
+            Map.entry(VisionInput.TUNE_FIST_OFF, "1.00"),
+            Map.entry(VisionInput.TUNE_MIDDLE_ON, "0.09"),
+            Map.entry(VisionInput.TUNE_MIDDLE_OFF, "0.02"),
+            Map.entry(VisionInput.TUNE_RING_ON, "0.09"),
+            Map.entry(VisionInput.TUNE_RING_OFF, "0.01"),
+            Map.entry(VisionInput.TUNE_SWIPE_SPEED, "999"),
+            Map.entry(VisionInput.TUNE_SWIPE_COOLDOWN_MS, "1"),
+            Map.entry(VisionInput.TUNE_ARM_MS, "2000"),
+            Map.entry(VisionInput.TUNE_STALE_MS, "10"),
+            Map.entry(VisionInput.TUNE_TAP_FRAMES, "99")));
+        check("pinch pair restored", in.pinchOn() == VisionInput.DEFAULT_PINCH_ON
+            && in.pinchOff() == VisionInput.DEFAULT_PINCH_OFF);
+        check("fist pair restored", in.fistOn() == VisionInput.DEFAULT_FIST_ON
+            && in.fistOff() == VisionInput.DEFAULT_FIST_OFF);
+        check("middle pair restored", in.middleOn() == VisionInput.DEFAULT_MIDDLE_ON
+            && in.middleOff() == VisionInput.DEFAULT_MIDDLE_OFF);
+        check("ring pair restored", in.ringOn() == VisionInput.DEFAULT_RING_ON
+            && in.ringOff() == VisionInput.DEFAULT_RING_OFF);
+        check("swipe speed clamped", in.swipeSpeed() <= 10.0F && in.swipeSpeed() > 0.0F);
+        check("cooldown clamped", in.swipeCooldownMillis() >= 50L);
+        check("arm/stale pair restored", in.staleMillis() > in.armMillis());
+        check("tap frames clamped", in.tapFrames() >= 1 && in.tapFrames() <= 10);
+    }
+
     private static void tuningSummary() {
         section("tuning summary for status diagnostics");
         VisionInput in = new VisionInput(Map.of(

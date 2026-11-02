@@ -245,6 +245,14 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Full provider suite PASS; app installed; provider pushed + integrity PASS. Device W2 visual/aim
   dropout behavior NOT RUN.
 
+## 6p. Input tuning validation (2026-11-02, EV-0152)
+
+- `VisionInput` validates hand-edited `vrmc-input-tune.properties`: inverted pinch/fist/middle/ring
+  on/off pairs, inverted middle tap/double, and stale<=arm restore safe defaults with a warning;
+  speed/open-ratio/cooldown/hold/arm/stale/tap-frame ranges are clamped.
+- Invalid-file host test; m4-input 184 checks. Full provider suite PASS; provider pushed + integrity
+  PASS. Device live behavior NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

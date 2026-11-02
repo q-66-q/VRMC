@@ -377,31 +377,94 @@ public final class VisionInput {
      */
     public VisionInput(Map<String, String> fileTuning) {
         Map<String, String> tune = fileTuning == null ? Map.of() : fileTuning;
-        this.pinchOn = tuneFloat(tune, TUNE_PINCH_ON, DEFAULT_PINCH_ON);
-        this.pinchOff = tuneFloat(tune, TUNE_PINCH_OFF, DEFAULT_PINCH_OFF);
-        this.fistOn = tuneFloat(tune, TUNE_FIST_ON, DEFAULT_FIST_ON);
-        this.fistOff = tuneFloat(tune, TUNE_FIST_OFF, DEFAULT_FIST_OFF);
-        this.middleEnabled = tuneBool(tune, TUNE_MIDDLE_ENABLED, true);
-        this.middleOn = tuneFloat(tune, TUNE_MIDDLE_ON, DEFAULT_MIDDLE_ON);
-        this.middleOff = tuneFloat(tune, TUNE_MIDDLE_OFF, DEFAULT_MIDDLE_OFF);
-        this.middleTapNanos = tuneLong(tune, TUNE_MIDDLE_TAP_MS, DEFAULT_MIDDLE_TAP_MS) * 1_000_000L;
-        this.middleDoubleNanos = tuneLong(tune, TUNE_MIDDLE_DOUBLE_MS, DEFAULT_MIDDLE_DOUBLE_MS) * 1_000_000L;
-        this.ringEnabled = tuneBool(tune, TUNE_RING_ENABLED, true);
-        this.ringOn = tuneFloat(tune, TUNE_RING_ON, DEFAULT_RING_ON);
-        this.ringOff = tuneFloat(tune, TUNE_RING_OFF, DEFAULT_RING_OFF);
-        this.swipeEnabled = tuneBool(tune, TUNE_SWIPE_ENABLED, DEFAULT_SWIPE_ENABLED);
-        this.swipeSpeed = tuneFloat(tune, TUNE_SWIPE_SPEED, DEFAULT_SWIPE_SPEED);
-        this.swipeOpenRatio = tuneFloat(tune, TUNE_SWIPE_OPEN_RATIO, DEFAULT_SWIPE_OPEN_RATIO);
-        this.swipeCooldownNanos = tuneLong(tune, TUNE_SWIPE_COOLDOWN_MS, DEFAULT_SWIPE_COOLDOWN_MS) * 1_000_000L;
-        this.fistHoldNanos = tuneLong(tune, TUNE_FIST_HOLD_MS, DEFAULT_FIST_HOLD_MS) * 1_000_000L;
-        this.armNanos = tuneLong(tune, TUNE_ARM_MS, DEFAULT_ARM_MS) * 1_000_000L;
-        this.staleNanos = tuneLong(tune, TUNE_STALE_MS, DEFAULT_STALE_MS) * 1_000_000L;
-        this.tapFrames = (int) tuneLong(tune, TUNE_TAP_FRAMES, DEFAULT_TAP_FRAMES);
+        // Validate relations, not just positivity: a hand-edited file must never create an inverted
+        // hysteresis pair or absurd speed that would make gestures stick or fire continuously.
+        float pinchOn = tuneFloat(tune, TUNE_PINCH_ON, DEFAULT_PINCH_ON);
+        float pinchOff = tuneFloat(tune, TUNE_PINCH_OFF, DEFAULT_PINCH_OFF);
+        if (pinchOff <= pinchOn) {
+            warnTuning("pinch on/off inverted", pinchOn + "/" + pinchOff);
+            pinchOn = DEFAULT_PINCH_ON; pinchOff = DEFAULT_PINCH_OFF;
+        }
+        float fistOn = tuneFloat(tune, TUNE_FIST_ON, DEFAULT_FIST_ON);
+        float fistOff = tuneFloat(tune, TUNE_FIST_OFF, DEFAULT_FIST_OFF);
+        if (fistOff <= fistOn) {
+            warnTuning("fist on/off inverted", fistOn + "/" + fistOff);
+            fistOn = DEFAULT_FIST_ON; fistOff = DEFAULT_FIST_OFF;
+        }
+        boolean middleEnabled = tuneBool(tune, TUNE_MIDDLE_ENABLED, true);
+        float middleOn = tuneFloat(tune, TUNE_MIDDLE_ON, DEFAULT_MIDDLE_ON);
+        float middleOff = tuneFloat(tune, TUNE_MIDDLE_OFF, DEFAULT_MIDDLE_OFF);
+        if (middleOff <= middleOn) {
+            warnTuning("middle on/off inverted", middleOn + "/" + middleOff);
+            middleOn = DEFAULT_MIDDLE_ON; middleOff = DEFAULT_MIDDLE_OFF;
+        }
+        long middleTapNanos = tuneLong(tune, TUNE_MIDDLE_TAP_MS, DEFAULT_MIDDLE_TAP_MS) * 1_000_000L;
+        long middleDoubleNanos = tuneLong(tune, TUNE_MIDDLE_DOUBLE_MS, DEFAULT_MIDDLE_DOUBLE_MS) * 1_000_000L;
+        if (middleDoubleNanos <= middleTapNanos) {
+            warnTuning("middle tap/double inverted", middleTapNanos + "/" + middleDoubleNanos);
+            middleTapNanos = DEFAULT_MIDDLE_TAP_MS * 1_000_000L;
+            middleDoubleNanos = DEFAULT_MIDDLE_DOUBLE_MS * 1_000_000L;
+        }
+        boolean ringEnabled = tuneBool(tune, TUNE_RING_ENABLED, true);
+        float ringOn = tuneFloat(tune, TUNE_RING_ON, DEFAULT_RING_ON);
+        float ringOff = tuneFloat(tune, TUNE_RING_OFF, DEFAULT_RING_OFF);
+        if (ringOff <= ringOn) {
+            warnTuning("ring on/off inverted", ringOn + "/" + ringOff);
+            ringOn = DEFAULT_RING_ON; ringOff = DEFAULT_RING_OFF;
+        }
+        boolean swipeEnabled = tuneBool(tune, TUNE_SWIPE_ENABLED, DEFAULT_SWIPE_ENABLED);
+        float swipeSpeed = clampFloat(tuneFloat(tune, TUNE_SWIPE_SPEED, DEFAULT_SWIPE_SPEED), 0.05F, 10.0F);
+        float swipeOpenRatio = clampFloat(tuneFloat(tune, TUNE_SWIPE_OPEN_RATIO, DEFAULT_SWIPE_OPEN_RATIO), 0.3F, 1.0F);
+        long swipeCooldownNanos = clampLong(tuneLong(tune, TUNE_SWIPE_COOLDOWN_MS,
+            DEFAULT_SWIPE_COOLDOWN_MS), 50L, 5000L) * 1_000_000L;
+        long fistHoldNanos = clampLong(tuneLong(tune, TUNE_FIST_HOLD_MS, DEFAULT_FIST_HOLD_MS),
+            50L, 2000L) * 1_000_000L;
+        long armNanos = clampLong(tuneLong(tune, TUNE_ARM_MS, DEFAULT_ARM_MS), 10L, 2000L) * 1_000_000L;
+        long staleNanos = clampLong(tuneLong(tune, TUNE_STALE_MS, DEFAULT_STALE_MS), 50L, 2000L) * 1_000_000L;
+        if (staleNanos <= armNanos) {
+            warnTuning("stale<=arm", armNanos + "/" + staleNanos);
+            armNanos = DEFAULT_ARM_MS * 1_000_000L;
+            staleNanos = DEFAULT_STALE_MS * 1_000_000L;
+        }
+        int tapFrames = (int) clampLong(tuneLong(tune, TUNE_TAP_FRAMES, DEFAULT_TAP_FRAMES), 1L, 10L);
+        this.pinchOn = pinchOn;
+        this.pinchOff = pinchOff;
+        this.fistOn = fistOn;
+        this.fistOff = fistOff;
+        this.middleEnabled = middleEnabled;
+        this.middleOn = middleOn;
+        this.middleOff = middleOff;
+        this.middleTapNanos = middleTapNanos;
+        this.middleDoubleNanos = middleDoubleNanos;
+        this.ringEnabled = ringEnabled;
+        this.ringOn = ringOn;
+        this.ringOff = ringOff;
+        this.swipeEnabled = swipeEnabled;
+        this.swipeSpeed = swipeSpeed;
+        this.swipeOpenRatio = swipeOpenRatio;
+        this.swipeCooldownNanos = swipeCooldownNanos;
+        this.fistHoldNanos = fistHoldNanos;
+        this.armNanos = armNanos;
+        this.staleNanos = staleNanos;
+        this.tapFrames = tapFrames;
     }
 
     // ------------------------------------------------------------------------------------------
     // Tuning
     // ------------------------------------------------------------------------------------------
+
+    private static void warnTuning(String what, String values) {
+        System.out.println("[VRMC-M4][WARN] invalid input tuning (" + what + "=" + values
+            + "); falling back to safe defaults for that pair");
+    }
+
+    private static float clampFloat(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static long clampLong(long value, long min, long max) {
+        return Math.max(min, Math.min(max, value));
+    }
 
     private static float tuneFloat(Map<String, String> tune, String key, float def) {
         String raw = tuneValue(tune, key);
@@ -441,6 +504,8 @@ public final class VisionInput {
     public float pinchOff() { return this.pinchOff; }
     public float fistOn() { return this.fistOn; }
     public float fistOff() { return this.fistOff; }
+    public float ringOn() { return this.ringOn; }
+    public float ringOff() { return this.ringOff; }
     /** One-line current input-tuning summary for status files/diagnostics (no per-frame allocation). */
     public String tuningSummary() {
         return String.format(java.util.Locale.ROOT,
