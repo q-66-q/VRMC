@@ -298,3 +298,29 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Visible hands/held item from the 27-joint data, two-hand bow, climbing, haptics.
 - S5-hands acceptance checklist (AC-4), latency/comfort measurements, M4 exit evidence.
 - Device: provider GPU-sync run, M3-W5/W6 90 Hz/soak (separate tracks).
+
+## 6w. W4/W5 completion summary (2026-11-02, host evidence EV-0106…EV-0188)
+
+Everything on the previous "still open for W4" list is now implemented and host-tested; the remaining
+items are device-only:
+
+- **Hotbar 1–9:** both-hand thumb–ring pinch chord + left-hand displacement → direct slot commit
+  (action-bar feedback, cancels on stale/loss, `hotbar.range` tuning; EV-0118).
+- **Use/hold semantics:** right fist hold = continuous use/bow draw; both fists = inventory chord and
+  suppresses continuous use; teleport and attack are suppressed while the use fist is held; both-middle
+  chords suppress their per-hand actions; 1M-frame input fuzz enforces these invariants (EV-0100/0101/
+  0109/0121/0125/0141/0152/0162).
+- **Bow/climb chord semantics:** bow/use priority, teleport/attack suppression, and live telemetry
+  (`bowActive/bowNotched/bowDrawPercent`, `climbGrabbing/climbeyClimb/climbActive`) are exposed in the
+  status JSON/launcher for device tuning (EV-0121/0125/0141/0174/0176).
+- **Hotbar/scroll/swap/drop/chat/keyboard:** opt-in open-hand swipes (W4 action table, EV-0106) plus
+  direct hotbar wheel; tuning toggles/cheat sheet in the launcher and live `reload-input`.
+- **Visible hands/held item:** One-Euro smoothing, tracking-dropout pose hold, optional
+  `hands.componentMode=joints` (launcher toggle, EV-0157), component tip offset math (EV-0125/0142);
+  **device appearance remains NOT RUN**.
+- **Safety/robustness:** release-on-tracking-loss/stale, no stuck actions, tuning validation, 1M input
+  fuzz, 200k pose fuzz, 100k smoother fuzz, 500k gaze fuzz, bridge TSan suite all PASS.
+- **Device-only remaining:** AC-4 real-hands P0 checklist, threshold/feel tuning, two-hand bow/climb
+  behavior, visible-hand appearance, and the full M4 exit sign-off (see `M6_DEVICE_RUN.md`).
+
+The authoritative current gesture map is [M4_CONTROLS.md](M4_CONTROLS.md); evidence is in VERIFY.
