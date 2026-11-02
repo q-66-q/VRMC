@@ -89,6 +89,7 @@ typedef int32_t (*input_publish_fn)(const vrmc_input_state *);
 typedef uint64_t (*input_sequence_fn)(void);
 typedef int32_t (*game_stopping_fn)(void);
 typedef void (*clear_game_stopping_fn)(void);
+typedef int32_t (*publish_gaze_fn)(const vrmc_gaze_event *);
 static eye_targets_fn gEyeFn;
 static acquire_eyes_fn gAcquireFn;
 static set_tracking_fn gTrackFn;
@@ -97,6 +98,7 @@ static input_publish_fn gInputPublishFn;
 static input_sequence_fn gInputSequenceFn;
 static game_stopping_fn gGameStoppingFn;
 static clear_game_stopping_fn gClearGameStoppingFn;
+static publish_gaze_fn gPublishGazeFn;
 static std::atomic<int> gGameStoppedPosted{0};
 // Each immersive session (CompositorLayer callback) gets a generation. A stop request applies to the
 // generation that is current when it is made, so a late stop cannot kill the next session and a stale
@@ -117,6 +119,29 @@ extern "C" void VRMCCompositor_RequestStop(void) {
 
 extern "C" int32_t VRMCCompositor_CurrentGeneration(void) {
     return gGeneration.load();
+}
+
+/// M4-W2: a tracking-area activation from the SwiftUI onSpatialEvent closure. Published into the
+/// bridge gaze mailbox for the JVM provider; no-op with one log line on an old bridge.
+extern "C" void VRMCInput_PublishGazeEvent(uint64_t tileId, int32_t phase, int32_t kind) {
+    if (tileId == 0) return;
+    static int loggedPublish = 0;
+    if (gPublishGazeFn == NULL) {
+        if (!loggedPublish) {
+            loggedPublish = 1;
+            NSLog(@"[vrmc-comp] gaze event ignored: bridge has no publish_gaze_event (old bridge)");
+        }
+        return;
+    }
+    vrmc_gaze_event event;
+    memset(&event, 0, sizeof(event));
+    event.tile_id = tileId;
+    event.phase = (uint32_t)phase;
+    event.kind = (uint32_t)kind;
+    event.timestamp_ns = clock_gettime_nsec_np(CLOCK_MONOTONIC);
+    int32_t rc = gPublishGazeFn(&event);
+    NSLog(@"[vrmc-comp] gaze event tile=%llu phase=%d kind=%d publishRc=%d",
+          (unsigned long long)tileId, phase, kind, rc);
 }
 
 /// Provider teardown notification: post on the main queue so the SwiftUI shell can dismiss the
@@ -177,6 +202,7 @@ static void resolveBridge(void) {
         gInputSequenceFn = (input_sequence_fn)dlsym(h, "vrmc_shared_input_sequence");
         gGameStoppingFn = (game_stopping_fn)dlsym(h, "vrmc_shared_game_stopping");
         gClearGameStoppingFn = (clear_game_stopping_fn)dlsym(h, "vrmc_shared_clear_game_stopping");
+        gPublishGazeFn = (publish_gaze_fn)dlsym(h, "vrmc_shared_publish_gaze_event");
         compLog("bridge resolved handle=%p eye=%p tracking=%p displayViews=%p acquireEyes=%p "
                 "publishInput=%p inputSeq=%p gameStopping=%p",
                 h, gEyeFn, gTrackFn, gDisplayViewsFn, gAcquireFn, gInputPublishFn, gInputSequenceFn,
@@ -666,6 +692,18 @@ static NSString *const kShaderSource =
      "  if (!inBorder) discard_fragment();\n"
      "  float checker = fmod(floor(px.x / 8.0) + floor(px.y / 8.0), 2.0);\n"
      "  return checker > 0.5 ? float4(1.0, 1.0, 1.0, 1.0) : float4(0.0, 1.0, 1.0, 1.0);\n"
+     "}\n"
+     // M4-W2 tracking-area mask: each drawable pixel gets the unsigned render value of its grid tile.
+     // The mask texture is tiny (grid_w x grid_h) and is nearest-sampled; RV 0 means "no area".
+     "fragment uint fmain_tracking(VOut in [[stage_in]], texture2d<uint> mask [[texture(3)]],\n"
+     "                             sampler s [[sampler(3)]]) {\n"
+     "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
+     "  return mask.sample(s, uv).r;\n"
+     "}\n"
+     "fragment ushort fmain_tracking_u16(VOut in [[stage_in]], texture2d<uint> mask [[texture(3)]],\n"
+     "                                   sampler s [[sampler(3)]]) {\n"
+     "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
+     "  return (ushort)mask.sample(s, uv).r;\n"
      "}\n";
 
 // Provider FOV is reported as half-angles in radians, OpenXR-style signs (left/down negative).
@@ -844,6 +882,187 @@ static BOOL buildPipelines(id<MTLDevice> device, VRMCPipelines *out, MTLPixelFor
             (unsigned long)colorFormat, (unsigned long)depthFormat,
             out->reproj != nil, out->flat != nil, out->test != nil, out->proof != nil);
     return out->valid;
+}
+
+
+// -------------------------------------------------------------------------------------------
+// M4-W2 gaze: a grid of CompositorServices tracking areas over the presented layer.
+//
+// The system applies the true-gaze hover effect to the area under the user's eyes and tags indirect
+// pinch activations with that area's identifier (SwiftUI onSpatialEvent -> VRMCInput_PublishGazeEvent).
+// Everything here is fail-safe: flag-gated (Documents/vrmc-gaze.flag), integer-format only, and any
+// missing capability/pipeline disables gaze with one log line while presentation continues unchanged.
+//
+// The mask is 1 pixel per tile; the fragment shader expands it to the tracking-area texture. The tile
+// grid is the same in both eyes (identifiers are stable across frames); the provider maps a tile id
+// back to a GUI pixel.
+// -------------------------------------------------------------------------------------------
+typedef struct {
+    BOOL enabled;
+    BOOL ready;
+    BOOL logged;
+    MTLPixelFormat format;
+    int gridW;
+    int gridH;
+    id<MTLTexture> mask;
+    id<MTLRenderPipelineState> pipeline;
+    id<MTLSamplerState> sampler;
+} VRMCGazeRenderer;
+
+static BOOL buildGazeRenderer(id<MTLDevice> device, cp_layer_renderer_t lr, VRMCGazeRenderer *out) {
+    memset(out, 0, sizeof(*out));
+    out->enabled = YES;
+    MTLPixelFormat format = MTLPixelFormatInvalid;
+    cp_layer_renderer_configuration_t configuration = cp_layer_renderer_get_configuration(lr);
+    if (configuration != NULL) {
+        format = cp_layer_renderer_configuration_get_tracking_areas_format(configuration);
+    }
+    if (format != MTLPixelFormatR32Uint && format != MTLPixelFormatR16Uint) {
+        compLog("gaze: tracking areas disabled (tracking format %lu is not r32Uint/r16Uint)",
+                (unsigned long)format);
+        return NO;
+    }
+    int gridW = VRMC_GAZE_GRID_W;
+    int gridH = VRMC_GAZE_GRID_H;
+    uint16_t maxValue = 0;
+    cp_layer_renderer_properties_t props = cp_layer_renderer_get_properties(lr);
+    if (props != NULL) {
+        maxValue = cp_layer_renderer_properties_get_tracking_areas_max_value(props);
+    }
+    if (maxValue < 2) {
+        compLog("gaze: tracking areas disabled (max render value=%u)", (unsigned)maxValue);
+        return NO;
+    }
+    while (gridW > 1 && (long)gridW * gridH > (long)maxValue - 1) gridH--;
+    if (gridH < 1) {
+        compLog("gaze: tracking areas disabled (grid does not fit max render value=%u)", (unsigned)maxValue);
+        return NO;
+    }
+    NSError *err = nil;
+    id<MTLLibrary> library = [device newLibraryWithSource:kShaderSource options:nil error:&err];
+    if (library == nil) {
+        compLog("gaze: shader library failed: %s", err.description.UTF8String);
+        return NO;
+    }
+    MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
+    pd.vertexFunction = [library newFunctionWithName:@"vmain"];
+    pd.fragmentFunction = [library newFunctionWithName:(format == MTLPixelFormatR16Uint)
+        ? @"fmain_tracking_u16" : @"fmain_tracking"];
+    pd.colorAttachments[0].pixelFormat = format;
+    err = nil;
+    out->pipeline = [device newRenderPipelineStateWithDescriptor:pd error:&err];
+    if (out->pipeline == nil) {
+        compLog("gaze: tracking pipeline failed: %s", err.description.UTF8String);
+        return NO;
+    }
+    MTLTextureDescriptor *td = [MTLTextureDescriptor new];
+    td.textureType = MTLTextureType2D;
+    td.pixelFormat = format;
+    td.width = (NSUInteger)gridW;
+    td.height = (NSUInteger)gridH;
+    td.mipmapLevelCount = 1;
+    td.usage = MTLTextureUsageShaderRead;
+    td.storageMode = MTLStorageModeShared;
+    out->mask = [device newTextureWithDescriptor:td];
+    if (out->mask == nil) {
+        compLog("gaze: mask texture allocation failed");
+        return NO;
+    }
+    MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
+    sd.minFilter = MTLSamplerMinMagFilterNearest;
+    sd.magFilter = MTLSamplerMinMagFilterNearest;
+    sd.sAddressMode = MTLSamplerAddressModeClampToEdge;
+    sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
+    out->sampler = [device newSamplerStateWithDescriptor:sd];
+    if (out->sampler == nil) {
+        compLog("gaze: mask sampler creation failed");
+        return NO;
+    }
+    out->format = format;
+    out->gridW = gridW;
+    out->gridH = gridH;
+    out->ready = YES;
+    compLog("gaze: tracking areas ENABLED format=%lu grid=%dx%d tiles=%d maxValue=%u",
+            (unsigned long)format, gridW, gridH, gridW * gridH, (unsigned)maxValue);
+    return YES;
+}
+
+/// Add the tracking areas for this drawable, write the tile-id mask and encode one mask pass per
+/// tracking-area texture. Called in the same command buffer as the colour passes, before present.
+static void encodeGazeTrackingAreas(VRMCGazeRenderer *gaze, cp_drawable_t drawable,
+                                    id<MTLCommandBuffer> cb) {
+    if (!gaze->ready) return;
+    const size_t textureCount = cp_drawable_get_tracking_areas_texture_count(drawable);
+    if (textureCount == 0) {
+        if (!gaze->logged) {
+            gaze->logged = YES;
+            compLog("gaze: drawable has no tracking-area textures (configuration may be unsupported)");
+        }
+        return;
+    }
+    const int gw = gaze->gridW;
+    const int gh = gaze->gridH;
+    const size_t count = (size_t)gw * (size_t)gh;
+    // Preallocated mask staging (one alloc per grid change; not per frame).
+    static uint32_t *values32 = NULL;
+    static uint16_t *values16 = NULL;
+    static size_t valuesCapacity = 0;
+    static long lastValuesCount = -1;
+    if (valuesCapacity < count) {
+        free(values32);
+        free(values16);
+        values32 = (uint32_t *)malloc(count * sizeof(uint32_t));
+        values16 = (uint16_t *)malloc(count * sizeof(uint16_t));
+        valuesCapacity = count;
+        lastValuesCount = -1;
+    }
+    uint16_t areaCount = 0;
+    for (int y = 0; y < gh; y++) {
+        for (int x = 0; x < gw; x++) {
+            const size_t index = (size_t)y * gw + x;
+            const uint64_t tileId = 1ull + (uint64_t)y * (uint64_t)gw + (uint64_t)x;
+            cp_tracking_area_t area = cp_drawable_add_tracking_area(drawable,
+                                                                     (cp_tracking_area_identifier)tileId);
+            uint16_t renderValue = 0;
+            if (area != NULL) {
+                cp_hover_effect_t hover = cp_tracking_area_add_automatic_hover_effect(area);
+                (void)hover;
+                renderValue = cp_tracking_area_get_render_value(area);
+                areaCount++;
+            }
+            if (values32 != NULL) values32[index] = renderValue;
+            if (values16 != NULL) values16[index] = renderValue;
+        }
+    }
+    if (lastValuesCount != (long)count) {
+        lastValuesCount = (long)count;
+        compLog("gaze: registered %u/%zu tracking areas grid=%dx%d", (unsigned)areaCount, count, gw, gh);
+    }
+    if (gaze->format == MTLPixelFormatR32Uint) {
+        [gaze->mask replaceRegion:MTLRegionMake2D(0, 0, (NSUInteger)gw, (NSUInteger)gh)
+                      mipmapLevel:0 withBytes:values32 bytesPerRow:(NSUInteger)gw * sizeof(uint32_t)];
+    } else {
+        [gaze->mask replaceRegion:MTLRegionMake2D(0, 0, (NSUInteger)gw, (NSUInteger)gh)
+                      mipmapLevel:0 withBytes:values16 bytesPerRow:(NSUInteger)gw * sizeof(uint16_t)];
+    }
+    for (size_t i = 0; i < textureCount; i++) {
+        id<MTLTexture> trackingTexture = cp_drawable_get_tracking_areas_texture(drawable, i);
+        if (trackingTexture == nil) continue;
+        MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
+        rp.colorAttachments[0].texture = trackingTexture;
+        rp.colorAttachments[0].loadAction = MTLLoadActionClear;
+        rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+        rp.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 0.0);
+        id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rp];
+        if (enc == nil) continue;
+        MTLViewport vp = {0.0, 0.0, (double)trackingTexture.width, (double)trackingTexture.height, 0.0, 1.0};
+        [enc setViewport:vp];
+        [enc setRenderPipelineState:gaze->pipeline];
+        [enc setFragmentTexture:gaze->mask atIndex:3];
+        [enc setFragmentSamplerState:gaze->sampler atIndex:3];
+        [enc drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+        [enc endEncoding];
+    }
 }
 
 static inline float halfToFloat(uint16_t h) {
@@ -1207,6 +1426,19 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     dsd.depthCompareFunction = MTLCompareFunctionAlways;
     dsd.depthWriteEnabled = NO;
     id<MTLDepthStencilState> depthState = [device newDepthStencilStateWithDescriptor:dsd];
+
+    // M4-W2 gaze: opt-in via Documents/vrmc-gaze.flag. The renderer is built from the actual
+    // tracking-area configuration format; unsupported formats disable gaze without affecting output.
+    VRMCGazeRenderer gaze;
+    memset(&gaze, 0, sizeof(gaze));
+    const BOOL gazeRequested = documentFlag(@"vrmc-gaze.flag");
+    if (gazeRequested) {
+        if (!buildGazeRenderer(device, lr, &gaze)) {
+            compLog("gaze: requested but unavailable; W1 hand-ray input remains the active path");
+        }
+    } else {
+        compLog("gaze: disabled (no Documents/vrmc-gaze.flag)");
+    }
 
     int frameCount = 0;
     int presentedFrameCount = 0;
@@ -2027,6 +2259,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         }
                     }
                 }
+                encodeGazeTrackingAreas(&gaze, drawable, cb);
                 cp_drawable_encode_present(drawable, cb);
                 presented++;
             }

@@ -189,7 +189,37 @@ run_input() {
   python3 "$HERE/check.py" "$case_dir" --require-input || overall=1
 }
 
-ALL_SCENARIOS=(flat sync hidepark nopark pattern reentry)
+run_gaze() {
+  local case_dir="$OUT/case-gaze"
+  rm -rf "$case_dir"; mkdir -p "$case_dir"
+  xcrun simctl uninstall "$SIM" "$BUNDLE" 2>/dev/null || true
+  xcrun simctl install "$SIM" "$APP"
+  local DATA; DATA=$(xcrun simctl get_app_container "$SIM" "$BUNDLE" data)
+  mkdir -p "$DATA/Documents"
+  echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
+  echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
+  echo "gaze"          > "$DATA/Documents/vrmc-gaze.flag"
+  xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'VRMCCompositorRunning generation=' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'CPSceneSessionRoleImmersiveSpaceApplication:fgActive' 40 || true
+  # The compositor must either enable the tracking-area grid or log one precise reason it cannot.
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'gaze:' 40 || true
+  sleep 3
+  xcrun simctl io "$SIM" screenshot "$case_dir/screenshot.png" >/dev/null 2>&1 || true
+  cp "$DATA/Documents/vrmc-compositor.log" "$case_dir/compositor.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-shell.log"      "$case_dir/shell.log" 2>/dev/null || true
+  echo "---- scenario: gaze (tracking-area pipeline) ----"
+  if grep -q 'gaze: tracking areas ENABLED' "$case_dir/compositor.log" 2>/dev/null; then
+    echo "[provider-sim] PASS: tracking-area mask pipeline built and enabled"
+    grep -E 'gaze: tracking areas ENABLED|gaze: tracking areas disabled|gaze:' "$case_dir/compositor.log" | tail -5
+  else
+    echo "[provider-sim] PARTIAL: tracking areas not enabled in this simulator; check the exact gaze: line"
+    grep -E 'gaze:' "$case_dir/compositor.log" | tail -5 || true
+    overall=1
+  fi
+}
+
+ALL_SCENARIOS=(flat sync hidepark nopark pattern reentry input gaze)
 if [ "$#" -gt 0 ]; then
   SCENARIOS=("$@")
 else
@@ -204,8 +234,9 @@ for scenario in "${SCENARIOS[@]}"; do
     pattern)  run_case pattern 0 pattern ;;
     reentry)  run_reentry ;;
     input)    run_input ;;
+    gaze)     run_gaze ;;
     *)
-      echo "[provider-sim] unknown scenario '$scenario' (known: ${ALL_SCENARIOS[*]} input)"
+      echo "[provider-sim] unknown scenario '$scenario' (known: ${ALL_SCENARIOS[*]})"
       exit 2
       ;;
   esac

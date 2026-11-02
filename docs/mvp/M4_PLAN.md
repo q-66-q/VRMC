@@ -1,6 +1,6 @@
 # M4 plan — hands-only input (M4-W1: immersive-scene control)
 
-Status: **M4-W1 PASSED ON DEVICE; W2 first slice (smooth hands + shutdown hardening) host+simulator PASS (EV-0097), device pending; gaze+pinch NOT implemented.** **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
+Status: **M4-W1 PASSED ON DEVICE; W2 smooth hands + shutdown hardening host+simulator PASS (EV-0097); gaze tracking-areas implementation host build/tests PASS but runtime/device NOT RUN (EV-0098).** **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
 (EV-0096): synthetic plumbing + real-hands operator confirmation (“It ran very well!”); two follow-ups
 recorded: a reproducible shutdown-only JVM SIGSEGV to triage, and the operator-requested W2 features
 below.** This plan is scoped to the reported defect: once the game is in the immersive space the user
@@ -126,9 +126,10 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   `VisionVR.destroy()` clears shared eye-texture handles first (`nativeClearEyeTextures`); compositor
   CFRetains sampled eye textures and releases them in the command-buffer completion handler. Bridge
   stub clear/resubmit contract tested.
-- **Gaze highlight + pinch selection (NOT implemented):** tracking-area mask/render + hover effect +
-  spatial-event channel remains the design in `docs/analysis/gaze-and-hand-input.md`; needs D1 operator
-  session for true-gaze hover + pinch confirmation.
+- **Gaze highlight + pinch selection (implemented offline, EV-0098):** bridge gaze mailbox, SwiftUI
+  `onSpatialEvent` hook, compositor tracking-area grid + automatic hover mask, provider tile→GUI-plane
+  mapping + pinch-confirm click. Opt-in via `Documents/vrmc-gaze.flag`. Host build/tests PASS; runtime
+  mask pipeline and true-gaze behaviour are device-only and NOT RUN.
 
 ## 7. W2+ backlog (unchanged milestone content)
 

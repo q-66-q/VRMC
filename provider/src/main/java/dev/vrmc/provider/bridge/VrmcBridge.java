@@ -96,6 +96,8 @@ public final class VrmcBridge {
     public static native long nativeGetDisplayViews(ByteBuffer out);
     public static native void nativeClearEyeTextures();
     public static native void nativeSignalGameStopping();
+    /** M4-W2 gaze mailbox: 1 = event written (tile u64 @0, phase u32 @8, kind u32 @12, ts u64 @16). */
+    public static native int nativePollGazeEvent(ByteBuffer out);
 
     /**
      * ABI v3: copy the latest {@code vrmc_input_state} into the direct buffer (capacity must be at
@@ -134,6 +136,20 @@ public final class VrmcBridge {
     public static void clearEyeTextures() { nativeClearEyeTextures(); }
     /** Provider/game teardown: tell the compositor/shell the game is going away (dismiss stale immersive). */
     public static void signalGameStopping() { nativeSignalGameStopping(); }
+    /** M4-W2 gaze event buffer size/offsets (matches vrmc_gaze_event + nativePollGazeEvent). */
+    public static final int GAZE_EVENT_BYTES = 32;
+    public static final int GAZE_OFF_TILE = 0;
+    public static final int GAZE_OFF_PHASE = 8;
+    public static final int GAZE_OFF_KIND = 12;
+    public static final int GAZE_OFF_GRID_W = 16;
+    public static final int GAZE_OFF_GRID_H = 20;
+    public static final int GAZE_OFF_TIMESTAMP = 24;
+    /** Poll one gaze activation event; 1 = available, 0 = none, <0 = bridge error. */
+    public static int pollGazeEvent(ByteBuffer out) { return nativePollGazeEvent(out); }
+    public static final int GAZE_PHASE_ACTIVE = 1;
+    public static final int GAZE_PHASE_ENDED = 2;
+    public static final int GAZE_PHASE_CANCELLED = 3;
+    public static final int GAZE_KIND_INDIRECT_PINCH = 1;
     /** ABI v3: poll the latest published hand/input snapshot (see {@link #nativePollInput(ByteBuffer)}). */
     public static int pollInput(ByteBuffer out) { return nativePollInput(out); }
 }

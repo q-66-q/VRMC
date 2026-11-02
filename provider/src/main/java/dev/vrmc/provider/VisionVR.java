@@ -2,7 +2,9 @@ package dev.vrmc.provider;
 
 import dev.vrmc.provider.bridge.VrmcBridge;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.core.Vec3i;
 import net.minecraft.client.Minecraft;
+import org.joml.Vector2ic;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Quaternionf;
@@ -11,10 +13,13 @@ import org.joml.Vector2fc;
 import org.joml.Vector3f;
 import org.vivecraft.client.VivecraftVRMod;
 import org.vivecraft.client_vr.ClientDataHolderVR;
+import org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler;
 import org.vivecraft.client_vr.gameplay.screenhandlers.KeyboardHandler;
 import org.vivecraft.client_vr.gameplay.screenhandlers.RadialHandler;
 import org.vivecraft.client_vr.provider.ControllerType;
 import org.vivecraft.client_vr.provider.MCVR;
+import org.vivecraft.client_vr.provider.InputSimulator;
+import org.vivecraft.client_vr.extensions.WindowExtension;
 import org.vivecraft.client_vr.provider.VRRenderer;
 import org.vivecraft.client_vr.provider.nullvr.NullVRHapticScheduler;
 import org.vivecraft.client_vr.provider.openvr_lwjgl.VRInputAction;
@@ -52,8 +57,19 @@ public class VisionVR extends MCVR {
     /** Host harness only: no real controllers exist, so identity component transforms are correct. */
     private static final Matrix4f IDENTITY = new Matrix4f();
     private static final boolean HOST_HARNESS = Boolean.getBoolean("vrmc.hostHarness");
+    /** GLFW_MOUSE_BUTTON_LEFT; kept as a literal because the provider compiler classpath does not
+     * expose LWJGL's GLFW class (InputSimulator owns the actual mouse calls). */
+    private static final int MOUSE_BUTTON_LEFT = 0;
     private final ByteBuffer tracking = ByteBuffer.allocateDirect(TRACKING_BYTES).order(ByteOrder.nativeOrder());
     private final ByteBuffer displayViews = ByteBuffer.allocateDirect(VrmcBridge.DISPLAY_VIEWS_BYTES).order(ByteOrder.nativeOrder());
+    /** M4-W2 gaze mailbox (tile id + phase/kind + grid dims), polled once per frame. */
+    private final ByteBuffer gazeEvent = ByteBuffer.allocateDirect(VrmcBridge.GAZE_EVENT_BYTES).order(ByteOrder.nativeOrder());
+    /** Latest display-view tangents per eye (0 left, 1 right) for gaze ray reconstruction. */
+    private final float[][] displayTangents = new float[2][4];
+    private long gazeClickReleaseAtNs;
+    private long gazeSuppressUntilNs;
+    private boolean gazeNoPlaneLogged;
+    private int gazeActivationLogCount;
     /** ONE preallocated input snapshot buffer, polled every frame (design §5.1: no per-frame allocation). */
     private final ByteBuffer input = ByteBuffer.allocateDirect(VrmcBridge.INPUT_BYTES).order(ByteOrder.nativeOrder());
     private long displayViewsGen = -1;
@@ -291,6 +307,10 @@ public class VisionVR extends MCVR {
             float r = this.displayViews.getFloat(o + 4);
             float u = this.displayViews.getFloat(o + 8);
             float d = this.displayViews.getFloat(o + 12);
+            this.displayTangents[eye][0] = l;
+            this.displayTangents[eye][1] = r;
+            this.displayTangents[eye][2] = u;
+            this.displayTangents[eye][3] = d;
             if (renderer != null) {
                 renderer.setEyeFov(eye, l, r, u, d);
             }
@@ -331,6 +351,7 @@ public class VisionVR extends MCVR {
             this.pollTracking();
             this.pollInput();
             this.pollDisplayViews();
+            this.pollGazeEvents();
             this.updateAim();
             this.processInputs();
             this.hmdSampling();
@@ -458,6 +479,105 @@ public class VisionVR extends MCVR {
             }
             this.controllerTracking[c] = tracked;
         }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // M4-W2 gaze: tile id -> GUI pixel, pinch-confirm click. The compositor publishes a tile event
+    // only when Documents/vrmc-gaze.flag enabled its tracking-area grid; no event = no behaviour.
+    // ------------------------------------------------------------------------------------------
+    private void pollGazeEvents() {
+        if (this.gazeEvent == null) return;
+        long now = System.nanoTime();
+        if (this.gazeClickReleaseAtNs != 0L && now >= this.gazeClickReleaseAtNs) {
+            this.gazeClickReleaseAtNs = 0L;
+            InputSimulator.releaseMouse(MOUSE_BUTTON_LEFT);
+        }
+        int rc = VrmcBridge.pollGazeEvent(this.gazeEvent);
+        if (rc != 1) return;
+        long tileId = this.gazeEvent.getLong(VrmcBridge.GAZE_OFF_TILE);
+        int phase = this.gazeEvent.getInt(VrmcBridge.GAZE_OFF_PHASE);
+        int kind = this.gazeEvent.getInt(VrmcBridge.GAZE_OFF_KIND);
+        int gridW = this.gazeEvent.getInt(VrmcBridge.GAZE_OFF_GRID_W);
+        int gridH = this.gazeEvent.getInt(VrmcBridge.GAZE_OFF_GRID_H);
+        if (phase != VrmcBridge.GAZE_PHASE_ACTIVE) return;
+        handleGazeActivation(tileId, kind, gridW, gridH);
+    }
+
+    private void handleGazeActivation(long tileId, int kind, int gridW, int gridH) {
+        if (this.mc.gui.screen() == null) {
+            if (this.gazeActivationLogCount < 3) {
+                this.gazeActivationLogCount++;
+                System.out.println("[VRMC-M4] gaze tile=" + tileId + " ignored: no GUI screen open");
+            }
+            return;
+        }
+        if (GuiHandler.GUI_POS_ROOM == null || GuiHandler.GUI_ROTATION_ROOM == null) {
+            if (!this.gazeNoPlaneLogged) {
+                this.gazeNoPlaneLogged = true;
+                System.out.println("[VRMC-M4][WARN] gaze activation ignored: GUI plane pose not initialized yet");
+            }
+            return;
+        }
+        Vector2f ndc = VisionGazeMath.tileToNdc(tileId, gridW, gridH);
+        if (ndc == null) {
+            System.out.println("[VRMC-M4][WARN] gaze activation with bad tile=" + tileId
+                + " grid=" + gridW + "x" + gridH);
+            return;
+        }
+        // The fused gaze point is between the eyes; use the right display view (the GUI cursor's
+        // controller-0 convention) when its display view is live.
+        int eye = 1;
+        float[] tangents = this.displayTangents[eye];
+        if (tangents[0] == 0.0F && tangents[1] == 0.0F && tangents[2] == 0.0F && tangents[3] == 0.0F) {
+            eye = 0;
+            tangents = this.displayTangents[eye];
+        }
+        if (tangents[0] == 0.0F && tangents[1] == 0.0F && tangents[2] == 0.0F && tangents[3] == 0.0F) {
+            System.out.println("[VRMC-M4][WARN] gaze activation ignored: no display views yet");
+            return;
+        }
+        Matrix4f eyeToHead = eye == 0 ? this.hmdPoseLeftEye : this.hmdPoseRightEye;
+        Vector3f eyeDir = VisionGazeMath.eyeRay(tangents, ndc);
+        Vector3f roomDir = VisionGazeMath.eyeToRoomDirection(eyeToHead, this.hmdPose, eyeDir);
+        Vector3f roomOrigin = VisionGazeMath.eyeOriginToRoom(eyeToHead, this.hmdPose);
+        float aspect = (float) this.mc.getWindow().getGuiScaledHeight()
+            / (float) this.mc.getWindow().getGuiScaledWidth();
+        Vector2f uv = VisionGazeMath.intersectGuiPlane(roomOrigin, roomDir, GuiHandler.GUI_POS_ROOM,
+            GuiHandler.GUI_ROTATION_ROOM, GuiHandler.GUI_SCALE, aspect);
+        if (uv == null) {
+            if (this.gazeActivationLogCount < 3) {
+                this.gazeActivationLogCount++;
+                System.out.printf("[VRMC-M4] gaze tile=%d (%dx%d) -> GUI miss (screen=%s)%n",
+                    tileId, gridW, gridH, this.mc.gui.screen().getClass().getSimpleName());
+            }
+            return;
+        }
+        int winW = this.mc.getWindow().getWidth();
+        int winH = this.mc.getWindow().getHeight();
+        double mx = uv.x * (double) winW;
+        double my = uv.y * (double) winH;
+        Vector2ic actual = ((WindowExtension) (Object) this.mc.getWindow()).vivecraft$getActualWindowSize();
+        if (actual != null) {
+            mx = mx * actual.x() / (double) this.mc.getWindow().getScreenWidth();
+            my = my * actual.y() / (double) this.mc.getWindow().getScreenHeight();
+        }
+        if (this.gazeActivationLogCount < 20) {
+            this.gazeActivationLogCount++;
+            System.out.printf("[VRMC-M4] gaze tile=%d (%dx%d) kind=%d uv=(%.4f,%.4f) mouse=(%.1f,%.1f) screen=%s%n",
+                tileId, gridW, gridH, kind, uv.x, uv.y, mx, my,
+                this.mc.gui.screen().getClass().getSimpleName());
+        }
+        InputSimulator.setMousePos(mx, my);
+        InputSimulator.pressMouse(MOUSE_BUTTON_LEFT);
+        long now = System.nanoTime();
+        this.gazeClickReleaseAtNs = now + 50_000_000L;
+        // The system indirect pinch also reaches the W1 hand-pinch path; suppress that duplicate GUI
+        // click for a short window so one pinch = one selection.
+        this.gazeSuppressUntilNs = now + 500_000_000L;
+    }
+
+    private boolean gazeGuiClickSuppressed() {
+        return this.gazeSuppressUntilNs != 0L && System.nanoTime() < this.gazeSuppressUntilNs;
     }
 
     // ------------------------------------------------------------------------------------------
@@ -872,6 +992,13 @@ public class VisionVR extends MCVR {
 
     /** processInputAction equivalent (MCOpenVR.processInputAction) without OpenVR handles. */
     private void dispatchAction(VRInputAction action) {
+        if (gazeGuiClickSuppressed() && action.keyBinding == GuiHandler.KEY_LEFT_CLICK) {
+            // The gaze path already delivered this selection; swallow the duplicate hand-pinch click.
+            if (action.isButtonPressed()) {
+                action.unpressBinding();
+            }
+            return;
+        }
         if (action.isActive() && action.isEnabledRaw()) {
             if (action.isButtonChanged()) {
                 if (action.isButtonPressed() && action.isEnabled()) {

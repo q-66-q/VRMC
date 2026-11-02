@@ -294,10 +294,10 @@ PSVR2 Sense support is **out of MVP scope** (scope decision 2026-11-01). F1–F3
 register; **no F-group code is written until P1** (unverifiable code is a liability and would consume
 M2–M4 time). The G-group is the sole P0 input path and has no fallback.
 
-M4-W2 first slice (2026-11-01, EV-0097, host+simulator PASS): One-Euro hand-pose smoothing (adaptive
-  translation + angle slerp; reset on tracking loss) and shutdown eye-texture teardown hardening
-  (provider clears handles, compositor retains in-flight textures) are implemented; device smoothing
-  and quit-game run pending. Gaze tracking-areas + pinch selection remain the largest W2 item.
+M4-W2 first slice (2026-11-01, EV-0097, host+simulator PASS): One-Euro hand-pose smoothing and shutdown
+  eye-texture teardown hardening. M4-W2 gaze tracking areas (EV-0098, host build/tests PASS; runtime/
+  device NOT RUN): bridge mailbox, Swift onSpatialEvent, compositor 32x18 hover mask, provider
+  tile->GUI-plane click mapping, opt-in via vrmc-gaze.flag. Device smoothing/quit/gaze runs pending.
 
 M4-W1 status (2026-11-01, EV-0095, host+simulator PASS): the immersive-scene input channel and the
 first gesture slice exist — G1 joint ingestion, G2 partial (pinch/fist/chord with hysteresis, arming,

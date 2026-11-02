@@ -145,6 +145,35 @@ int32_t vrmc_shared_set_display_views(const vrmc_display_views *views);
 uint32_t vrmc_shared_get_display_views(vrmc_display_views *out);
 
 /* ------------------------------------------------------------------------------------------- */
+/* Gaze / hand selection (M4-W2)                                                                */
+/* ------------------------------------------------------------------------------------------- */
+/*
+ * The compositor renders a grid of CompositorServices tracking areas over the presented layer; the
+ * system applies the true-gaze hover effect and tags indirect pinch activations with the tracking
+ * area identifier. The SwiftUI layer receives those events and publishes a small event here; the JVM
+ * provider polls it through JNI nativePollGazeEvent and turns the tile id into a GUI click.
+ *
+ * Only the LATEST event is retained (events are one-shot and tiny); a poll consumes it. A single
+ * producer (compositor/SwiftUI) and a single consumer (provider) makes this lock-protected mailbox
+ * sufficient; tile_id == 0 is invalid and must not be published.
+ */
+#define VRMC_GAZE_GRID_W 32
+#define VRMC_GAZE_GRID_H 18
+typedef struct {
+    uint64_t tile_id;      /* 1 + y*grid_w + x; 0 invalid */
+    uint32_t phase;        /* 1 active, 2 ended, 3 cancelled (SpatialEventCollection.Event.Phase) */
+    uint32_t kind;         /* 0 unknown, 1 indirectPinch, 2 directPinch, 3 touch, ... */
+    uint32_t grid_w;       /* actual compositor grid (may be clamped below VRMC_GAZE_GRID_W) */
+    uint32_t grid_h;
+    uint64_t timestamp_ns; /* monotonic publish time */
+} vrmc_gaze_event;
+
+int32_t vrmc_shared_publish_gaze_event(const vrmc_gaze_event *event);
+/* 1 = event returned and consumed, 0 = mailbox empty, <0 = error. */
+int32_t vrmc_shared_poll_gaze_event(vrmc_gaze_event *out);
+void vrmc_shared_clear_gaze_events(void);
+
+/* ------------------------------------------------------------------------------------------- */
 /* Input (M4-W1 immersive input: ARKit hand tracking -> JVM provider gestures)                   */
 /* ------------------------------------------------------------------------------------------- */
 /*

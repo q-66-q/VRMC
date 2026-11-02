@@ -37,6 +37,9 @@ static vrmc_tracking_state g_tracking;
 static pthread_mutex_t g_frame_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t g_game_stopping_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int g_game_stopping = 0;
+static pthread_mutex_t g_gaze_mutex = PTHREAD_MUTEX_INITIALIZER;
+static vrmc_gaze_event g_gaze_event;
+static int g_gaze_pending = 0;
 static vrmc_shared_eye_frame g_latest_frame;
 static int g_has_frame = 0;
 static uint64_t g_publish_sequence = 0;
@@ -241,6 +244,35 @@ void vrmc_shared_clear_tracking(void) {
     pthread_mutex_unlock(&g_tracking_mutex);
 }
 
+int32_t vrmc_shared_publish_gaze_event(const vrmc_gaze_event *event) {
+    if (event == NULL || event->tile_id == 0) return set_error("invalid gaze event");
+    pthread_mutex_lock(&g_gaze_mutex);
+    g_gaze_event = *event;
+    g_gaze_pending = 1;
+    pthread_mutex_unlock(&g_gaze_mutex);
+    return 0;
+}
+
+int32_t vrmc_shared_poll_gaze_event(vrmc_gaze_event *out) {
+    if (out == NULL) return set_error("bad gaze event output");
+    pthread_mutex_lock(&g_gaze_mutex);
+    if (!g_gaze_pending) {
+        pthread_mutex_unlock(&g_gaze_mutex);
+        return 0;
+    }
+    *out = g_gaze_event;
+    g_gaze_pending = 0;
+    pthread_mutex_unlock(&g_gaze_mutex);
+    return 1;
+}
+
+void vrmc_shared_clear_gaze_events(void) {
+    pthread_mutex_lock(&g_gaze_mutex);
+    memset(&g_gaze_event, 0, sizeof(g_gaze_event));
+    g_gaze_pending = 0;
+    pthread_mutex_unlock(&g_gaze_mutex);
+}
+
 void vrmc_shared_signal_game_stopping(void) {
     pthread_mutex_lock(&g_game_stopping_mutex);
     g_game_stopping = 1;
@@ -268,6 +300,7 @@ void vrmc_shared_clear_eye_textures(void) {
     g_texture_generation = 0;
     pthread_mutex_unlock(&g_frame_mutex);
     vrmc_shared_clear_game_stopping();
+    vrmc_shared_clear_gaze_events();
 }
 
 int32_t vrmc_shared_set_display_views(const vrmc_display_views *views) {
@@ -474,6 +507,17 @@ int main(void) {
         frame.texture_generation != 2) {
         printf("texture generation bumped without a handle change\n"); return 22;
     }
+    vrmc_gaze_event ge;
+    memset(&ge, 0, sizeof(ge));
+    ge.tile_id = 123; ge.phase = 1; ge.kind = 1; ge.grid_w = 32; ge.grid_h = 18;
+    if (vrmc_shared_publish_gaze_event(&ge) != 0) { printf("gaze publish failed\n"); return 28; }
+    vrmc_gaze_event got_ge;
+    memset(&got_ge, 0, sizeof(got_ge));
+    if (vrmc_shared_poll_gaze_event(&got_ge) != 1 || got_ge.tile_id != 123 || got_ge.phase != 1 ||
+        got_ge.grid_w != 32 || got_ge.grid_h != 18) {
+        printf("gaze poll failed\n"); return 29;
+    }
+    if (vrmc_shared_poll_gaze_event(&got_ge) != 0) { printf("gaze event not consumed\n"); return 30; }
     vrmc_shared_signal_game_stopping();
     if (vrmc_shared_game_stopping() != 1) { printf("game-stopping signal failed\n"); return 26; }
     vrmc_shared_clear_game_stopping();

@@ -115,6 +115,26 @@ JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTL
     return rc == 0 ? (jlong)out : 0;
 }
 
+JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativePollGazeEvent(
+    JNIEnv *env, jclass clazz, jobject buffer) {
+    if (buffer == NULL) return -1;
+    jbyte *base = (*env)->GetDirectBufferAddress(env, buffer);
+    if (base == NULL) return -2;
+    jlong capacity = (*env)->GetDirectBufferCapacity(env, buffer);
+    if (capacity < 32) return -3;
+    vrmc_gaze_event event;
+    memset(&event, 0, sizeof(event));
+    int32_t rc = vrmc_shared_poll_gaze_event(&event);
+    if (rc != 1) return rc;
+    memcpy(base, &event.tile_id, sizeof(uint64_t));
+    memcpy(base + 8, &event.phase, sizeof(uint32_t));
+    memcpy(base + 12, &event.kind, sizeof(uint32_t));
+    memcpy(base + 16, &event.grid_w, sizeof(uint32_t));
+    memcpy(base + 20, &event.grid_h, sizeof(uint32_t));
+    memcpy(base + 24, &event.timestamp_ns, sizeof(uint64_t));
+    return 1;
+}
+
 JNIEXPORT void JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSignalGameStopping(
     JNIEnv *env, jclass clazz) {
     vrmc_shared_signal_game_stopping();

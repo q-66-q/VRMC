@@ -131,6 +131,19 @@ struct ShellLayerConfiguration: CompositorLayerConfiguration {
         configuration.layout = .dedicated
         configuration.isFoveationEnabled = false
         configuration.colorFormat = .rgba16Float
+        // M4-W2: enable tracking-area textures for gaze hover + indirect pinch targeting. Pick the
+        // first integer format the layer supports; the compositor only renders the mask when
+        // Documents/vrmc-gaze.flag is present, so this is additive and fail-safe.
+        if #available(visionOS 26.0, *) {
+            let supported = capabilities.supportedTrackingAreasFormats
+            if let format = supported.first(where: { $0 == .r32Uint || $0 == .r16Uint }) {
+                configuration.trackingAreasFormat = format
+                configuration.trackingAreasUsage = [.renderTarget]
+                shellLog("tracking areas: format=\(format.rawValue) supported=\(supported.map(\.rawValue))")
+            } else {
+                shellLog("tracking areas: none of the integer formats are supported (\(supported.map(\.rawValue))); gaze disabled")
+            }
+        }
     }
 }
 
@@ -856,6 +869,31 @@ struct VRMCShellApp: App {
 
         ImmersiveSpace(id: "vr") {
             CompositorLayer(configuration: ShellLayerConfiguration()) { layerRenderer in
+                // M4-W2: the system tags indirect pinch activations with the tracking area the user
+                // was gazing at. Forward the id/phase/kind into the bridge; the provider turns the
+                // tile into a GUI click. Events without a tracking area are ignored.
+                layerRenderer.onSpatialEvent = { events in
+                    for event in events where event.trackingAreaIdentifier != .invalid {
+                        let phase: Int32
+                        switch event.phase {
+                        case .active: phase = 1
+                        case .ended: phase = 2
+                        case .cancelled: phase = 3
+                        @unknown default: phase = 0
+                        }
+                        let kind: Int32
+                        switch event.kind {
+                        case .indirectPinch: kind = 1
+                        case .directPinch: kind = 2
+                        case .touch: kind = 3
+                        case .pointer: kind = 4
+                        case .pencil: kind = 5
+                        @unknown default: kind = 0
+                        }
+                        shellLog("spatial event tile=\(event.trackingAreaIdentifier) phase=\(phase) kind=\(kind)")
+                        VRMCInput_PublishGazeEvent(event.trackingAreaIdentifier.rawValue, phase, kind)
+                    }
+                }
                 VRMCCompositor_InitAndRun(layerRenderer)
             }
         }
