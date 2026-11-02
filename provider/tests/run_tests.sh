@@ -161,6 +161,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionLocomotionTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionSwipeGestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionRuntimeSettingsTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionCommandFileTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -223,6 +224,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m5-settings-test\] [0-9]+ checks" "$T/m5-settings.log"
   else
     cat "$T/m5-settings.log"; fail "m5-settings"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionCommandFileTest > "$T/m5-command.log" 2>&1 \
+     && grep -q "\[m5-command-test\] PASS" "$T/m5-command.log"; then
+    echo "[provider-tests] m5-command: PASS (command take/validate/result contract)"
+    grep -E "\[m5-command-test\] [0-9]+ checks" "$T/m5-command.log"
+  else
+    cat "$T/m5-command.log"; fail "m5-command"
   fi
   # Cross-language fixture: set-but-missing must FAIL; unset is an explicit SKIP (never silent).
   FIXTURE="${VRMC_INPUT_FIXTURE:-}"

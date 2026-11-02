@@ -30,6 +30,8 @@ public final class VisionRuntimeSettingsTest {
         explicit.put("performance.framerateLimit", "72");
         explicit.put("performance.vsync", "false");
         explicit.put("diagnostics.periodSeconds", "15");
+        explicit.put("comfort.worldScale", "1.25");
+        explicit.put("comfort.manualHeight", "1.70");
         VisionRuntimeSettings v = VisionRuntimeSettings.parse(explicit);
         check("explicit seated", v.hasSeated && v.seated);
         check("explicit seated free move", v.hasSeatedFreeMove && v.seatedFreeMove);
@@ -39,6 +41,8 @@ public final class VisionRuntimeSettingsTest {
         check("explicit framerate", v.hasFramerateLimit && v.framerateLimit == 72);
         check("explicit vsync", v.hasVsync && !v.vsync);
         check("diagnostics period", v.diagnosticPeriodSeconds == 15);
+        check("explicit world scale", v.hasWorldScale && Math.abs(v.worldScale - 1.25F) < 1.0E-4F);
+        check("explicit manual height", v.hasManualHeight && Math.abs(v.manualHeight - 1.70F) < 1.0E-4F);
         check("no warnings", v.warnings.isEmpty(), String.valueOf(v.warnings));
 
         VisionRuntimeSettings perf = VisionRuntimeSettings.parse(Map.of("performance.preset", "performance"));
@@ -59,6 +63,8 @@ public final class VisionRuntimeSettingsTest {
         check("invalid rotation ignored", !bad.hasWorldRotationIncrement);
         check("out-of-range render distance ignored", !bad.hasRenderDistance);
         check("invalid framerate ignored", !bad.hasFramerateLimit);
+        check("auto height accepted", VisionRuntimeSettings.parse(Map.of("comfort.manualHeight", "-1")).manualHeight == -1.0F);
+        check("invalid world scale ignored", !VisionRuntimeSettings.parse(Map.of("comfort.worldScale", "9")).hasWorldScale);
         check("unknown preset falls back to none", bad.preset.equals("none"));
         check("warnings report every invalid value", bad.warnings.size() >= 5, String.valueOf(bad.warnings));
 

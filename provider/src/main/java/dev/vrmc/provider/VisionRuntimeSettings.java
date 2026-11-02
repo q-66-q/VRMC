@@ -23,6 +23,8 @@ import java.util.Properties;
  * comfort.seatedFreeMove=true|false
  * comfort.seatedUseHMD=true|false
  * comfort.worldRotationIncrement=0|45|...   (0 = smooth rotation, &gt;0 = snap angle degrees)
+ * comfort.worldScale=0.1..5
+ * comfort.manualHeight=-1|1.0..2.2         (-1 = auto height)
  * performance.preset=none|performance|balanced|quality
  * performance.renderDistance=2..32
  * performance.simulationDistance=2..32
@@ -42,6 +44,10 @@ public final class VisionRuntimeSettings {
     public final boolean seatedUseHMD;
     public final boolean hasWorldRotationIncrement;
     public final float worldRotationIncrement;
+    public final boolean hasWorldScale;
+    public final float worldScale;
+    public final boolean hasManualHeight;
+    public final float manualHeight;
     public final boolean hasRenderDistance;
     public final int renderDistance;
     public final boolean hasSimulationDistance;
@@ -57,6 +63,8 @@ public final class VisionRuntimeSettings {
     private VisionRuntimeSettings(boolean hasSeated, boolean seated, boolean hasSeatedFreeMove,
                                   boolean seatedFreeMove, boolean hasSeatedUseHMD, boolean seatedUseHMD,
                                   boolean hasWorldRotationIncrement, float worldRotationIncrement,
+                                  boolean hasWorldScale, float worldScale,
+                                  boolean hasManualHeight, float manualHeight,
                                   boolean hasRenderDistance, int renderDistance,
                                   boolean hasSimulationDistance, int simulationDistance,
                                   boolean hasFramerateLimit, int framerateLimit,
@@ -70,6 +78,10 @@ public final class VisionRuntimeSettings {
         this.seatedUseHMD = seatedUseHMD;
         this.hasWorldRotationIncrement = hasWorldRotationIncrement;
         this.worldRotationIncrement = worldRotationIncrement;
+        this.hasWorldScale = hasWorldScale;
+        this.worldScale = worldScale;
+        this.hasManualHeight = hasManualHeight;
+        this.manualHeight = manualHeight;
         this.hasRenderDistance = hasRenderDistance;
         this.renderDistance = renderDistance;
         this.hasSimulationDistance = hasSimulationDistance;
@@ -145,6 +157,29 @@ public final class VisionRuntimeSettings {
             }
         }
 
+        boolean hasWorldScale = props.containsKey("comfort.worldScale");
+        float worldScale = 1.0F;
+        if (hasWorldScale) {
+            Float v = parseFloat(props.get("comfort.worldScale"), warnings, "comfort.worldScale");
+            if (v == null || v < 0.1F || v > 5.0F) {
+                if (v != null) warnings.add("comfort.worldScale=" + v + " out of range 0.1..5; ignored");
+                hasWorldScale = false;
+            } else {
+                worldScale = v;
+            }
+        }
+        boolean hasManualHeight = props.containsKey("comfort.manualHeight");
+        float manualHeight = -1.0F;
+        if (hasManualHeight) {
+            Float v = parseFloat(props.get("comfort.manualHeight"), warnings, "comfort.manualHeight");
+            if (v == null || (v != -1.0F && (v < 1.0F || v > 2.2F))) {
+                if (v != null) warnings.add("comfort.manualHeight=" + v + " must be -1 (auto) or 1.0..2.2; ignored");
+                hasManualHeight = false;
+            } else {
+                manualHeight = v;
+            }
+        }
+
         // Preset values are defaults; explicit keys win.
         boolean presetActive = !preset.equals("none");
         boolean hasRender = props.containsKey("performance.renderDistance") || presetActive;
@@ -187,7 +222,8 @@ public final class VisionRuntimeSettings {
             if (v == null) { /* keep default */ } else diagnosticPeriod = v;
         }
         return new VisionRuntimeSettings(hasSeated, seated, hasSeatedFreeMove, seatedFreeMove,
-            hasSeatedUseHMD, seatedUseHMD, hasRotation, rotation, hasRender, render, hasSim, sim,
+            hasSeatedUseHMD, seatedUseHMD, hasRotation, rotation, hasWorldScale, worldScale,
+            hasManualHeight, manualHeight, hasRender, render, hasSim, sim,
             hasFps, fps, hasVsync, vsync, diagnosticPeriod, preset, warnings);
     }
 
@@ -239,6 +275,8 @@ public final class VisionRuntimeSettings {
             + " seatedFreeMove=" + (hasSeatedFreeMove ? seatedFreeMove : "unchanged")
             + " seatedUseHMD=" + (hasSeatedUseHMD ? seatedUseHMD : "unchanged")
             + " worldRotationIncrement=" + (hasWorldRotationIncrement ? worldRotationIncrement : "unchanged")
+            + " worldScale=" + (hasWorldScale ? worldScale : "unchanged")
+            + " manualHeight=" + (hasManualHeight ? manualHeight : "unchanged")
             + " renderDistance=" + (hasRenderDistance ? renderDistance : "unchanged")
             + " simulationDistance=" + (hasSimulationDistance ? simulationDistance : "unchanged")
             + " framerateLimit=" + (hasFramerateLimit ? framerateLimit : "unchanged")

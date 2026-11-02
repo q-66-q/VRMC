@@ -45,6 +45,17 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   atomic write, shell log line on success/failure. Applied at the next game launch by the provider
   parser (EV-0101). Shell build PASS; device UI interaction NOT RUN.
 
+## World scale / height / command channel (EV-0105)
+
+- `comfort.worldScale` (0.1–5) and `comfort.manualHeight` (-1 = auto, or 1.0–2.2 m) are parsed and
+  applied to Vivecraft settings at init.
+- Local whitelisted command channel: the shell writes `vrmc-command.txt` in the game directory; the
+  provider consumes at most one command every 500 ms and appends a result to
+  `vrmc-command-result.txt`. Commands: `recenter`, `calibrate-height`, `reload-settings`, `diag`,
+  `status`. Unknown commands are rejected and recorded (never executed).
+- Launcher overlay buttons: **Recenter**, **Calibrate height**, **Reload settings**, **Diagnostics**.
+  Device behavior/UI interaction NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

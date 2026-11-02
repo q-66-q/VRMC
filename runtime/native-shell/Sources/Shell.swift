@@ -57,6 +57,24 @@ private func shellReadRuntimeSettings() -> [String: String] {
     return values
 }
 
+/// Queue an M5 provider command (recenter / calibrate-height / reload-settings / diag / status).
+/// The provider consumes it while the game runs; queued commands are harmless if consumed early.
+private func shellQueueGameCommand(_ command: String) -> Bool {
+    let url = shellDocumentsURL()
+        .appendingPathComponent("instances/default")
+        .appendingPathComponent("vrmc-command.txt")
+    do {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try (command + "\n").write(to: url, atomically: true, encoding: .utf8)
+        shellLog("VRMC command queued: \(command) -> \(url.path)")
+        return true
+    } catch {
+        shellLog("VRMC command queue FAILED (\(command)): \(error)")
+        return false
+    }
+}
+
 @discardableResult
 private func shellWriteRuntimeSettings(_ values: [String: String]) -> Bool {
     let url = shellRuntimeSettingsURL()
@@ -901,6 +919,7 @@ struct VRControlOverlay: View {
     @State private var renderDistance = 12
     @State private var frameLimit = 90
     @State private var settingsStatus = ""
+    @State private var commandStatus = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -962,6 +981,29 @@ struct VRControlOverlay: View {
                     .buttonStyle(.borderedProminent)
                     if !settingsStatus.isEmpty {
                         Text(settingsStatus).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 8) {
+                        Button("Recenter") {
+                            commandStatus = shellQueueGameCommand("recenter") ? "Recenter queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
+                        Button("Calibrate height") {
+                            commandStatus = shellQueueGameCommand("calibrate-height") ? "Height calibration queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    HStack(spacing: 8) {
+                        Button("Reload settings") {
+                            commandStatus = shellQueueGameCommand("reload-settings") ? "Reload queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
+                        Button("Diagnostics") {
+                            commandStatus = shellQueueGameCommand("diag") ? "Diagnostics queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if !commandStatus.isEmpty {
+                        Text(commandStatus).font(.caption2).foregroundStyle(.secondary)
                     }
                     Text("Provider reads these at game start; invalid values are ignored/logged. Diagnostics: vrmc-shell.log, vrmc-thermal.log.")
                         .font(.caption2).foregroundStyle(.tertiary)

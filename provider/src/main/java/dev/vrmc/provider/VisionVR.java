@@ -108,6 +108,7 @@ public class VisionVR extends MCVR {
     private long diagLastPollNs;
     private long diagMaxGapNs;
     private long diagNextLogNs;
+    private long nextCommandPollNs;
     private long rotatePulseNanos = 120_000_000L;
     private long rotatePulseUntilNs;
     private int rotatePulseDirection;
@@ -340,12 +341,51 @@ public class VisionVR extends MCVR {
         if (settings.hasSeatedFreeMove) this.dh.vrSettings.seatedFreeMove = settings.seatedFreeMove;
         if (settings.hasSeatedUseHMD) this.dh.vrSettings.seatedUseHMD = settings.seatedUseHMD;
         if (settings.hasWorldRotationIncrement) this.dh.vrSettings.worldRotationIncrement = settings.worldRotationIncrement;
+        if (settings.hasWorldScale) this.dh.vrSettings.worldScale = settings.worldScale;
+        if (settings.hasManualHeight) this.dh.vrSettings.manualCalibration = settings.manualHeight;
         if (settings.hasRenderDistance) this.mc.options.renderDistance().set(settings.renderDistance);
         if (settings.hasSimulationDistance) this.mc.options.simulationDistance().set(settings.simulationDistance);
         if (settings.hasFramerateLimit) this.mc.options.framerateLimit().set(settings.framerateLimit);
         if (settings.hasVsync) this.mc.options.enableVsync().set(settings.vsync);
         System.out.println("[VRMC-M5] runtime settings: " + settings.summary());
         System.out.println("[VRMC-M5] diagnostics: periodSeconds=" + settings.diagnosticPeriodSeconds);
+    }
+
+    /** M5 command file: consume at most one command every 500 ms; never throws into the frame loop. */
+    private void pollCommandFile() {
+        long now = System.nanoTime();
+        if (now < this.nextCommandPollNs) return;
+        this.nextCommandPollNs = now + 500_000_000L;
+        java.nio.file.Path dir = this.mc.gameDirectory == null ? null : this.mc.gameDirectory.toPath();
+        String command = VisionCommandFile.take(dir, System.out::println);
+        if (command == null) return;
+        String detail;
+        try {
+            switch (command) {
+                case "recenter" -> { performRecenter(); detail = "recenter requested"; }
+                case "calibrate-height" -> {
+                    AutoCalibration.calibrateManual();
+                    detail = "manual height calibration performed";
+                }
+                case "reload-settings" -> {
+                    this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
+                    applyRuntimeSettings(this.runtimeSettings);
+                    detail = "runtime settings reloaded and applied";
+                }
+                case "diag" -> {
+                    this.diagNextLogNs = 0L;
+                    detail = "diagnostics forced";
+                }
+                case "status" -> detail = "bridgeReady=" + this.bridgeReady
+                    + " displayViewsGen=" + this.displayViewsGen + " trackedFrames=" + this.trackedFrames
+                    + " inputHealthy=" + (this.visionInput != null && this.visionInput.isInputHealthy());
+                default -> detail = "unknown";
+            }
+        } catch (Throwable t) {
+            detail = "FAILED: " + t;
+        }
+        System.out.println("[VRMC-M5] command=" + command + " -> " + detail);
+        VisionCommandFile.appendResult(dir, command, detail, System.out::println);
     }
 
     /** M5 periodic diagnostics: cheap counters only; formatting happens once per period. */
@@ -459,6 +499,7 @@ public class VisionVR extends MCVR {
             this.processInputs();
             this.hmdSampling();
         }
+        pollCommandFile();
         updateDiagnostics();
         if (this.dh.vrRenderer instanceof VisionRenderer r) {
             r.markPolled();
