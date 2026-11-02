@@ -143,6 +143,9 @@ final class ShellCoordinator {
     @ObservationIgnored private var gameStarted = false
     /// Set when the immersive session was ended by backgrounding/resigning; cleared once reopened.
     @ObservationIgnored private var reopenOnActive = false
+    /// True once an immersive session has been opened in this process (any reason: game, manual, selftest,
+    /// open-on-launch). Used so background/foreground re-entry also works for the manual/diagnostic paths.
+    @ObservationIgnored private var wantsImmersive = false
     @ObservationIgnored private var opening = false
     /// Incremented on every compositor-ended/background transition; guarded Tasks abort when it moves.
     @ObservationIgnored private var epoch = 0
@@ -443,7 +446,7 @@ final class ShellCoordinator {
         // If the layer died while the app is active and this was our most recent open, a guarded
         // reopen recovers instead of leaving the operator stuck in the 2D window (EV-0086 gen-2 case
         // where the layer invalidated within seconds of opening with no rendered frames).
-        let shouldAutoRetry = appActive && (gameStarted || selftestMode) && !reopenOnActive &&
+        let shouldAutoRetry = appActive && (gameStarted || selftestMode || openOnLaunch || wantsImmersive) && !reopenOnActive &&
             generation != nil && generation == lastOpenGeneration &&
             Date().timeIntervalSince(lastOpenAt) < 20 && autoRetries < 2
         if shouldAutoRetry {
@@ -486,7 +489,11 @@ final class ShellCoordinator {
         shellLog("\(reason) gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
         appActive = false
         windowSceneActive = false
-        if gameStarted && (immersiveOpen || opening) {
+        // Reopen on return whenever VR was active in this process. The immersive session may already
+        // have been invalidated by the system just before didEnterBackground (observed: layer ended a
+        // beat before willResignActive), so immersiveOpen can be false here while the user still expects
+        // VR to be restored. wantsImmersive is set on the first successful open (game/manual/selftest).
+        if (gameStarted || wantsImmersive) {
             reopenOnActive = true
         }
         epoch += 1
@@ -538,7 +545,7 @@ final class ShellCoordinator {
             openVR(reason: "selftest")
             return
         }
-        if gameStarted && reopenOnActive && !immersiveOpen && windowSceneActive {
+        if reopenOnActive && !immersiveOpen && windowSceneActive {
             openVR(reason: "foreground")
         }
     }
@@ -593,6 +600,7 @@ final class ShellCoordinator {
                 if case .opened = result {
                     self.opening = false
                     self.immersiveOpen = true
+                    self.wantsImmersive = true
                     self.presenting = false
                     self.statusMessage = "VR opened — waiting for first presented frame"
                     self.lastOpenError = nil

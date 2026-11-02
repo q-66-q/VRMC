@@ -18,7 +18,16 @@ BUNDLE="dev.vrmc.providersim"
 FULL="${FULL:-0}"   # 1 = rebuild framework/dylib; 0 = reuse $OUT/shell-dd + fake dylib if present
 
 mkdir -p "$OUT"
-if [ "$FULL" = "1" ] || [ ! -d "$OUT/shell-dd/Build/Products/Debug-xrsimulator/VRMCShell.framework" ]; then
+NEED_BUILD=0
+[ "$FULL" = "1" ] && NEED_BUILD=1
+FRAMEWORK_BIN="$OUT/shell-dd/Build/Products/Debug-xrsimulator/VRMCShell.framework/VRMCShell"
+[ -f "$FRAMEWORK_BIN" ] || NEED_BUILD=1
+if [ -f "$FRAMEWORK_BIN" ]; then
+  # rebuild when any shell source is newer than the cached framework (avoids testing a stale build)
+  NEWEST_SRC=$(find "$ROOT/runtime/native-shell/Sources" -type f -newer "$FRAMEWORK_BIN" -print -quit 2>/dev/null || true)
+  [ -n "$NEWEST_SRC" ] && NEED_BUILD=1
+fi
+if [ "$NEED_BUILD" = "1" ]; then
   echo "[build] shell framework (visionOS simulator)"
   ( cd "$ROOT/runtime/native-shell" && xcodebuild -project VRMCShell.xcodeproj -scheme VRMCShell -configuration Debug \
     -destination "platform=visionOS Simulator,id=$SIM" CODE_SIGNING_ALLOWED=NO \
@@ -43,6 +52,16 @@ echo "[setup] boot simulator"
 xcrun simctl boot "$SIM" 2>/dev/null || true
 
 overall=0
+
+wait_for_log() { # wait_for_log <file> <pattern> [tries]
+  local file="$1" pat="$2" tries="${3:-40}"
+  for _ in $(seq 1 "$tries"); do
+    [ -f "$file" ] && grep -q "$pat" "$file" 2>/dev/null && return 0
+    sleep 1
+  done
+  return 1
+}
+
 run_case() {
   local name="$1" sync="$2" mode="${3:-provider}"
   local case_dir="$OUT/case-$name"
@@ -76,14 +95,43 @@ run_case() {
   if [ "$mode" = "pattern" ]; then
     python3 "$HERE/check.py" "$case_dir" --pattern || overall=1
   elif [ "$sync" = "1" ]; then
-    python3 "$HERE/check.py" "$case_dir" --require-sync || overall=1
+    python3 "$HERE/check.py" "$case_dir" --require-sync --require-parking || overall=1
   else
-    python3 "$HERE/check.py" "$case_dir" || overall=1
+    python3 "$HERE/check.py" "$case_dir" --require-parking || overall=1
   fi
+}
+
+run_reentry() {
+  local case_dir="$OUT/case-reentry"
+  rm -rf "$case_dir"; mkdir -p "$case_dir"
+  xcrun simctl uninstall "$SIM" "$BUNDLE" 2>/dev/null || true
+  xcrun simctl install "$SIM" "$APP"
+  local DATA; DATA=$(xcrun simctl get_app_container "$SIM" "$BUNDLE" data)
+  mkdir -p "$DATA/Documents"
+  echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
+  echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
+  xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'VRMCCompositorRunning generation=' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'STATE immersive=' 40 || true
+  echo "---- scenario: reentry (background -> foreground) ----"
+  # Background our app by foregrounding a system app, then bring VRMC back. This exercises the shell's
+  # willResignActive/didEnterBackground -> reopenOnActive -> reason=foreground path (EV-0086 gen-2 class).
+  xcrun simctl launch "$SIM" com.apple.Preferences >/dev/null 2>&1 || true
+  sleep 4
+  xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1 || true
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'reason=foreground' 40 || true
+  sleep 6
+  xcrun simctl io "$SIM" screenshot "$case_dir/screenshot.png" >/dev/null 2>&1 || true
+  cp "$DATA/Documents/vrmc-compositor.log" "$case_dir/compositor.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-shell.log"      "$case_dir/shell.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw" "$case_dir/drawable-L.raw" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw.meta" "$case_dir/drawable-L.raw.meta" 2>/dev/null || true
+  python3 "$HERE/check.py" "$case_dir" --reentry --require-parking || overall=1
 }
 
 run_case flat 0
 run_case sync 1
 run_case pattern 0 pattern
+run_reentry
 if [ "$overall" != "0" ]; then echo "[provider-sim] OVERALL FAIL"; exit 1; fi
-echo "[provider-sim] OVERALL PASS (flat sampling + GPU-timeline sync + test-pattern scenarios)"
+echo "[provider-sim] OVERALL PASS (flat sampling + GPU-timeline sync + test-pattern + re-entry scenarios)"

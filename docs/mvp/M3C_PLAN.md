@@ -90,9 +90,10 @@ layer-state logging, and a no-JIT immersive selftest. Info.plist unchanged.
 
 Headset-free regression tooling now in-repo: `runtime/probes/m3c-provider-sim/` runs the real shell +
 compositor in the visionOS simulator against a fake provider dylib (real `MTLTexture`s, known pattern)
-and asserts the flat sampled output orientation/layout plus the `MTLSharedEvent` sync wait path
-(`run.sh`, two scenarios, both PASS). Use it after any compositor/shader/bridge change; it is not a
-substitute for device evidence for presentation or stereo.
+and asserts the flat sampled output orientation/layout, the `MTLSharedEvent` sync wait path, the
+stereo/alignment test pattern markers and background→foreground re-entry (`run.sh`, four scenarios, all
+PASS). One-command self-check: `scripts/m3c_selfcheck.sh`. Use these after any compositor/shader/bridge/
+lifecycle change; they are not a substitute for device evidence for presentation or stereo.
 
 1. **Stereo/ alignment**: flat 1:1 mapping of the provider display frustum; verify no exotropia; then
    per-eye projection parity check with the compositor diag logs.

@@ -33,6 +33,8 @@ def main():
     out = sys.argv[1] if len(sys.argv) > 1 else "/tmp/vrmc-provider-sim"
     args = sys.argv[2:]
     require_sync = "--require-sync" in args
+    require_parking = "--require-parking" in args
+    reentry = "--reentry" in args
     pattern = "--pattern" in args
 
     raw = os.path.join(out, "drawable-L.raw")
@@ -78,15 +80,28 @@ def main():
 
     shelllog = os.path.join(out, "shell.log")
     stext = open(shelllog, "r", errors="replace").read() if os.path.exists(shelllog) else ""
+    if require_parking:
+        parking_ok = ("window parked after first presented frame" in stext) and ("alpha=0.00" in stext)
+        print(f"{'window parking':32s} {('seen' if parking_ok else 'missing'):24s} {'seen':8s} {'PASS' if parking_ok else 'FAIL'}")
+        if not parking_ok: failures += 1
+    if reentry:
+        bg_ok = "didEnterBackground" in stext
+        fg_ok = "reason=foreground" in stext
+        runs = stext.count("VRMCCompositorRunning generation=")
+        reentry_ok = bg_ok and fg_ok and runs >= 2
+        print(f"{'re-entry (bg->fg reopen)':32s} {(f'bg={bg_ok} fg={fg_ok} runs={runs}'):24s} {'>=2':8s} {'PASS' if reentry_ok else 'FAIL'}")
+        if not reentry_ok: failures += 1
     active_ok = "CPSceneSessionRoleImmersiveSpaceApplication:fgActive" in stext
     print(f"{'immersive scene fgActive':32s} {('seen' if active_ok else 'missing'):24s} {'seen':8s} {'PASS' if active_ok else 'FAIL'}")
     if not active_ok: failures += 1
 
     if failures:
         print(f"[provider-sim] FAIL: {failures} assertion(s) failed"); return 1
-    print("[provider-sim] PASS: " + ("stereo/alignment test pattern" if pattern else "provider texture sampled "
-          "through the compositor flat path with expected orientation/layout")
-          + ((" + GPU timeline sync wait exercised") if require_sync else ""))
+    detail = "stereo/alignment test pattern" if pattern else ("provider texture sampled through the compositor flat path with expected orientation/layout")
+    if require_sync: detail += " + GPU timeline sync wait exercised"
+    if require_parking: detail += " + window parking"
+    if reentry: detail += " + background/foreground re-entry"
+    print("[provider-sim] PASS: " + detail)
     return 0
 
 if __name__ == "__main__":

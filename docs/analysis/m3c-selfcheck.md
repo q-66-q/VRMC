@@ -26,7 +26,8 @@ found (EV-0093), so the next device session starts from a known-good, reproducib
 | Depth-clear regression guard | `scripts/tests/DepthClearRegressionTest.sh` | PASS — default 1.0, `vrmc-depth-zero.flag` A/B, probe reference 1.0 |
 | Bridge host suite | `bridge/tests/run_tests.sh` | ALL PASS — stub, sync, TSan, display-views layout, MoltenVK+Metal timeline probe |
 | M3c triage script | `scripts/m3c_pull_and_check.sh --from …` | PASS on historical pulls |
-| Provider-sampling harness (new) | `runtime/probes/m3c-provider-sim/run.sh` (flat + GPU-sync scenarios) | PASS — real shell/compositor samples the fake provider `MTLTexture` through the flat path with expected orientation/layout; `sync.valid=1` wait path exercised |
+| Provider-sampling harness | `runtime/probes/m3c-provider-sim/run.sh` (flat + GPU-sync + pattern + re-entry scenarios) | PASS — real shell/compositor samples the fake provider `MTLTexture` through the flat path with expected orientation/layout; `sync.valid=1` wait path exercised; stereo pattern markers verified; background→foreground reopen verified (2 compositor runs) |
+| One-command self-check | `scripts/m3c_selfcheck.sh` | PASS — runs the depth guard, display-view math, provider/bridge builds, bridge host suite and the simulator harness in one command |
 | Simulator control | real `VRMCShell.framework` in a visionOS-simulator host | PASS — immersive scene `fgActive`, `layerState=2`, bright drawable proof, stereo pattern screenshot `/tmp/vrmc-sim-shots/stereo-pattern-sim.png` |
 
 Simulator note: the simulator displayed correctly even with the old depth clear 0.0, which is exactly why
@@ -37,8 +38,8 @@ New headset-free regression harness: `runtime/probes/m3c-provider-sim/` embeds t
 that publishes real `MTLTexture`s with a known pattern. It asserts (64x64 drawn-drawable readback) that
 the flat sampling path maps the provider texture with the correct orientation/layout, and repeats the
 test with a real `MTLSharedEvent` (`sync.valid=1`) to exercise the compositor's `encodeWaitForEvent`
-wiring. Both scenarios PASS locally (screenshot + logs under `/tmp/vrmc-provider-sim/case-*`); it is a
-plumbing/shader regression guard, not device evidence (the simulator cannot reproduce the EV-0093 depth
+wiring. Four scenarios PASS locally (flat, sync, pattern, re-entry; screenshots + logs under
+`/tmp/vrmc-provider-sim/case-*`); it is a plumbing/shader/lifecycle regression guard, not device evidence (the simulator cannot reproduce the EV-0093 depth
 bug).
 
 ## Device state prepared for the next session (EV-0094)
