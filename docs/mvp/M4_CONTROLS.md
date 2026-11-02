@@ -43,6 +43,12 @@ Left hand: swipe up/down = keyboard / chat; swipe left/right = swap offhand / dr
 - ring/trackpad/middle chords cannot trigger their single-hand actions simultaneously;
 - no action is latched: releasing the source releases the action (except action-bar feedback).
 
+## Experimental options
+
+- `hands.componentMode=joints` (or `-Dvrmc.hands.componentMode=joints`) attaches the held-item/aim
+  tip component to the index fingertip; default `identity` keeps the device-accepted aim path.
+  Device visual result NOT RUN.
+
 ## Known gaps (device-only)
 
 - Real-hands feel/latency/thresholds, two-hand bow nuance, visible-hands/held-item appearance.

@@ -111,6 +111,10 @@ public class VisionVR extends MCVR {
     private long nextCommandPollNs;
     // M4-W4 direct hotbar wheel (both ring pinches + left-hand horizontal displacement).
     private Map<String, String> inputTuning = Map.of();
+    /** Experimental M4 visual polish: attach the tip component to the index fingertip (default identity). */
+    private boolean handComponentJoints;
+    private final Matrix4f[] tipComponent = {new Matrix4f(), new Matrix4f()};
+    private final Vector3f tipOffsetTmp = new Vector3f();
     private float hotbarRange = VisionHotbarWheel.DEFAULT_HALF_RANGE_METRES;
     private boolean hotbarWheelActive;
     private float hotbarWheelStartX;
@@ -202,6 +206,9 @@ public class VisionVR extends MCVR {
         this.populateInputActions();
         Map<String, String> tuning = loadInputTuning();
         this.inputTuning = tuning;
+        String componentMode = System.getProperty("vrmc.hands.componentMode",
+            tuning.getOrDefault("hands.componentMode", "identity"));
+        this.handComponentJoints = "joints".equalsIgnoreCase(componentMode);
         this.hotbarRange = floatValue(tuning, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
         this.visionInput = new VisionInput(tuning);
         this.smoothingConfig = loadSmoothingConfig(tuning);
@@ -217,6 +224,8 @@ public class VisionVR extends MCVR {
         };
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
+        System.out.println("[VRMC-M4] hand components: mode=" + (this.handComponentJoints ? "joints" : "identity")
+            + " (hands.componentMode/-Dvrmc.hands.componentMode)");
         System.out.printf("[VRMC-M4] locomotion: middleEnabled=%s ringEnabled=%s hotbarRange=%.2f "
                 + "swipeEnabled=%s virtual stick originZ=%.2f forwardScale=%.2f "
                 + "strafeScale=%.2f deadzone=%.2f rotatePulseMs=%d middleOn=%.3f middleOff=%.3f "
@@ -1517,6 +1526,15 @@ public class VisionVR extends MCVR {
 
     @Override
     public Matrix4fc getControllerComponentTransform(int controllerIndex, String componentName) {
+        if (this.handComponentJoints && "tip".equals(componentName) && this.visionInput != null) {
+            int hand = controllerIndex == RIGHT_CONTROLLER ? VisionInput.HAND_RIGHT : VisionInput.HAND_LEFT;
+            if (this.visionInput.isHandTracked(hand)) {
+                VisionHandPose.tipOffset(this.visionInput.joints(hand), this.controllerPose[controllerIndex],
+                    this.tipOffsetTmp);
+                this.tipComponent[controllerIndex].identity().setTranslation(this.tipOffsetTmp);
+                return this.tipComponent[controllerIndex];
+            }
+        }
         // These are *static* handgrip/tip model offsets, not tracking data. The M4-W1 hand pose is
         // already the wrist pose with a joint-derived rotation that makes R*(0,0,-1) the finger aim,
         // so the model-offset step must be identity (adding a tip offset here would double-shift the

@@ -30,6 +30,27 @@ import org.joml.Matrix4fc;
  * tracked hand).
  */
 public final class VisionHandPose {
+    /**
+     * M4 visual-polish option: index-tip offset in controller-local space, from the current joints and
+     * controller pose. Attaching the "tip" component here moves the held item/aim source to the finger
+     * tip; aim rotation is unchanged. Optional (hand component mode "joints"); the default identity
+     * behaviour remains the proven aim path.
+     */
+    public static void tipOffset(float[] joints, Matrix4fc controllerPose, org.joml.Vector3f out) {
+        int wrist = JOINT_WRIST * 3;
+        int tip = JOINT_INDEX_TIP * 3;
+        org.joml.Vector3f tipDevice = new org.joml.Vector3f(
+            joints[tip] - controllerPose.m30(), joints[tip + 1] - controllerPose.m31(),
+            joints[tip + 2] - controllerPose.m32());
+        org.joml.Matrix3f rot = new org.joml.Matrix3f(controllerPose);
+        if (Math.abs(rot.determinant()) < 1.0E-6F) {
+            out.set(0.0F);
+            return;
+        }
+        rot.transpose().transform(tipDevice, out);
+        if (!Float.isFinite(out.x) || !Float.isFinite(out.y) || !Float.isFinite(out.z)) out.set(0.0F);
+    }
+
     /** Shoulder fallback offsets added to the HMD device-space position, metres (design §5.2). */
     public static final float SHOULDER_RIGHT_X = -0.2F;
     public static final float SHOULDER_LEFT_X = 0.2F;

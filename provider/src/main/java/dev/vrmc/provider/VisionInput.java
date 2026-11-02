@@ -1097,6 +1097,12 @@ public final class VisionInput {
         if (KEY_TELEPORT.equals(BINDINGS[index].action) && this.hands[HAND_RIGHT].fistPressed) {
             return false;
         }
+        // W4 conflict fix: both fists is the inventory chord; it must not also hold continuous use
+        // (W4 made key.use a right-fist hold). Single-hand right fist still holds use normally.
+        if (KEY_USE.equals(BINDINGS[index].action)
+            && this.hands[HAND_LEFT].fistPressed && this.hands[HAND_RIGHT].fistPressed) {
+            return false;
+        }
         return sourcePressed(BINDINGS[index].source, BINDINGS[index].hand);
     }
 

@@ -42,6 +42,7 @@ public final class VisionInputTest {
             fistTapSingleFireAndRearm();
             fistHoldUseBinding();
             bowTeleportSuppression();
+            bothFistChordSuppressesContinuousUse();
             bothFistInventoryTap();
             bothFistChordPriority();
             trackingLossReleasesSameFrame();
@@ -233,6 +234,27 @@ public final class VisionInputTest {
         rig.rFist = OPEN_FIST;
         rig.pollMs(16);
         check("teleport returns after releasing the fist", rig.in.actionPressed(VisionInput.KEY_TELEPORT));
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 4d. W4 conflict: both fists (inventory chord) must not also hold continuous use.
+    // ------------------------------------------------------------------------------------------
+    private static void bothFistChordSuppressesContinuousUse() {
+        section("W4 conflict: both-fist inventory chord suppresses continuous use");
+        Rig rig = new Rig();
+        rig.poll(); rig.pollMs(150);
+        rig.in.setEnvironment(false, false, false);
+        rig.rFist = FIST;
+        rig.pollMs(16);
+        check("single right fist holds key.use", rig.in.actionPressed(VisionInput.KEY_USE));
+        rig.lFist = FIST;
+        rig.pollMs(16);
+        check("both fists (inventory chord) suppresses key.use", !rig.in.actionPressed(VisionInput.KEY_USE));
+        rig.pollMs(500);
+        check("inventory tap still fires on the chord", rig.in.actionPressed(VisionInput.KEY_INVENTORY));
+        rig.lFist = OPEN_FIST;
+        rig.pollMs(16);
+        check("use returns when the other fist opens", rig.in.actionPressed(VisionInput.KEY_USE));
     }
 
     // ------------------------------------------------------------------------------------------

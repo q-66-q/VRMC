@@ -213,6 +213,15 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   (capped) for support.
 - Full provider suite PASS; latest app installed/provider pushed; device bow/UI behavior NOT RUN.
 
+## 6l. Conflict fix + fingertip component option (2026-11-01, EV-0125)
+
+- The both-fist inventory chord now suppresses the continuous `key.use` hold (single right fist still
+  holds use; use returns when one fist opens). Host test covers both-directions.
+- Experimental `hands.componentMode=joints` / `-Dvrmc.hands.componentMode=joints` moves the tip
+  component to the index fingertip using joints in controller-local space; default identity preserves
+  the proven aim path. Pure helper host-tested (identity/rotation-magnitude/degenerate).
+- Full provider suite PASS; provider pushed. Device visible-hands/held-item appearance NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

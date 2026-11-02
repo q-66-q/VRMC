@@ -30,6 +30,7 @@ public final class VisionHandPoseTest {
             gazeFallbackShoulderOffsets();
             degenerateJointsFallBackSafely();
             deterministicAndJitterStable();
+            tipOffsetLocalSpace();
         } catch (Throwable t) {
             t.printStackTrace();
             failures++;
@@ -246,6 +247,47 @@ public final class VisionHandPoseTest {
             }
         }
         check(label, ok);
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Optional M4 visual-polish: index-tip offset in controller-local space.
+    // ------------------------------------------------------------------------------------------
+    private static void tipOffsetLocalSpace() {
+        section("tipOffset: index tip in controller-local space");
+        float[] joints = new float[VisionInput.JOINT_COUNT * 3];
+        // wrist at (0,1,-0.5); index tip 0.3 m forward (-Z) of the wrist.
+        setJoint(joints, WRIST, 0.0F, 1.0F, -0.5F);
+        setJoint(joints, INDEX_META, 0.0F, 1.0F, -0.55F);
+        setJoint(joints, INDEX_TIP, 0.0F, 1.0F, -0.8F);
+        setJoint(joints, LITTLE_META, 0.0F, 1.0F, -0.55F);
+        Matrix4f pose = new Matrix4f().setTranslation(0.0F, 1.0F, -0.5F);
+        Vector3f out = new Vector3f();
+        VisionHandPose.tipOffset(joints, pose, out);
+        checkClose("identity-rotation tip x", out.x, 0.0F);
+        checkClose("identity-rotation tip y", out.y, 0.0F);
+        checkClose("identity-rotation tip z", out.z, -0.3F);
+
+        // Rotate the controller 90° about Y: local offset magnitude must be preserved; if the pose's
+        // rotation is inverse-transformed correctly the local vector is still (0,0,-0.3).
+        Matrix4f rotated = new Matrix4f()
+            .rotateY((float) Math.PI / 2.0F)
+            .setTranslation(0.0F, 1.0F, -0.5F);
+        Vector3f rotatedOut = new Vector3f();
+        VisionHandPose.tipOffset(joints, rotated, rotatedOut);
+        checkClose("rotated magnitude", rotatedOut.length(), 0.3F);
+        check("rotated finite", Float.isFinite(rotatedOut.x) && Float.isFinite(rotatedOut.y)
+            && Float.isFinite(rotatedOut.z));
+
+        // Degenerate pose never produces NaN.
+        Matrix4f degenerate = new Matrix4f().zero();
+        VisionHandPose.tipOffset(joints, degenerate, out);
+        check("degenerate pose returns zero", out.x == 0.0F && out.y == 0.0F && out.z == 0.0F);
+    }
+
+    private static void setJoint(float[] joints, int index, float x, float y, float z) {
+        joints[index * 3] = x;
+        joints[index * 3 + 1] = y;
+        joints[index * 3 + 2] = z;
     }
 
     private static void checkVec(String label, Vector3f actual, Vector3f expected) {
