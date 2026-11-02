@@ -194,6 +194,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   `vrmc-vignette.flag` (game saves/logs/crash guard untouched) and reloads UI defaults.
 - Build/install PASS; device UI NOT RUN.
 
+## Adaptive framerate (EV-0135)
+
+- Opt-in `performance.adaptiveFramerate` + launcher toggle (default off).
+- After **two consecutive** over-budget diagnostic windows (p95 >16.7 ms or missed90 > max(2, frames/10)),
+  the provider caps frame limit to ≤72 once, logs/action-bar, and reports adaptiveFramerate/Applied in
+  status; no auto-restore. Pressure counter resets on a good window.
+- m5-settings 27 checks, full provider suite PASS; app installed/provider pushed. Device K2 pacing
+  behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

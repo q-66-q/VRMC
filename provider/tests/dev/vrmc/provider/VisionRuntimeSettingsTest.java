@@ -31,6 +31,7 @@ public final class VisionRuntimeSettingsTest {
         explicit.put("performance.vsync", "false");
         explicit.put("diagnostics.periodSeconds", "15");
         explicit.put("performance.thermalResponse", "reduce");
+        explicit.put("performance.adaptiveFramerate", "true");
         explicit.put("comfort.seatedHmdPointer", "true");
         explicit.put("comfort.worldScale", "1.25");
         explicit.put("comfort.manualHeight", "1.70");
@@ -44,6 +45,7 @@ public final class VisionRuntimeSettingsTest {
         check("explicit vsync", v.hasVsync && !v.vsync);
         check("diagnostics period", v.diagnosticPeriodSeconds == 15);
         check("thermal response reduce", "reduce".equals(v.thermalResponse));
+        check("adaptive framerate true", v.adaptiveFramerate);
         check("explicit seated hmd pointer", v.hasSeatedHmdPointer && v.seatedHmdPointer);
         check("explicit world scale", v.hasWorldScale && Math.abs(v.worldScale - 1.25F) < 1.0E-4F);
         check("explicit manual height", v.hasManualHeight && Math.abs(v.manualHeight - 1.70F) < 1.0E-4F);
@@ -71,6 +73,7 @@ public final class VisionRuntimeSettingsTest {
         check("invalid world scale ignored", !VisionRuntimeSettings.parse(Map.of("comfort.worldScale", "9")).hasWorldScale);
         check("unknown preset falls back to none", bad.preset.equals("none"));
         check("default thermal response notify", "notify".equals(VisionRuntimeSettings.defaults().thermalResponse));
+        check("default adaptive framerate off", !VisionRuntimeSettings.defaults().adaptiveFramerate);
         check("warnings report every invalid value", bad.warnings.size() >= 5, String.valueOf(bad.warnings));
 
         System.out.println("[m5-settings-test] " + checks + " checks, " + failures + " failed");

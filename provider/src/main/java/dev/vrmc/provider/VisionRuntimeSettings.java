@@ -31,6 +31,7 @@ import java.util.Properties;
  * performance.simulationDistance=2..32
  * performance.framerateLimit=30..260
  * performance.vsync=true|false
+ * performance.adaptiveFramerate=true|false  (cap fps once after two consecutive over-budget windows)
  * performance.thermalResponse=notify|reduce  (reduce applies a conservative render-distance/fps cap on thermal pressure)
  * diagnostics.periodSeconds=5..3600
  * </pre>
@@ -62,6 +63,7 @@ public final class VisionRuntimeSettings {
     public final boolean vsync;
     public final int diagnosticPeriodSeconds;
     public final String thermalResponse;
+    public final boolean adaptiveFramerate;
     public final String preset;
     public final List<String> warnings;
 
@@ -75,7 +77,8 @@ public final class VisionRuntimeSettings {
                                   boolean hasSimulationDistance, int simulationDistance,
                                   boolean hasFramerateLimit, int framerateLimit,
                                   boolean hasVsync, boolean vsync, int diagnosticPeriodSeconds,
-                                  String thermalResponse, String preset, List<String> warnings) {
+                                  String thermalResponse, boolean adaptiveFramerate,
+                                  String preset, List<String> warnings) {
         this.hasSeated = hasSeated;
         this.seated = seated;
         this.hasSeatedFreeMove = hasSeatedFreeMove;
@@ -100,6 +103,7 @@ public final class VisionRuntimeSettings {
         this.vsync = vsync;
         this.diagnosticPeriodSeconds = diagnosticPeriodSeconds;
         this.thermalResponse = thermalResponse;
+        this.adaptiveFramerate = adaptiveFramerate;
         this.preset = preset;
         this.warnings = List.copyOf(warnings);
     }
@@ -233,6 +237,8 @@ public final class VisionRuntimeSettings {
             warnings.add("unknown performance.thermalResponse='" + thermalResponse + "' ignored (using notify)");
             thermalResponse = "notify";
         }
+        Boolean adaptiveValue = boolOrNull(props, "performance.adaptiveFramerate", warnings);
+        boolean adaptiveFramerate = Boolean.TRUE.equals(adaptiveValue);
         int diagnosticPeriod = 30;
         String diagRaw = trim(props.get("diagnostics.periodSeconds"));
         if (!diagRaw.isEmpty()) {
@@ -243,7 +249,8 @@ public final class VisionRuntimeSettings {
             hasSeatedUseHMD, seatedUseHMD, hasRotation, rotation,
             hasSeatedHmdPointer, seatedHmdPointer, hasWorldScale, worldScale,
             hasManualHeight, manualHeight, hasRender, render, hasSim, sim,
-            hasFps, fps, hasVsync, vsync, diagnosticPeriod, thermalResponse, preset, warnings);
+            hasFps, fps, hasVsync, vsync, diagnosticPeriod, thermalResponse, adaptiveFramerate,
+            preset, warnings);
     }
 
     private static Boolean boolOrNull(Map<String, String> p, String key, List<String> warnings) {
@@ -302,6 +309,7 @@ public final class VisionRuntimeSettings {
             + " framerateLimit=" + (hasFramerateLimit ? framerateLimit : "unchanged")
             + " vsync=" + (hasVsync ? vsync : "unchanged")
             + " diagnosticsPeriodSec=" + diagnosticPeriodSeconds
-            + " thermalResponse=" + thermalResponse;
+            + " thermalResponse=" + thermalResponse
+            + " adaptiveFramerate=" + adaptiveFramerate;
     }
 }

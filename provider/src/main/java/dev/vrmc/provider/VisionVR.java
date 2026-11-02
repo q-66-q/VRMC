@@ -123,6 +123,9 @@ public class VisionVR extends MCVR {
     private int hotbarWheelSelected;
     private String lastThermalState = "";
     private String thermalResponse = "notify";
+    private boolean adaptiveFramerate;
+    private int adaptivePressureWindows;
+    private boolean adaptiveApplied;
     private boolean thermalReductionApplied;
     private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
@@ -308,7 +311,9 @@ public class VisionVR extends MCVR {
             json.append("  \"inputTuning\": \"").append(this.visionInput == null ? ""
                 : this.visionInput.tuningSummary().replace("\"", "'")).append("\",\n");
             json.append("  \"thermalState\": \"").append(this.lastThermalState).append("\",\n");
-            json.append("  \"thermalResponse\": \"").append(this.thermalResponse).append("\"\n");
+            json.append("  \"thermalResponse\": \"").append(this.thermalResponse).append("\",\n");
+            json.append("  \"adaptiveFramerate\": ").append(this.adaptiveFramerate).append(",\n");
+            json.append("  \"adaptiveFramerateApplied\": ").append(this.adaptiveApplied).append("\"\n");
             json.append("}\n");
             Files.writeString(dir.toPath().resolve("vrmc-status.json"), json.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -407,6 +412,7 @@ public class VisionVR extends MCVR {
         if (settings.hasFramerateLimit) this.mc.options.framerateLimit().set(settings.framerateLimit);
         if (settings.hasVsync) this.mc.options.enableVsync().set(settings.vsync);
         this.thermalResponse = settings.thermalResponse;
+        this.adaptiveFramerate = settings.adaptiveFramerate;
         System.out.println("[VRMC-M5] runtime settings: " + settings.summary());
         System.out.println("[VRMC-M5] diagnostics: periodSeconds=" + settings.diagnosticPeriodSeconds);
     }
@@ -538,9 +544,31 @@ public class VisionVR extends MCVR {
             this.visionInput.isHandTracked(VisionInput.HAND_LEFT) ? 1 : 0,
             this.visionInput.isHandTracked(VisionInput.HAND_RIGHT) ? 1 : 0,
             this.displayViewsGen, this.trackedFrames, hasPlayer ? 1 : 0);
-        if (fs.p95Ms > 16.7 || fs.missed90HzFrames > Math.max(2, this.diagWindowFrames / 10)) {
+        boolean overBudget = fs.p95Ms > 16.7
+            || fs.missed90HzFrames > Math.max(2, this.diagWindowFrames / 10);
+        if (overBudget) {
             System.out.printf("[VRMC-M5][WARN] frame pacing above 90 Hz budget: p95=%.2f ms missed90=%d/%d%n",
                 fs.p95Ms, fs.missed90HzFrames, this.diagWindowFrames);
+        }
+        if (this.adaptiveFramerate && !this.adaptiveApplied) {
+            if (overBudget) {
+                this.adaptivePressureWindows++;
+                if (this.adaptivePressureWindows >= 2) {
+                    this.adaptiveApplied = true;
+                    try {
+                        int fps = this.mc.options.framerateLimit().get();
+                        int newFps = Math.min(fps, 72);
+                        if (newFps != fps) this.mc.options.framerateLimit().set(newFps);
+                        System.out.println("[VRMC-M5] adaptive framerate: " + fps + " -> " + newFps
+                            + " after " + this.adaptivePressureWindows + " over-budget windows");
+                        showGameMessage("[VRMC] adaptive framerate: " + fps + " -> " + newFps);
+                    } catch (Throwable t) {
+                        System.out.println("[VRMC-M5][WARN] adaptive framerate failed: " + t);
+                    }
+                }
+            } else {
+                this.adaptivePressureWindows = 0;
+            }
         }
         this.diagWindowStartNs = now;
         this.diagWindowFrames = 0;
