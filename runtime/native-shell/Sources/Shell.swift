@@ -1198,6 +1198,7 @@ struct VRControlOverlay: View {
     @State private var moveOriginZ = 0.05
     @State private var rotatePulseMs = 120.0
     @State private var holdLastPoseMs = 250.0
+    @State private var handComponentJoints = false
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var lastCommandResult = ""
@@ -1353,6 +1354,7 @@ struct VRControlOverlay: View {
                                 Text("Tracking-dropout pose hold: \(Int(holdLastPoseMs)) ms").font(.caption2)
                                 Slider(value: $holdLastPoseMs, in: 0...1000, step: 50)
                             }
+                            Toggle("Fingertip held-item component (experimental)", isOn: $handComponentJoints)
                             Text("Press Reload input to apply while the game runs; otherwise next launch. Keep off > on.").font(.caption2).foregroundStyle(.tertiary)
                         }
                         .padding(.top, 4)
@@ -1621,6 +1623,7 @@ struct VRControlOverlay: View {
         moveOriginZ = Double(input["move.originZ"] ?? "") ?? 0.05
         rotatePulseMs = Double(input["move.rotatePulseMs"] ?? "") ?? 120.0
         holdLastPoseMs = Double(input["tracking.holdLastPoseMs"] ?? "") ?? 250.0
+        handComponentJoints = input["hands.componentMode"]?.lowercased() == "joints"
     }
 
     private func applySettings() {
@@ -1664,6 +1667,7 @@ struct VRControlOverlay: View {
         input["move.originZ"] = String(format: "%.2f", moveOriginZ)
         input["move.rotatePulseMs"] = String(format: "%.0f", rotatePulseMs)
         input["tracking.holdLastPoseMs"] = String(format: "%.0f", holdLastPoseMs)
+        input["hands.componentMode"] = handComponentJoints ? "joints" : "identity"
         let runtimeOK = shellWriteRuntimeSettings(values)
         let inputOK = shellWriteInputTune(input)
         let vignetteOK = shellWriteVignette(enabled: vignetteEnabled, strength: vignetteStrength)

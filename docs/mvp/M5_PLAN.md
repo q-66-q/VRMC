@@ -268,6 +268,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   applied categories in the command result.
 - Full provider suite PASS; provider pushed + integrity PASS. Device live-reload behavior NOT RUN.
 
+## Fingertip component toggle (EV-0157)
+
+- Launcher Input tuning adds an experimental `hands.componentMode=joints|identity` toggle; saved to
+  `vrmc-input-tune.properties`, applied via Reload input/next launch (reload completeness EV-0151).
+- Default identity preserves the device-accepted aim path. Build/install PASS; device visible-hands/
+  held-item appearance NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
