@@ -247,7 +247,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputFuzzTest > "$T/m4-fuzz.log" 2>&1 \
      && grep -q "\[m4-fuzz-test\] PASS" "$T/m4-fuzz.log"; then
-    echo "[provider-tests] m4-fuzz: PASS (20k random frames; untracked/stale release invariants)"
+    echo "[provider-tests] m4-fuzz: PASS (random frames; untracked/stale release + W4 safety invariants)"
     grep -E "\[m4-fuzz-test\] frames=" "$T/m4-fuzz.log"
   else
     cat "$T/m4-fuzz.log"; fail "m4-fuzz"

@@ -7,7 +7,7 @@ import java.util.Random;
 /**
  * M4/M6 hardening fuzz test for {@link VisionInput} (pure Java, deterministic).
  *
- * <p>Feeds 20,000 random frames mixing: tracking loss, malformed tracked bits, NaN/Inf joint values,
+ * <p>Feeds VRMC_FUZZ_FRAMES random frames (default 20,000) mixing: tracking loss, malformed tracked bits, NaN/Inf joint values,
  * stale publisher gaps, pinch/fist/middle threshold crossings, and GUI/ingame environment flips.
  * Invariants checked after every frame:
  * <ul>
@@ -22,7 +22,17 @@ public final class VisionInputFuzzTest {
     private static final long MS = 1_000_000L;
     private static final int LEFT = VisionInput.HAND_LEFT;
     private static final int RIGHT = VisionInput.HAND_RIGHT;
-    private static final int FRAMES = 20_000;
+    private static final int FRAMES = fuzzFrames();
+
+    private static int fuzzFrames() {
+        String raw = System.getenv("VRMC_FUZZ_FRAMES");
+        if (raw == null || raw.isBlank()) return 20_000;
+        try {
+            return Math.max(1, Math.min(2_000_000, Integer.parseInt(raw.trim())));
+        } catch (NumberFormatException e) {
+            return 20_000;
+        }
+    }
 
     public static void main(String[] args) {
         Random rnd = new Random(0x5EEDC0DEL);
@@ -72,8 +82,23 @@ public final class VisionInputFuzzTest {
                     }
                 }
             }
-            if (!in.isHandTracked(LEFT) && !in.isHandTracked(RIGHT)) {
-                if (in.bothFistTapPressed() || in.bothMiddleTapPressed() || in.bothMiddleDoubleTapPressed()) violations++;
+            if (!in.isHandTracked(LEFT) || !in.isHandTracked(RIGHT)) {
+                if (in.bothFistTapPressed() || in.bothMiddleTapPressed()
+                    || in.bothMiddleDoubleTapPressed() || in.bothRingPinchPressed()) violations++;
+            }
+            // W4 safety priorities must hold every frame.
+            if (in.fistPressed(RIGHT) && in.actionPressed(VisionInput.KEY_ATTACK)) {
+                violations++;
+                if (violations <= 10) System.out.println("  VIOLATION attack while right fist held frame=" + frame);
+            }
+            if (in.fistPressed(RIGHT) && in.actionPressed(VisionInput.KEY_TELEPORT)) {
+                violations++;
+                if (violations <= 10) System.out.println("  VIOLATION teleport while right fist held frame=" + frame);
+            }
+            if (in.fistPressed(LEFT) && in.fistPressed(RIGHT)
+                && in.actionPressed(VisionInput.KEY_USE)) {
+                violations++;
+                if (violations <= 10) System.out.println("  VIOLATION use while both fists frame=" + frame);
             }
             if (violations > 5) break;
         }
