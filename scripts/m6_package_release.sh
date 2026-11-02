@@ -35,7 +35,9 @@ mkdir -p "$STAGE/payload"
 echo "[release-package] staging app + provider + legal/docs"
 ditto "$APP" "$STAGE/payload/$(basename "$APP")"
 cp "$PROVIDER" "$STAGE/payload/vrmc-provider.jar"
-for f in LICENSE provider/LICENSE THIRD_PARTY_NOTICES.md PRIVACY.md README.md versions.env; do
+for f in LICENSE provider/LICENSE THIRD_PARTY_NOTICES.md PRIVACY.md README.md SOURCE_OFFER.md \
+         versions.env docs/mvp/M4_CONTROLS.md docs/mvp/M5_ACCEPTANCE.md docs/mvp/M5_DEVICE_RUN.md \
+         docs/mvp/M6_ACCEPTANCE.md docs/mvp/M6_PLAN.md; do
   mkdir -p "$STAGE/payload/$(dirname "$f")"
   cp "$f" "$STAGE/payload/$f"
 done
@@ -50,7 +52,7 @@ APP_BUNDLE="$APP" PROVIDER_JAR="$PROVIDER" scripts/m6_release_manifest.sh "$STAG
   echo "  payload/$(basename "$APP")  signed visionOS app (development profile)"
   echo "  payload/vrmc-provider.jar LGPL-3.0 companion provider"
   echo "  payload/release-manifest.txt pins/hashes/licensing/matrix"
-  echo "  payload/LICENSE, provider/LICENSE, THIRD_PARTY_NOTICES.md, PRIVACY.md, README.md, versions.env"
+  echo "  payload/LICENSE, provider/LICENSE, THIRD_PARTY_NOTICES.md, PRIVACY.md, SOURCE_OFFER.md, README.md, versions.env, docs/mvp"
   echo
   echo "Minecraft, Vivecraft and other user-installed components are NOT included."
   echo "Install: follow docs/mvp/DEVICE_STACK.md / README; the app must be re-signed for the target device/profile."

@@ -10,7 +10,7 @@ bad() { echo "[release-check] FAIL $*"; fail=1; }
 
 # 1. Required artifacts.
 for f in LICENSE provider/LICENSE THIRD_PARTY_NOTICES.md PRIVACY.md versions.env README.md \
-         docs/mvp/M6_ACCEPTANCE.md docs/mvp/M6_PLAN.md docs/mvp/M5_PLAN.md; do
+         SOURCE_OFFER.md docs/mvp/M6_ACCEPTANCE.md docs/mvp/M6_PLAN.md docs/mvp/M5_PLAN.md; do
   [ -e "$f" ] && ok "present: $f" || bad "missing: $f"
 done
 

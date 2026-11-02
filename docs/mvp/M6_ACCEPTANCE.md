@@ -19,7 +19,7 @@ evidence never counts as a device PASS.
 | AC-3 | Immersive input from hands (no controller fallback) | `PARTIAL` | W1 device PASS (EV-0096); W2–W4 host PASS (EV-0097–EV-0101); full AC-4 hands checklist NOT RUN. |
 | AC-4 | Every P0 action reachable from hands; no stuck input | `NOT RUN` | Guesture slices host-tested; real-hands P0 checklist, gesture tuning, no-stuck stress on D1 required. |
 | AC-5 | 60-min session, 20 cold launches, 10 world loads, no watchdog kills | `NOT RUN` | `scripts/m6_soak_harness.sh` prepared (dry-run PASS); device run required. |
-| AC-6 | No Minecraft binaries; ownership/EULA; GPL source; notices complete | `PARTIAL` | THIRD_PARTY_NOTICES/licensing present; release manifest script prepared; final source-publication/EULA gate needs release review. |
+| AC-6 | No Minecraft binaries; ownership/EULA; GPL source; notices complete | `PARTIAL` | THIRD_PARTY_NOTICES/licensing present; `SOURCE_OFFER.md` (GPL/LGPL corresponding-source offer, no Minecraft/Vivecraft redistribution) added; release manifest script prepared; final legal review/sign-off still required. |
 
 ## Budgets (K gates)
 
