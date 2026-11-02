@@ -68,9 +68,12 @@ verify_dylib() { # verify_dylib <path> <expected-platform> <expected-minos>
   for sym in _vrmc_init _vrmc_last_error _vrmc_abi_version _vrmc_get_tracking _vrmc_shared_eye_textures \
              _vrmc_shared_set_tracking _vrmc_shared_clear_tracking _vrmc_export_mtl_texture \
              _vrmc_submit_eyes _vrmc_frame_timing _vrmc_recenter _vrmc_haptic \
+             _vrmc_shared_publish_eyes _vrmc_shared_acquire_eyes _vrmc_shared_get_frame_sync \
+             _vrmc_shared_set_display_views _vrmc_shared_get_display_views \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeInit \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeAbiVersion \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyes \
+             _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyesSynced \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTLTexture; do
     nm -gU "$lib" 2>/dev/null | awk "{print \$3}" | grep -qx "$sym" || die "missing exported symbol $sym"
   done

@@ -12,6 +12,12 @@
  * Build as part of libvrmc_bridge; the app resolves these symbols from the same dylib instance the
  * JVM loads (System.load path is shared; the app should dlopen it RTLD_GLOBAL first or link the same
  * install path).
+ *
+ * Threading model: the provider calls the vrmc_* / vrmc_shared_* publish entry points from the JVM
+ * render thread; the CompositorServices renderer calls the read/acquire entry points from its own
+ * render thread. Every cross-thread struct copy below is published and read under one bridge-internal
+ * mutex, so a reader can never observe a torn frame (e.g. a new left texture with the previous right
+ * texture, or a texture handle with a stale signal value).
  */
 #include <stdint.h>
 #include "vrmc_abi.h"
@@ -20,17 +26,91 @@
 extern "C" {
 #endif
 
-/* Latest eye targets submitted by vrmc_submit_eyes. Returns 0 and fills *out on success; fails closed
- * (nonzero) if the provider has not submitted a frame yet. Left/right texture fields are opaque Metal
- * texture handles valid in this process. */
+/* ------------------------------------------------------------------------------------------- */
+/* GPU frame synchronization + eye-frame handoff (M3-W3/W4 "black immersive" root-cause work).   */
+/* ------------------------------------------------------------------------------------------- */
+/*
+ * The provider (JVM) exports the eye MTLTextures from the game's MoltenVK device; the compositor
+ * samples them from a different MTLCommandQueue. Without an explicit dependency that read is a GPU
+ * data race: the compositor can sample a frame while the game command buffer is still writing it.
+ * (Observed on device: unsynchronized readbacks of the same texture returned mutually impossible
+ * snapshots - e.g. left eye bright 120/120/120 while the right eye read 0/0/0 and the right alpha
+ * alternated 0/255 between probes of the same frame.)
+ *
+ * Sync contract (S4a evidence EV-0063 host / EV-0065 device):
+ *  1. The provider creates ONE VkSemaphore with VK_SEMAPHORE_TYPE_TIMELINE and a
+ *     VkExportMetalObjectCreateInfoEXT{METAL_SHARED_EVENT} in the create-info pNext chain, then
+ *     exports its MTLSharedEvent via vkExportMetalObjectsEXT (binary semaphores export nil).
+ *  2. The provider signals that timeline semaphore with a monotonically increasing value from the
+ *     game's own Vulkan submission after the eye render commands (MC 26.2's VulkanCommandEncoder
+ *     exposes signalSemaphore(vkSemaphore, value, stageMask)).
+ *  3. The provider publishes the frame with vrmc_shared_publish_eyes(targets, sync) where all fields
+ *     of the struct are copied atomically with the eye targets.
+ *  4. The compositor calls vrmc_shared_acquire_eyes(), and if frame.sync.valid != 0 it encodes
+ *     [commandBuffer encodeWaitForEvent:(id<MTLSharedEvent>)frame.sync.shared_event
+ *                                 value:frame.sync.signal_value]
+ *     BEFORE the render pass that samples frame.eyes.left_texture / frame.eyes.right_texture.
+ *     The wait is a no-op when sync.valid == 0 (legacy/unsynchronized publishers).
+ *
+ * Lifetime contract: the texture fields are opaque id<MTLTexture> pointers owned by the provider
+ * (owned by the eye VRTextureTargets and destroyed on resize / render-target reinit). The bridge
+ * cannot retain Objective-C objects; the compositor must retain both textures for the lifetime of
+ * the command buffer it encodes them in, re-acquire every frame, and treat a change of
+ * texture_generation as "the old handles may be dead now". publish_sequence lets the compositor
+ * detect a newer frame and drop duplicate draws.
+ */
+
+/* Producer-published GPU timeline that makes one eye frame safe to sample. */
+typedef struct {
+    uint64_t shared_event; /* opaque id<MTLSharedEvent> exported from a timeline VkSemaphore; 0 = none */
+    uint64_t signal_value; /* wait until signaledValue >= this before sampling; 0 when valid == 0 */
+    uint32_t frame_index;  /* provider frame index this value belongs to (vrmc_eye_targets.frame_index) */
+    uint32_t valid;        /* 1 = (shared_event, signal_value) is a usable wait pair, 0 = no sync */
+} vrmc_shared_frame_sync;
+
+/* One atomically publishable eye frame: texture handles + GPU sync + change detection. */
+typedef struct {
+    vrmc_eye_targets eyes;         /* left/right MTLTexture handles, sizes, FOVs, provider frame index */
+    vrmc_shared_frame_sync sync;   /* GPU timeline wait target for those textures */
+    uint64_t publish_sequence;     /* starts at 1 and increases on every publish (0 = nothing yet) */
+    uint32_t texture_generation;   /* increases when the left/right handles or sizes change */
+    uint32_t reserved;             /* explicit padding, keep zero */
+} vrmc_shared_eye_frame;
+
+/* Publish the latest eye targets plus (optionally) their GPU sync pair, atomically.
+ * Called by the provider render thread (e.g. from VisionRenderer.endFrame()/JNI). sync may be NULL
+ * for legacy/unsynchronized builds, which clears the sync of the published frame. Returns 0 on
+ * success; fails closed (nonzero) on bad arguments / bridge not initialized. */
+int32_t vrmc_shared_publish_eyes(const vrmc_eye_targets *targets, const vrmc_shared_frame_sync *sync);
+
+/* Atomically acquire the latest published frame (eyes + sync + sequence + texture generation).
+ * Safe to call from the compositor thread every frame. Returns 0 and fills *out on success; fails
+ * closed (nonzero) before the provider has published a frame. */
+int32_t vrmc_shared_acquire_eyes(vrmc_shared_eye_frame *out);
+
+/* Latest eye targets only (legacy accessor, kept for older compositor builds). Equivalent to
+ * vrmc_shared_acquire_eyes() but drops the sync pair. Prefer vrmc_shared_acquire_eyes(). */
 int32_t vrmc_shared_eye_textures(vrmc_eye_targets *out);
 
+/* Latest GPU sync pair (context/values only, no textures). Returns 0 on success; nonzero when no
+ * frame has been published yet. sync->valid is 0 for an unsynchronized publisher. */
+int32_t vrmc_shared_get_frame_sync(vrmc_shared_frame_sync *out);
+
+/* ------------------------------------------------------------------------------------------- */
+/* Tracking                                                                                      */
+/* ------------------------------------------------------------------------------------------- */
+
 /* Push a tracking state (ARKit device anchor + predicted time) into the bridge. Subsequent
- * vrmc_get_tracking calls return this state until cleared. Returns 0 on success. */
+ * vrmc_get_tracking calls return this state until cleared. Returns 0 on success.
+ * Allowed before vrmc_init (the compositor can start before the JVM provider initializes). */
 int32_t vrmc_shared_set_tracking(const vrmc_tracking_state *state);
 
 /* Drop the native tracking override; vrmc_get_tracking reverts to the stub identity. */
 void vrmc_shared_clear_tracking(void);
+
+/* ------------------------------------------------------------------------------------------- */
+/* Display views                                                                                 */
+/* ------------------------------------------------------------------------------------------- */
 
 /* Display views: the headset's real per-eye frustum and eye-to-head transform, published by the
  * CompositorServices renderer and consumed by the provider so Minecraft renders the display's

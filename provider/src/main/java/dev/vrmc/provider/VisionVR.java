@@ -36,6 +36,7 @@ public class VisionVR extends MCVR {
     private final ByteBuffer tracking = ByteBuffer.allocateDirect(TRACKING_BYTES).order(ByteOrder.nativeOrder());
     private final ByteBuffer displayViews = ByteBuffer.allocateDirect(VrmcBridge.DISPLAY_VIEWS_BYTES).order(ByteOrder.nativeOrder());
     private long displayViewsGen = -1;
+    private int displayViewsApplied;
     private final Quaternionf rot = new Quaternionf();
     private boolean bridgeReady;
     /** Default until the compositor reports the measured eye distance (NullVR's 0.1 m is far too wide). */
@@ -98,6 +99,11 @@ public class VisionVR extends MCVR {
         super.destroy();
     }
 
+    /** True once the compositor's display views (per-eye frustum + eye transforms) are live. */
+    private boolean hasDisplayViews() {
+        return this.dh.vrRenderer instanceof VisionRenderer renderer && renderer.hasDisplayViews();
+    }
+
     /** Adopt the headset's display views (eye transforms + per-eye frustum) from the compositor. */
     private void pollDisplayViews() {
         long gen = VrmcBridge.getDisplayViews(this.displayViews);
@@ -126,10 +132,15 @@ public class VisionVR extends MCVR {
         if (displayIpd > 0.0F) {
             this.ipd = displayIpd;
         }
-        System.out.printf("[VRMC-M2] display views gen=%d applied ipd=%.4f Lpos=(%.4f,%.4f,%.4f) Rpos=(%.4f,%.4f,%.4f)%n",
-            gen, this.ipd,
-            this.hmdPoseLeftEye.m30(), this.hmdPoseLeftEye.m31(), this.hmdPoseLeftEye.m32(),
-            this.hmdPoseRightEye.m30(), this.hmdPoseRightEye.m31(), this.hmdPoseRightEye.m32());
+        this.displayViewsApplied++;
+        // The compositor re-publishes views nearly every frame; keep the first few + a slow cadence so
+        // the log stays readable while an applied-transform change is still provable.
+        if (this.displayViewsApplied <= 3 || (this.displayViewsApplied % 120) == 0) {
+            System.out.printf("[VRMC-M2] display views gen=%d applied=%d ipd=%.4f Lpos=(%.4f,%.4f,%.4f) Rpos=(%.4f,%.4f,%.4f)%n",
+                gen, this.displayViewsApplied, this.ipd,
+                this.hmdPoseLeftEye.m30(), this.hmdPoseLeftEye.m31(), this.hmdPoseLeftEye.m32(),
+                this.hmdPoseRightEye.m30(), this.hmdPoseRightEye.m31(), this.hmdPoseRightEye.m32());
+        }
     }
 
     @Override
@@ -166,8 +177,15 @@ public class VisionVR extends MCVR {
                 float ipd = this.tracking.getFloat(8 + 84);
                 if (ipd > 0.0F) {
                     this.ipd = ipd;
-                    this.hmdPoseLeftEye.identity().m30(-ipd * 0.5F);
-                    this.hmdPoseRightEye.identity().m30(ipd * 0.5F);
+                    // The display-view channel owns the head-relative eye transforms while it is live
+                    // (asymmetric per-eye offsets, not just +/- IPD/2). Only fall back to the IPD-only
+                    // approximation before the first display views arrive; otherwise this would overwrite
+                    // the compositor-provided eye poses every frame (macstream applies ViewsConfig the
+                    // same way: pollViews() owns hmdPoseLeftEye/RightEye once a generation is live).
+                    if (!this.hasDisplayViews()) {
+                        this.hmdPoseLeftEye.identity().m30(-ipd * 0.5F);
+                        this.hmdPoseRightEye.identity().m30(ipd * 0.5F);
+                    }
                 }
                 if ((this.trackedFrames++ % 300) == 0) {
                     System.out.printf("[VRMC-M2] tracking frame %d head=(%.2f, %.2f, %.2f)%n",

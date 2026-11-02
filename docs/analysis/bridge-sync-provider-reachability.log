@@ -1,0 +1,20 @@
+# Compile-time reachability proof: provider-side eye-sync wiring uses MC 26.2 public API only.
+# Date: 2026-11-01 (host, no device)
+# Source: docs/analysis/bridge-sync-provider-reachability.java
+# Env:   MC 26.2 client jar (Swift Craft Launcher meta/versions/26.2/26.2.jar)
+#        LWJGL 3.4.1 shaded jar from the launcher payload
+#        (vendor/amethyst-build/JavaApp/build/lwjgl-3.4.1.jar), JDK 25 (temurin-25).
+#
+# Why this matters: the provider has to (a) create an exportable timeline VkSemaphore on the game's
+# VkDevice, (b) export its MTLSharedEvent via VK_EXT_metal_objects, and (c) append the timeline signal to
+# the game's own frame submission (so it fires after the eye render passes). This probe proves javac
+# resolves all three against the shipped MC 26.2/LWJGL APIs, i.e. no mixin or fork is required.
+# The only private member involved is GpuDevice.backend (Vivecraft reads it through its access widener);
+# the probe demonstrates the reflection fallback and the provider can alternatively ship its own
+# access-widener entry.
+#
+# Command:
+#   javac -cp "<26.2.jar>:<lwjgl-3.4.1.jar>" -d /tmp/vrmc-reach/out ProviderSyncReachability.java
+#
+# Result:
+REACHABILITY COMPILE: PASS

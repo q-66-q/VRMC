@@ -1,12 +1,55 @@
 /*
- * JNI shim for the VRMC bridge (mirrors bridge/abi/vrmc_abi.h).
+ * JNI shim for the VRMC bridge (mirrors bridge/abi/vrmc_abi.h + bridge/abi/vrmc_native_shared.h).
  * The Java side is dev.vrmc.provider.bridge.VrmcBridge; only scalars and preallocated direct buffers
  * cross the boundary (no per-frame allocation).
+ *
+ * Two eye-submission entry points:
+ *   nativeSubmitEyes       - legacy ABI v2 path, publishes the eye targets without a GPU sync pair.
+ *   nativeSubmitEyesSynced - additive native-shared path: publishes the eye targets together with the
+ *                            exported MTLSharedEvent + timeline value the compositor must wait on
+ *                            before sampling (see vrmc_native_shared.h). The Java ABI v2 structs are
+ *                            unchanged; the provider selects this call once it has an exportable
+ *                            timeline semaphore wired into its frame submission.
+ *
+ * Both paths report the provider's per-eye frustum from the *published display views* when the
+ * compositor has provided them (the provider renders exactly that frustum), falling back to the
+ * symmetric halfFovRad the Java layer passes while no display views exist.
  */
 #include <jni.h>
+#include <math.h>
 #include <string.h>
 #include "vrmc_abi.h"
 #include "vrmc_native_shared.h"
+
+/* Fill the ABI eye-target struct from scalar arguments. Uses the CompositorServices display view
+ * tangents when available so vrmc_eye_targets never reports the old symmetric 110 deg stub while the
+ * provider is actually rendering the headset frustum. */
+static void fill_eye_targets(vrmc_eye_targets *t, jlong left, jlong right, jint frameIndex,
+                             jint width, jint height, jfloat halfFovRad) {
+    memset(t, 0, sizeof(*t));
+    vrmc_display_views views;
+    if (vrmc_shared_get_display_views(&views) != 0) {
+        for (int eye = 0; eye < 2; eye++) {
+            float *fov = (eye == 0) ? t->left_fov : t->right_fov;
+            fov[0] = -halfFovRad;
+            fov[1] = halfFovRad;
+            fov[2] = halfFovRad;
+            fov[3] = -halfFovRad;
+        }
+    } else {
+        const float *leftTan = views.left_tangents;   /* left, right, up, down (signed) */
+        const float *rightTan = views.right_tangents;
+        for (int i = 0; i < 4; i++) {
+            t->left_fov[i] = atanf(leftTan[i]);
+            t->right_fov[i] = atanf(rightTan[i]);
+        }
+    }
+    t->frame_index = (uint32_t)frameIndex;
+    t->left_texture = (uint64_t)left;
+    t->right_texture = (uint64_t)right;
+    t->left_width = t->right_width = (uint32_t)width;
+    t->left_height = t->right_height = (uint32_t)height;
+}
 
 JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeAbiVersion(JNIEnv *env, jclass clazz) {
     return (jint)vrmc_abi_version();
@@ -38,18 +81,27 @@ JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeGetTrackin
 JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyes(
     JNIEnv *env, jclass clazz, jlong left, jlong right, jint frameIndex, jint width, jint height, jfloat halfFovRad) {
     vrmc_eye_targets t;
-    memset(&t, 0, sizeof(t));
-    /* Symmetric per-eye frustum: left, right, up, down half-angles (left/down negative). */
-    for (int eye = 0; eye < 2; eye++) {
-        float *fov = eye == 0 ? t.left_fov : t.right_fov;
-        fov[0] = -halfFovRad; fov[1] = halfFovRad; fov[2] = halfFovRad; fov[3] = -halfFovRad;
-    }
-    t.frame_index = (uint32_t)frameIndex;
-    t.left_texture = (uint64_t)left;
-    t.right_texture = (uint64_t)right;
-    t.left_width = t.right_width = (uint32_t)width;
-    t.left_height = t.right_height = (uint32_t)height;
+    fill_eye_targets(&t, left, right, frameIndex, width, height, halfFovRad);
     return (jint)vrmc_submit_eyes(&t);
+}
+
+JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyesSynced(
+    JNIEnv *env, jclass clazz, jlong left, jlong right, jint frameIndex, jint width, jint height,
+    jfloat halfFovRad, jlong sharedEvent, jlong signalValue) {
+    vrmc_eye_targets t;
+    fill_eye_targets(&t, left, right, frameIndex, width, height, halfFovRad);
+    if (sharedEvent == 0 || signalValue == 0) {
+        /* No exported timeline event yet (e.g. VK_EXT_metal_objects not enabled this launch): fall
+         * back to the unsynchronized publication so the compositor degrades to today's behaviour. */
+        return (jint)vrmc_shared_publish_eyes(&t, NULL);
+    }
+    vrmc_shared_frame_sync sync;
+    memset(&sync, 0, sizeof(sync));
+    sync.shared_event = (uint64_t)sharedEvent;
+    sync.signal_value = (uint64_t)signalValue;
+    sync.frame_index = (uint32_t)frameIndex;
+    sync.valid = 1;
+    return (jint)vrmc_shared_publish_eyes(&t, &sync);
 }
 
 JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTLTexture(
