@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+#include <pthread.h>
 
 static int32_t g_initialized = 0;
 static uint64_t g_frames = 0;
@@ -25,6 +26,9 @@ static vrmc_tracking_state g_tracking_override;
 static int g_has_tracking_override = 0;
 static vrmc_display_views g_display_views;
 static uint32_t g_display_generation = 0;
+/* Display views are written by the compositor thread and read by the JVM render thread: a 168-byte
+ * struct copy is not atomic, so guard it (macstream polls ViewsConfig under the same discipline). */
+static pthread_mutex_t g_display_views_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int32_t set_error(const char *msg) {
     snprintf(g_error, sizeof(g_error), "%s", msg);
@@ -107,21 +111,27 @@ int32_t vrmc_shared_set_display_views(const vrmc_display_views *views) {
     if (views == NULL) return set_error("bad display views");
     vrmc_display_views copy = *views;
     copy.generation = 0;
+    pthread_mutex_lock(&g_display_views_mutex);
     if (g_display_generation != 0 &&
         memcmp((const char *)&copy + sizeof(uint32_t),
                (const char *)&g_display_views + sizeof(uint32_t),
                sizeof(copy) - sizeof(uint32_t)) == 0) {
+        pthread_mutex_unlock(&g_display_views_mutex);
         return 0; /* unchanged */
     }
     copy.generation = ++g_display_generation;
     g_display_views = copy;
+    pthread_mutex_unlock(&g_display_views_mutex);
     return 0;
 }
 
 uint32_t vrmc_shared_get_display_views(vrmc_display_views *out) {
     if (out == NULL) return 0;
+    pthread_mutex_lock(&g_display_views_mutex);
     *out = g_display_views;
-    return g_display_generation;
+    uint32_t gen = g_display_generation;
+    pthread_mutex_unlock(&g_display_views_mutex);
+    return gen;
 }
 
 typedef void (*PFN_vrmc_vkGetMTLTextureMVK)(uint64_t image, void **out_texture);
