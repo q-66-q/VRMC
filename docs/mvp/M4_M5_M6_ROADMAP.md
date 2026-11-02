@@ -28,6 +28,9 @@ host), gaze tracking areas (EV-0098 host build/tests; runtime/device NOT RUN).
 
 ## M5 — gameplay loop + comfort + diagnostics
 
+Status: first slice HOST/BUILD PASS (EV-0101): opt-in runtime/comfort/performance settings, provider
+diagnostics, shell thermal monitor. Details in `docs/mvp/M5_PLAN.md`.
+
 1. **Comfort settings** applied from a game-dir `vrmc-comfort.properties` (logged at startup):
    seated/seated-free-move/seated-aim, world-rotation increment (snap angle), vignette intensity (where
    Vivecraft exposes it), movement speed multiplier; no silent settings changes on existing installs.
@@ -42,6 +45,8 @@ host), gaze tracking areas (EV-0098 host build/tests; runtime/device NOT RUN).
 5. **Gameplay loop:** verify H1–H10 on device; host-test every pure-Java helper.
 
 ## M6 — hardening + acceptance
+
+Status: PLANNED; scope and offline groundwork in `docs/mvp/M6_PLAN.md`.
 
 1. **Stability:** clean shutdown/restart, crash log capture/safe restart, 60-min soak + 20-launch /
    10-load harness, watchdog-kill detection.

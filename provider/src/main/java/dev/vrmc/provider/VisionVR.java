@@ -97,6 +97,13 @@ public class VisionVR extends MCVR {
     private float moveForwardScale = VisionLocomotion.DEFAULT_FORWARD_SCALE;
     private float moveStrafeScale = VisionLocomotion.DEFAULT_STRAFE_SCALE;
     private float moveDeadzone = VisionLocomotion.DEFAULT_DEADZONE;
+    /** M5 opt-in runtime/comfort/performance settings (vrmc-runtime.properties); nothing applied absent file. */
+    private VisionRuntimeSettings runtimeSettings = VisionRuntimeSettings.defaults();
+    private long diagWindowStartNs;
+    private long diagWindowFrames;
+    private long diagLastPollNs;
+    private long diagMaxGapNs;
+    private long diagNextLogNs;
     private long rotatePulseNanos = 120_000_000L;
     private long rotatePulseUntilNs;
     private int rotatePulseDirection;
@@ -206,6 +213,12 @@ public class VisionVR extends MCVR {
             this.visionInput.swipeEnabled(), this.visionInput.swipeSpeed(),
             this.visionInput.swipeCooldownMillis());
 
+        this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
+        applyRuntimeSettings(this.runtimeSettings);
+        long diagNow = System.nanoTime();
+        this.diagWindowStartNs = diagNow;
+        this.diagNextLogNs = diagNow + this.runtimeSettings.diagnosticPeriodSeconds * 1_000_000_000L;
+
         this.initialized = true;
         this.initSuccess = true;
         System.out.println("[VRMC-M2] VisionVR.init() succeeded");
@@ -295,6 +308,47 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /** Apply the opt-in M5 settings; every field is guarded by an explicit presence flag. */
+    private void applyRuntimeSettings(VisionRuntimeSettings settings) {
+        if (settings == null) return;
+        if (settings.hasSeated) this.dh.vrSettings.seated = settings.seated;
+        if (settings.hasSeatedFreeMove) this.dh.vrSettings.seatedFreeMove = settings.seatedFreeMove;
+        if (settings.hasSeatedUseHMD) this.dh.vrSettings.seatedUseHMD = settings.seatedUseHMD;
+        if (settings.hasWorldRotationIncrement) this.dh.vrSettings.worldRotationIncrement = settings.worldRotationIncrement;
+        if (settings.hasRenderDistance) this.mc.options.renderDistance().set(settings.renderDistance);
+        if (settings.hasSimulationDistance) this.mc.options.simulationDistance().set(settings.simulationDistance);
+        if (settings.hasFramerateLimit) this.mc.options.framerateLimit().set(settings.framerateLimit);
+        if (settings.hasVsync) this.mc.options.enableVsync().set(settings.vsync);
+        System.out.println("[VRMC-M5] runtime settings: " + settings.summary());
+        System.out.println("[VRMC-M5] diagnostics: periodSeconds=" + settings.diagnosticPeriodSeconds);
+    }
+
+    /** M5 periodic diagnostics: cheap counters only; formatting happens once per period. */
+    private void updateDiagnostics() {
+        long now = System.nanoTime();
+        if (this.diagLastPollNs != 0L) {
+            long gap = now - this.diagLastPollNs;
+            if (gap > this.diagMaxGapNs) this.diagMaxGapNs = gap;
+        }
+        this.diagLastPollNs = now;
+        this.diagWindowFrames++;
+        if (now < this.diagNextLogNs) return;
+        double seconds = Math.max(1.0E-6, (now - this.diagWindowStartNs) * 1.0E-9);
+        double hz = this.diagWindowFrames / seconds;
+        String screen = this.mc.gui.screen() == null ? "none" : this.mc.gui.screen().getClass().getSimpleName();
+        boolean hasPlayer = this.mc.player != null;
+        System.out.printf("[VRMC-M5] diag: pollHz=%.1f frames=%d maxGapMs=%.1f screen=%s seated=%s "
+                + "hands=L%d R%d displayViewsGen=%d trackedFrames=%d playerPresent=%d%n",
+            hz, this.diagWindowFrames, this.diagMaxGapNs * 1.0E-6, screen,
+            this.dh.vrSettings.seated, this.visionInput.isHandTracked(VisionInput.HAND_LEFT) ? 1 : 0,
+            this.visionInput.isHandTracked(VisionInput.HAND_RIGHT) ? 1 : 0,
+            this.displayViewsGen, this.trackedFrames, hasPlayer ? 1 : 0);
+        this.diagWindowStartNs = now;
+        this.diagWindowFrames = 0;
+        this.diagMaxGapNs = 0L;
+        this.diagNextLogNs = now + this.runtimeSettings.diagnosticPeriodSeconds * 1_000_000_000L;
+    }
+
     private static void logSmoothingConfig(VisionPoseSmoother.Config c) {
         System.out.printf("[VRMC-M4] hand smoothing: enabled=%s posMinCutoff=%.2f posBeta=%.2f dCutoff=%.2f "
                 + "rotMinCutoff=%.2f rotBeta=%.2f%n",
@@ -380,6 +434,7 @@ public class VisionVR extends MCVR {
             this.processInputs();
             this.hmdSampling();
         }
+        updateDiagnostics();
         if (this.dh.vrRenderer instanceof VisionRenderer r) {
             r.markPolled();
         }

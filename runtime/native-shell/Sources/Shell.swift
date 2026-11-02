@@ -204,6 +204,7 @@ final class ShellCoordinator {
     /// True while a previous immersive space still needs an explicit dismiss before a reopen.
     @ObservationIgnored private var needsDismiss = false
     @ObservationIgnored private var openAction: OpenImmersiveSpaceAction?
+    @ObservationIgnored private var thermalTask: Task<Void, Never>?
     @ObservationIgnored private var dismissAction: DismissImmersiveSpaceAction?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     /// NO-FRAME watchdog for the current open; cancelled once a presented frame arrives.
@@ -276,8 +277,10 @@ final class ShellCoordinator {
         observe(UIApplication.didFinishLaunchingNotification) { $0.refreshActivityStates("didFinishLaunching") }
         observe(UIScene.didActivateNotification) { $0.refreshActivityStates("UIScene.didActivate") }
         observe(UIScene.willDeactivateNotification) { $0.refreshActivityStates("UIScene.willDeactivate") }
+        observe(ProcessInfo.thermalStateDidChangeNotification) { $0.logThermal("thermal-state-changed") }
         refreshActivityStates("init")
         shellLog("coordinator ready chromeMode=\(chromeMode) selftest=\(selftestMode) noParking=\(noParking) hideWindowsOptIn=\(hideWindowsOptIn)")
+        startThermalMonitor()
         if selftestMode {
             scheduleSelfTestOpen()
         }
@@ -430,6 +433,46 @@ final class ShellCoordinator {
                 try? await Task.sleep(for: .seconds(1))
             }
             self.shellLogSafe("OPEN-ON-LAUNCH: gave up after 15 attempts")
+        }
+    }
+
+    // MARK: - M5 thermal/performance diagnostics
+
+    /// Periodic thermal/low-power telemetry (no telemetry leaves the device). The 30 s cadence is
+    /// independent of the compositor: a changed thermal state is also logged immediately.
+    private func startThermalMonitor() {
+        thermalTask?.cancel()
+        thermalTask = Task { [weak self] in
+            while !Task.isCancelled {
+                self?.logThermal("periodic")
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+    }
+
+    private func logThermal(_ reason: String) {
+        let info = ProcessInfo.processInfo
+        let state: String
+        switch info.thermalState {
+        case .nominal: state = "nominal"
+        case .fair: state = "fair"
+        case .serious: state = "serious"
+        case .critical: state = "critical"
+        @unknown default: state = "unknown"
+        }
+        let line = "THERMAL reason=\(reason) state=\(state) lowPower=\(info.isLowPowerModeEnabled) "
+            + "uptime=\(Int(info.systemUptime))s physicalMemoryMB=\(info.physicalMemory / 1_048_576) "
+            + "immersive=\(immersiveOpen) presenting=\(presenting) appActive=\(appActive) "
+            + "appState=\(UIApplication.shared.applicationState.rawValue)"
+        shellLog(line)
+        let url = shellDocumentsURL().appendingPathComponent("vrmc-thermal.log")
+        let entry = "\(Date()) \(line)\n"
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(Data(entry.utf8))
+            try? handle.close()
+        } else {
+            try? Data(entry.utf8).write(to: url)
         }
     }
 
