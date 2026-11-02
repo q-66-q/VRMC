@@ -1,6 +1,6 @@
 # VRMC release manifest
-# generated: 2026-11-02T01:06:17-1000
-source_commit=88d2fcd67cf0bb23e0e75facdbb233c2cb1feeb1
+# generated: 2026-11-02T01:09:00-1000
+source_commit=d215cc8937d4d4a2d182303f27f186df78d93a93
 source_branch=main
 dirty_tree=no
 product=VRMC
@@ -18,8 +18,8 @@ moltenvk=1.4.3 (source-built-app-bundled)
 xcode=27.2 (27B52)
 visionos_sdk=27.2
 visionos_sim_runtime=27.0
-app_bundle=/tmp/VRMC-native-calibapply.app
-app_bundle_sha256=595982a25f9b5776a21d143fb33aa65b811f08302ac3f6d60548ee204591181b
+app_bundle=/tmp/VRMC-native-resetinput.app
+app_bundle_sha256=f1ae3749de4ff230b0a396f7bad14e228853ad544108386d32af920b1b422113
 bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
 provider_jar=/tmp/vrmc-current/vrmc-provider.jar

@@ -6,11 +6,11 @@ evidence bundles; this page is a navigation summary.
 ## Current installed build (D1)
 
 - App: path-independent tree sha256 `2388965a1908f9630f80f77e4f5b8fc4b44ddddf58175452613182faabd375f3`
-  (`/tmp/VRMC-native-calibapply.app`, 169 signed Mach-O, deep/strict verify PASS)
+  (`/tmp/VRMC-native-resetinput.app`, 169 signed Mach-O, deep/strict verify PASS)
 - Provider: `a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58` (92,516 bytes),
   reproducible (two-build check) and **device integrity PASS** via `scripts/m6_device_integrity.sh`
-- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,483,529 sha256
-  `4e1d99823e79c3aa813b0cf3aad1ff0a3aade1f811f6d662b85643e0c87c9ef5`; verifier PASS; not a final release.
+- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,486,820 sha256
+  `efe71843f71e669e4e6164fab39c8cafcf144fb6d75917006918121f3b737cf5`; verifier PASS; not a final release.
 - D1 is currently **locked**; latest build has not been launched since install. All behavior/acceptance
   gates remain **NOT RUN**.
 
