@@ -1,5 +1,5 @@
 # VRMC acceptance readiness report
-# generated: 2026-11-02T00:31:02-1000
+# generated: 2026-11-02T00:46:24-1000
 # source: docs/mvp/M5_ACCEPTANCE.md, docs/mvp/M6_ACCEPTANCE.md
 
 ## M5_ACCEPTANCE.md (H1..H10)

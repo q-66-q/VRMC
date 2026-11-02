@@ -82,6 +82,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Refreshed package/metrics for climb build (EV-0177)
+
+- Package refreshed to app `90c83c0d…` + provider `1d36487e…`: bytes=206,468,279 sha256
+  `9720b6527c5276b2ec25aa897ad9171e2799fbbbc5c2a05cf1383c0ce34abc2f`; verifier/release-ready host
+  gates PASS; acceptance NOT READY.
+- Install metrics refreshed: app 583,630,848 bytes / 485 files / 169 Mach-O; provider 91,427 bytes.
+
 ## Refreshed package/metrics for bow build (EV-0175)
 
 - Package refreshed to app `6e4b7c5e…` + provider `47713964…`: bytes=206,462,210 sha256
