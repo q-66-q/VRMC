@@ -134,6 +134,95 @@ public final class VisionHandCalibration {
         return b.toString();
     }
 
+    public static final String REPORT_FILE = "vrmc-hand-calibration.txt";
+
+    /** Parsed calibration suggestion (valid=false when the report is missing/insufficient). */
+    public static final class Suggestions {
+        public final boolean valid;
+        public final float pinchOn;
+        public final float pinchOff;
+        public final float fistOn;
+        public final float fistOff;
+        Suggestions(boolean valid, float pinchOn, float pinchOff, float fistOn, float fistOff) {
+            this.valid = valid;
+            this.pinchOn = pinchOn;
+            this.pinchOff = pinchOff;
+            this.fistOn = fistOn;
+            this.fistOff = fistOff;
+        }
+    }
+
+    /** Read a calibration report's one-line suggestion. Returns invalid when missing/malformed. */
+    public static Suggestions parseReport(java.nio.file.Path reportPath) {
+        if (reportPath == null || !java.nio.file.Files.isRegularFile(reportPath)) {
+            return new Suggestions(false, 0F, 0F, 0F, 0F);
+        }
+        try {
+            for (String line : java.nio.file.Files.readAllLines(reportPath)) {
+                String t = line.trim();
+                if (!t.startsWith("oneLine ")) continue;
+                String[] parts = t.split("\\s+");
+                // oneLine pinch=0.033/0.052 fist=1.42/1.68
+                if (parts.length < 3) continue;
+                String[] pinch = parts[1].split("=")[1].split("/");
+                String[] fist = parts[2].split("=")[1].split("/");
+                if (pinch.length != 2 || fist.length != 2) continue;
+                float pOn = Float.parseFloat(pinch[0]);
+                float pOff = Float.parseFloat(pinch[1]);
+                float fOn = Float.parseFloat(fist[0]);
+                float fOff = Float.parseFloat(fist[1]);
+                if (!Float.isFinite(pOn) || !Float.isFinite(pOff) || !Float.isFinite(fOn)
+                    || !Float.isFinite(fOff) || pOff <= pOn || fOff <= fOn) {
+                    return new Suggestions(false, 0F, 0F, 0F, 0F);
+                }
+                return new Suggestions(true, pOn, pOff, fOn, fOff);
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
+        return new Suggestions(false, 0F, 0F, 0F, 0F);
+    }
+
+    /**
+     * Apply the latest report to the input-tune properties (preserving unrelated keys) and return a
+     * human-readable result. Never throws.
+     */
+    public static String applyReport(java.nio.file.Path gameDir, java.nio.file.Path tuneFile,
+                                     java.util.function.Consumer<String> log) {
+        if (gameDir == null || tuneFile == null) return "no hand calibration report to apply";
+        Suggestions s = parseReport(gameDir.resolve(REPORT_FILE));
+        if (!s.valid) return "no valid hand calibration report to apply";
+        java.util.Properties props = new java.util.Properties();
+        try {
+            if (java.nio.file.Files.isRegularFile(tuneFile)) {
+                try (java.io.InputStream in = java.nio.file.Files.newInputStream(tuneFile)) {
+                    props.load(in);
+                }
+            }
+            props.setProperty("pinch.on", String.format(java.util.Locale.ROOT, "%.3f", s.pinchOn));
+            props.setProperty("pinch.off", String.format(java.util.Locale.ROOT, "%.3f", s.pinchOff));
+            props.setProperty("fist.on", String.format(java.util.Locale.ROOT, "%.2f", s.fistOn));
+            props.setProperty("fist.off", String.format(java.util.Locale.ROOT, "%.2f", s.fistOff));
+            java.nio.file.Path tmp = tuneFile.resolveSibling(tuneFile.getFileName() + ".tmp");
+            try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(tmp)) {
+                props.store(out, "VRMC input tuning (hand calibration applied)");
+            }
+            try {
+                java.nio.file.Files.move(tmp, tuneFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                java.nio.file.Files.move(tmp, tuneFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Throwable t) {
+            if (log != null) log.accept("[VRMC-M4][WARN] apply hand calibration failed: " + t);
+            return "apply hand calibration failed: " + t;
+        }
+        String result = String.format(java.util.Locale.ROOT,
+            "applied pinch=%.3f/%.3f fist=%.2f/%.2f", s.pinchOn, s.pinchOff, s.fistOn, s.fistOff);
+        if (log != null) log.accept("[VRMC-M4] " + result);
+        return result;
+    }
+
     private static String fmt(float v) {
         return Float.isFinite(v) ? String.format(Locale.ROOT, "%.4f", v) : "n/a";
     }

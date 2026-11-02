@@ -1449,6 +1449,10 @@ struct VRControlOverlay: View {
                             commandStatus = shellQueueGameCommand("calibrate-hands") ? "Hand calibration started (follow action-bar prompts)." : "Queue failed."
                         }
                         .buttonStyle(.bordered)
+                        Button("Apply hand calibration") {
+                            commandStatus = shellQueueGameCommand("apply-hand-calibration") ? "Apply calibration queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
                     }
                     if !commandStatus.isEmpty {
                         Text(commandStatus).font(.caption2).foregroundStyle(.secondary)

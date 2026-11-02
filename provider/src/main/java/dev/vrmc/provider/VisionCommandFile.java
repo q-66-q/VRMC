@@ -23,7 +23,7 @@ public final class VisionCommandFile {
     public static final long MAX_COMMAND_BYTES = 4096L;
     public static final List<String> COMMANDS = List.of(
         "recenter", "calibrate-height", "reload-settings", "reload-input", "diag", "status", "controls",
-        "restore-performance", "calibrate-hands");
+        "restore-performance", "calibrate-hands", "apply-hand-calibration");
 
     private VisionCommandFile() {}
 

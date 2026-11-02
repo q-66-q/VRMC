@@ -38,9 +38,43 @@ public final class VisionHandCalibrationTest {
         check("prompts exist", VisionHandCalibration.promptFor(0).contains("OPEN")
             && VisionHandCalibration.promptFor(1).contains("FIST")
             && VisionHandCalibration.promptFor(2).contains("PINCH"));
+        applyReportChecks();
         System.out.println("[m4-hand-calibration-test] " + checks + " checks, " + failures + " failed");
         System.out.println(failures == 0 ? "[m4-hand-calibration-test] PASS" : "[m4-hand-calibration-test] FAIL");
         if (failures != 0) System.exit(1);
+    }
+
+    private static void applyReportChecks() {
+        try {
+            java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("vrmc-calib-apply");
+            java.nio.file.Path tune = dir.resolve("vrmc-input-tune.properties");
+            java.nio.file.Files.writeString(tune, "swipe.enabled=true\nmove.forwardScale=3.0\n");
+            String noReport = VisionHandCalibration.applyReport(dir, tune, null);
+            check("apply without report fails safely", noReport.contains("no valid"), noReport);
+            java.nio.file.Files.writeString(dir.resolve(VisionHandCalibration.REPORT_FILE),
+                "valid=yes\noneLine pinch=0.033/0.052 fist=1.42/1.68\n");
+            String applied = VisionHandCalibration.applyReport(dir, tune, null);
+            check("apply report returns applied", applied.startsWith("applied pinch=0.033/0.052 fist=1.42/1.68"),
+                applied);
+            java.util.Properties p = new java.util.Properties();
+            try (java.io.InputStream in = java.nio.file.Files.newInputStream(tune)) { p.load(in); }
+            check("applied pinch keys", "0.033".equals(p.getProperty("pinch.on"))
+                && "0.052".equals(p.getProperty("pinch.off")));
+            check("applied fist keys", "1.42".equals(p.getProperty("fist.on"))
+                && "1.68".equals(p.getProperty("fist.off")));
+            check("unrelated tune key preserved", "true".equals(p.getProperty("swipe.enabled"))
+                && "3.0".equals(p.getProperty("move.forwardScale")));
+            java.nio.file.Files.writeString(dir.resolve(VisionHandCalibration.REPORT_FILE),
+                "oneLine pinch=0.02/0.01 fist=1.4/1.6\n");
+            check("inverted suggestion rejected",
+                VisionHandCalibration.applyReport(dir, tune, null).contains("no valid"));
+            java.nio.file.Files.writeString(dir.resolve(VisionHandCalibration.REPORT_FILE),
+                "oneLine pinch=NaN/0.05 fist=1.4/1.6\n");
+            check("non-finite suggestion rejected",
+                VisionHandCalibration.applyReport(dir, tune, null).contains("no valid"));
+        } catch (Throwable t) {
+            check("apply report checks did not throw", false, String.valueOf(t));
+        }
     }
 
     private static boolean ignored() {

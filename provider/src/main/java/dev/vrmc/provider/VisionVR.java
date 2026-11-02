@@ -479,6 +479,42 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /** Recreate the gesture engine + all input-derived config from the current tune file. */
+    private String reloadInputTuning() {
+        Map<String, String> tuned = loadInputTuning();
+        this.inputTuning = tuned;
+        this.hotbarRange = floatValue(tuned, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
+        this.holdLastPoseNanos = (long) (Math.max(0.0F, Math.min(2000.0F,
+            floatValue(tuned, "tracking.holdLastPoseMs", "vrmc.input.tracking.holdLastPoseMs",
+                (float) (this.holdLastPoseNanos / 1_000_000L)))) * 1_000_000L);
+        String mode = System.getProperty("vrmc.hands.componentMode",
+            tuned.getOrDefault("hands.componentMode", "identity"));
+        this.handComponentJoints = "joints".equalsIgnoreCase(mode);
+        this.visionInput = new VisionInput(tuned);
+        this.smoothingConfig = loadSmoothingConfig(tuned);
+        this.poseSmoothers = new VisionPoseSmoother[] {
+            new VisionPoseSmoother(this.smoothingConfig),
+            new VisionPoseSmoother(this.smoothingConfig)
+        };
+        this.moveOriginZ = floatValue(tuned, "move.originZ", "vrmc.input.move.originZ", this.moveOriginZ);
+        this.moveForwardScale = floatValue(tuned, "move.forwardScale", "vrmc.input.move.forwardScale", this.moveForwardScale);
+        this.moveStrafeScale = floatValue(tuned, "move.strafeScale", "vrmc.input.move.strafeScale", this.moveStrafeScale);
+        this.moveDeadzone = floatValue(tuned, "move.deadzone", "vrmc.input.move.deadzone", this.moveDeadzone);
+        this.rotatePulseNanos = (long) (floatValue(tuned, "move.rotatePulseMs",
+            "vrmc.input.move.rotatePulseMs", (float) (this.rotatePulseNanos / 1_000_000L)) * 1_000_000L);
+        this.bindingActions = null;
+        this.resolvedActionMap = null;
+        this.hotbarWheelActive = false;
+        logInputTuning(this.visionInput);
+        logSmoothingConfig(this.smoothingConfig);
+        return "input tuning reloaded (middle=" + this.visionInput.middleEnabled()
+            + " ring=" + this.visionInput.ringEnabled()
+            + " swipe=" + this.visionInput.swipeEnabled()
+            + " hold=" + (this.holdLastPoseNanos / 1_000_000L) + "ms"
+            + " move=" + this.moveForwardScale + "/" + this.moveStrafeScale
+            + " components=" + (this.handComponentJoints ? "joints" : "identity") + ")";
+    }
+
     private void startHandCalibration() {
         long now = System.nanoTime();
         this.handCalibration.begin(now);
@@ -612,38 +648,16 @@ public class VisionVR extends MCVR {
                     detail = "runtime settings reloaded and applied";
                 }
                 case "reload-input" -> {
-                    Map<String, String> tuned = loadInputTuning();
-                    this.inputTuning = tuned;
-                    this.hotbarRange = floatValue(tuned, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
-                    this.holdLastPoseNanos = (long) (Math.max(0.0F, Math.min(2000.0F,
-                        floatValue(tuned, "tracking.holdLastPoseMs", "vrmc.input.tracking.holdLastPoseMs",
-                            (float) (this.holdLastPoseNanos / 1_000_000L)))) * 1_000_000L);
-                    String mode = System.getProperty("vrmc.hands.componentMode",
-                        tuned.getOrDefault("hands.componentMode", "identity"));
-                    this.handComponentJoints = "joints".equalsIgnoreCase(mode);
-                    this.visionInput = new VisionInput(tuned);
-                    this.smoothingConfig = loadSmoothingConfig(tuned);
-                    this.poseSmoothers = new VisionPoseSmoother[] {
-                        new VisionPoseSmoother(this.smoothingConfig),
-                        new VisionPoseSmoother(this.smoothingConfig)
-                    };
-                    this.moveOriginZ = floatValue(tuned, "move.originZ", "vrmc.input.move.originZ", this.moveOriginZ);
-                    this.moveForwardScale = floatValue(tuned, "move.forwardScale", "vrmc.input.move.forwardScale", this.moveForwardScale);
-                    this.moveStrafeScale = floatValue(tuned, "move.strafeScale", "vrmc.input.move.strafeScale", this.moveStrafeScale);
-                    this.moveDeadzone = floatValue(tuned, "move.deadzone", "vrmc.input.move.deadzone", this.moveDeadzone);
-                    this.rotatePulseNanos = (long) (floatValue(tuned, "move.rotatePulseMs",
-                        "vrmc.input.move.rotatePulseMs", (float) (this.rotatePulseNanos / 1_000_000L)) * 1_000_000L);
-                    this.bindingActions = null;
-                    this.resolvedActionMap = null;
-                    this.hotbarWheelActive = false;
-                    logInputTuning(this.visionInput);
-                    logSmoothingConfig(this.smoothingConfig);
-                    detail = "input tuning reloaded (middle=" + this.visionInput.middleEnabled()
-                        + " ring=" + this.visionInput.ringEnabled()
-                        + " swipe=" + this.visionInput.swipeEnabled()
-                        + " hold=" + (this.holdLastPoseNanos / 1_000_000L) + "ms"
-                        + " move=" + this.moveForwardScale + "/" + this.moveStrafeScale
-                        + " components=" + (this.handComponentJoints ? "joints" : "identity") + ")";
+                    detail = reloadInputTuning();
+                }
+                case "apply-hand-calibration" -> {
+                    if (this.mc.gameDirectory == null) {
+                        detail = "no game directory; cannot apply calibration";
+                    } else {
+                        String applied = VisionHandCalibration.applyReport(this.mc.gameDirectory.toPath(),
+                            this.mc.gameDirectory.toPath().resolve(VisionInput.TUNE_FILE), System.out::println);
+                        detail = applied + (applied.startsWith("applied") ? "; " + reloadInputTuning() : "");
+                    }
                 }
                 case "calibrate-hands" -> {
                     startHandCalibration();
