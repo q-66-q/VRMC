@@ -1,6 +1,6 @@
 # VRMC release manifest
-# generated: 2026-11-02T00:30:31-1000
-source_commit=4bc1aea03655c356000e304f6b48ca3054e50018
+# generated: 2026-11-02T00:33:29-1000
+source_commit=28bd12bc97557ce3f9219700f9211385897104fd
 source_branch=main
 dirty_tree=no
 product=VRMC
@@ -19,7 +19,7 @@ xcode=27.2 (27B52)
 visionos_sdk=27.2
 visionos_sim_runtime=27.0
 app_bundle=/tmp/VRMC-native-bundle2.app
-app_bundle_sha256=a046bab667bd487fcba7bdd5f9f057c66efee170b46c5e0547582946553c5479
+app_bundle_sha256=d1d685968dbc19f728b2279fa3ac23b87862ecf79913b6108b8718e4c83a1269
 bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
 provider_jar=/tmp/vrmc-current/vrmc-provider.jar

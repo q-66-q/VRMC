@@ -82,7 +82,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
-## Path-independent app hash + package verifier (EV-0164)
+## Package verifier PASS (EV-0164)
+
+- App tree hash is now bundle-relative/path-independent: `d1d685968dbc19f728b2279fa3ac23b87862ecf79913b6108b8718e4c83a1269`;
+  manifest regenerated with it.
+- Package rebuilt: bytes=206,459,032 sha256 `46b14b6a870b02185d9835682ec256162e13329b01303ba4a895aa4afabc081a`;
+  `m6_verify_release_package.sh` PASS (entries, app/provider hashes vs manifest, dirty_tree=no).
+- Older app hashes used absolute paths and are not comparable. Device gates NOT RUN.
+
 
 - `scripts/app_tree_sha256.sh` hashes file sha256s with bundle-relative paths, so the app identity does
   not depend on staging path; the release manifest now uses it.

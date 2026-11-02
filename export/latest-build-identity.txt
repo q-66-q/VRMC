@@ -2,7 +2,7 @@ VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-02 (host time)
 source commit: e2808c8 (plus uncommitted current shell at staging time; regenerate from a clean commit for release)
-app tree sha256: a046bab667bd487fcba7bdd5f9f057c66efee170b46c5e0547582946553c5479
+app tree sha256: d1d685968dbc19f728b2279fa3ac23b87862ecf79913b6108b8718e4c83a1269 (path-independent, EV-0164)
 app path at staging: /tmp/VRMC-native-bundle2.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
 provider jar sha256: fcd1df769cd0a6a25a3664938f1440bdf8c0292d1a3971bd59674f07b8d3cbe2
