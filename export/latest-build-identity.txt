@@ -1,11 +1,11 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-02 (host time)
-source commit: 7df3ac0 (plus uncommitted current provider/shell at staging time; regenerate from a clean commit for release)
-app tree sha256: 6e4b7c5e3f38622b0a40986322b933eb7e757ed315d1ad7859011381951593bc (path-independent, scripts/app_tree_sha256.sh)
-app path at staging: /tmp/VRMC-native-bowtel.app
+source commit: 3727885 (plus uncommitted current provider/shell at staging time; regenerate from a clean commit for release)
+app tree sha256: 90c83c0d6e5d45df04a050a638aeb2ba11c6dad058a94d5f300cf15d5ecfd9f7 (path-independent, scripts/app_tree_sha256.sh)
+app path at staging: /tmp/VRMC-native-climbtelem.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: 477139649bfec49a0b6d09bdcd36ef1cb131dca645f4da1ed63592df49ee2e3c
+provider jar sha256: 1d36487eaead9cf5d53f363aa54ffcb7e4afe09124c1365aa11567a9e0ca7e16
 device install: OK (D1 <D1-UDID>)
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)

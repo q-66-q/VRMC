@@ -1561,7 +1561,14 @@ struct VRControlOverlay: View {
                 let notched = (obj["bowNotched"] as? Bool) == true ? "notched " : ""
                 bow = " bow=\(notched)\(pct)%"
             }
-            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)\(bow)"
+            var climb = ""
+            let grabbing = (obj["climbGrabbing"] as? Bool) == true
+            let climbey = (obj["climbeyClimb"] as? Bool) == true
+            let climbActive = (obj["climbActive"] as? Bool) == true
+            if grabbing || climbey || climbActive {
+                climb = " climb=\(grabbing ? "grab" : "-")/\(climbey ? "climbey" : "-")/\(climbActive ? "active" : "-")"
+            }
+            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)\(bow)\(climb)"
         } else {
             providerStatusLine = ""
         }

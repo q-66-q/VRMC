@@ -333,7 +333,11 @@ public class VisionVR extends MCVR {
                 && this.dh.bowTracker.isActive(this.mc.player),
             this.dh.bowTracker != null && this.dh.bowTracker.isNotched(),
             this.dh.bowTracker == null ? 0.0F
-                : Math.max(0.0F, Math.min(1.0F, this.dh.bowTracker.getDrawPercent())));
+                : Math.max(0.0F, Math.min(1.0F, this.dh.bowTracker.getDrawPercent())),
+            this.dh.climbTracker != null && this.dh.climbTracker.isGrabbingLadder(),
+            this.dh.climbTracker != null && this.dh.climbTracker.isClimbeyClimb(),
+            this.dh.climbTracker != null && this.mc.player != null
+                && this.dh.climbTracker.isActive(this.mc.player));
         String json = VisionStatusJson.build(data, java.time.Instant.now());
         java.nio.file.Path path = this.mc.gameDirectory.toPath().resolve("vrmc-status.json");
         try {

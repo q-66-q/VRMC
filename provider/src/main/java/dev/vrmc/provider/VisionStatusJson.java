@@ -35,6 +35,9 @@ public final class VisionStatusJson {
         public final boolean bowActive;
         public final boolean bowNotched;
         public final float bowDrawPercent;
+        public final boolean climbGrabbing;
+        public final boolean climbeyClimb;
+        public final boolean climbActive;
 
         public Data(String generatedAt, int abi, boolean bridgeReady, boolean initialized,
                     long displayViewsGen, int trackedFrames, boolean seated, boolean inputHealthy,
@@ -43,7 +46,8 @@ public final class VisionStatusJson {
                     String inputTuning, String thermalState, String thermalResponse,
                     boolean adaptiveFramerate, boolean adaptiveFramerateApplied,
                     float frameP50Ms, float frameP95Ms, int missed90Frames,
-                    boolean bowActive, boolean bowNotched, float bowDrawPercent) {
+                    boolean bowActive, boolean bowNotched, float bowDrawPercent,
+                    boolean climbGrabbing, boolean climbeyClimb, boolean climbActive) {
             this.generatedAt = generatedAt;
             this.abi = abi;
             this.bridgeReady = bridgeReady;
@@ -69,6 +73,9 @@ public final class VisionStatusJson {
             this.bowActive = bowActive;
             this.bowNotched = bowNotched;
             this.bowDrawPercent = bowDrawPercent;
+            this.climbGrabbing = climbGrabbing;
+            this.climbeyClimb = climbeyClimb;
+            this.climbActive = climbActive;
         }
     }
 
@@ -99,7 +106,10 @@ public final class VisionStatusJson {
         number(json, "missed90Frames", d.missed90Frames, true);
         bool(json, "bowActive", d.bowActive, true);
         bool(json, "bowNotched", d.bowNotched, true);
-        rawNumber(json, "bowDrawPercent", d.bowDrawPercent, false);
+        rawNumber(json, "bowDrawPercent", d.bowDrawPercent, true);
+        bool(json, "climbGrabbing", d.climbGrabbing, true);
+        bool(json, "climbeyClimb", d.climbeyClimb, true);
+        bool(json, "climbActive", d.climbActive, false);
         json.append("}\n");
         return json.toString();
     }

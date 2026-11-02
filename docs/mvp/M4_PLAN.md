@@ -278,6 +278,12 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   summary shows bow state only while active. JSON tests/guards pass; app installed/provider pushed.
 - Device two-hand bow behavior NOT RUN.
 
+## 6u. Climb diagnostic telemetry (2026-11-02, EV-0176)
+
+- Status JSON exposes `climbGrabbing`, `climbeyClimb`, `climbActive` from `dh.climbTracker`; launcher
+  summary shows climb state when active. JSON tests/guards pass; app installed/provider pushed.
+- Device H9 climbing behavior NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
