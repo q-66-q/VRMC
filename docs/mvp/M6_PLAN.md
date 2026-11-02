@@ -82,6 +82,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Refreshed package + gate verification (EV-0171)
+
+- Clean-tree release check/reproducibility PASS; package refreshed to bytes=206,459,555 sha256
+  `6e99d8e994571ba75d134f5e95d14a903fd4b30df0dc3b75d86626c2110f819c` (app `d1d68596…`,
+  provider `bad3d955…`); package verifier PASS; release-ready gate host/package/device-integrity PASS,
+  acceptance NOT READY (expected until device acceptance).
+
 ## Single-command release gate (EV-0165)
 
 - `scripts/m6_release_ready.sh [--zip PATH] [--report-only] [--skip-device]` aggregates: host release
