@@ -92,6 +92,10 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 
 - `stage_native_app.sh` accepts `VRMC_KEEP_JRE=<major>` to prune other bundled `java-*-openjdk`
   runtimes before signing; default unchanged (keeps all).
+- Read-only device JRE probe (EV-0207): device `Documents/java_runtimes` empty; selected profile
+  `fabric-loader-0.20.1-26.2`; crash log shows OpenJDK 25.0.4 loaded from app-bundled
+  `java_runtimes/java-25-openjdk` — strongest available indication that pruning 8/17/21 is safe, but a
+  lite launch is still required.
 - Experimental lite staging (not installed): app 245,747,712 bytes vs 583,630,848 current, 72 vs 169
   Mach-O, deep/strict codesign PASS; clean measurement package 89,919,699 bytes sha256 `db3f6a48…`,
   verifier PASS (EV-0206). **Device launch behavior NOT validated**; do not use as default until D1
