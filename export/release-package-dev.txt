@@ -1,11 +1,11 @@
 VRMC development sideload package (not final release sign-off)
-generated: 2026-11-02T00:24:17-1000
-source_commit=a35cc85f616caa57d27621ad9d450b3055a2394e
-app_tree_sha256=0aebb8069ede92efe478d482b2ebd64c701dbcc5b6d975be94b020362d58a3e2
+generated: 2026-11-02T00:30:33-1000
+source_commit=4bc1aea03655c356000e304f6b48ca3054e50018
+app_tree_sha256=a046bab667bd487fcba7bdd5f9f057c66efee170b46c5e0547582946553c5479
 provider_sha256=fcd1df769cd0a6a25a3664938f1440bdf8c0292d1a3971bd59674f07b8d3cbe2
 zip_path=/tmp/VRMC-dev-release.zip
-zip_bytes=206459027
-zip_sha256=3b3fa4feaa9ca2eeb80bff6d504dff89940a98664772597366530f0b2ac1aa03
-device_integrity=provider hash matches installed D1 (EV-0154)
+zip_bytes=206458384
+zip_sha256=4f89d0d690e266ac961a1c06bf37e058994c53183347ae984b41fedc0a36c696
+device_integrity=provider hash matches installed D1 (EV-0154/0156)
 reproducibility=provider two-build hash PASS
 acceptance_gate=NOT READY (export/acceptance-readiness.txt)
