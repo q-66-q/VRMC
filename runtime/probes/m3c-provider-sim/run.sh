@@ -39,33 +39,43 @@ SDK=$(xcrun --sdk xrsimulator --show-sdk-path)
 xcrun --sdk xrsimulator clang -target arm64-apple-xros-simulator -isysroot "$SDK" -fobjc-arc \
   -framework Foundation -o "$APP/ProviderSim" "$HERE/host/main.m"
 
-echo "[setup] boot + install"
+echo "[setup] boot simulator"
 xcrun simctl boot "$SIM" 2>/dev/null || true
-xcrun simctl uninstall "$SIM" "$BUNDLE" 2>/dev/null || true
-xcrun simctl install "$SIM" "$APP"
-DATA=$(xcrun simctl get_app_container "$SIM" "$BUNDLE" data)   # host filesystem path: direct file control
-mkdir -p "$DATA/Documents"
 
 overall=0
 run_case() {
-  local name="$1" sync="$2"
+  local name="$1" sync="$2" mode="${3:-provider}"
   local case_dir="$OUT/case-$name"
   rm -rf "$case_dir"; mkdir -p "$case_dir"
-  rm -f "$DATA/Documents"/*.flag
-  echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
-  echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
-  if [ "$sync" = "1" ]; then echo "sync" > "$DATA/Documents/vrmc-fake-provider-sync.flag"; fi
-  xcrun simctl terminate "$SIM" "$BUNDLE" 2>/dev/null || true
-  sleep 1
+  # Fresh install per scenario: guarantees a fresh process (simctl launch reuses a running app) and a
+  # clean Documents container, so the scenario flags are exactly what the app reads at startup.
+  xcrun simctl uninstall "$SIM" "$BUNDLE" 2>/dev/null || true
+  xcrun simctl install "$SIM" "$APP"
+  DATA=$(xcrun simctl get_app_container "$SIM" "$BUNDLE" data)
+  mkdir -p "$DATA/Documents"
+  if [ "$mode" = "pattern" ]; then
+    echo "selftest" > "$DATA/Documents/vrmc-immersive-selftest.flag"
+  else
+    echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
+    echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
+    if [ "$sync" = "1" ]; then echo "sync" > "$DATA/Documents/vrmc-fake-provider-sync.flag"; fi
+  fi
   xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
-  sleep 12
+  # Wait for the first presented frame + the 5 s scene-state line, so the copied logs are complete.
+  for _ in $(seq 1 30); do
+    if [ -f "$DATA/Documents/vrmc-shell.log" ] && grep -q 'STATE immersive=' "$DATA/Documents/vrmc-shell.log" 2>/dev/null; then break; fi
+    sleep 1
+  done
+  sleep 2
   xcrun simctl io "$SIM" screenshot "$case_dir/screenshot.png" >/dev/null 2>&1 || true
   cp "$DATA/Documents/vrmc-compositor.log" "$case_dir/compositor.log" 2>/dev/null || true
   cp "$DATA/Documents/vrmc-shell.log"      "$case_dir/shell.log" 2>/dev/null || true
   cp "$DATA/Documents/vrmc-drawable-L.raw" "$case_dir/drawable-L.raw" 2>/dev/null || true
   cp "$DATA/Documents/vrmc-drawable-L.raw.meta" "$case_dir/drawable-L.raw.meta" 2>/dev/null || true
   echo "---- scenario: $name ----"
-  if [ "$sync" = "1" ]; then
+  if [ "$mode" = "pattern" ]; then
+    python3 "$HERE/check.py" "$case_dir" --pattern || overall=1
+  elif [ "$sync" = "1" ]; then
     python3 "$HERE/check.py" "$case_dir" --require-sync || overall=1
   else
     python3 "$HERE/check.py" "$case_dir" || overall=1
@@ -74,5 +84,6 @@ run_case() {
 
 run_case flat 0
 run_case sync 1
+run_case pattern 0 pattern
 if [ "$overall" != "0" ]; then echo "[provider-sim] OVERALL FAIL"; exit 1; fi
-echo "[provider-sim] OVERALL PASS (flat sampling + GPU-timeline sync scenarios)"
+echo "[provider-sim] OVERALL PASS (flat sampling + GPU-timeline sync + test-pattern scenarios)"

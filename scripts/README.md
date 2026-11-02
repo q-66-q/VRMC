@@ -18,5 +18,7 @@ One usage line: set the environment (`DEVICE=<udid>`, and where relevant `BUNDLE
 | `tests/DepthClearRegressionTest.sh` | `scripts/tests/DepthClearRegressionTest.sh` — regression guard for the M3c black-immersive root cause (EV-0093): default drawn-drawable depth clear must be 1.0, `vrmc-depth-zero.flag` A/B present, M3A probe reference 1.0 |
 | `m3c_pull_and_check.sh` | `DEVICE=<udid> scripts/m3c_pull_and_check.sh` — pull the decisive M3c device logs/readbacks and print depthZero / scene-activation / first-presented-frame / parking triage (`--from <dir>` analyses an existing pull) |
 
+| `m3c_selfcheck.sh` | `scripts/m3c_selfcheck.sh [--fast]` — one-command M3c host/simulator self-check (depth regression, display-views, provider+bridge builds, bridge suite, provider-sampling harness) |
+
 All are re-runnable. `sign_ipa.sh` re-signs every Mach-O in the bundle and embeds the profile;
 `install_device.sh` retries installs and can uninstall a bundle id first.
