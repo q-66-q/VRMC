@@ -28,9 +28,22 @@ public final class VisionLocomotion {
     public static Vector2f axes(float wristX, float wristY, float wristZ,
                                 float headX, float headY, float headZ,
                                 float originZ, float forwardScale, float strafeScale, float deadzone) {
+        Vector2f out = new Vector2f();
+        axes(wristX, wristY, wristZ, headX, headY, headZ, originZ, forwardScale, strafeScale, deadzone, out);
+        return out;
+    }
+
+    /**
+     * Allocation-free variant for the per-frame game path. Always writes (never leaves stale values).
+     */
+    public static void axes(float wristX, float wristY, float wristZ,
+                            float headX, float headY, float headZ,
+                            float originZ, float forwardScale, float strafeScale, float deadzone,
+                            Vector2f dest) {
+        dest.set(0.0F, 0.0F);
         if (!Float.isFinite(wristX) || !Float.isFinite(wristY) || !Float.isFinite(wristZ)
             || !Float.isFinite(headX) || !Float.isFinite(headY) || !Float.isFinite(headZ)) {
-            return new Vector2f(0.0F, 0.0F);
+            return;
         }
         float relX = wristX - headX;
         float relZ = wristZ - headZ;
@@ -41,11 +54,11 @@ public final class VisionLocomotion {
         strafe = clamp(strafe);
         float magnitude = (float) Math.sqrt(forward * forward + strafe * strafe);
         float dead = Math.max(0.0F, deadzone);
-        if (magnitude <= dead) return new Vector2f(0.0F, 0.0F);
+        if (magnitude <= dead) return;
         // Rescale past the deadzone so full deflection still reaches 1.
         float scaled = Math.min(1.0F, (magnitude - dead) / Math.max(1.0E-4F, 1.0F - dead));
         float inv = scaled / magnitude;
-        return new Vector2f(strafe * inv, forward * inv);
+        dest.set(strafe * inv, forward * inv);
     }
 
     public static Vector2f axes(float wristX, float wristY, float wristZ,

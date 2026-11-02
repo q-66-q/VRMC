@@ -246,6 +246,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   5 s (shell writes at thermal-change/30 s cadence), first poll immediate, advisory logic unchanged.
 - Full provider suite PASS; provider pushed + integrity PASS. Device runtime performance NOT RUN.
 
+## Allocation-free frame paths (EV-0147)
+
+- Display-view eye transforms reuse a 16-float scratch array (no float[16] per eye per generation).
+- `VisionLocomotion.axes(..., Vector2f dest)` is allocation-free; always overwrites (stale axes cleared
+  on invalid input), used by `applyLocomotion`; out-param test added (m4-locomotion 9 checks).
+- Full provider suite PASS; provider pushed + integrity PASS. Device runtime/GC performance NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

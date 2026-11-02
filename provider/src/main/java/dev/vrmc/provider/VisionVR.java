@@ -70,6 +70,8 @@ public class VisionVR extends MCVR {
     private final ByteBuffer gazeEvent = ByteBuffer.allocateDirect(VrmcBridge.GAZE_EVENT_BYTES).order(ByteOrder.nativeOrder());
     /** Latest display-view tangents per eye (0 left, 1 right) for gaze ray reconstruction. */
     private final float[][] displayTangents = new float[2][4];
+    private final float[] displayMatrixScratch = new float[16];
+    private final Vector2f locomotionAxes = new Vector2f();
     private long gazeClickReleaseAtNs;
     private long gazeSuppressUntilNs;
     private boolean gazeNoPlaneLogged;
@@ -634,11 +636,10 @@ public class VisionVR extends MCVR {
                 renderer.setEyeFov(eye, l, r, u, d);
             }
             Matrix4f eyeToHead = eye == 0 ? this.hmdPoseLeftEye : this.hmdPoseRightEye;
-            float[] m = new float[16];
             for (int k = 0; k < 16; k++) {
-                m[k] = this.displayViews.getFloat(o + 16 + k * 4);
+                this.displayMatrixScratch[k] = this.displayViews.getFloat(o + 16 + k * 4);
             }
-            eyeToHead.set(m); // JOML column-major, same layout as the C matrix
+            eyeToHead.set(this.displayMatrixScratch); // JOML column-major, same layout as the C matrix
         }
         float displayIpd = this.displayViews.getFloat(40 * 4);
         if (displayIpd > 0.0F) {
@@ -1318,14 +1319,15 @@ public class VisionVR extends MCVR {
         float x = 0.0F;
         float y = 0.0F;
         if (usable && this.visionInput.middlePressed(VisionInput.HAND_LEFT)) {
-            Vector2f axes = VisionLocomotion.axes(
+            VisionLocomotion.axes(
                 this.visionInput.wristX(VisionInput.HAND_LEFT),
                 this.visionInput.wristY(VisionInput.HAND_LEFT),
                 this.visionInput.wristZ(VisionInput.HAND_LEFT),
                 this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
-                this.moveOriginZ, this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone);
-            x = axes.x;
-            y = axes.y;
+                this.moveOriginZ, this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone,
+                this.locomotionAxes);
+            x = this.locomotionAxes.x;
+            y = this.locomotionAxes.y;
         }
         VRInputAction strafe = this.getInputAction(VivecraftVRMod.INSTANCE.keyFreeMoveStrafe);
         if (strafe != null) {

@@ -48,6 +48,18 @@ public final class VisionLocomotionTest {
         Vector2f headFwd = VisionLocomotion.axes(0.0F, 0.0F, -0.35F, 0.0F, 0.0F, -0.25F);
         check("head-relative", headFwd.y < noHead.y, "noHead=" + noHead + " headFwd=" + headFwd);
 
+        // Allocation-free path used by the game loop: always overwrites, including bad input.
+        Vector2f reused = new Vector2f(9.0F, 9.0F);
+        VisionLocomotion.axes(0.0F, 0.0F, -0.40F, 0.0F, 0.0F, 0.0F,
+            0.10F, 3.0F, 3.0F, 0.10F, reused);
+        check("out-param matches allocation path",
+            Math.abs(reused.x - fwd.x) < 1e-6F && Math.abs(reused.y - fwd.y) < 1e-6F,
+            "out=" + reused + " fwd=" + fwd);
+        VisionLocomotion.axes(Float.NaN, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
+            0.10F, 3.0F, 3.0F, 0.10F, reused);
+        check("out-param clears stale value on bad input", reused.x == 0.0F && reused.y == 0.0F,
+            String.valueOf(reused));
+
         System.out.println("[m4-locomotion-test] " + checks + " checks, " + failures + " failed");
         System.out.println(failures == 0 ? "[m4-locomotion-test] PASS" : "[m4-locomotion-test] FAIL");
         if (failures != 0) System.exit(1);
