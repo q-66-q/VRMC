@@ -3,6 +3,12 @@
 Purpose: verify the gameplay loop, comfort controls and diagnostics of the current M4/M5 build on a
 Vision Pro, and capture evidence for `M5_ACCEPTANCE.md` / VERIFY.
 
+## Optional pre-run integrity check (no unlock needed)
+
+```
+scripts/m6_device_integrity.sh            # prints installed VRMC version + provider jar sha256 match
+```
+
 ## Preconditions
 
 - Current build installed (see `export/latest-build-identity.txt`; currently app `926f663d…` +

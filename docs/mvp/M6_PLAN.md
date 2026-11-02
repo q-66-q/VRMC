@@ -32,6 +32,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
   rebuilt from the release commit with device evidence.
 
+## Device provider-integrity check (EV-0136)
+
+- `scripts/m6_device_integrity.sh` reads the installed app data container (read-only), copies the
+  provider jar out, compares SHA256 with the locally built jar, and prints the installed VRMC version.
+- Requires no launch/unlock; behavior/acceptance gates remain separate.
+- Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
+
 ## Heartbeat watchdog (EV-0132)
 
 - Compositor rewrites `Documents/vrmc-heartbeat.txt` at most 1 Hz while frames loop (generation, frame,
