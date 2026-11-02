@@ -53,8 +53,8 @@ scripts/m6_release_ready.sh --zip /tmp/VRMC-dev-release.zip   # currently NOT RE
 ```
 
 Latest host results: provider suite ALL PASS; bridge suite incl. TSan ALL PASS; 1M-frame input fuzz,
-200k pose fuzz, 100k smoother fuzz, 100k JSON fuzz, 100k settings fuzz — 0 violations; release check
-PASS; package verifier/freshness PASS.
+200k pose fuzz, 100k smoother fuzz, 500k gaze fuzz, 100k JSON fuzz, 100k settings fuzz — 0 violations;
+release check PASS; package verifier/freshness PASS; release-ready host gates PASS (acceptance NOT READY).
 
 ## What remains (device only, D1)
 
