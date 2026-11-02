@@ -1203,6 +1203,7 @@ struct VRControlOverlay: View {
     @State private var commandStatus = ""
     @State private var lastCommandResult = ""
     @State private var providerStatusLine = ""
+    @State private var confirmResetSettings = false
     @State private var exportURL: URL?
     @State private var exportStatus = ""
     @State private var statusLine = ""
@@ -1454,15 +1455,22 @@ struct VRControlOverlay: View {
                     if !exportStatus.isEmpty {
                         Text(exportStatus).font(.caption2).foregroundStyle(.secondary)
                     }
-                    Button("Reset VRMC settings") {
-                        try? FileManager.default.removeItem(at: shellRuntimeSettingsURL())
-                        try? FileManager.default.removeItem(at: shellInputTuneURL())
-                        try? FileManager.default.removeItem(at: shellVignetteURL())
-                        loadSettings()
-                        settingsStatus = "VRMC settings reset to defaults."
-                    }
-                    .font(.caption2)
-                    .buttonStyle(.bordered)
+                    Button("Reset VRMC settings") { confirmResetSettings = true }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        .confirmationDialog("Reset VRMC settings?", isPresented: $confirmResetSettings,
+                                            titleVisibility: .visible) {
+                            Button("Reset settings", role: .destructive) {
+                                try? FileManager.default.removeItem(at: shellRuntimeSettingsURL())
+                                try? FileManager.default.removeItem(at: shellInputTuneURL())
+                                try? FileManager.default.removeItem(at: shellVignetteURL())
+                                loadSettings()
+                                settingsStatus = "VRMC settings reset to defaults."
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("Removes runtime, input-tune and vignette settings only. Saves, logs and the crash guard are kept.")
+                        }
                     DisclosureGroup("Gesture reference") {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Pinch (thumb+index): attack / GUI click; left hold = teleport").font(.caption2)

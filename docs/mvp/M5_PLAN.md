@@ -275,6 +275,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Default identity preserves the device-accepted aim path. Build/install PASS; device visible-hands/
   held-item appearance NOT RUN.
 
+## Reset confirmation (EV-0158)
+
+- Destructive **Reset VRMC settings** now opens a confirmation dialog (Reset/Cancel) explaining that only
+  runtime/input-tune/vignette files are removed and saves/logs/crash guard are kept.
+- Shell/app build/install PASS; device dialog interaction NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
