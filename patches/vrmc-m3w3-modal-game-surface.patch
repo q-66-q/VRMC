@@ -1,0 +1,242 @@
+--- a/Natives/ios_uikit_bridge.h
++++ b/Natives/ios_uikit_bridge.h
+@@ -6,6 +6,10 @@
+ #define CLIPBOARD_PASTE 2001
+ 
+ UIViewController* tmpRootVC;
++// VRMC M3b: the live game surface when it is presented modally over the SwiftUI host (nil when
++// no game is running or legacy root-swap mode is active). Input/rendering code must use this
++// helper instead of casting window.rootViewController.
++UIViewController* vrmcCurrentSurfaceViewController(void);
+ 
+ void showDialog(NSString* title, NSString* message);
+ jstring UIKit_accessClipboard(JNIEnv* env, jint action, jstring copySrc);
+--- a/Natives/ios_uikit_bridge.m
++++ b/Natives/ios_uikit_bridge.m
+@@ -107,12 +107,61 @@
+     }
+ }
+ 
++// VRMC M3b (EV-0086 issues 1+2): present the game surface modally over the still-live SwiftUI hosting
++// controller instead of replacing window.rootViewController. Replacing the root destroyed the SwiftUI
++// WindowGroup view, which dropped the scene's persistentSystemOverlays(.hidden) window-chrome
++// preference and the SwiftUI lifecycle subscriptions. A full-screen modal keeps the scene alive (chrome
++// hiding works) and the game surface still covers the window. The legacy root swap is retained behind
++// Documents/vrmc-legacy-root-swap.flag for A/B device testing.
++static UIViewController *vrmcGameSurfaceVC = nil;
++
++static BOOL vrmcDocumentFlag(NSString *name) {
++    NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
++    NSString *path = [paths.firstObject stringByAppendingPathComponent:name];
++    return [[NSFileManager defaultManager] fileExistsAtPath:path];
++}
++
++UIViewController* vrmcCurrentSurfaceViewController(void) {
++    if ([vrmcGameSurfaceVC isKindOfClass:SurfaceViewController.class]) {
++        return vrmcGameSurfaceVC;
++    }
++    return currentVC();
++}
++
+ void UIKit_launchMinecraftSurfaceVC(UIWindow* window, NSDictionary* metadata) {
+-    [[NSNotificationCenter defaultCenter] postNotificationName:@"VRMCGameStarted" object:nil]; // VRMC M3-W2: shell opens immersive space before game surface replaces the root VC
++    [[NSNotificationCenter defaultCenter] postNotificationName:@"VRMCGameStarted" object:nil]; // VRMC M3-W2: shell opens immersive space before the game surface appears
+     // Leave this pref, might be useful later for launching with Quick Actions/Shortcuts/URL Scheme
+     //setPreference(@"internal_launch_on_boot", getPreference(@"restart_before_launch"));
+     setPrefObject(@"internal.selected_account", BaseAuthenticator.current.authData[@"username"]);
+     dispatch_async(dispatch_get_main_queue(), ^{
++        UIViewController *host = window.rootViewController;
++        BOOL legacySwap = vrmcDocumentFlag(@"vrmc-legacy-root-swap.flag");
++        if (!legacySwap && host != nil) {
++            [UIView animateWithDuration:0.2 animations:^{
++                window.alpha = 0;
++            } completion:^(BOOL b){
++                window.alpha = 1;
++                [window makeKeyAndVisible];
++                void (^presentSurface)(void) = ^{
++                    SurfaceViewController *surface = [[SurfaceViewController alloc] initWithMetadata:metadata];
++                    surface.modalPresentationStyle = UIModalPresentationFullScreen;
++                    vrmcGameSurfaceVC = surface;
++                    [host presentViewController:surface animated:NO completion:^{
++                        NSLog(@"[VRMC] game surface presented modally over the SwiftUI host (chrome preference stays alive)");
++                    }];
++                };
++                if (host.presentedViewController != nil) {
++                    // A previous game session crashed or never returned to the launcher: clear it first.
++                    NSLog(@"[VRMC] dismissing stale presented view controller before the game surface: %@",
++                          NSStringFromClass(host.presentedViewController.class));
++                    [host dismissViewControllerAnimated:NO completion:presentSurface];
++                } else {
++                    presentSurface();
++                }
++            }];
++            return;
++        }
++        NSLog(@"[VRMC] legacy root-view-controller swap for the game surface (vrmc-legacy-root-swap.flag)");
+         tmpRootVC = window.rootViewController;
+         [UIView animateWithDuration:0.2 animations:^{
+             window.alpha = 0;
+@@ -131,6 +180,17 @@
+     dispatch_async(dispatch_get_main_queue(), ^{
+         UIWindow *window = UIWindow.mainWindow;
+ 
++        // VRMC M3b: the game surface is a full-screen modal over the SwiftUI host; dismiss it.
++        if (vrmcGameSurfaceVC != nil) {
++            UIViewController *presenting = vrmcGameSurfaceVC.presentingViewController;
++            vrmcGameSurfaceVC = nil;
++            [presenting dismissViewControllerAnimated:YES completion:^{
++                [window makeKeyAndVisible];
++                NSLog(@"[VRMC] returned to the launcher (modal game surface dismissed)");
++            }];
++            return;
++        }
++
+         // Return from JavaGUIViewController
+         if ([window.rootViewController isKindOfClass:LauncherSplitViewController.class]) {
+             [currentVC() dismissViewControllerAnimated:YES completion:nil];
+--- a/Natives/input_bridge_v3.m
++++ b/Natives/input_bridge_v3.m
+@@ -60,7 +60,7 @@
+ 
+     dispatch_async(dispatch_get_main_queue(), ^{
+         if ([path hasPrefix:@"http"]) {
+-            openLink(UIWindow.mainWindow.rootViewController, [NSURL URLWithString:path]);
++            openLink(currentVC(), [NSURL URLWithString:path]);
+             dispatch_group_leave(group);
+             return;
+         }
+@@ -533,7 +533,7 @@
+     }
+ 
+     dispatch_async(dispatch_get_main_queue(), ^{
+-        SurfaceViewController *vc = ((SurfaceViewController *)UIWindow.mainWindow.rootViewController);
++        SurfaceViewController *vc = (SurfaceViewController *)vrmcCurrentSurfaceViewController();
+         [vc updateGrabState];
+     });
+ }
+--- a/Natives/input/GyroInput.m
++++ b/Natives/input/GyroInput.m
+@@ -2,6 +2,7 @@
+ #import <UIKit/UIKit.h>
+ #import "GyroInput.h"
+ #import "../SurfaceViewController.h"
++#import "../ios_uikit_bridge.h"
+ #import "../utils.h"
+ 
+ @implementation GyroInput
+@@ -62,7 +63,7 @@
+         lastYValue = cmInstance.deviceMotion.rotationRate.y / (M_PI*90) * windowHeight * factor;
+     }
+ 
+-    SurfaceViewController *vc = (id)UIWindow.mainWindow.rootViewController;
++    SurfaceViewController *vc = (id)vrmcCurrentSurfaceViewController();
+     [vc sendTouchPoint:CGPointMake(lastXValue, lastYValue) withEvent:ACTION_MOVE_MOTION];
+ 
+     lastFrameTime = frameTime;
+--- a/Natives/input/ControllerInput.m
++++ b/Natives/input/ControllerInput.m
+@@ -2,6 +2,7 @@
+ #import "../LauncherPreferences.h"
+ #import "../PLProfiles.h"
+ #import "../SurfaceViewController.h"
++#import "../ios_uikit_bridge.h"
+ #import "../utils.h"
+ 
+ #include "../glfw_keycodes.h"
+@@ -230,7 +231,7 @@
+         deltaX *= deltaTimeScale;
+         deltaY *= deltaTimeScale;
+ 
+-        SurfaceViewController *vc = (id)UIWindow.mainWindow.rootViewController;
++        SurfaceViewController *vc = (id)vrmcCurrentSurfaceViewController();
+         [vc sendTouchPoint:CGPointMake(deltaX, deltaY) withEvent:ACTION_MOVE_MOTION];
+     }
+     lastFrameTime = frameTime;
+--- a/Natives/SurfaceViewController.m
++++ b/Natives/SurfaceViewController.m
+@@ -1151,7 +1151,7 @@
+ }
+ 
+ + (BOOL)isRunning {
+-    return [UIWindow.mainWindow.rootViewController isKindOfClass:SurfaceViewController.class];
++    return [vrmcCurrentSurfaceViewController() isKindOfClass:SurfaceViewController.class];
+ }
+ 
+ + (GameSurfaceView *)surface {
+--- a/Natives/SceneExternalDelegate.m
++++ b/Natives/SceneExternalDelegate.m
+@@ -1,6 +1,7 @@
+ #import "LauncherPreferences.h"
+ #import "SceneExternalDelegate.h"
+ #import "SurfaceViewController.h"
++#import "ios_uikit_bridge.h"
+ 
+ extern UIWindow *externalWindow;
+ 
+@@ -17,7 +18,7 @@
+     self.window.frame = windowScene.coordinateSpace.bounds; 
+     externalWindow = self.window;
+     if (SurfaceViewController.isRunning && getPrefBool(@"video.fullscreen_airplay")) {
+-        [UIWindow.mainWindow.rootViewController performSelector:@selector(switchToExternalDisplay)];
++        [vrmcCurrentSurfaceViewController() performSelector:@selector(switchToExternalDisplay)];
+     }
+ }
+ 
+@@ -28,7 +29,7 @@
+     // Release any resources associated with this scene that can be re-created the next time the scene connects.
+     // The scene may re-connect later, as its session was not neccessarily discarded (see `application:didDiscardSceneSessions` instead).
+     if (SurfaceViewController.isRunning && getPrefBool(@"video.fullscreen_airplay")) {
+-        [UIWindow.mainWindow.rootViewController performSelector:@selector(switchToInternalDisplay)];
++        [vrmcCurrentSurfaceViewController() performSelector:@selector(switchToInternalDisplay)];
+     }
+ }
+ 
+--- a/Natives/ctxbridges/vk_bridge.m
++++ b/Natives/ctxbridges/vk_bridge.m
+@@ -18,7 +18,7 @@
+ static void syncGeometry(void) {
+     dispatch_semaphore_t done = dispatch_semaphore_create(0);
+     dispatch_async(dispatch_get_main_queue(), ^{
+-        UIViewController *vc = UIWindow.mainWindow.rootViewController;
++        UIViewController *vc = vrmcCurrentSurfaceViewController();
+         if ([vc isKindOfClass:SurfaceViewController.class]) {
+             [(SurfaceViewController *)vc updateSavedResolution];
+         }
+--- a/Natives/sdl3_hook.m
++++ b/Natives/sdl3_hook.m
+@@ -69,7 +69,7 @@
+         UIWindowScene *windowScene = (UIWindowScene *)scene;
+ 
+         for (UIWindow *window in windowScene.windows) {
+-            UIView *sdlView = AMFindSDLView(window.rootViewController.view);
++            UIView *sdlView = AMFindSDLView(window);
+ 
+             if (sdlView != nil) {
+                 return window;
+@@ -203,7 +203,7 @@
+         return;
+     }
+ 
+-    UIView *sdlView = AMFindSDLView(window.rootViewController.view);
++    UIView *sdlView = AMFindSDLView(window);
+ 
+     if (sdlView == nil) {
+         AMTrace(@"[SDL3 EMBED] SDL UIKit view not found yet");
+@@ -309,7 +309,7 @@
+         return;
+ 
+     AMRunSyncOnMain(^{
+-        UIView *sdlView = AMFindSDLView(window.rootViewController.view);
++        UIView *sdlView = AMFindSDLView(window);
+ 
+         if (sdlView == nil)
+             return;
+@@ -332,7 +332,7 @@
+     if (![window isKindOfClass:UIWindow.class])
+         return;
+ 
+-    UIView *sdlView = AMFindSDLView(window.rootViewController.view);
++    UIView *sdlView = AMFindSDLView(window);
+ 
+     if (sdlView == nil)
+         return;

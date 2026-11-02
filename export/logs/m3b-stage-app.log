@@ -1,0 +1,33 @@
+[stage] shell framework: platform=11 minos=27.0 OK
+[stage] bridge dylib: platform=11 minos=1.0 OK
+[stage] bridge symbols OK
+[stage] using profile: /tmp/VRMC-native-m3b-src.app/embedded.mobileprovision
+[stage] profile: iOS Team Provisioning Profile: dev.vrmc.vrmc (expires Sat Nov 07 22:53:50 HST 2026, app-id <TEAM_ID>.dev.vrmc.vrmc)
+[stage] profile provisions device <D1-UDID> OK
+[stage] entitlements: generated dev entitlements (get-task-allow=true, needed for JIT)
+[stage] source app:  /tmp/VRMC-native-m3b-src.app
+[stage] staged app:  /tmp/VRMC-native-m3b.app
+[stage] framework:   ~/Library/Developer/Xcode/DerivedData/VRMCShell-hbtwjmldtlfjqpatujtidiimswyk/Build/Products/Debug-xros/VRMCShell.framework -> Frameworks/VRMCShell.framework
+[stage] bridge dylib: /tmp/vrmc-bridge-build/libvrmc_bridge.dylib -> Frameworks/libvrmc_bridge.dylib
+[stage] identity:    Apple Development: <apple-id> (<cert-id>)
+[stage] checking codesigning identity
+[stage] signing Mach-O files under /tmp/VRMC-native-m3b.app
+[stage] signed 169 Mach-O files
+[stage] signing nested framework bundles
+[stage] signed 6 framework bundles
+[stage] signing app bundle with entitlements + embedded profile
+[stage] codesign --verify --deep --strict: PASS
+[stage]   /tmp/VRMC-native-m3b.app: valid on disk
+[stage]   /tmp/VRMC-native-m3b.app: satisfies its Designated Requirement
+[stage] artifact hashes:
+[stage]   4880ab19e2bf2b2e4cf124e1e6026e877a03e31d39aa5b41662b7a667e24e2ef  Frameworks/VRMCShell.framework/VRMCShell  (388784 bytes)
+[stage]   b7af2c77206670e3962968d25f3e2eb020a181311f91a9c9fb6b7abb7c2186f1  Frameworks/libvrmc_bridge.dylib  (86528 bytes)
+[stage]   52880363be47c1142466e8177691704fe1917ce31aba5179ff1e55a4d14b2e5e  AngelAuraAmethyst  (2043904 bytes)
+[stage] app bundle: /tmp/VRMC-native-m3b.app
+[stage]   Identifier=dev.vrmc.vrmc
+[stage]   Authority=Apple Development: <apple-id> (<cert-id>)
+[stage]   Authority=Apple Worldwide Developer Relations Certification Authority
+[stage]   Authority=Apple Root CA
+[stage]   TeamIdentifier=<TEAM_ID>
+[stage] NOT installed (deliberate): install with: xcrun devicectl device install app --device <D1-UDID> /tmp/VRMC-native-m3b.app
+/tmp/VRMC-native-m3b.app

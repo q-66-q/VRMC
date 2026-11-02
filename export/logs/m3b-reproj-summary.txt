@@ -1,0 +1,48 @@
+sim: views=1 textures=1 rrmCount=0 depthRange=(far inf near 0.1000)
+CPU[live-view0] pctInside=100.00% pctBehind=0.00% pctOOB=0.00% pctNaN=0.00% t.x=[-1.000,1.000] t.y=[-0.562,0.562] uv.x=[0.150,0.850] uv.y=[0.303,0.697] own-source-sanity=100.00%
+EV-0086 device views: L tangents=(-1.732,1.000,-1.192,1.000) pos=(-0.0349,-0.0272,0.0045) fwd=(0.001,0.014,-1.000); R tangents=(-1.000,1.732,-1.192,1.000) pos=(0.0300,-0.0251,0.0025) fwd=(0.003,0.016,-1.000); provider tangents L=R=(-1.428,1.428,-1.428,1.428); ipd=0.065
+CPU[device-L] pctInside=87.88% pctBehind=0.00% pctOOB=12.12% pctNaN=0.00% t.x=[-1.753,1.016] t.y=[-1.160,1.029] uv.x=[-0.114,0.856] uv.y=[0.140,0.906] own-source-sanity=94.40%
+CPU[device-R] pctInside=87.88% pctBehind=0.00% pctOOB=12.12% pctNaN=0.00% t.x=[-1.010,1.773] t.y=[-1.160,1.038] uv.x=[0.146,1.121] uv.y=[0.137,0.906] own-source-sanity=94.21%
+READBACK offscreen-live-view0-reproj 512x512 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-live-view0-reproj probes=25 matched=25 maxAbsErr=0.0005 status=PASS
+READBACK offscreen-live-view0-debug 512x512 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+READBACK offscreen-live-view0-flat 512x512 mean=(0.295 0.294 0.283 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=1.6% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-live-view0-flat probes=25 matched=25 maxAbsErr=0.0004 status=PASS
+READBACK offscreen-live-view0-reproj-alpha1 512x512 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-live-view0-reproj-alpha1 probes=25 matched=25 maxAbsErr=0.0005 status=PASS
+READBACK offscreen-device-L-reproj 512x512 mean=(0.250 0.250 0.254 1.000) blackOpaque=10.9% nonBlack=89.1% magenta=0.0% blue=0.5% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-device-L-reproj probes=25 matched=25 maxAbsErr=0.0011 status=PASS
+READBACK offscreen-device-L-debug 512x512 mean=(0.359 0.250 0.363 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=10.9% blue=0.5% cyan=0.0% alphaLow=0.0%
+READBACK offscreen-device-L-flat 512x512 mean=(0.295 0.294 0.283 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=1.6% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-device-L-flat probes=25 matched=25 maxAbsErr=0.0004 status=PASS
+READBACK offscreen-device-L-reproj-alpha1 512x512 mean=(0.250 0.250 0.254 1.000) blackOpaque=10.9% nonBlack=89.1% magenta=0.0% blue=0.5% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-device-L-reproj-alpha1 probes=25 matched=25 maxAbsErr=0.0011 status=PASS
+READBACK offscreen-device-R-reproj 512x512 mean=(0.253 0.252 0.248 1.000) blackOpaque=11.4% nonBlack=88.6% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-device-R-reproj probes=25 matched=25 maxAbsErr=0.0014 status=PASS
+READBACK offscreen-device-R-debug 512x512 mean=(0.366 0.252 0.362 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=11.4% blue=0.0% cyan=0.0% alphaLow=0.0%
+READBACK offscreen-device-R-flat 512x512 mean=(0.295 0.294 0.283 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=1.6% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-device-R-flat probes=25 matched=25 maxAbsErr=0.0004 status=PASS
+READBACK offscreen-device-R-reproj-alpha1 512x512 mean=(0.253 0.252 0.248 1.000) blackOpaque=11.4% nonBlack=88.6% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-device-R-reproj-alpha1 probes=25 matched=25 maxAbsErr=0.0014 status=PASS
+READBACK offscreen-live-view0-alpha0tex-reproj 512x512 mean=(0.284 0.284 0.284 0.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=100.0%
+VALIDATE offscreen-live-view0-alpha0tex-reproj probes=25 matched=25 maxAbsErr=0.0005 status=PASS
+READBACK offscreen-live-view0-alpha0tex-reproj-alpha1 512x512 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-live-view0-alpha0tex-reproj-alpha1 probes=25 matched=25 maxAbsErr=0.0005 status=PASS
+READBACK offscreen-live-view0-fullpattern-reproj 512x512 mean=(0.295 0.294 0.283 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=1.6% cyan=0.0% alphaLow=0.0%
+VALIDATE offscreen-live-view0-fullpattern-reproj probes=25 matched=25 maxAbsErr=0.0004 status=PASS
+READBACK offscreen-live-view0-black-texture-reproj-alpha1 512x512 mean=(0.000 0.000 0.000 1.000) blackOpaque=100.0% nonBlack=0.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+READBACK drawable-01-reproj-depth 3840x2160 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE drawable-01-reproj-depth probes=25 matched=25 maxAbsErr=0.0002 status=PASS
+READBACK drawable-02-debug-depth 3840x2160 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+READBACK drawable-03-flat-depth 3840x2160 mean=(0.295 0.294 0.283 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=1.6% cyan=0.0% alphaLow=0.0%
+VALIDATE drawable-03-flat-depth probes=25 matched=25 maxAbsErr=0.0009 status=PASS
+READBACK drawable-04-reproj-nodepth 3840x2160 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE drawable-04-reproj-nodepth probes=25 matched=25 maxAbsErr=0.0002 status=PASS
+READBACK drawable-05-reproj-alpha1-alpha0tex 3840x2160 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE drawable-05-reproj-alpha1-alpha0tex probes=25 matched=25 maxAbsErr=0.0002 status=PASS
+READBACK drawable-06-reproj-alpha0tex 3840x2160 mean=(0.284 0.284 0.284 0.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=100.0%
+VALIDATE drawable-06-reproj-alpha0tex probes=25 matched=25 maxAbsErr=0.0002 status=PASS
+READBACK drawable-07-reproj-norrm 3840x2160 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE drawable-07-reproj-norrm probes=25 matched=25 maxAbsErr=0.0002 status=PASS
+READBACK drawable-08-reproj-final 3840x2160 mean=(0.284 0.284 0.284 1.000) blackOpaque=0.0% nonBlack=100.0% magenta=0.0% blue=0.0% cyan=0.0% alphaLow=0.0%
+VALIDATE drawable-08-reproj-final probes=25 matched=25 maxAbsErr=0.0002 status=PASS

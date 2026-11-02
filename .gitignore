@@ -33,3 +33,6 @@
 
 # XcodeGen-generated projects for probes
 runtime/probes/*/*.xcodeproj
+# Probe run artifacts (readback images/logs): local only, bundled into evidence/EV-* instead
+runtime/probes/*/results/
+runtime/probes/*/build/

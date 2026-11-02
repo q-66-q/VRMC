@@ -1,0 +1,26 @@
+name: M3BProbe
+options:
+  bundleIdPrefix: dev.vrmc
+  deploymentTarget:
+    visionOS: "27.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.m3b
+    TARGETED_DEVICE_FAMILY: "7"
+    SWIFT_VERSION: "5.9"
+targets:
+  M3BProbe:
+    type: application
+    platform: visionOS
+    sources:
+      - Sources
+    settings:
+      base:
+        INFOPLIST_KEY_NSWorldSensingUsageDescription: "VRMC M3b probe logs head poses for reprojection validation."
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Bridging.h
+        OTHER_LDFLAGS: "-framework ARKit -framework Metal -framework CompositorServices -framework ImageIO -framework CoreGraphics"

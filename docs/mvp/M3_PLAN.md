@@ -309,3 +309,85 @@ Next: add CPU-side center/corner ray→UV diagnostics to validate `invProjection
 and frustum mapping (black implies all rays fall outside the provider frustum or a sign/convention error);
 find a working way to hide the window chrome/scene; investigate generation-2 invalidation. `export/`
 contains this evidence (`logs/*fixes-run*`, `evidence/EV-0086.md`).
+
+## 17. M3b — EV-0086 black/chrome/re-entry hardening (EV-0087, build/static validation)
+
+Status: **PARTIAL (build/static only; device run NOT RUN, next EV-0088)**. This iteration answered the
+EV-0086 "is our reprojection math producing black?" question with code/convention evidence, made the next
+device run decisive and non-silent, and fixed the architectural cause of the window-chrome regression.
+
+### 17.1 Findings (code/convention evidence, not device evidence)
+
+- **The compositor's reprojection math is not the cause of the all-black frame.** A macOS Metal unit test
+  (`runtime/probes/m3b-shader-test`, same MSL + uniform layout as the shipping compositor) and a
+  visionOS-simulator probe (`runtime/probes/m3b-reproj`, exact shader + drawable pass) both validate the
+  math. Replaying the `cp_drawable_compute_projection`/ray→UV pipeline on the **EV-0086 device views**
+  reconstructed from the device log maps **87.88 % of each eye inside the provider 110° frustum**, with
+  **0 % behind-camera rays, 0 % NaN**, only a ~12 % outer-edge border outside (expected: the drawable
+  frustum is wider than the provider FOV). Roll ±20° moves coverage only to 87.9–89.7 %.
+- The simulator drawable (1 view, 3840×2160 RGBA16Float, identity view transform) confirms
+  `cp_axis_direction_convention_right_up_back` = +x right / +y up / forward −z and
+  `cp_view_get_transform` = view→device, and cross-checks the derived tangents against the deprecated
+  `cp_view_get_tangents`.
+- Feeding an **all-black provider texture** through the exact shader reproduces the EV-0086 symptom exactly
+  (100 % opaque black), i.e. a black/unsynced provider eye image is the remaining explanation on the
+  compositor-visible path; depth attachment / rasterization-rate map / clearDepth variants are byte-identical.
+- **Window chrome root cause proven in the simulator**: `WindowGroup.persistentSystemOverlays(.hidden)` does
+  hide the visionOS window chrome, but the preference dies when Amethyst's
+  `UIKit_launchMinecraftSurfaceVC` **replaces the window's root view controller** with
+  `SurfaceViewController` (the SwiftUI `WindowGroup` view is destroyed). Alternatives tested and rejected:
+  `.windowStyle(.plain)` (visionOS ignores it for chrome), private `UIWindowScene` ornament APIs, hiding the
+  internal ornament window. Dismissing the last scene/window is ignored by the system (and would risk the
+  game renderer).
+- **Generation-2 invalidation**: the gen-2 layer invalidated before its first frame; the most plausible cause
+  is a reopen racing the previous space's deferred teardown (background stop issued while the previous dismiss
+  was still pending). Hardened as below.
+
+### 17.2 Changes
+
+- **Compositor** (`runtime/native-shell/Sources/VRMCCompositor.mm`):
+  - one-time CPU ray→UV + per-eye 9×9 coverage diagnostics (center/corners, `d.z` sign, NaN, in-frustum  %),
+    raw projection/view matrices and per-view texture-map viewport logged;
+  - provider eye-texture **32×32 centre readback** (mean RGB, alpha, luma) every ~300 frames; if both eyes read
+    back black twice, the compositor auto-switches to a procedural **test pattern** so the next device run can
+    tell "presentation alive, provider image black" from "presentation broken";
+  - no silent black: out-of-frustum UVs clamp, behind-camera/NaN falls back to flat sampling, sampled colour
+    is forced opaque (alpha = 1), a magenta/blue/orange debug shading mode is available via
+    `Documents/vrmc-reproj-debug.flag`;
+  - uses `cp_view_texture_map` texture index/slice/viewport (dedicated layout), an explicit always/no-write
+    depth-stencil state, and logs **command-buffer completion/failure** (status + error) so a failing present
+    path is visible in the log;
+  - Documents flags: `vrmc-reproj-off.flag` (flat), `vrmc-reproj-on.flag` (force reprojection),
+    `vrmc-reproj-debug.flag`, `vrmc-test-pattern.flag`, `vrmc-no-sampling.flag`;
+  - mode badge: the top 1.5 % of the image is tinted by the active path (red = reprojection, green = flat,
+    blue = test pattern) so an operator report can name the path.
+- **Shell** (`runtime/native-shell/Sources/Shell.swift`): epoch-guarded open/dismiss Tasks (stale teardown
+  cannot kill a newer session), foreground app + window-scene-active gating, confirmed dismiss + settle before
+  reopen, compositor-ended generation filtering, and a bounded auto-retry (2) when a layer dies right after
+  opening; all existing `[shell]` log lines kept/extended (`epoch=…`, `ignoring stale generation`,
+  `auto-retry n/2`, `chrome=…`).
+- **Amethyst patch** (`patches/vrmc-m3w3-modal-game-surface.patch`, applied by `scripts/build_launcher.sh`):
+  the game surface is now **presented modally over the live SwiftUI hosting controller** instead of replacing
+  the window root, so the WindowGroup scene survives the game launch and `persistentSystemOverlays(.hidden)`
+  keeps the chrome hidden. Amethyst code that assumed `window.rootViewController` was the
+  `SurfaceViewController` now uses `vrmcCurrentSurfaceViewController()` (input, gyro/controller, external
+  display, sdl3 view lookup, `isRunning`, resolution sync). Escape hatch:
+  `Documents/vrmc-legacy-root-swap.flag` restores the EV-0086 behaviour. `Documents/vrmc-hide-chrome-always.flag`
+  keeps the chrome hidden for the whole launch (A/B).
+- **Build/stage tooling**: `scripts/build_provider.sh` (javac 25 + jar, no Gradle), `scripts/build_bridge.sh`
+  (arm64-ios cross-build + `vtool` visionOS retag, host target optional), `scripts/stage_native_app.sh`
+  (swap framework/bridge, embed profile, re-sign 169 Mach-O, verify) and `scripts/push_provider_jar.sh`
+  (devicectl app-container upload + sha256 round-trip). The Amethyst native executable itself can be rebuilt
+  without the full payload using the documented cmake invocation + `vtool -set-build-version 11 1.0 1.0`.
+
+### 17.3 Next device run (EV-0088) — what to do and what the log will prove
+
+1. Install/launch the staged M3b app, StikDebug → Enable JIT, Play, wait for the auto-open (15 s).
+2. Capture `Documents/vrmc-compositor.log`, `Documents/vrmc-shell.log`, `latestlog.txt` and crash logs.
+3. Read the decisive lines: `diag view N …` (conventions/coverage), `provider tex L/R …` (provider image
+   luma/alpha), `frame N command buffer FAILED` / `completed`, `shading mode=…`, `AUTO TEST-PATTERN`,
+   `VRMCImmersiveEnded generation=…` + `activity …`, `immersive session opened generation=…`.
+4. Operator observation: chrome gone? immersive content visible (badge colour tells the path)? background/
+   foreground re-entry works? If black but a test pattern is visible → provider image black (provider-side
+   sync/render); if black with no pattern → device presentation/compositor. If content is visible but
+   misaligned → compare the diag tangents/coverage with the expected values above.

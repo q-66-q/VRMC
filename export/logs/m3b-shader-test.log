@@ -1,0 +1,8 @@
+extracted 44 lines -> /tmp/vrmc-shader-test/shadercopy.metal
+PASS: MSL compiled (macOS Metal runtime)
+PASS: all pipelines built
+PASS: reprojection CPU-vs-GPU on 81 samples, mismatched=0 maxErr=0.0022 centerErr=0.0010
+  coverage: drawn=262144 green(clear)=0 black=0 of 262144 (badge rows excluded not needed)
+flat control centre rgb=(128,128,0) (expect ~127,127,*) PASS
+test-pattern control centre rgb=(255,51,51) PASS
+RESULT: ALL SHADER CHECKS PASS

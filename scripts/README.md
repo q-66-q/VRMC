@@ -10,6 +10,10 @@ One usage line: set the environment (`DEVICE=<udid>`, and where relevant `BUNDLE
 | `push_jit_script.sh` | `DEVICE=<udid> scripts/push_jit_script.sh runtime/jit/amethyst.js` |
 | `set_mc_options.sh` | `DEVICE=<udid> scripts/set_mc_options.sh` |
 | `capture_device_logs.sh` | `DEVICE=<udid> OUTDIR=/tmp/vrmc-logs scripts/capture_device_logs.sh` |
+| `build_provider.sh` | `scripts/build_provider.sh` — javac 25 + `jar` for the provider mod (no Gradle; classpath auto-resolved from Gradle caches + the Vivecraft tree); prints jar + sha256 |
+| `build_bridge.sh` | `scripts/build_bridge.sh` — `MODE=device\|host\|both` (default device): clang cross-build + `vtool` visionOS retag; verifies platform/symbols |
+| `stage_native_app.sh` | `scripts/stage_native_app.sh <VRMCShell.framework> [libvrmc_bridge.dylib]` — copy the EV-0086 app bundle, swap framework/dylib, embed profile, re-sign 169 Mach-O, `codesign --verify --deep --strict`; never installs (`DRY_RUN=1` preview) |
+| `push_provider_jar.sh` | `scripts/push_provider_jar.sh [jar]` — `devicectl device copy to` the app data container `Documents/instances/default/mods/vrmc-provider.jar` + sha256 round-trip |
 
 All are re-runnable. `sign_ipa.sh` re-signs every Mach-O in the bundle and embeds the profile;
 `install_device.sh` retries installs and can uninstall a bundle id first.

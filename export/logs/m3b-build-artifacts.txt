@@ -1,0 +1,21 @@
+M3b build/deploy artifact summary
+date: 2026-11-01T14:08:16-10:00
+
+framework (unsigned build):
+09052f251403570e108f284a0e0405e8ce01f949a49fdfcf8c46cda6c2eca2d0  /Volumes/Untitled/Projects/VRMC/runtime/native-shell/build/VRMCShell.framework/VRMCShell
+framework (embedded in installed app, signed):
+4880ab19e2bf2b2e4cf124e1e6026e877a03e31d39aa5b41662b7a667e24e2ef  /tmp/VRMC-native-m3b.app/Frameworks/VRMCShell.framework/VRMCShell
+bridge dylib (device build):
+deae9132f5e5a1ebc1d6d1102e13bb5645ce9be3a88e6c803ce65fd19dbfdd39  /tmp/vrmc-bridge-build/libvrmc_bridge.dylib
+bridge dylib (embedded in installed app, signed):
+b7af2c77206670e3962968d25f3e2eb020a181311f91a9c9fb6b7abb7c2186f1  /tmp/VRMC-native-m3b.app/Frameworks/libvrmc_bridge.dylib
+app executable (patched Amethyst, signed):
+52880363be47c1142466e8177691704fe1917ce31aba5179ff1e55a4d14b2e5e  /tmp/VRMC-native-m3b.app/AngelAuraAmethyst
+app tree sha256:
+19a7078bbfe20c04364c03fdf7aa4b0a192d85aecc1285c7d8a6fbf5e942fe26  (app tree)
+provider jar:
+80ea3a757243e5eacfe655eb75d397b9bacdda80c3b98fea652edd7262e1f9ea  /tmp/vrmc-provider-build/vrmc-provider.jar
+
+patched game-surface guard present in the executable:
+  [VRMC] game surface presented modally over the SwiftUI host
+  [VRMC] dismissing stale presented view controller before the game surface
