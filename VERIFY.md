@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0090`.
+**Next evidence ID:** `EV-0091`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -2310,7 +2310,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Procedure:**
 
 1. Integrate M3b fixes: VRMCCompositor diagnostics/no-black fallbacks/black-texture detection; Shell.swift epoch-guarded reopen + scene-activity gating + chrome mode; Amethyst modal game-surface patch (vrmc-m3w3) keeping the SwiftUI scene alive; build/stage scripts; provider/bridge built reproducibly.
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL (EV-0083/84/86). **M3b/alignment fix staged (EV-0087 static, EV-0088 host PASS):** macstream Phase 8 root causes 3+4 ported — compositor publishes display views (per-eye tangents + eye-to-head transforms + measured IPD) to the provider; provider renders the headset's asymmetric frustum with head-relative eye matrices and invalidates cached projections; compositor flat-maps the eye textures. Offline frustum/bridge/provider checks pass; app+bridge+provider built/installed. **Device run of the three issues is the remaining verification (EV-0089).** |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Display-view alignment fix (macstream Phase 8 root causes 3+4)**: compositor publishes per-eye tangents + head-relative eye transforms + measured IPD; provider renders display frustum and flat mapping; device run confirmed display views live and right-eye transform exact — found/fixed a **JNI grouped-vs-interleaved layout bug** that corrupted the left-eye transform (EV-0090). App rebuilt/installed; relaunch pending. Provider eye textures in that run were dark menu-world content (world58, luma 14-59), so pre-fix pure black was partly content. |
 3. Build Amethyst native executable from vendor/amethyst-build + patches 1-4 via cmake (Debug, iphoneos sysroot) then vtool -set-build-version 11 1.0 1.0; stage into the EV-0086 app bundle with new framework + rebuilt bridge, re-sign 169 Mach-O, codesign --verify --deep --strict.
 4. Install the staged app on D1 with devicectl (update install, data container preserved).
 5. Code/convention validation: macOS Metal shader unit test (runtime/probes/m3b-shader-test) and visionOS simulator reprojection probe (runtime/probes/m3b-reproj) incl. reconstructed EV-0086 device views.
@@ -2392,6 +2392,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Display-view alignment fix (EV-0088) is built/installed but device-locked; alignment device run pending.
 
+### EV-0090 — M3-W3/W4 device run PARTIAL: display views live; found/fixed JNI grouped-vs-interleaved left-eye transform bug; pre-fix pure black (dark menu world + wrong left transform)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:35:43-10:00 |
+| Commit | `65594d8e72d64e7ac1474eb5eeaec560222313af` |
+| Dirty state | ridge/src/vrmc_jni.c, scripts/tests/DisplayViewsLayoutTest.c |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. run game with display-view build; pull shell/compositor/latestlog; compare published vs applied eye transforms; add layout test; fix JNI
+
+**Expected:** applied left/right eye transforms match published display views; aligned non-black image
+
+**Actual:** Compositor published display views (L tangents -1.732/1.000/1.000/-1.192, Lpos(-0.0328,-0.0259,-0.0403), Rpos(0.0311,-0.0250,-0.0404), ipd 0.0639), sampled provider textures (dark menu-world content, luma 14-59), frames 6360, flat mode. Provider applied RIGHT correctly but LEFT Lpos=(-0.0024,-0.0155,0.9999): JNI grouped layout vs provider interleaved layout bug. Operator saw pure black. JNI fixed to interleaved per-eye; DisplayViewsLayoutTest PASS; app rebuilt/installed; relaunch pending.
+
+**Artifacts:** evidence/EV-0090/latestlog.txt (ae1dcc0b8ddd); evidence/EV-0090/vrmc-compositor.log (e956e49b44fa); evidence/EV-0090/vrmc-shell.log (aede819e1ab8); evidence/EV-0090/display-views-layout.log (0ff05a7324be); evidence/EV-0090/summary.log (e9de6a9fcaf4)
+
+**Limitations:** Pre-fix black explained by (a) dark menu world world58 and (b) corrupted left-eye transform. Relaunch after install to verify applied Lpos/Rpos and visual.
+
 ---
 
 ## 7. Status dashboard
@@ -2406,7 +2429,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
 | **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL (EV-0083/84/86). **M3b/alignment fix staged (EV-0087 static, EV-0088 host PASS):** macstream Phase 8 root causes 3+4 ported — compositor publishes display views (per-eye tangents + eye-to-head transforms + measured IPD) to the provider; provider renders the headset's asymmetric frustum with head-relative eye matrices and invalidates cached projections; compositor flat-maps the eye textures. Offline frustum/bridge/provider checks pass; app+bridge+provider built/installed. **Device run of the three issues is the remaining verification (EV-0089).** |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Display-view alignment fix (macstream Phase 8 root causes 3+4)**: compositor publishes per-eye tangents + head-relative eye transforms + measured IPD; provider renders display frustum and flat mapping; device run confirmed display views live and right-eye transform exact — found/fixed a **JNI grouped-vs-interleaved layout bug** that corrupted the left-eye transform (EV-0090). App rebuilt/installed; relaunch pending. Provider eye textures in that run were dark menu-world content (world58, luma 14-59), so pre-fix pure black was partly content. |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -2518,4 +2541,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Verification owner | — | pending | — |
 | Lead | — | pending | — |
 | 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported: compositor `vrmc_shared_set_display_views` (per-eye `cp_view_get_tangents` + `cp_view_get_transform` + measured IPD); provider `getDisplayViews` renders `frustum(l·n,r·n,d·n,u·n)` with head-relative eye matrices and NaN cache invalidation; compositor switches to flat 1:1 mapping (reprojection/black branch bypassed). Host checks all PASS: DisplayViewsTest (both device display views + symmetric fallback, corners exact, straight-ahead NDC offset formula), bridge stub display-view roundtrip, provider javac. App+shell+bridge rebuilt/signed/installed; provider jar rebuilt/pushed/hash-verified. **Device run NOT RUN → next EV-0089.** |
-| 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported (display views, head-relative eye matrices, asymmetric per-eye frustum, NaN projection cache invalidation, flat mapping); offline frustum/bridge/provider checks PASS; app+bridge+provider built/installed. **EV-0089 (`PARTIAL`): recovered M3b device logs** — provider eye textures valid non-black (L/R mean RGB), first command buffer completed, chrome/windows parked/hidden; session backgrounded before visual alignment check. Device locked; alignment device run pending. Next ID `EV-0090`. |
+| 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported (display views, head-relative eye matrices, asymmetric per-eye frustum, NaN projection cache invalidation, flat mapping); offline frustum/bridge/provider checks PASS; app+bridge+provider built/installed. **EV-0089 (`PARTIAL`): recovered M3b device logs** — provider eye textures valid non-black (L/R mean RGB), first command buffer completed, chrome/windows parked/hidden; session backgrounded before visual alignment check. Device locked; alignment device run pending. Next ID `EV-0090`. || 2026-11-01 | **EV-0090 (`PARTIAL`): display-view device run** — compositor published display views and flat-sampled provider textures (frames 6360; L tangents -1.732/1.000/1.000/-1.192, Lpos(-0.0328,-0.0259,-0.0403), Rpos(0.0311,-0.0250,-0.0404), ipd 0.0639; provider textures dark menu world world58 luma 14–59). Provider applied RIGHT exactly but LEFT was garbage due JNI grouped vs provider interleaved layout; fixed to interleaved per-eye, `DisplayViewsLayoutTest` PASS, app rebuilt/installed; relaunch pending. Next ID `EV-0091`. |

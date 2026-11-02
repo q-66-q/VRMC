@@ -68,12 +68,14 @@ JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeGetDispla
     vrmc_display_views views;
     uint32_t gen = vrmc_shared_get_display_views(&views);
     if (gen == 0) return 0;
-    /* Floats only (no generation), layout: L tangents 4, R tangents 4, L matrix 16, R matrix 16, ipd 1. */
+    /* Floats only (no generation). Layout MUST match VisionVR.pollDisplayViews():
+     *   per eye (left then right): tangents[4], eye_to_head matrix[16]; then ipd.
+     * Byte offsets: L tangents 0, L matrix 16, R tangents 80, R matrix 96, ipd 160. */
     memcpy(base, views.left_tangents, 4 * sizeof(float));
-    memcpy(base + 4 * sizeof(float), views.right_tangents, 4 * sizeof(float));
-    memcpy(base + 8 * sizeof(float), views.left_eye_to_head, 16 * sizeof(float));
-    memcpy(base + 24 * sizeof(float), views.right_eye_to_head, 16 * sizeof(float));
-    memcpy(base + 40 * sizeof(float), &views.ipd_m, sizeof(float));
+    memcpy(base + 16, views.left_eye_to_head, 16 * sizeof(float));
+    memcpy(base + 80, views.right_tangents, 4 * sizeof(float));
+    memcpy(base + 96, views.right_eye_to_head, 16 * sizeof(float));
+    memcpy(base + 160, &views.ipd_m, sizeof(float));
     return (jlong)gen;
 }
 
