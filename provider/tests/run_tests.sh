@@ -157,6 +157,8 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionHandPoseTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionPoseSmootherTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionGazeMathTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionMiddleGestureTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionLocomotionTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -191,6 +193,20 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-gaze-test\] [0-9]+ checks" "$T/m4-gaze.log"
   else
     cat "$T/m4-gaze.log"; fail "m4-gaze"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionMiddleGestureTest > "$T/m4-middle.log" 2>&1 \
+     && grep -q "\[m4-middle-test\] PASS" "$T/m4-middle.log"; then
+    echo "[provider-tests] m4-middle: PASS (middle pinch hysteresis/tap/double-tap/bindings/loss)"
+    grep -E "\[m4-middle-test\] [0-9]+ checks" "$T/m4-middle.log"
+  else
+    cat "$T/m4-middle.log"; fail "m4-middle"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionLocomotionTest > "$T/m4-locomotion.log" 2>&1 \
+     && grep -q "\[m4-locomotion-test\] PASS" "$T/m4-locomotion.log"; then
+    echo "[provider-tests] m4-locomotion: PASS (middle-pinch virtual stick axes/deadzone)"
+    grep -E "\[m4-locomotion-test\] [0-9]+ checks" "$T/m4-locomotion.log"
+  else
+    cat "$T/m4-locomotion.log"; fail "m4-locomotion"
   fi
   # Cross-language fixture: set-but-missing must FAIL; unset is an explicit SKIP (never silent).
   FIXTURE="${VRMC_INPUT_FIXTURE:-}"

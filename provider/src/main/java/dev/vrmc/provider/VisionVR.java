@@ -92,6 +92,14 @@ public class VisionVR extends MCVR {
     /** M4-W2 One-Euro hand-pose smoothers, indexed by controller (0 = right, 1 = left). */
     private VisionPoseSmoother[] poseSmoothers;
     private VisionPoseSmoother.Config smoothingConfig;
+    // M4-W3 locomotion tuning + snap-turn pulse state.
+    private float moveOriginZ = VisionLocomotion.DEFAULT_ORIGIN_Z;
+    private float moveForwardScale = VisionLocomotion.DEFAULT_FORWARD_SCALE;
+    private float moveStrafeScale = VisionLocomotion.DEFAULT_STRAFE_SCALE;
+    private float moveDeadzone = VisionLocomotion.DEFAULT_DEADZONE;
+    private long rotatePulseNanos = 120_000_000L;
+    private long rotatePulseUntilNs;
+    private int rotatePulseDirection;
     private VRInputAction[] bindingActions;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
@@ -175,12 +183,25 @@ public class VisionVR extends MCVR {
         Map<String, String> tuning = loadInputTuning();
         this.visionInput = new VisionInput(tuning);
         this.smoothingConfig = loadSmoothingConfig(tuning);
+        this.moveOriginZ = floatValue(tuning, "move.originZ", "vrmc.input.move.originZ", this.moveOriginZ);
+        this.moveForwardScale = floatValue(tuning, "move.forwardScale", "vrmc.input.move.forwardScale", this.moveForwardScale);
+        this.moveStrafeScale = floatValue(tuning, "move.strafeScale", "vrmc.input.move.strafeScale", this.moveStrafeScale);
+        this.moveDeadzone = floatValue(tuning, "move.deadzone", "vrmc.input.move.deadzone", this.moveDeadzone);
+        this.rotatePulseNanos = (long) (floatValue(tuning, "move.rotatePulseMs", "vrmc.input.move.rotatePulseMs",
+            (float) (this.rotatePulseNanos / 1_000_000L)) * 1_000_000L);
         this.poseSmoothers = new VisionPoseSmoother[] {
             new VisionPoseSmoother(this.smoothingConfig),
             new VisionPoseSmoother(this.smoothingConfig)
         };
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
+        System.out.printf("[VRMC-M4] locomotion: middleEnabled=%s virtual stick originZ=%.2f forwardScale=%.2f "
+                + "strafeScale=%.2f deadzone=%.2f rotatePulseMs=%d middleOn=%.3f middleOff=%.3f "
+                + "middleTapMs=%.0f middleDoubleMs=%.0f%n",
+            this.visionInput.middleEnabled(), this.moveOriginZ, this.moveForwardScale,
+            this.moveStrafeScale, this.moveDeadzone, this.rotatePulseNanos / 1_000_000L,
+            this.visionInput.middleOn(), this.visionInput.middleOff(),
+            (double) this.visionInput.middleTapMillis(), (double) this.visionInput.middleDoubleMillis());
 
         this.initialized = true;
         this.initSuccess = true;
@@ -913,6 +934,87 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /**
+     * M4-W3 locomotion: while the left middle pinch is held, the left wrist relative to the head is a
+     * virtual stick (forward/strafe) written to Vivecraft's {@code keyFreeMoveStrafe}. A left
+     * middle-pinch tap / double-tap pulses the snap-turn analog actions. Everything is zeroed in GUI,
+     * seated mode, or when the input channel is unhealthy; no analog value can stick on tracking loss.
+     */
+    private void applyLocomotion() {
+        long now = System.nanoTime();
+        boolean usable = this.visionInput != null && this.visionInput.isInputHealthy()
+            && !this.visionInput.isStale() && !this.dh.vrSettings.seated
+            && this.mc.gui.screen() == null && !KeyboardHandler.SHOWING;
+        float x = 0.0F;
+        float y = 0.0F;
+        if (usable && this.visionInput.middlePressed(VisionInput.HAND_LEFT)) {
+            Vector2f axes = VisionLocomotion.axes(
+                this.visionInput.wristX(VisionInput.HAND_LEFT),
+                this.visionInput.wristY(VisionInput.HAND_LEFT),
+                this.visionInput.wristZ(VisionInput.HAND_LEFT),
+                this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
+                this.moveOriginZ, this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone);
+            x = axes.x;
+            y = axes.y;
+        }
+        VRInputAction strafe = this.getInputAction(VivecraftVRMod.INSTANCE.keyFreeMoveStrafe);
+        if (strafe != null) {
+            writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), x, y, VisionInput.ORIGIN_LEFT);
+        }
+        // Snap turn: a tap = left, a double-tap = right. The action data is a short pulse because
+        // MCVR reads getAxis1DUseTracked() (vector1) rather than a digital edge.
+        if (usable) {
+            if (this.visionInput.middleDoubleTapPressed(VisionInput.HAND_LEFT)) {
+                this.rotatePulseDirection = 1;
+                this.rotatePulseUntilNs = now + this.rotatePulseNanos;
+            } else if (this.visionInput.middleTapPressed(VisionInput.HAND_LEFT)) {
+                this.rotatePulseDirection = -1;
+                this.rotatePulseUntilNs = now + this.rotatePulseNanos;
+            }
+        } else {
+            this.rotatePulseDirection = 0;
+            this.rotatePulseUntilNs = 0L;
+        }
+        boolean pulse = this.rotatePulseDirection != 0 && now < this.rotatePulseUntilNs;
+        VRInputAction rotateLeft = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateLeft);
+        VRInputAction rotateRight = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateRight);
+        if (rotateLeft != null) {
+            writeAnalog1D(rotateLeft, ControllerType.RIGHT.ordinal(),
+                pulse && this.rotatePulseDirection < 0 ? 1.0F : 0.0F, VisionInput.ORIGIN_LEFT);
+        }
+        if (rotateRight != null) {
+            writeAnalog1D(rotateRight, ControllerType.RIGHT.ordinal(),
+                pulse && this.rotatePulseDirection > 0 ? 1.0F : 0.0F, VisionInput.ORIGIN_LEFT);
+        }
+        if (!pulse) {
+            this.rotatePulseDirection = 0;
+        }
+    }
+
+    private static void writeAnalog2D(VRInputAction action, int slot, float x, float y, long origin) {
+        VRInputAction.AnalogData a = action.analogData[slot];
+        a.deltaX = -a.x;
+        a.deltaY = -a.y;
+        a.deltaZ = -a.z;
+        a.x = x;
+        a.y = y;
+        a.z = 0.0F;
+        a.isChanged = a.deltaX != 0.0F || a.deltaY != 0.0F || a.deltaZ != 0.0F;
+        a.isActive = true;
+        a.activeOrigin = origin;
+    }
+
+    private static void writeAnalog1D(VRInputAction action, int slot, float x, long origin) {
+        VRInputAction.AnalogData a = action.analogData[slot];
+        a.deltaX = -a.x;
+        a.x = x;
+        a.y = 0.0F;
+        a.z = 0.0F;
+        a.isChanged = a.deltaX != 0.0F;
+        a.isActive = true;
+        a.activeOrigin = origin;
+    }
+
     private static void writeDigital(VRInputAction action, int slot, boolean active, boolean state, long origin) {
         VRInputAction.DigitalData d = action.digitalData[slot];
         d.isChanged = d.state != state;
@@ -976,6 +1078,7 @@ public class VisionVR extends MCVR {
         this.visionInput.setEnvironment(screenOpen, this.dh.vrSettings.ingameBindingsInGui, keyboardShowing);
 
         this.applyActionData();
+        this.applyLocomotion();
 
         for (VRInputAction action : this.inputActions.values()) {
             if (action.isHanded()) {

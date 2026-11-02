@@ -10,7 +10,7 @@ it does not override AGENT.md/VERIFY.md evidence rules.
 Current: W1 PASS on device (EV-0096); W2 smooth hands (EV-0097 host), shutdown hardening (EV-0097
 host), gaze tracking areas (EV-0098 host build/tests; runtime/device NOT RUN).
 
-1. **W3 locomotion + core actions (next):** middle-finger pinch gesture family (thumb–middle) as a
+1. **W3 locomotion + core actions (HOST PASS, EV-0099; device pending):** middle-finger pinch gesture family (thumb–middle) as a
    conflict-free chord alongside the existing thumb–index pinch:
    - left middle-pinch hold -> analog free-move virtual stick derived from the left wrist relative to
      the head (forward/strafe), written to `vivecraft.key.freeMoveStrafe`;

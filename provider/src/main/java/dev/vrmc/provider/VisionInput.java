@@ -82,6 +82,9 @@ public final class VisionInput {
     public static final String KEY_ATTACK = "key.attack";
     public static final String KEY_USE = "key.use";
     public static final String KEY_INVENTORY = "key.inventory";
+    // M4-W3 middle-pinch family (thumb tip to middle tip; disjoint from the thumb-index pinch).
+    public static final String KEY_JUMP = "key.jump";
+    public static final String KEY_SNEAK = "key.sneak";
     public static final String KEY_TELEPORT = "vivecraft.key.teleport";
     public static final String KEY_VR_INTERACT = "vivecraft.key.vrInteract";
     public static final String KEY_CLIMBEY_GRAB = "vivecraft.key.climbeyGrab";
@@ -97,6 +100,12 @@ public final class VisionInput {
     public static final String TUNE_PINCH_OFF = "pinch.off";
     public static final String TUNE_FIST_ON = "fist.on";
     public static final String TUNE_FIST_OFF = "fist.off";
+    public static final String TUNE_MIDDLE_ON = "middle.on";
+    public static final String TUNE_MIDDLE_OFF = "middle.off";
+    public static final String TUNE_MIDDLE_TAP_MS = "middle.tapMs";
+    public static final String TUNE_MIDDLE_DOUBLE_MS = "middle.doubleMs";
+    /** A/B safety switch: the whole M4-W3 middle-pinch family (default ON; set false to keep W1-only). */
+    public static final String TUNE_MIDDLE_ENABLED = "middle.enabled";
     public static final String TUNE_FIST_HOLD_MS = "fist.hold.ms";
     public static final String TUNE_ARM_MS = "arm.ms";
     public static final String TUNE_STALE_MS = "stale.ms";
@@ -106,6 +115,11 @@ public final class VisionInput {
     public static final float DEFAULT_PINCH_OFF = 0.045F;
     public static final float DEFAULT_FIST_ON = 1.25F;
     public static final float DEFAULT_FIST_OFF = 1.55F;
+    /** Middle-pinch thresholds (metres, thumb tip to middle tip). */
+    public static final float DEFAULT_MIDDLE_ON = 0.035F;
+    public static final float DEFAULT_MIDDLE_OFF = 0.050F;
+    public static final long DEFAULT_MIDDLE_TAP_MS = 220L;
+    public static final long DEFAULT_MIDDLE_DOUBLE_MS = 320L;
     public static final long DEFAULT_FIST_HOLD_MS = 400L;
     public static final long DEFAULT_ARM_MS = 100L;
     public static final long DEFAULT_STALE_MS = 250L;
@@ -121,6 +135,9 @@ public final class VisionInput {
     private static final int SRC_PINCH = 0;
     private static final int SRC_FIST_TAP = 1;
     private static final int SRC_BOTH_FIST_TAP = 2;
+    private static final int SRC_MIDDLE_PINCH = 3;
+    private static final int SRC_MIDDLE_TAP = 4;
+    private static final int SRC_MIDDLE_DOUBLE_TAP = 5;
 
     /** One row of the design §5.4 binding table. */
     private static final class BindingDef {
@@ -151,6 +168,9 @@ public final class VisionInput {
         new BindingDef(KEY_GUI_SHIFT, HAND_LEFT, SRC_PINCH, ActionSet.GUI),
         new BindingDef(KEY_INGAME_MENU, HAND_LEFT, SRC_FIST_TAP, ActionSet.GLOBAL),
         new BindingDef(KEY_INVENTORY, HAND_NONE, SRC_BOTH_FIST_TAP, ActionSet.GLOBAL),
+        // M4-W3: middle-pinch family (left movement/snap handled as analog by VisionVR).
+        new BindingDef(KEY_JUMP, HAND_RIGHT, SRC_MIDDLE_TAP, ActionSet.INGAME),
+        new BindingDef(KEY_SNEAK, HAND_RIGHT, SRC_MIDDLE_PINCH, ActionSet.INGAME),
     };
 
     /** Unique action names in binding-table order (used to resolve VRInputActions once). */
@@ -212,6 +232,20 @@ public final class VisionInput {
         boolean fistTapFired;
         int fistTapFrames;
         boolean fistTapPressed;
+
+        // --- M4-W3 middle-pinch gesture (thumb tip 4 <-> middle tip 14) ---
+        float middleDistance = Float.NaN;
+        boolean middleRaw;
+        boolean middleArmed;
+        boolean middlePressed;
+        long middleReleasedSinceNs;
+        boolean middlePressCandidate;
+        long middlePressStartNs;
+        long lastMiddleTapNs;
+        int middleTapFrames;
+        int middleDoubleTapFrames;
+        boolean middleTapPressed;
+        boolean middleDoubleTapPressed;
     }
 
     private final Hand[] hands = {new Hand(), new Hand()};
@@ -220,6 +254,11 @@ public final class VisionInput {
     private final float pinchOff;
     private final float fistOn;
     private final float fistOff;
+    private final boolean middleEnabled;
+    private final float middleOn;
+    private final float middleOff;
+    private final long middleTapNanos;
+    private final long middleDoubleNanos;
     private final long fistHoldNanos;
     private final long armNanos;
     private final long staleNanos;
@@ -265,6 +304,11 @@ public final class VisionInput {
         this.pinchOff = tuneFloat(tune, TUNE_PINCH_OFF, DEFAULT_PINCH_OFF);
         this.fistOn = tuneFloat(tune, TUNE_FIST_ON, DEFAULT_FIST_ON);
         this.fistOff = tuneFloat(tune, TUNE_FIST_OFF, DEFAULT_FIST_OFF);
+        this.middleEnabled = tuneBool(tune, TUNE_MIDDLE_ENABLED, true);
+        this.middleOn = tuneFloat(tune, TUNE_MIDDLE_ON, DEFAULT_MIDDLE_ON);
+        this.middleOff = tuneFloat(tune, TUNE_MIDDLE_OFF, DEFAULT_MIDDLE_OFF);
+        this.middleTapNanos = tuneLong(tune, TUNE_MIDDLE_TAP_MS, DEFAULT_MIDDLE_TAP_MS) * 1_000_000L;
+        this.middleDoubleNanos = tuneLong(tune, TUNE_MIDDLE_DOUBLE_MS, DEFAULT_MIDDLE_DOUBLE_MS) * 1_000_000L;
         this.fistHoldNanos = tuneLong(tune, TUNE_FIST_HOLD_MS, DEFAULT_FIST_HOLD_MS) * 1_000_000L;
         this.armNanos = tuneLong(tune, TUNE_ARM_MS, DEFAULT_ARM_MS) * 1_000_000L;
         this.staleNanos = tuneLong(tune, TUNE_STALE_MS, DEFAULT_STALE_MS) * 1_000_000L;
@@ -284,6 +328,12 @@ public final class VisionInput {
         } catch (NumberFormatException e) {
             return def;
         }
+    }
+
+    private static boolean tuneBool(Map<String, String> tune, String key, boolean def) {
+        String raw = tuneValue(tune, key);
+        if (raw == null) return def;
+        return "true".equalsIgnoreCase(raw.trim()) || "1".equals(raw.trim());
     }
 
     private static long tuneLong(Map<String, String> tune, String key, long def) {
@@ -307,6 +357,11 @@ public final class VisionInput {
     public float pinchOff() { return this.pinchOff; }
     public float fistOn() { return this.fistOn; }
     public float fistOff() { return this.fistOff; }
+    public boolean middleEnabled() { return this.middleEnabled; }
+    public float middleOn() { return this.middleOn; }
+    public float middleOff() { return this.middleOff; }
+    public long middleTapMillis() { return this.middleTapNanos / 1_000_000L; }
+    public long middleDoubleMillis() { return this.middleDoubleNanos / 1_000_000L; }
     public long fistHoldMillis() { return this.fistHoldNanos / 1_000_000L; }
     public long armMillis() { return this.armNanos / 1_000_000L; }
     public long staleMillis() { return this.staleNanos / 1_000_000L; }
@@ -433,6 +488,7 @@ public final class VisionInput {
                 resetGestures(h);
             }
             h.pinchDistance = Float.NaN;
+            h.middleDistance = Float.NaN;
             h.fistRatio = Float.NaN;
             // "valid" return = the hand slot is a consistent untracked/valid record; mismatched
             // valid_mask bits vs the hand's own tracked word, or non-finite data, is malformed input
@@ -444,6 +500,7 @@ public final class VisionInput {
             h.tracked = true;
         }
         h.pinchDistance = distance(h.joints, VrmcBridge.JOINT_THUMB_TIP, VrmcBridge.JOINT_INDEX_TIP);
+        h.middleDistance = distance(h.joints, VrmcBridge.JOINT_THUMB_TIP, VrmcBridge.JOINT_MIDDLE_TIP);
         h.fistRatio = fistRatio(h.joints);
         return true;
     }
@@ -461,6 +518,17 @@ public final class VisionInput {
         h.fistTapFired = false;
         h.fistTapFrames = 0;
         h.fistTapPressed = false;
+        h.middleDistance = Float.NaN;
+        h.middleRaw = false;
+        h.middleArmed = false;
+        h.middlePressed = false;
+        h.middleReleasedSinceNs = nowNs;
+        h.middlePressCandidate = false;
+        h.lastMiddleTapNs = 0L;
+        h.middleTapFrames = 0;
+        h.middleDoubleTapFrames = 0;
+        h.middleTapPressed = false;
+        h.middleDoubleTapPressed = false;
     }
 
     private static void resetGestures(Hand h) {
@@ -474,6 +542,17 @@ public final class VisionInput {
         h.fistTapFired = false;
         h.fistTapFrames = 0;
         h.fistTapPressed = false;
+        h.middleDistance = Float.NaN;
+        h.middleRaw = false;
+        h.middleArmed = false;
+        h.middlePressed = false;
+        h.middleReleasedSinceNs = 0L;
+        h.middlePressCandidate = false;
+        h.lastMiddleTapNs = 0L;
+        h.middleTapFrames = 0;
+        h.middleDoubleTapFrames = 0;
+        h.middleTapPressed = false;
+        h.middleDoubleTapPressed = false;
     }
 
     /** Release both hands, both-fist state and every source (tracking loss / stale / bad poll). */
@@ -483,6 +562,7 @@ public final class VisionInput {
             h.tracked = false;
             resetGestures(h);
             h.pinchDistance = Float.NaN;
+            h.middleDistance = Float.NaN;
             h.fistRatio = Float.NaN;
         }
         this.bothFistHeld = false;
@@ -501,6 +581,7 @@ public final class VisionInput {
             }
             updateSource(h, true, h.pinchDistance, nowNs);
             updateSource(h, false, h.fistRatio, nowNs);
+            updateMiddleSource(h, nowNs);
         }
         // Both-fist chord priority (M4-W1 follow-up): while BOTH hands present the fist gesture the
         // chord owns the fist-tap gesture, so the per-hand taps are suppressed and a both-fists hold
@@ -564,6 +645,72 @@ public final class VisionInput {
             h.fistPressed = pressed;
             h.fistReleasedSinceNs = releasedSince;
         }
+    }
+
+    /**
+     * M4-W3 middle pinch: same hysteresis + released-state arming as pinch/fist, plus tap/double-tap
+     * edge detection. A middle-pinch held longer than {@code middleTapNanos} can never produce a tap on
+     * release (so the movement/sneak holds cannot accidentally snap-turn/jump); a short press yields a
+     * 2-frame pulse, and two short presses within {@code middleDoubleNanos} yield a double-tap pulse.
+     */
+    private void updateMiddleSource(Hand h, long nowNs) {
+        if (!this.middleEnabled) {
+            h.middleRaw = false;
+            h.middleArmed = false;
+            h.middlePressed = false;
+            h.middlePressCandidate = false;
+            h.middleTapFrames = 0;
+            h.middleDoubleTapFrames = 0;
+            h.middleTapPressed = false;
+            h.middleDoubleTapPressed = false;
+            return;
+        }
+        boolean wasPressed = h.middlePressed;
+        boolean raw = h.middleRaw;
+        boolean armed = h.middleArmed;
+        long releasedSince = h.middleReleasedSinceNs;
+
+        if (!armed && !raw && nowNs - releasedSince >= this.armNanos) {
+            armed = true;
+        }
+        boolean next = raw ? h.middleDistance <= this.middleOff : h.middleDistance < this.middleOn;
+        boolean pressed = next && armed;
+
+        if (next && !raw) {
+            // press edge
+            h.middlePressCandidate = true;
+            h.middlePressStartNs = nowNs;
+        }
+        if (!next && raw && wasPressed) {
+            // release edge: short press -> tap, and two taps -> double-tap
+            if (h.middlePressCandidate && nowNs - h.middlePressStartNs <= this.middleTapNanos) {
+                long last = h.lastMiddleTapNs;
+                if (last != 0L && nowNs - last <= this.middleDoubleNanos) {
+                    h.middleDoubleTapFrames = this.tapFrames;
+                    h.lastMiddleTapNs = 0L;
+                } else {
+                    h.middleTapFrames = this.tapFrames;
+                    h.lastMiddleTapNs = nowNs;
+                }
+            }
+            h.middlePressCandidate = false;
+        }
+        if (pressed && h.middlePressCandidate && nowNs - h.middlePressStartNs > this.middleTapNanos) {
+            h.middlePressCandidate = false;
+        }
+        if (next && !armed) {
+            releasedSince = nowNs;
+        } else if (!next && raw) {
+            releasedSince = nowNs;
+        }
+        h.middleRaw = next;
+        h.middleArmed = armed;
+        h.middlePressed = pressed;
+        h.middleReleasedSinceNs = releasedSince;
+        h.middleTapPressed = h.middleTapFrames > 0;
+        if (h.middleTapFrames > 0) h.middleTapFrames--;
+        h.middleDoubleTapPressed = h.middleDoubleTapFrames > 0;
+        if (h.middleDoubleTapFrames > 0) h.middleDoubleTapFrames--;
     }
 
     /**
@@ -700,6 +847,9 @@ public final class VisionInput {
             case SRC_PINCH -> hand != HAND_NONE && this.hands[hand].pinchPressed;
             case SRC_FIST_TAP -> hand != HAND_NONE && this.hands[hand].fistTapPressed;
             case SRC_BOTH_FIST_TAP -> this.bothFistTapPressed;
+            case SRC_MIDDLE_PINCH -> hand != HAND_NONE && this.hands[hand].middlePressed;
+            case SRC_MIDDLE_TAP -> hand != HAND_NONE && this.hands[hand].middleTapPressed;
+            case SRC_MIDDLE_DOUBLE_TAP -> hand != HAND_NONE && this.hands[hand].middleDoubleTapPressed;
             default -> false;
         };
     }
@@ -785,5 +935,9 @@ public final class VisionInput {
     public boolean fistRaw(int hand) { return this.hands[hand].fistRaw; }
     public boolean fistPressed(int hand) { return this.hands[hand].fistPressed; }
     public boolean fistTapPressed(int hand) { return this.hands[hand].fistTapPressed; }
+    public boolean middlePressed(int hand) { return this.hands[hand].middlePressed; }
+    public boolean middleTapPressed(int hand) { return this.hands[hand].middleTapPressed; }
+    public boolean middleDoubleTapPressed(int hand) { return this.hands[hand].middleDoubleTapPressed; }
+    public float middleDistance(int hand) { return this.hands[hand].middleDistance; }
     public boolean bothFistTapPressed() { return this.bothFistTapPressed; }
 }

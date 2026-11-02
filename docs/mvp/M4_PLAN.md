@@ -1,6 +1,6 @@
 # M4 plan — hands-only input (M4-W1: immersive-scene control)
 
-Status: **M4-W1 PASSED ON DEVICE; W2 smooth hands + shutdown hardening host+simulator PASS (EV-0097); gaze tracking-areas implementation host build/tests PASS but runtime/device NOT RUN (EV-0098).** **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
+Status: **M4-W1 PASSED ON DEVICE; W2 smooth hands + shutdown hardening host+simulator PASS (EV-0097); gaze tracking-areas host build/tests PASS but runtime/device NOT RUN (EV-0098); W3 middle-pinch locomotion/core actions host PASS (EV-0099), device NOT RUN.** **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
 (EV-0096): synthetic plumbing + real-hands operator confirmation (“It ran very well!”); two follow-ups
 recorded: a reproducible shutdown-only JVM SIGSEGV to triage, and the operator-requested W2 features
 below.** This plan is scoped to the reported defect: once the game is in the immersive space the user
@@ -130,6 +130,21 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   `onSpatialEvent` hook, compositor tracking-area grid + automatic hover mask, provider tile→GUI-plane
   mapping + pinch-confirm click. Opt-in via `Documents/vrmc-gaze.flag`. Host build/tests PASS; runtime
   mask pipeline and true-gaze behaviour are device-only and NOT RUN.
+
+## 6d. W3 progress (2026-11-01, EV-0099)
+
+- **Middle-pinch gesture family** (thumb tip ↔ middle tip, disjoint from the W1 thumb–index pinch):
+  hysteresis + released-state arming, short-tap and double-tap edge detection, long holds never
+  emit taps, tracking loss releases everything. `middle.enabled=false` keeps W1-only.
+- **Bindings:** right middle tap → `key.jump`, right middle hold → `key.sneak` (INGAME set).
+- **Locomotion:** `VisionLocomotion` maps the left wrist relative to the head to a virtual stick while
+  the left middle pinch is held; `keyFreeMoveStrafe` analog (x strafe / y forward-back) with neutral
+  band, radial deadzone and clamp; non-finite input always yields zero. Left middle tap → snap turn
+  left, double-tap → right, via `keyRotateLeft/Right` analog pulses.
+- **Tuning keys:** `middle.enabled/on/off/tapMs/doubleMs`, `move.originZ/forwardScale/strafeScale/
+  deadzone/rotatePulseMs` in `vrmc-input-tune.properties` or `-Dvrmc.input.*`.
+- **Evidence:** m4-middle 15 checks + m4-locomotion 7 checks PASS, provider suite ALL PASS; real-hands
+  threshold/feel tuning and AC-4 checklist remain device-only (W5).
 
 ## 7. W2+ backlog (unchanged milestone content)
 

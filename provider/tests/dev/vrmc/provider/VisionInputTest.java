@@ -546,15 +546,17 @@ public final class VisionInputTest {
             "vivecraft.key.guiLeftClick|1|GUI|2",
             "vivecraft.key.guiRightClick|1|GUI|2",
             "vivecraft.key.guiShift|0|GUI|1",
-            "vivecraft.key.ingameMenuButton|0|GLOBAL|1"));
+            "vivecraft.key.ingameMenuButton|0|GLOBAL|1",
+            "key.jump|1|INGAME|2",
+            "key.sneak|1|INGAME|2"));
         Collections.sort(expected);
-        check("exactly 12 binding rows", in.bindingCount() == expected.size());
+        check("exactly 14 binding rows (W1 + W3 middle jump/sneak)", in.bindingCount() == expected.size());
         check("binding table matches design §5.4 exactly", actual.equals(expected));
         if (!actual.equals(expected)) {
             System.out.println("  actual  =" + actual);
             System.out.println("  expected=" + expected);
         }
-        check("10 unique bound actions", VisionInput.ACTION_NAMES.length == 10);
+        check("12 unique bound actions", VisionInput.ACTION_NAMES.length == 12);
         checkEquals("key.attack origins", VisionInput.origins(VisionInput.KEY_ATTACK), 2L);
         checkEquals("teleport origins", VisionInput.origins(VisionInput.KEY_TELEPORT), 1L);
         checkEquals("guiShift origins", VisionInput.origins(VisionInput.KEY_GUI_SHIFT), 1L);
@@ -562,13 +564,14 @@ public final class VisionInputTest {
         checkList("vrInteract origins L+R", VisionInput.origins(VisionInput.KEY_VR_INTERACT), 1L, 2L);
         checkList("climbeyGrab origins L+R", VisionInput.origins(VisionInput.KEY_CLIMBEY_GRAB), 1L, 2L);
         checkList("inventory origins (both fists)", VisionInput.origins(VisionInput.KEY_INVENTORY), 1L, 2L);
-        checkList("unbound action has no origins", VisionInput.origins("key.jump"), new Long[0]);
-        check("all 10 design names are bound",
+        checkList("unbound action has no origins", VisionInput.origins("key.chat"), new Long[0]);
+        check("all 12 design names are bound (W1 + jump/sneak)",
             in.isBound(VisionInput.KEY_ATTACK) && in.isBound(VisionInput.KEY_USE)
                 && in.isBound(VisionInput.KEY_INVENTORY) && in.isBound(VisionInput.KEY_TELEPORT)
                 && in.isBound(VisionInput.KEY_VR_INTERACT) && in.isBound(VisionInput.KEY_CLIMBEY_GRAB)
                 && in.isBound(VisionInput.KEY_GUI_LEFT_CLICK) && in.isBound(VisionInput.KEY_GUI_RIGHT_CLICK)
-                && in.isBound(VisionInput.KEY_GUI_SHIFT) && in.isBound(VisionInput.KEY_INGAME_MENU));
+                && in.isBound(VisionInput.KEY_GUI_SHIFT) && in.isBound(VisionInput.KEY_INGAME_MENU)
+                && in.isBound(VisionInput.KEY_JUMP) && in.isBound(VisionInput.KEY_SNEAK));
     }
 
     // ------------------------------------------------------------------------------------------
