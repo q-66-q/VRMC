@@ -111,6 +111,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   `crash-reports/*.txt` (first 6 extras, capped) to the fixed logs/status/settings sections.
 - Local-only; device share UI NOT RUN.
 
+## Comfort vignette (EV-0122)
+
+- Compositor adds `fmain_flat_vignette`: when `Documents/vrmc-vignette.flag` exists, the flat-sampled
+  image darkens toward the periphery by the file's strength (0–0.9; empty = 0.5). Centre untouched,
+  test pattern unaffected; strength read once per immersive session and logged.
+- Launcher settings: Comfort vignette toggle + 0.1–0.9 strength slider writes/removes the flag;
+  applies at the next immersive open.
+- Build/install PASS; runtime shader/appearance/comfort NOT RUN (device locked).
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

@@ -216,6 +216,19 @@ static void resolveBridge(void) {
     }
 }
 
+/// Comfort vignette strength from Documents/vrmc-vignette.flag: absent = off; empty content = 0.5;
+/// numeric content is clamped to 0..0.9. Read once per immersive session.
+static float readVignetteStrength(void) {
+    NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *path = [docs.firstObject stringByAppendingPathComponent:@"vrmc-vignette.flag"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) return 0.0f;
+    NSString *raw = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    NSString *trimmed = [(raw ?: @"") stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    float value = trimmed.length == 0 ? 0.5f : trimmed.floatValue;
+    if (!(value >= 0.0f)) value = 0.5f;
+    return MIN(0.9f, value);
+}
+
 static BOOL documentFlag(NSString *name) {
     NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *path = [docs.firstObject stringByAppendingPathComponent:name];
@@ -634,6 +647,16 @@ static NSString *const kShaderSource =
      "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
      "  return float4(tex.sample(s, uv).rgb, 1.0);\n"
      "}\n"
+     // Comfort vignette (M5): darkens the periphery of the flat-sampled image by a configurable
+     // amount. Uses the drawable NDC radius; centre remains unmodified, edges darken progressively.
+     "fragment float4 fmain_flat_vignette(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
+     "                                    sampler s [[sampler(0)]], constant float &vig [[buffer(1)]]) {\n"
+     "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
+     "  float4 c = tex.sample(s, uv);\n"
+     "  float r = length(in.ndc);\n"
+     "  float f = 1.0 - clamp(vig, 0.0, 0.95) * smoothstep(0.55, 1.0, r);\n"
+     "  return float4(c.rgb * f, 1.0);\n"
+     "}\n"
      "fragment float4 fmain_reproj(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                             sampler s [[sampler(0)]], constant ViewParams &vp [[buffer(0)]]) {\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.9,0.1,0.1), 1.0);\n"
@@ -837,6 +860,7 @@ typedef struct {
     id<MTLRenderPipelineState> flat;
     id<MTLRenderPipelineState> test;
     id<MTLRenderPipelineState> proof;
+    id<MTLRenderPipelineState> flatVignette;
     MTLPixelFormat colorFormat;
     MTLPixelFormat depthFormat;
     BOOL valid;
@@ -848,6 +872,7 @@ static BOOL buildPipelines(id<MTLDevice> device, VRMCPipelines *out, MTLPixelFor
     out->flat = nil;
     out->test = nil;
     out->proof = nil;
+    out->flatVignette = nil;
     out->valid = NO;
     out->colorFormat = colorFormat;
     out->depthFormat = depthFormat;
@@ -877,10 +902,15 @@ static BOOL buildPipelines(id<MTLDevice> device, VRMCPipelines *out, MTLPixelFor
     pd.fragmentFunction = [library newFunctionWithName:@"fmain_proof"];
     out->proof = [device newRenderPipelineStateWithDescriptor:pd error:&err];
     if (out->proof == nil) compLog("proof pipeline failed: %s", err.description.UTF8String);
+    err = nil;
+    pd.fragmentFunction = [library newFunctionWithName:@"fmain_flat_vignette"];
+    out->flatVignette = [device newRenderPipelineStateWithDescriptor:pd error:&err];
+    if (out->flatVignette == nil) compLog("flat vignette pipeline failed: %s", err.description.UTF8String);
     out->valid = (out->reproj != nil || out->flat != nil || out->test != nil);
-    compLog("pipelines color=%lu depth=%lu reproj=%d flat=%d test=%d proof=%d",
+    compLog("pipelines color=%lu depth=%lu reproj=%d flat=%d test=%d proof=%d flatVignette=%d",
             (unsigned long)colorFormat, (unsigned long)depthFormat,
-            out->reproj != nil, out->flat != nil, out->test != nil, out->proof != nil);
+            out->reproj != nil, out->flat != nil, out->test != nil, out->proof != nil,
+            out->flatVignette != nil);
     return out->valid;
 }
 
@@ -1385,16 +1415,17 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     const BOOL dumpRawAlways = documentFlag(@"vrmc-drawable-dump.flag");
     const BOOL presentWait = documentFlag(@"vrmc-present-wait.flag");
     const BOOL selfTest = documentFlag(@"vrmc-immersive-selftest.flag");
+    const float vignetteStrength = readVignetteStrength();
     static int samplingDisabled = -1;
     if (samplingDisabled < 0) {
         samplingDisabled = documentFlag(@"vrmc-no-sampling.flag") ? 1 : 0;
     }
     compLog("diagnostics: reprojMode=%d debugShading=%d samplingDisabled=%d forceTestPattern=%d "
             "presentProof=%d clearProbe=%d dumpRaw=%d presentWait=%d selfTest=%d noDeviceAnchor=%d "
-            "legacySingleDrawable=%d depthZero=%d",
+            "legacySingleDrawable=%d depthZero=%d vignette=%.2f",
             reprojMode, (int)debugShading, samplingDisabled, (int)forceTestPattern,
             (int)presentProof, (int)clearProbe, (int)dumpRawAlways, (int)presentWait, (int)selfTest,
-            (int)noDeviceAnchor, (int)legacySingleDrawable, (int)depthZero);
+            (int)noDeviceAnchor, (int)legacySingleDrawable, (int)depthZero, (double)vignetteStrength);
 
     // Query the layer's real configuration instead of hardcoding the colour format: the pipeline
     // must match what the drawable actually hands out.
@@ -2187,8 +2218,10 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     if (!clearProbe) {
                         id<MTLRenderPipelineState> chosen = nil;
                         if (testPatternNow) chosen = pipes.test;
-                        else if (useFlat) chosen = pipes.flat;
-                        else chosen = pipes.reproj;
+                        else if (useFlat) {
+                            chosen = (vignetteStrength > 0.0f && pipes.flatVignette != nil)
+                                ? pipes.flatVignette : pipes.flat;
+                        } else chosen = pipes.reproj;
                         if (chosen != nil) {
                             [enc setRenderPipelineState:chosen];
                             if (!testPatternNow) {

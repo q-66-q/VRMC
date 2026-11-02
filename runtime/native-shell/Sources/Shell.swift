@@ -139,6 +139,36 @@ private func shellBuildDiagnosticsBundle() -> URL? {
     }
 }
 
+private func shellVignetteURL() -> URL {
+    return shellDocumentsURL().appendingPathComponent("vrmc-vignette.flag")
+}
+
+private func shellReadVignette() -> (enabled: Bool, strength: Double) {
+    let url = shellVignetteURL()
+    guard FileManager.default.fileExists(atPath: url.path) else { return (false, 0.5) }
+    let raw = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    let value = Double(trimmed) ?? 0.5
+    return (true, min(0.9, max(0.0, value)))
+}
+
+@discardableResult
+private func shellWriteVignette(enabled: Bool, strength: Double) -> Bool {
+    let url = shellVignetteURL()
+    do {
+        if enabled {
+            try String(format: "%.2f", min(0.9, max(0.0, strength))).write(to: url, atomically: true, encoding: .utf8)
+        } else {
+            try? FileManager.default.removeItem(at: url)
+        }
+        shellLog("VRMC vignette saved: enabled=\(enabled) strength=\(strength) -> \(url.path)")
+        return true
+    } catch {
+        shellLog("VRMC vignette save FAILED: \(error)")
+        return false
+    }
+}
+
 private func shellInputTuneURL() -> URL {
     return shellDocumentsURL()
         .appendingPathComponent("instances/default")
@@ -1091,6 +1121,8 @@ struct VRControlOverlay: View {
     @State private var diagPeriod = 30
     @State private var middleGestures = true
     @State private var swipeGestures = false
+    @State private var vignetteEnabled = false
+    @State private var vignetteStrength = 0.5
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var exportURL: URL?
@@ -1147,6 +1179,13 @@ struct VRControlOverlay: View {
                     Toggle("Snap turn (45°)", isOn: $snapTurn)
                     Toggle("Middle-pinch gestures (locomotion/jump/sneak/radial)", isOn: $middleGestures)
                     Toggle("Open-hand swipe gestures (hotbar/chat/keyboard/swap/drop)", isOn: $swipeGestures)
+                    Toggle("Comfort vignette", isOn: $vignetteEnabled)
+                    if vignetteEnabled {
+                        HStack {
+                            Text("Vignette strength: \(String(format: "%.2f", vignetteStrength))").font(.caption)
+                            Slider(value: $vignetteStrength, in: 0.1...0.9, step: 0.05)
+                        }
+                    }
                     HStack {
                         Text("Performance").font(.caption)
                         Spacer()
@@ -1243,7 +1282,7 @@ struct VRControlOverlay: View {
                         }
                         .padding(.top, 2)
                     }
-                    Text("Provider reads these at game start; invalid values are ignored/logged. Diagnostics: vrmc-shell.log, vrmc-thermal.log.")
+                    Text("Provider reads settings/input at game start; the compositor reads the vignette at the next immersive open. Invalid values are ignored/logged. Diagnostics: vrmc-shell.log, vrmc-thermal.log.")
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
                 .padding(.top, 4)
@@ -1315,6 +1354,9 @@ struct VRControlOverlay: View {
         let input = shellReadInputTune()
         middleGestures = input["middle.enabled"]?.lowercased() != "false"
         swipeGestures = ["true", "1"].contains(input["swipe.enabled"]?.lowercased() ?? "")
+        let vignette = shellReadVignette()
+        vignetteEnabled = vignette.enabled
+        vignetteStrength = vignette.strength
     }
 
     private func applySettings() {
@@ -1333,7 +1375,10 @@ struct VRControlOverlay: View {
         input["swipe.enabled"] = swipeGestures ? "true" : "false"
         let runtimeOK = shellWriteRuntimeSettings(values)
         let inputOK = shellWriteInputTune(input)
-        settingsStatus = (runtimeOK && inputOK) ? "Saved — applies at next game start." : "Save failed — see shell log."
+        let vignetteOK = shellWriteVignette(enabled: vignetteEnabled, strength: vignetteStrength)
+        settingsStatus = (runtimeOK && inputOK && vignetteOK)
+            ? "Saved — applies at next game start (vignette at next immersive open)."
+            : "Save failed — see shell log."
     }
 }
 
