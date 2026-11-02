@@ -67,9 +67,9 @@ layer-state logging, and a no-JIT immersive selftest. Info.plist unchanged.
 
 ## 4. Next device session (operator) — decisive, short
 
-1. Unlock/wear D1. The installed build is the fixed one (`VRMC-native-v11-depthfix.app`, shell+bridge
-   from the depth-fix commit). The pending `vrmc-clear-diagnostics.flag` cleans stale diagnostic flags
-   on first launch.
+1. Unlock/wear D1. The installed build is `VRMC-native-v12-stereo.app` (depth-clear fix + eye-distinct
+   stereo/alignment test pattern + scene-activation logging; signed, installed). The pending
+   `vrmc-clear-diagnostics.flag` cleans stale diagnostic flags on first launch.
 2. Launch **VRMC** from Home (or `devicectl device process launch --activate dev.vrmc.vrmc`).
    Expected: launcher window with the **Enter VR** overlay button.
 3. Tap **Enter VR**. Expected: first-presented-frame beep; the window fades; the immersive shows the
