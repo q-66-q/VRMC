@@ -415,3 +415,37 @@ Offline verification: `scripts/test_display_views.sh` PASS (lopsided device tang
 fallback: near corners exact; straight-ahead NDC offset matches `-(r+l)/(r-l)` etc.), bridge stub
 display-view roundtrip PASS, provider compiles against MC/Vivecraft jars. Native app, bridge and provider
 jar were rebuilt/installed/pushed together. Device run is EV-0089.
+
+## 18. M3c — black-immersive root cause resolved (EV-0093, 2026-11-01)
+
+**Root cause:** the CompositorServices drawable depth attachment clear value. M3b commit `1b3b73c`
+changed `rp.depthAttachment.clearDepth` from **1.0** (as used by the EV-0081/83/84 compositor and by the
+known-good M3A probe) to **0.0** ("flat image at infinity"). On D1 (visionOS 27.2) a 0.0 depth clear makes
+the system present the entire immersive layer **black** even though the colour drawable readback is
+bright, the render encoder is valid (`encNil=0`) and the command buffer completes. A device A/B with
+everything else identical shows 0.0 -> black and 1.0 -> visible (operation-confirmed magenta/cyan), and the
+compositor history pins the regression to `1b3b73c`. The simulator does **not** reproduce the failure.
+
+**Fix:** default `clearDepth = 1.0` again; `vrmc-depth-zero.flag` keeps the old 0.0 for A/B only;
+`scripts/tests/DepthClearRegressionTest.sh` guards the default and the probe reference. This supersedes
+the "reprojection/UV" and "provider content" explanations for the post-EV-0087 black runs.
+
+**Also landed in the same iteration (M3c diagnostics, see `docs/mvp/M3C_PLAN.md`):**
+- Compositor present path reworked: `cp_frame_query_drawables` array (render/present every drawable,
+  `built_in` drives tracking/display views), submission/query ordering fixed (startSubmission before
+  queryDrawables), drawable/encoder/attachment validation logging, drawn-drawable 64x64 readback + raw
+  RGBA dumps (`Documents/vrmc-drawable-L/R.raw` + `.meta`), clear-probe / present-proof / present-wait /
+  legacy-single-drawable / no-anchor / depth-zero A/B flags, no-JIT immersive self-test mode
+  (`vrmc-immersive-selftest.flag`), diagnostic flag neutralisation (`vrmc-clear-diagnostics.flag`).
+- Shell: manual **Enter VR** button in the launcher window (Option 2 staging; automatic open after game
+  start stays the default), scene-activation + compositor-layer-state objective logging, alpha-only
+  window parking only after the first presented frame + periodic re-park, 1.8 s willResignActive grace,
+  audible first-frame canary.
+- Bridge: mutexed eye-frame publish/acquire + texture generation + optional timeline `MTLSharedEvent`
+  sync (additive native-shared API; Java ABI v2 unchanged); host test suite PASS.
+- Provider: display-view eye-transform/IPD fix, handle-change diagnostics, off-by-default eye-target PNG
+  capture (`vrmc-capture.flag`), render-state diagnostics.
+
+**Remaining:** final visual confirmation of the default build and the first game-in-immersive run
+(EV-0094, operator); then stereo alignment, window chrome, background/foreground re-entry, provider GPU
+sync, and M3-W5/W6 pacing/acceptance.
