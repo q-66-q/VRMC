@@ -1288,6 +1288,14 @@ struct VRControlOverlay: View {
     @State private var statusLine = ""
     @State private var diagnosticTail: [String] = []
 
+    private var acceptanceSummary: String {
+        let pass = acceptanceItems.filter { $0.status == "PASS" }.count
+        let fail = acceptanceItems.filter { $0.status == "FAIL" }.count
+        let partial = acceptanceItems.filter { $0.status == "PARTIAL" }.count
+        let notRun = acceptanceItems.filter { $0.status == "NOT RUN" }.count
+        return "PASS=\(pass) PARTIAL=\(partial) FAIL=\(fail) NOT RUN=\(notRun)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
@@ -1337,6 +1345,8 @@ struct VRControlOverlay: View {
             }
             DisclosureGroup("Acceptance checklist") {
                 VStack(alignment: .leading, spacing: 3) {
+                    Text(acceptanceSummary).font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
                     ForEach($acceptanceItems) { $item in
                         HStack(spacing: 6) {
                             Text(item.id).font(.system(size: 9, design: .monospaced))

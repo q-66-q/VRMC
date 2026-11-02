@@ -1,9 +1,9 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-02 (host time)
-source commit: 6e04285 (plus uncommitted current shell at staging time; regenerate from a clean commit for release)
-app tree sha256: 73dee838638060e6804c70891f9b2472a68b81d60e14966e076d727504c4ba84 (path-independent, scripts/app_tree_sha256.sh)
-app path at staging: /tmp/VRMC-native-checklistmd.app
+source commit: e38293a (plus uncommitted current shell at staging time; regenerate from a clean commit for release)
+app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
+app path at staging: /tmp/VRMC-native-checklist-summary.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
 provider jar sha256: 4587b5d2e0a894c4c314a6b8de7715b6829c58fcf05539aefd7fb2516b35a576
 device install: OK (D1 <D1-UDID>)
