@@ -17,6 +17,15 @@ scripts/m6_device_integrity.sh            # prints installed VRMC version + prov
 - Logs/export path known: launcher **Export diagnostics**.
 - Read `M4_CONTROLS.md` and the in-game **Controls help** first.
 
+## After the session (read-only pull)
+
+```
+scripts/m6_device_diagnostics_pull.sh /tmp/vrmc-device-diag
+```
+
+Copies shell/compositor/thermal/shutdown/status/settings/log files for offline review; no launch or
+unlock required. Behavior evidence still comes from the operator notes + this bundle.
+
 ## Procedure
 
 1. **Startup/UI:** launch VRMC; open VRMC settings; verify controls respond, crash guard is clean,

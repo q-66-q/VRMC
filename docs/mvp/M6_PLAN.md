@@ -32,6 +32,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
   rebuilt from the release commit with device evidence.
 
+## Device diagnostics pull (EV-0137)
+
+- `scripts/m6_device_diagnostics_pull.sh [OUT_DIR]` copies local VRMC logs/status/config out of the
+  installed app data container (read-only; no launch/unlock) and writes SHA256SUMS.
+- Current D1 snapshot: provider integrity PASS; `Documents/vrmc-shell.log` absent => the latest build has
+  not been launched since install. The two old pulled logs (22:17/22:28 device time) show a clean
+  `game stopping` -> `VRMCImmersiveEnded` sequence from an earlier session, no crash markers.
+
 ## Device provider-integrity check (EV-0136)
 
 - `scripts/m6_device_integrity.sh` reads the installed app data container (read-only), copies the
