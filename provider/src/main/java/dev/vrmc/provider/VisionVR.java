@@ -126,8 +126,10 @@ public class VisionVR extends MCVR {
         if (displayIpd > 0.0F) {
             this.ipd = displayIpd;
         }
-        System.out.printf("[VRMC-M2] display views gen=%d applied (per-eye frustum + eye transforms, ipd=%.4f)%n",
-            gen, this.ipd);
+        System.out.printf("[VRMC-M2] display views gen=%d applied ipd=%.4f Lpos=(%.4f,%.4f,%.4f) Rpos=(%.4f,%.4f,%.4f)%n",
+            gen, this.ipd,
+            this.hmdPoseLeftEye.m30(), this.hmdPoseLeftEye.m31(), this.hmdPoseLeftEye.m32(),
+            this.hmdPoseRightEye.m30(), this.hmdPoseRightEye.m31(), this.hmdPoseRightEye.m32());
     }
 
     @Override

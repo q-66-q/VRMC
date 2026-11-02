@@ -482,6 +482,19 @@ static void scheduleProviderTextureStats(id<MTLCommandQueue> queue, id<MTLTextur
                     // Provider now renders the display frustum: flat sampling is the aligned path and
                     // avoids the EV-0086 black reprojection branch entirely.
                     useFlat = YES;
+                    static int loggedPublishedViews = 0;
+                    if (!loggedPublishedViews) {
+                        loggedPublishedViews = 1;
+                        simd_float3 pl = cp_view_get_transform(cp_drawable_get_view(drawable, leftView)).columns[3].xyz;
+                        int rightView = (leftView == 0) ? 1 : 0;
+                        simd_float3 pr = cp_view_get_transform(cp_drawable_get_view(drawable, rightView)).columns[3].xyz;
+                        compLog("published display views L tangents=(%.3f,%.3f,%.3f,%.3f) Lpos=(%.4f,%.4f,%.4f) "
+                                "R tangents=(%.3f,%.3f,%.3f,%.3f) Rpos=(%.4f,%.4f,%.4f) ipd=%.4f",
+                                dv.left_tangents[0], dv.left_tangents[1], dv.left_tangents[2], dv.left_tangents[3],
+                                pl.x, pl.y, pl.z,
+                                dv.right_tangents[0], dv.right_tangents[1], dv.right_tangents[2], dv.right_tangents[3],
+                                pr.x, pr.y, pr.z, dv.ipd_m);
+                    }
                 }
             }
 
