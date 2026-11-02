@@ -323,7 +323,7 @@ public class VisionVR extends MCVR {
             json.append("  \"thermalState\": \"").append(this.lastThermalState).append("\",\n");
             json.append("  \"thermalResponse\": \"").append(this.thermalResponse).append("\",\n");
             json.append("  \"adaptiveFramerate\": ").append(this.adaptiveFramerate).append(",\n");
-            json.append("  \"adaptiveFramerateApplied\": ").append(this.adaptiveApplied).append("\"\n");
+            json.append("  \"adaptiveFramerateApplied\": ").append(this.adaptiveApplied).append("\n");
             json.append("}\n");
             Files.writeString(dir.toPath().resolve("vrmc-status.json"), json.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);

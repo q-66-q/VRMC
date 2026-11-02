@@ -222,6 +222,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   `tracking.holdLastPoseMs`; actions still release during dropouts.
 - Build/install PASS; device visual/aim behavior NOT RUN.
 
+## Status JSON fix + provider summary (EV-0144)
+
+- Fixed invalid `vrmc-status.json` output (`adaptiveFramerateApplied` had a stray quote); the generator
+  now emits valid JSON.
+- Launcher parses status each refresh and shows a one-line provider summary
+  (abi/bridge/tracked/hands/thermal/adaptive), empty on missing/invalid JSON.
+- Full provider suite PASS; app installed/provider pushed + integrity PASS. No automated JSON-schema
+  test; device UI NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

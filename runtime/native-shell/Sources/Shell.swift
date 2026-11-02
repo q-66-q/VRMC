@@ -1201,6 +1201,7 @@ struct VRControlOverlay: View {
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var lastCommandResult = ""
+    @State private var providerStatusLine = ""
     @State private var exportURL: URL?
     @State private var exportStatus = ""
     @State private var statusLine = ""
@@ -1237,6 +1238,9 @@ struct VRControlOverlay: View {
             }
             if !statusLine.isEmpty {
                 Text(statusLine).font(.caption2).foregroundStyle(.secondary)
+            }
+            if !providerStatusLine.isEmpty {
+                Text(providerStatusLine).font(.caption2).foregroundStyle(.secondary)
             }
             if !diagnosticTail.isEmpty {
                 DisclosureGroup("Recent diagnostics") {
@@ -1525,6 +1529,20 @@ struct VRControlOverlay: View {
         parts.append("lowPower=\(ProcessInfo.processInfo.isLowPowerModeEnabled ? "on" : "off")")
         statusLine = parts.joined(separator: " · ")
         if diagnosticTail.isEmpty { refreshDiagnosticTail() }
+        let statusURL = game.appendingPathComponent("vrmc-status.json")
+        if let data = try? Data(contentsOf: statusURL),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let abi = obj["abi"].map { "\($0)" } ?? "?"
+            let bridge = (obj["bridgeReady"] as? Bool).map { $0 ? "ok" : "no" } ?? "?"
+            let tracked = obj["trackedFrames"].map { "\($0)" } ?? "?"
+            let left = (obj["handLeftTracked"] as? Bool) == true ? "L" : "-"
+            let right = (obj["handRightTracked"] as? Bool) == true ? "R" : "-"
+            let thermal = obj["thermalState"] as? String ?? "?"
+            let adaptive = (obj["adaptiveFramerateApplied"] as? Bool) == true ? "capped" : "off"
+            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive)"
+        } else {
+            providerStatusLine = ""
+        }
         let resultURL = game.appendingPathComponent("vrmc-command-result.txt")
         if let text = try? String(contentsOf: resultURL, encoding: .utf8) {
             let lines = text.split(whereSeparator: \.isNewline)
