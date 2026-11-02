@@ -260,6 +260,12 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   continuous use while both fists are held.
 - 100,000 random frames / 0 violations; full provider suite PASS. Host stress only; device NOT RUN.
 
+## 6r. Pose numerical fuzz (2026-11-02, EV-0166)
+
+- 200,000 randomized pose cases including zero, 1e-30, ±1e20 and uniform ±100 joints/quats/translations:
+  0 non-finite outputs, 0 violations; basis unit/orthogonal/det≈+1, translation preserved,
+  tipOffset/gazeFallback finite. Full provider suite PASS. Host only; device NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
