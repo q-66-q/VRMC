@@ -294,6 +294,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   empty), random ints/bools and NaN/Inf/huge hotbarRange round-trip through a strict test parser with
   0 violations; shared `TestJson` parser. Status-json regression 15 checks PASS. Host only; device NOT RUN.
 
+## Runtime-settings fuzz (EV-0169)
+
+- 100,000 random settings maps with valid/unknown keys and empty/boolean/NaN/Infinity/huge/negative/random
+  string values: no exceptions, applied values always within documented bounds.
+- Full provider suite PASS. Host-only; device behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
