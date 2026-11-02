@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Release check proves reproducibility (EV-0156)
+
+- `scripts/m6_release_check.sh` now runs `scripts/m6_reproducibility_check.sh` (two independent provider
+  builds) and reports the provider sha256; a mismatch fails host readiness.
+- Current release check PASS with provider `fcd1df76…`; device acceptance remains separate/NOT READY.
+
 ## Refreshed package with reproducible provider (EV-0155)
 
 - `scripts/m6_reproducibility_check.sh` PASS: two builds both `fcd1df76…` (90,619 bytes).

@@ -40,6 +40,15 @@ else
   bad "soak harness dry-run failed"
 fi
 
+# 4c. Provider jar reproducibility (two independent builds must be byte-identical).
+REPRO_LOG=$(mktemp -t vrmc-repro-check).log
+if scripts/m6_reproducibility_check.sh > "$REPRO_LOG" 2>&1; then
+  ok "provider jar reproducible ($(grep -o 'provider_sha256=[0-9a-f]*' "$REPRO_LOG" | head -1))"
+else
+  bad "provider jar is not reproducible (see $REPRO_LOG)"
+fi
+rm -f "$REPRO_LOG"
+
 # 5. Release manifest can be generated (dirty tree is reported, not a release-blocker for this check).
 manifest=$(mktemp -t vrmc-manifest).txt
 if scripts/m6_release_manifest.sh "$manifest" >/dev/null 2>&1 || [ -s "$manifest" ]; then
