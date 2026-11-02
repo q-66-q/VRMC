@@ -43,6 +43,12 @@ public final class VisionCommandFileTest {
         Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "   \n");
         check("blank file -> null", VisionCommandFile.take(dir, null) == null);
 
+        Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "recenter" + "x".repeat(5000));
+        check("oversized command file rejected", VisionCommandFile.take(dir, null) == null);
+        check("oversized command file consumed", !Files.exists(dir.resolve(VisionCommandFile.FILE_NAME)));
+        String oversized = Files.readString(dir.resolve(VisionCommandFile.RESULT_FILE_NAME));
+        check("oversized rejection recorded", oversized.contains("oversized"), oversized);
+
         Files.deleteIfExists(dir.resolve(VisionCommandFile.RESULT_FILE_NAME));
         Files.deleteIfExists(dir.resolve(VisionCommandFile.FILE_NAME));
         Files.deleteIfExists(dir);

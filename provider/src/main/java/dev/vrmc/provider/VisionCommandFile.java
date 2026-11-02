@@ -19,6 +19,8 @@ import java.util.List;
 public final class VisionCommandFile {
     public static final String FILE_NAME = "vrmc-command.txt";
     public static final String RESULT_FILE_NAME = "vrmc-command-result.txt";
+    /** A local command is always a short word; an oversized file is rejected without reading it. */
+    public static final long MAX_COMMAND_BYTES = 4096L;
     public static final List<String> COMMANDS = List.of(
         "recenter", "calibrate-height", "reload-settings", "reload-input", "diag", "status", "controls");
 
@@ -29,6 +31,16 @@ public final class VisionCommandFile {
         if (gameDir == null) return null;
         Path path = gameDir.resolve(FILE_NAME);
         if (!Files.isRegularFile(path)) return null;
+        try {
+            if (Files.size(path) > MAX_COMMAND_BYTES) {
+                Files.deleteIfExists(path);
+                appendResult(gameDir, "?", "REJECTED oversized command file (> " + MAX_COMMAND_BYTES + " bytes)", log);
+                return null;
+            }
+        } catch (Throwable t) {
+            if (log != null) log.accept("[VRMC-M5][WARN] command file stat failed: " + t);
+            return null;
+        }
         String raw;
         try {
             raw = Files.readString(path).trim().toLowerCase(java.util.Locale.ROOT);

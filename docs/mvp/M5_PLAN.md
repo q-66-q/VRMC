@@ -300,6 +300,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   string values: no exceptions, applied values always within documented bounds.
 - Full provider suite PASS. Host-only; device behavior NOT RUN.
 
+## Command-file size cap (EV-0170)
+
+- `VisionCommandFile.take` rejects local command files larger than **4096 bytes** before reading, deletes
+  them and appends a `REJECTED oversized` result (no memory blow-up on the game thread).
+- Host test covers rejection/consumption/result (m5-command 14 checks). Provider pushed + integrity PASS.
+  Device behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
