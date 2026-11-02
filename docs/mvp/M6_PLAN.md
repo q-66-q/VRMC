@@ -82,6 +82,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Extreme stress run (EV-0163)
+
+- Provider input fuzz at **1,000,000** frames: 0 violations (6.0 s).
+- Full bridge suite including **TSan** builds: ALL PASS; concurrent sync (200k publishes × 4 readers),
+  tracking/display views (500k writes/reads) and input (500k publishes × 4 readers, millions of reads)
+  with no torn state.
+- Host-only stress evidence; device AC/K gates NOT RUN.
+
 ## Acceptance report parser fix (EV-0161)
 
 - M6 acceptance rows were parsed from the evidence/gap cell; the report now reads the status cell for
