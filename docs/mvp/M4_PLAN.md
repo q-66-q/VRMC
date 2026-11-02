@@ -169,6 +169,14 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Still open: direct hotbar 1–9 selection, bow/climb two-hand chord semantics, visible-hands polish,
   real-hands tuning (W5).
 
+## 6g. W4 use-hold/bow (2026-11-01, EV-0109)
+
+- In-game `key.use` is now bound to **right-fist hold** (`SRC_FIST_HOLD`) rather than the 2-frame fist
+  tap: holding the fist holds use (bow draw), releasing releases it (fire). GUI right-click remains
+  the fist-tap edge; attack/teleport/climb bindings are unchanged.
+- Host use-hold test PASS; m4-input 161 checks; full provider suite ALL PASS.
+- Device bow/use/climb feel and two-hand draw semantics beyond held-use remain NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

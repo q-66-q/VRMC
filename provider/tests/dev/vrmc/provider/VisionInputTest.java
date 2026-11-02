@@ -40,6 +40,7 @@ public final class VisionInputTest {
             fistHysteresis();
             noPressWhileUnarmedAndRearmAfterLoss();
             fistTapSingleFireAndRearm();
+            fistHoldUseBinding();
             bothFistInventoryTap();
             bothFistChordPriority();
             trackingLossReleasesSameFrame();
@@ -190,6 +191,27 @@ public final class VisionInputTest {
         rig.rPinch = PINCHED;
         rig.pollMs(10);
         check("armed after a fresh 100 ms release, press accepted", rig.in.pinchPressed(RIGHT));
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 4b. W4 bow/use hold: right fist hold binds key.use continuously (GUI right click stays tap)
+    // ------------------------------------------------------------------------------------------
+    private static void fistHoldUseBinding() {
+        section("W4 use hold: right fist hold drives key.use (bow draw/release)");
+        Rig rig = new Rig();
+        rig.poll();
+        rig.pollMs(150);
+        rig.in.setEnvironment(false, false, false);
+        rig.rFist = FIST;
+        rig.pollMs(16);
+        check("right fist hold presses key.use", rig.in.actionPressed(VisionInput.KEY_USE));
+        rig.pollMs(500);
+        check("use remains held while fist stays closed", rig.in.actionPressed(VisionInput.KEY_USE));
+        rig.rFist = OPEN_FIST;
+        rig.pollMs(16);
+        check("opening the fist releases key.use", !rig.in.actionPressed(VisionInput.KEY_USE));
+        check("GUI right-click binding remains a fist tap (inactive in game set)",
+            !rig.in.actionPressed("vivecraft.key.guiRightClick"));
     }
 
     // ------------------------------------------------------------------------------------------

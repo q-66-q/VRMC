@@ -164,6 +164,7 @@ public final class VisionInput {
     private static final int SRC_SWIPE_RIGHT = 7;
     private static final int SRC_SWIPE_UP = 8;
     private static final int SRC_SWIPE_DOWN = 9;
+    private static final int SRC_FIST_HOLD = 10;
 
     /** One row of the design §5.4 binding table. */
     private static final class BindingDef {
@@ -183,7 +184,9 @@ public final class VisionInput {
     /** W1 binding table, design §5.4 (vivecraft Oculus-profile parity for the actions W1 needs). */
     private static final BindingDef[] BINDINGS = {
         new BindingDef(KEY_ATTACK, HAND_RIGHT, SRC_PINCH, ActionSet.INGAME),
-        new BindingDef(KEY_USE, HAND_RIGHT, SRC_FIST_TAP, ActionSet.INGAME),
+        // W4 bow/use hold: continuous use while the right fist is closed (release to fire a bow). GUI
+        // right-click keeps the deliberate fist-tap binding below.
+        new BindingDef(KEY_USE, HAND_RIGHT, SRC_FIST_HOLD, ActionSet.INGAME),
         new BindingDef(KEY_TELEPORT, HAND_LEFT, SRC_PINCH, ActionSet.INGAME),
         new BindingDef(KEY_VR_INTERACT, HAND_LEFT, SRC_PINCH, ActionSet.CONTEXTUAL),
         new BindingDef(KEY_VR_INTERACT, HAND_RIGHT, SRC_PINCH, ActionSet.CONTEXTUAL),
@@ -1004,6 +1007,7 @@ public final class VisionInput {
             case SRC_SWIPE_RIGHT -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_RIGHT;
             case SRC_SWIPE_UP -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_UP;
             case SRC_SWIPE_DOWN -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_DOWN;
+            case SRC_FIST_HOLD -> hand != HAND_NONE && this.hands[hand].fistPressed;
             default -> false;
         };
     }
