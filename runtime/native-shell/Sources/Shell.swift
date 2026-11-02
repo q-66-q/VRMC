@@ -1112,7 +1112,7 @@ struct VRControlOverlay: View {
     @State private var showSettings = false
     @State private var seated = false
     @State private var seatedFreeMove = false
-    @State private var snapTurn = true
+    @State private var snapAngle = 45
     @State private var preset = "none"
     @State private var renderDistance = 12
     @State private var frameLimit = 90
@@ -1184,7 +1184,19 @@ struct VRControlOverlay: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Toggle("Seated mode", isOn: $seated)
                     Toggle("Seated free move", isOn: $seatedFreeMove)
-                    Toggle("Snap turn (45°)", isOn: $snapTurn)
+                    HStack {
+                        Text("Turn").font(.caption)
+                        Spacer()
+                        Picker("Turn", selection: $snapAngle) {
+                            Text("Smooth").tag(0)
+                            Text("15°").tag(15)
+                            Text("30°").tag(30)
+                            Text("45°").tag(45)
+                            Text("90°").tag(90)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
                     Toggle("Middle-pinch gestures (locomotion/jump/sneak/radial)", isOn: $middleGestures)
                     Toggle("Open-hand swipe gestures (hotbar/chat/keyboard/swap/drop)", isOn: $swipeGestures)
                     Toggle("Comfort vignette", isOn: $vignetteEnabled)
@@ -1374,7 +1386,8 @@ struct VRControlOverlay: View {
         seated = values["comfort.seated"] == "true"
         seatedFreeMove = values["comfort.seatedFreeMove"] == "true"
         if let raw = values["comfort.worldRotationIncrement"], let angle = Float(raw) {
-            snapTurn = angle > 0.0
+            let allowed = [0, 15, 30, 45, 90]
+            snapAngle = allowed.min(by: { abs(Double($0) - Double(angle)) < abs(Double($1) - Double(angle)) }) ?? 0
         }
         preset = values["performance.preset"] ?? "none"
         if let raw = values["performance.renderDistance"], let n = Int(raw) { renderDistance = min(24, max(6, n)) }
@@ -1405,7 +1418,7 @@ struct VRControlOverlay: View {
         var values = shellReadRuntimeSettings()
         values["comfort.seated"] = seated ? "true" : "false"
         values["comfort.seatedFreeMove"] = seatedFreeMove ? "true" : "false"
-        values["comfort.worldRotationIncrement"] = snapTurn ? "45" : "0"
+        values["comfort.worldRotationIncrement"] = String(snapAngle)
         values["performance.preset"] = preset
         values["performance.renderDistance"] = String(renderDistance)
         values["performance.framerateLimit"] = String(frameLimit)

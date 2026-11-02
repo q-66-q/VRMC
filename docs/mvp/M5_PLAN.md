@@ -135,6 +135,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - `docs/mvp/M4_CONTROLS.md` is the authoritative installed-build control reference.
 - Device chat UX NOT RUN.
 
+## Turn-angle picker + acceptance/runbook (EV-0127)
+
+- Launcher **Turn** picker: Smooth / 15° / 30° / 45° / 90°, saved to `comfort.worldRotationIncrement`
+  (replaces the fixed 45/smooth toggle; existing provider settings path).
+- `docs/mvp/M5_ACCEPTANCE.md` (H1–H10 + comfort/diagnostics matrix, honest status, exit criteria) and
+  `docs/mvp/M5_DEVICE_RUN.md` (step-by-step D1 procedure/evidence plan) published.
+- Build/install PASS; device run NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
