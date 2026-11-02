@@ -88,6 +88,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   package verifier/freshness and device integrity: all PASS.
 - Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
 
+## Refreshed package for checklist-summary build (EV-0201)
+
+- Package refreshed to app `a4663e16…` + provider `4587b5d2…`: bytes=206,538,366 sha256
+  `4d9141f05a8993a0c5242534df4ff102aaefe6fffd7ae555bf82c06dd9e3d2af`; freshness/verifier/release-ready
+  host gates PASS; acceptance NOT READY; metrics + STATUS.md refreshed.
+
 ## Acceptance checklist UI (EV-0198)
 
 - Launcher checklist (+ diagnostics export) captures H1–H10/AC-1..6 outcomes on device without typing;

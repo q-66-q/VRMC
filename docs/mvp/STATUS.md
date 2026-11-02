@@ -9,8 +9,8 @@ evidence bundles; this page is a navigation summary.
   (`/tmp/VRMC-native-releaseinput.app`, 169 signed Mach-O, deep/strict verify PASS)
 - Provider: `a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58` (92,516 bytes),
   reproducible (two-build check) and **device integrity PASS** via `scripts/m6_device_integrity.sh`
-- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,493,046 sha256
-  `7e9e608ce8f5f53a857fff8bd87f1ba46cf39be9ce0aeebe34b333303bbe68bd`; verifier PASS; not a final release.
+- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,538,366 sha256
+  `4d9141f05a8993a0c5242534df4ff102aaefe6fffd7ae555bf82c06dd9e3d2af`; verifier PASS; not a final release.
 - D1 is currently **locked**; latest build has not been launched since install. All behavior/acceptance
   gates remain **NOT RUN**.
 
