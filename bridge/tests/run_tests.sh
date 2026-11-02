@@ -118,6 +118,21 @@ elif compile input-test-tsan $CC_HOST -O1 -g -fsanitize=thread -fno-omit-frame-p
   TSAN_OPTIONS="halt_on_error=1" run input-test-tsan "$OUT_DIR/bridge_input_test_tsan"
 fi
 
+# 3c. Additive native-shared channels (display views/gaze/tracking/game-stopping) under concurrency.
+if compile shared-test $CC_HOST -O2 -I "$ROOT/bridge/abi" \
+    "$ROOT/bridge/tests/bridge_shared_test.c" "$ROOT/bridge/src/vrmc_stub.c" -lpthread \
+    -o "$OUT_DIR/bridge_shared_test"; then
+  run shared-test "$OUT_DIR/bridge_shared_test"
+fi
+
+if [ "$SKIP_TSAN" = "1" ]; then
+  skip shared-test-tsan "--skip-tsan"
+elif compile shared-test-tsan $CC_HOST -O1 -g -fsanitize=thread -fno-omit-frame-pointer \
+    -I "$ROOT/bridge/abi" "$ROOT/bridge/tests/bridge_shared_test.c" \
+    "$ROOT/bridge/src/vrmc_stub.c" -lpthread -o "$OUT_DIR/bridge_shared_test_tsan"; then
+  TSAN_OPTIONS="halt_on_error=1" run shared-test-tsan "$OUT_DIR/bridge_shared_test_tsan"
+fi
+
 # 4. Cross-language contract fixture generator (the exact build shape scripts/m4_input_selfcheck.sh uses).
 if compile input-fixture $CC_HOST -O2 -I "$ROOT/bridge/abi" \
     "$ROOT/bridge/tests/make_input_fixture.c" "$ROOT/bridge/src/vrmc_stub.c" -lpthread \

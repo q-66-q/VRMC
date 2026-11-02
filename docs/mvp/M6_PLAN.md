@@ -22,6 +22,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - `scripts/m6_release_check.sh`: host readiness gate for licenses/notices/privacy/source dirs/no tracked
   Minecraft binaries/usage strings/manifest fields (PASS).
 
+## Concurrency hardening (EV-0116)
+
+- `bridge/tests/bridge_shared_test.c` stress-tests the additive native-shared channels (display views,
+  gaze mailbox, tracking override, game-stopping) with a writer/reader pair under normal build and
+  ThreadSanitizer; full bridge suite PASS.
+
 ## Safety fuzzing (EV-0115)
 
 - `VisionInputFuzzTest` (20k deterministic random frames) exercises tracking-loss/malformed/stale
