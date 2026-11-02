@@ -1211,6 +1211,7 @@ struct VRControlOverlay: View {
     @State private var lastCommandResult = ""
     @State private var providerStatusLine = ""
     @State private var confirmResetSettings = false
+    @State private var confirmResetInput = false
     @State private var exportURL: URL?
     @State private var exportStatus = ""
     @State private var statusLine = ""
@@ -1481,6 +1482,21 @@ struct VRControlOverlay: View {
                     if !exportStatus.isEmpty {
                         Text(exportStatus).font(.caption2).foregroundStyle(.secondary)
                     }
+                    Button("Reset input tuning") { confirmResetInput = true }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        .confirmationDialog("Reset input tuning?", isPresented: $confirmResetInput,
+                                            titleVisibility: .visible) {
+                            Button("Reset input tuning", role: .destructive) {
+                                try? FileManager.default.removeItem(at: shellInputTuneURL())
+                                loadSettings()
+                                _ = shellQueueGameCommand("reload-input")
+                                settingsStatus = "Input tuning reset to defaults (reload queued)."
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("Removes vrmc-input-tune.properties only. Runtime/comfort settings, saves and logs are kept.")
+                        }
                     Button("Reset VRMC settings") { confirmResetSettings = true }
                         .font(.caption2)
                         .buttonStyle(.bordered)

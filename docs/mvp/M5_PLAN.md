@@ -335,6 +335,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   live-reloads; diagnostics bundle includes `vrmc-hand-calibration.txt`.
 - Host tests/guards PASS; app installed/provider pushed + integrity PASS. Device calibration NOT RUN.
 
+## Targeted reset input tuning (EV-0193)
+
+- Launcher **Reset input tuning** (confirmed) removes only `vrmc-input-tune.properties`, reloads UI defaults
+  and queues `reload-input`; runtime/comfort settings, saves/logs and crash guard stay intact.
+- Shell/app build/install PASS; provider unchanged + integrity PASS. Device UI NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
