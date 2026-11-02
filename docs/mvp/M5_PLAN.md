@@ -80,6 +80,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   load/clamp/preserve-other-keys/save behavior as EV-0104. Applied at the next game launch by the
   provider. Shell build PASS; device UI/comfort feel NOT RUN.
 
+## Command feedback + live launcher status (EV-0114)
+
+- Command/recenter completion shows a best-effort Minecraft action-bar message (`[VRMC] …`) via
+  reflection (no annotation-class build dependency).
+- Launcher overlay refreshes a compact 5 s status line from `vrmc-status.json` and `ProcessInfo`:
+  bridge ready, display-view generation, hand L/R tracking, seated, thermal state, low-power mode.
+- Latest build installed on D1 (app `46c80630…`, provider `39e9714a…`); behavior NOT RUN (device
+  locked).
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

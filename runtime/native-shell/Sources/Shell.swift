@@ -1035,6 +1035,7 @@ struct VRControlOverlay: View {
     @State private var commandStatus = ""
     @State private var exportURL: URL?
     @State private var exportStatus = ""
+    @State private var statusLine = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1064,6 +1065,9 @@ struct VRControlOverlay: View {
             Text(shell.statusMessage).font(.caption).foregroundStyle(.secondary)
             if let error = shell.lastOpenError {
                 Text(error).font(.caption).foregroundStyle(.red)
+            }
+            if !statusLine.isEmpty {
+                Text(statusLine).font(.caption2).foregroundStyle(.secondary)
             }
             if !shell.crashGuardMessage.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -1174,6 +1178,43 @@ struct VRControlOverlay: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .padding(20)
         .onAppear { loadSettings() }
+        .task {
+            while !Task.isCancelled {
+                refreshStatus()
+                try? await Task.sleep(for: .seconds(5))
+            }
+        }
+    }
+
+    private func refreshStatus() {
+        let docs = shellDocumentsURL()
+        let game = docs.appendingPathComponent("instances/default")
+        var parts: [String] = []
+        if let data = try? Data(contentsOf: game.appendingPathComponent("vrmc-status.json")),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let bridge = obj["bridgeReady"] as? Bool ?? false
+            let gen = obj["displayViewsGen"] as? Int ?? 0
+            let left = obj["handLeftTracked"] as? Bool ?? false
+            let right = obj["handRightTracked"] as? Bool ?? false
+            let seated = obj["seated"] as? Bool ?? false
+            parts.append("bridge=\(bridge ? "ready" : "not ready")")
+            parts.append("displayGen=\(gen)")
+            parts.append("hands=\(left ? "L" : "-")\(right ? "R" : "-")")
+            parts.append("seated=\(seated)")
+        } else {
+            parts.append("provider status: no session yet")
+        }
+        let thermal: String
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: thermal = "nominal"
+        case .fair: thermal = "fair"
+        case .serious: thermal = "serious"
+        case .critical: thermal = "critical"
+        @unknown default: thermal = "unknown"
+        }
+        parts.append("thermal=\(thermal)")
+        parts.append("lowPower=\(ProcessInfo.processInfo.isLowPowerModeEnabled ? "on" : "off")")
+        statusLine = parts.joined(separator: " · ")
     }
 
     private func loadSettings() {

@@ -420,6 +420,7 @@ public class VisionVR extends MCVR {
         }
         System.out.println("[VRMC-M5] command=" + command + " -> " + detail);
         VisionCommandFile.appendResult(dir, command, detail, System.out::println);
+        showGameMessage("[VRMC] " + command + ": " + detail);
     }
 
     /** M5 periodic diagnostics: cheap counters only; formatting happens once per period. */
@@ -1153,6 +1154,25 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /**
+     * Best-effort on-device feedback for safety/command actions. Uses reflection so the provider build
+     * does not depend on the MC chat Component annotation classes; failures are silent (logs only).
+     */
+    private void showGameMessage(String text) {
+        Object player = this.mc.player;
+        if (player == null) return;
+        try {
+            Class<?> componentClass = Class.forName("net.minecraft.network.chat.Component");
+            java.lang.reflect.Method literal = componentClass.getMethod("literal", String.class);
+            Object component = literal.invoke(null, text);
+            java.lang.reflect.Method display = player.getClass().getMethod(
+                "displayClientMessage", componentClass, boolean.class);
+            display.invoke(player, component, true); // action bar
+        } catch (Throwable t) {
+            // Chat/UI may be unavailable (e.g. very early init); never fail the command.
+        }
+    }
+
     /** M5 safety action: put the VR room origin back at the player (no movement/teleport side effects). */
     private void performRecenter() {
         if (this.mc.player == null || this.dh.vrPlayer == null) return;
@@ -1163,6 +1183,7 @@ public class VisionVR extends MCVR {
                 "snapRoomOriginToPlayerEntity", Entity.class, boolean.class, boolean.class);
             m.invoke(this.dh.vrPlayer, this.mc.player, false, true);
             System.out.println("[VRMC-M5] recenter: room origin snapped to player (both-middle double-tap)");
+            showGameMessage("[VRMC] recenter: room origin snapped to player");
         } catch (Throwable t) {
             System.out.println("[VRMC-M5][WARN] recenter failed: " + t);
         }
