@@ -128,6 +128,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Applies live with **Reload input** or at the next launch.
 - Shell/app build/install PASS; device UI/tuning feel NOT RUN.
 
+## In-game controls help (EV-0124)
+
+- `controls` command sends a compact multi-line gesture reference to Minecraft chat (reflective, no
+  annotation-class dependency); launcher Controls help button queues it.
+- `docs/mvp/M4_CONTROLS.md` is the authoritative installed-build control reference.
+- Device chat UX NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

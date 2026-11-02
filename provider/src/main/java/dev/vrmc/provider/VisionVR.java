@@ -422,6 +422,10 @@ public class VisionVR extends MCVR {
                         + " ring=" + this.visionInput.ringEnabled()
                         + " swipe=" + this.visionInput.swipeEnabled() + ")";
                 }
+                case "controls" -> {
+                    showGameChat(controlsHelpLines());
+                    detail = "controls summary sent to chat";
+                }
                 case "diag" -> {
                     this.diagNextLogNs = 0L;
                     detail = "diagnostics forced";
@@ -1221,6 +1225,34 @@ public class VisionVR extends MCVR {
         }
         if (!pulse) {
             this.rotatePulseDirection = 0;
+        }
+    }
+
+    /** Compact in-headset control reference (chat lines; actionbar would truncate). */
+    private static String[] controlsHelpLines() {
+        return new String[] {
+            "[VRMC] Pinch thumb+index: attack / GUI click; left hold = teleport.",
+            "[VRMC] Right fist hold = use / bow draw; left fist tap = menu; both fists tap = inventory.",
+            "[VRMC] Middle pinch: left hold+move hand = walk/strafe; right hold = sneak; right tap = jump; left tap/double = snap turn; right double = radial; both tap = climb jump; both double = recenter.",
+            "[VRMC] Both thumb-ring pinches: hotbar wheel (move left hand, release).",
+            "[VRMC] Optional swipes: right horiz = hotbar +/-; right vert = scroll; left up/down = keyboard/chat; left horiz = swap/drop.",
+            "[VRMC] Launcher: settings, tuning, recenter/calibrate, diagnostics. Reload input applies tuning live.",
+        };
+    }
+
+    private void showGameChat(String[] lines) {
+        Object player = this.mc.player;
+        if (player == null) return;
+        try {
+            Class<?> componentClass = Class.forName("net.minecraft.network.chat.Component");
+            java.lang.reflect.Method literal = componentClass.getMethod("literal", String.class);
+            java.lang.reflect.Method display = player.getClass().getMethod(
+                "displayClientMessage", componentClass, boolean.class);
+            for (String text : lines) {
+                display.invoke(player, literal.invoke(null, text), false); // chat, not action bar
+            }
+        } catch (Throwable t) {
+            // Chat unavailable early; command remains non-fatal.
         }
     }
 
