@@ -83,3 +83,11 @@ bug).
   transforms and the compositor's published tangents.
 - Provider GPU sync is still deferred (bridge API ready); unsynchronized readback can show L/R probe
   asymmetries but not a black layer.
+## Latest run (2026-11-01, after the audit fixes + EV-0094)
+
+`scripts/m3c_selfcheck.sh` -> **RESULT: PASS** end-to-end: DepthClearRegressionTest, DisplayViewsTest,
+shell framework build (device target), provider rebuild + bridge MODE=both build, full bridge host suite
+(stub/sync/TSan/layout/MoltenVK-Metal probe), and the six-scenario simulator provider-sampling harness
+(flat / sync / hidepark / nopark / pattern / re-entry). The shell-build and bridge/harness steps now fail
+the suite on a non-zero exit status (previously a piped tail masked it) and the harness retries once to
+absorb simulator startup races.
