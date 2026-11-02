@@ -288,6 +288,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   shell/compositor/thermal/status/shutdown/command/heartbeat/settings/crash artifacts.
 - Shell/app build/install PASS; device export/share UI NOT RUN.
 
+## Status JSON fuzz (EV-0168)
+
+- 100,000 random status documents with arbitrary strings (control chars, quotes, backslashes, BMP unicode,
+  empty), random ints/bools and NaN/Inf/huge hotbarRange round-trip through a strict test parser with
+  0 violations; shared `TestJson` parser. Status-json regression 15 checks PASS. Host only; device NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
