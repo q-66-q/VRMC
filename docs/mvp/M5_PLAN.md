@@ -253,6 +253,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   on invalid input), used by `applyLocomotion`; out-param test added (m4-locomotion 9 checks).
 - Full provider suite PASS; provider pushed + integrity PASS. Device runtime/GC performance NOT RUN.
 
+## Frame pacing in status (EV-0148)
+
+- `vrmc-status.json` adds `frameP50Ms`/`frameP95Ms`/`missed90Frames` from the last completed diagnostic
+  window; the launcher provider summary shows **p95/missed90** next to ABI/bridge/hands/thermal/adaptive.
+- Strict JSON test extended to 15 checks. App installed/provider pushed + integrity PASS; device K2
+  pacing NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

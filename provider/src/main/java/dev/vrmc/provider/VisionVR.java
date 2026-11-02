@@ -131,6 +131,9 @@ public class VisionVR extends MCVR {
     private int hotbarWheelSelected;
     private String lastThermalState = "";
     private long nextThermalPollNs;
+    private float lastFrameP50Ms;
+    private float lastFrameP95Ms;
+    private int lastMissed90Frames;
     private String thermalResponse = "notify";
     private boolean adaptiveFramerate;
     private int adaptivePressureWindows;
@@ -322,7 +325,10 @@ public class VisionVR extends MCVR {
             this.lastThermalState,
             this.thermalResponse,
             this.adaptiveFramerate,
-            this.adaptiveApplied);
+            this.adaptiveApplied,
+            this.lastFrameP50Ms,
+            this.lastFrameP95Ms,
+            this.lastMissed90Frames);
         String json = VisionStatusJson.build(data, java.time.Instant.now());
         java.nio.file.Path path = this.mc.gameDirectory.toPath().resolve("vrmc-status.json");
         try {
@@ -552,6 +558,9 @@ public class VisionVR extends MCVR {
         String screen = this.mc.gui.screen() == null ? "none" : this.mc.gui.screen().getClass().getSimpleName();
         boolean hasPlayer = this.mc.player != null;
         VisionFrameStats.Snapshot fs = this.frameStats.snapshotAndReset();
+        this.lastFrameP50Ms = (float) fs.p50Ms;
+        this.lastFrameP95Ms = (float) fs.p95Ms;
+        this.lastMissed90Frames = fs.missed90HzFrames;
         System.out.printf("[VRMC-M5] diag: pollHz=%.1f frames=%d maxGapMs=%.1f p50Ms=%.2f p95Ms=%.2f "
                 + "p95MaxMs=%.2f missed90=%d screen=%s seated=%s hands=L%d R%d displayViewsGen=%d "
                 + "trackedFrames=%d playerPresent=%d%n",

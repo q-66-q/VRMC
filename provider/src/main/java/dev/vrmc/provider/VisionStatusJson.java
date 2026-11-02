@@ -29,13 +29,17 @@ public final class VisionStatusJson {
         public final String thermalResponse;
         public final boolean adaptiveFramerate;
         public final boolean adaptiveFramerateApplied;
+        public final float frameP50Ms;
+        public final float frameP95Ms;
+        public final int missed90Frames;
 
         public Data(String generatedAt, int abi, boolean bridgeReady, boolean initialized,
                     long displayViewsGen, int trackedFrames, boolean seated, boolean inputHealthy,
                     boolean handLeftTracked, boolean handRightTracked, boolean playerPresent,
                     String runningOnVisionOS, String runtimeSettings, float hotbarRange,
                     String inputTuning, String thermalState, String thermalResponse,
-                    boolean adaptiveFramerate, boolean adaptiveFramerateApplied) {
+                    boolean adaptiveFramerate, boolean adaptiveFramerateApplied,
+                    float frameP50Ms, float frameP95Ms, int missed90Frames) {
             this.generatedAt = generatedAt;
             this.abi = abi;
             this.bridgeReady = bridgeReady;
@@ -55,6 +59,9 @@ public final class VisionStatusJson {
             this.thermalResponse = thermalResponse;
             this.adaptiveFramerate = adaptiveFramerate;
             this.adaptiveFramerateApplied = adaptiveFramerateApplied;
+            this.frameP50Ms = frameP50Ms;
+            this.frameP95Ms = frameP95Ms;
+            this.missed90Frames = missed90Frames;
         }
     }
 
@@ -79,7 +86,10 @@ public final class VisionStatusJson {
         field(json, "thermalState", d.thermalState, true);
         field(json, "thermalResponse", d.thermalResponse, true);
         bool(json, "adaptiveFramerate", d.adaptiveFramerate, true);
-        bool(json, "adaptiveFramerateApplied", d.adaptiveFramerateApplied, false);
+        bool(json, "adaptiveFramerateApplied", d.adaptiveFramerateApplied, true);
+        rawNumber(json, "frameP50Ms", d.frameP50Ms, true);
+        rawNumber(json, "frameP95Ms", d.frameP95Ms, true);
+        number(json, "missed90Frames", d.missed90Frames, false);
         json.append("}\n");
         return json.toString();
     }

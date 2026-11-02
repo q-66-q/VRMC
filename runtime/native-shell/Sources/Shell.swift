@@ -1539,7 +1539,9 @@ struct VRControlOverlay: View {
             let right = (obj["handRightTracked"] as? Bool) == true ? "R" : "-"
             let thermal = obj["thermalState"] as? String ?? "?"
             let adaptive = (obj["adaptiveFramerateApplied"] as? Bool) == true ? "capped" : "off"
-            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive)"
+            let p95 = (obj["frameP95Ms"] as? Double).map { String(format: "%.1f", $0) } ?? "?"
+            let missed = obj["missed90Frames"].map { "\($0)" } ?? "?"
+            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)"
         } else {
             providerStatusLine = ""
         }
