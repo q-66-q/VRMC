@@ -88,6 +88,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   package verifier/freshness and device integrity: all PASS.
 - Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
 
+## K6 JRE-pruning experiment (EV-0205)
+
+- `stage_native_app.sh` accepts `VRMC_KEEP_JRE=<major>` to prune other bundled `java-*-openjdk`
+  runtimes before signing; default unchanged (keeps all).
+- Experimental lite staging (not installed): app 245,747,712 bytes vs 583,630,848 current, 72 vs 169
+  Mach-O, deep/strict codesign PASS. **Device launch behavior NOT validated**; do not use as default
+  until D1 confirms the launcher does not select a pruned bundled runtime.
+
 ## Checklist FAIL release gate (EV-0204)
 
 - `scripts/m6_check_device_checklist.sh` consumes `export/device-acceptance-status.txt`: missing SKIP,

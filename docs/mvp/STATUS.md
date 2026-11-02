@@ -69,4 +69,6 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - Latest build is **unlaunched**; presentation/input regression risk can only be excluded on D1.
 - Simulator currently backgrounds the app immediately before compositor logs, so it is not evidence.
 - `hands.componentMode=joints` remains experimental/opt-in (device visual result unknown).
+- A lite app variant with JRE pruning is an experimental K6 option (app ~246 MB vs ~584 MB) but is
+  **not installed/default** until device launch is validated.
 - Development package is not a release manifest sign-off.

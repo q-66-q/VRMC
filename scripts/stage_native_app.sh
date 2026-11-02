@@ -21,6 +21,8 @@
 #   DEVICE      UDID expected in the profile    (default ${VRMC_DEVICE_UDID:-}; '' to skip)
 #   ALLOW_PLATFORM_MISMATCH=1   skip the visionOS (platform 11) check on framework/dylib
 #   DRY_RUN=1   print the plan, change nothing
+#   VRMC_KEEP_JRE=25  optional experimental: prune other bundled java-*-openjdk runtimes from the
+#                     staged app (reduces bundle size; device launch behavior NOT yet validated)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -163,6 +165,21 @@ if [ "$DRY_RUN" = "1" ]; then note "DRY_RUN=1 - no bundle will be written"; fi
 # --- 1. fresh copy of the last device bundle ---------------------------------------------------
 run rm -rf "$DEST_APP"
 run cp -R "$SRC_APP" "$DEST_APP"
+
+# Optional K6 experiment: prune bundled JREs other than the requested major. The game uses the JRE
+# selected by the launcher/installer; this variant must be device-validated before it becomes default.
+KEEP_JRE="${VRMC_KEEP_JRE:-}"
+if [ -n "$KEEP_JRE" ]; then
+  note "pruning bundled java runtimes except java-${KEEP_JRE}-openjdk (experimental; device validation required)"
+  for jre in "$DEST_APP"/java_runtimes/java-*-openjdk; do
+    [ -d "$jre" ] || continue
+    name="$(basename "$jre")"
+    case "$name" in
+      "java-${KEEP_JRE}-openjdk") ;;
+      *) run rm -rf "$jre"; note "  pruned $name" ;;
+    esac
+  done
+fi
 
 # --- 2. swap in the freshly built framework + bridge dylib -------------------------------------
 run rm -rf "$DEST_APP/Frameworks/$FW_DEST_NAME"
