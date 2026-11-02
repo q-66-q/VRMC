@@ -1,0 +1,5 @@
+EV-0094 build identity (staged app VRMC-native-v14-auditfix.app):
+  shell  Frameworks/VRMCShell.framework/VRMCShell  83cb12b9b8e3393efbfc3e703cacd7889e96263ce222e98088313999ea663063
+  bridge Frameworks/libvrmc_bridge.dylib            109328f8f5604915d7ecf176f0620028e9e1e30b1b34c9b7381a59dcc09337be
+  provider jar                                      2b889090186a4aacaa86576e3a6b0162e7ba8450edcd7ba6fb1a434d4786d8db (push round-trip verified)
+  app bundle                                        /tmp/VRMC-native-v14-auditfix.app

@@ -1,0 +1,22 @@
+[shell] 2026-11-02 05:03:57 +0000 vrmc_shell_start invoked
+[shell] 2026-11-02 05:03:57 +0000 activity init appActive=false windowSceneActive=false windows=no-window-scenes scenes=[]
+[shell] 2026-11-02 05:03:57 +0000 coordinator ready chromeMode=hidden-when-immersive selftest=false noParking=false hideWindowsOptIn=false
+[shell] 2026-11-02 05:03:57 +0000 activity UIScene.didActivate appActive=false windowSceneActive=true windows=scene(1) w0[hidden=false alpha=1.00 level=0.0] scenes=[UIWindowSceneSessionRoleApplication:fgActive]
+[shell] 2026-11-02 05:03:57 +0000 activity didBecomeActive appActive=true windowSceneActive=true windows=scene(1) w0[hidden=false alpha=1.00 level=0.0] scenes=[UIWindowSceneSessionRoleApplication:fgActive]
+[shell] 2026-11-02 05:03:57 +0000 didBecomeActive gameStarted=false immersive=false reopen=false windowActive=true
+[shell] 2026-11-02 05:03:57 +0000 launcher host appeared
+[shell] 2026-11-02 05:04:02 +0000 VRMCGameStarted received
+[shell] 2026-11-02 05:04:17 +0000 auto attempt 1 openImmersiveSpace result=opened epoch=0 windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 05:04:17 +0000 immersive session opened generation=0 chrome=hidden-when-immersive reason=auto; waiting for the first PRESENTED compositor frame before parking windows
+[shell] 2026-11-02 05:04:17 +0000 VRMCCompositorRunning generation=1 immersive=true selftest=false windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 05:04:17 +0000 window parked after first presented frame windows=2 visible=false mode=alpha-only (never isHidden) chrome=hidden-when-immersive parked=true windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:18 +0000 window re-parked (periodic) windows=2 visible=false mode=alpha-only (never isHidden) chrome=hidden-when-immersive parked=true windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:22 +0000 STATE immersive=true presenting=true appActive=true appState=0 scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive,UIWindowSceneSessionRoleApplication:fgActive] windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:27 +0000 STATE immersive=true presenting=true appActive=true appState=0 scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive,UIWindowSceneSessionRoleApplication:fgActive] windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:32 +0000 STATE immersive=true presenting=true appActive=true appState=0 scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive,UIWindowSceneSessionRoleApplication:fgActive] windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:34 +0000 activity UIScene.willDeactivate appActive=true windowSceneActive=true windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0] scenes=[CPSceneSessionRoleImmersiveSpaceApplication:background,UIWindowSceneSessionRoleApplication:fgActive]
+[shell] 2026-11-02 05:04:34 +0000 willResignActive (grace 1.8 s before stopping the compositor) gameStarted=true immersive=true presenting=true windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:34 +0000 didEnterBackground gameStarted=true immersive=true presenting=true windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:34 +0000 VRMCImmersiveEnded generation=1 current=1 presenting=true windows=scene(2) w0[hidden=false alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 05:04:34 +0000 window restored windows=2 visible=true mode=alpha-only (never isHidden) chrome=hidden-when-immersive parked=false windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 05:04:34 +0000 immersive space dismissed epoch=2

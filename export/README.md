@@ -1,220 +1,70 @@
-# VRMC — native immersive integration (M3b) — **current state**
+# VRMC — native immersive integration — **RESOLVED** (M3c visual acceptance PASS)
 
 **Date:** 2026-11-01
-**Status:** **PARTIAL (build/static validation; device run NOT RUN).** The M3b build below is signed and
-installed on D1. It carries the fixes for the three EV-0086 issues plus one-run diagnostics that make the
-next device session decisive and never silently black. Read this file, then run the procedure in
-**"Next device run"** and record the result as EV-0088.
+**Status:** **RESOLVED.** The black-immersive blocker is closed and on-device visual acceptance passed:
+stereo/alignment pattern and a live JIT game render in the immersive space with stereo aligned and head
+tracking active (EV-0094, operator-confirmed). Root cause of the black immersion: the M3b drawable depth
+clear had been changed from 1.0 to 0.0, which visionOS 27.2 presents as a black immersive layer (EV-0093).
 
-The M3b evidence in this folder ("evidence/EV-0087.md", "logs/m3b-*") is **build/static/simulator evidence,
-not device evidence** (AGENT.md §9, VERIFY.md §0.7). The only device evidence here is the earlier EV-0086 run.
+## Acceptance evidence (EV-0094)
 
-## What changed since EV-0086 (the black-screen run)
+- Manual immersive: operator confirmed the eye-distinct stereo pattern (fusion cross, per-eye tint,
+  checker border); drawable readback L mean luma 110.4 / R luma 110.4, centre ~171, nonBlack 4096/4096.
+- JIT game run: `VRMCGameStarted 05:04:02 UTC` -> auto `openImmersiveSpace result=opened 05:04:17` ->
+  first presented frame -> `VRMCCompositorRunning`; windows parked `alpha=0.00`; `depthZero=0`;
+  `mode=flat`; provider eye textures live (mean luma 46 -> 35 -> 109 -> 156 as MenuWorlds world59
+  rendered); display views applied exactly (e.g. `Lpos=(-0.0328,-0.0265,-0.0347)`
+  `Rpos=(0.0316,-0.0246,-0.0347)`, `ipd 0.0645`); drawable proof luma 35 -> 118 -> 129; first command
+  buffer completed; no failures; tracking frames present.
+- Operator: “the game launched successfully! the eyesight is aligned and it shows the game properly in
+  immersive!”
+- Session ended by operator at 05:04:34 UTC (headset off/crown) after confirming the view.
 
-**1) The black immersive — cause narrowed to the provider eye texture (or device presentation), not the
-compositor math.** We validated the exact reprojection path two ways:
+## Root cause of the black immersive (EV-0093)
 
-- macOS Metal unit test (runtime/probes/m3b-shader-test): the shipping MSL shader + uniform layout reproduce
-  the CPU ray->UV reference at 81/81 samples (max error 0.0022, linear-filter tolerance).
-- visionOS-simulator probe (runtime/probes/m3b-reproj): the exact shader + drawable pass (rgba16Float +
-  depth attachment, clearDepth 0.0, no rate map) present correctly (drawable readback == CPU reference at
-  25/25 probes; on-screen simulator capture == drawable). Replaying the pipeline on the **EV-0086 device
-  views reconstructed from the device log** maps **87.88 % of each eye inside the provider 110° frustum**,
-  with **0 % behind-camera rays, 0 % NaN** and only a ~12 % outer-edge border outside (roll ±20°: 87.9–89.7 %).
-  An all-black provider texture through the same shader reproduces the EV-0086 symptom exactly.
+M3b changed the CompositorServices drawable **depth clear** to 0.0 (interpreting “0 = infinitely far”
+in isolation). On visionOS 27.2 that makes the whole immersive layer present black even though the colour
+drawable is bright and the command buffer completes. Controls: known-good M3a probe (depth 1.0) displays;
+minimal-window/deprecated-API/pure-SwiftUI builds with depth 0.0 are black; same build with depth 1.0
+shows bright content. Fix: default depth clear **1.0**, `vrmc-depth-zero.flag` A/B, and
+`scripts/tests/DepthClearRegressionTest.sh` PASS.
 
-Conclusion: if the provider's eye image contains content, the immersive shows content. The remaining
-explanations are (a) the provider eye texture was black/empty/unsynchronised on the device, or (b) a
-device-side presentation failure. The M3b compositor makes both visible in one run:
+## Alignment/position fix (macstream reference, EV-0088/EV-0090)
 
-- CPU ray->UV + per-eye 9x9 coverage diagnostics, raw projection/view matrices, per-view texture-map viewport.
-- **Provider eye-texture readback** (32x32 centre of each eye every ~300 frames): mean RGB, **alpha**, luma.
-  If both eyes read back black twice, the compositor switches to a **procedural test pattern** automatically.
-- **No silent black:** out-of-frustum UVs clamp, behind-camera/NaN falls back to flat sampling, sampled colour
-  is forced opaque (alpha=1); debug shading colours the failure branches (magenta = outside provider frustum,
-  blue = behind camera, orange = NaN) via Documents/vrmc-reproj-debug.flag.
-- Command-buffer health is logged (frame N command buffer FAILED/completed), so a failing present path is
-  no longer invisible.
-- **Mode badge:** the top ~1.5 % of the image is tinted by the active path — **red = reprojection,
-  green = flat sampling, blue = test pattern** — so an operator report can name the path without pulling logs.
+Per macstream `VERIFY.md` Phase 8 root causes 3+4:
+- eye matrices are **head-relative** (`cp_view_get_transform`) and rendered by the provider on
+  `hmdPoseLeftEye`/`hmdPoseRightEye`;
+- the provider renders the headset's **asymmetric per-eye FOV** (`cp_view_get_tangents`) with cached
+  projection invalidation (`lastFarClip`/`lastReverseFarClip = NaN`);
+- display views are published per-eye interleaved (`L t@0, L m@16, R t@80, R m@96, ipd@160`; a
+  grouped-vs-interleaved JNI bug that corrupted the left eye was fixed in EV-0090, with a layout test);
+- compositor uses flat 1:1 eye-texture mapping once display views are applied.
 
-**2) Window chrome — architectural cause fixed.** In the simulator, WindowGroup.persistentSystemOverlays(.hidden)
-*does* hide the visionOS window chrome; the preference died on device because Amethyst's game launch
-**replaced the window's root view controller** with SurfaceViewController, destroying the SwiftUI
-WindowGroup view. M3b patches Amethyst to **present the game surface modally over the live SwiftUI host**
-(patches/vrmc-m3w3-modal-game-surface.patch), so the scene survives and the chrome preference keeps working.
-Amethyst code that assumed window.rootViewController was the game surface now uses
-vrmcCurrentSurfaceViewController(). Siblings fixed: input bridge, gyro/controller input, external-display,
-SDL view lookup, isRunning, resolution sync.
+## What works now on D1
 
-**3) Re-entry after background — hardened.** Shell.swift now epoch-guards every awaited open/dismiss (a stale
-teardown cannot kill a newer session), requires the app **and** its window scene to be foreground-active,
-confirms the previous dismiss and settles before reopening, ignores stale generation notifications, and
-**auto-retries up to 2x** when a layer invalidates right after opening (the EV-0086 generation-2 symptom).
+- Native launcher UI -> Play -> JIT game
+- Auto-open immersive space; game window content parked (alpha 0) and chrome hidden
+- Live Minecraft rendered in the immersive space with **stereo aligned** and **head tracking active**
+- No command-buffer failures; provider eye textures and drawable both non-black
 
-## Diagnostic flags (push with devicectl, no rebuild needed)
+## Remaining work (not part of this closure)
 
-App data container Documents/:
+- M4 input (hands) — needed to actually play
+- Window chrome on/off behaviour polish
+- Background -> foreground re-entry device check
+- Provider GPU-timeline sync device run (flag-gated, host PASS)
+- M3-W5/W6: 90 Hz pacing/thermal, 10-minute soak, acceptance
 
-| Flag | Effect |
-|---|---|
-| vrmc-reproj-off.flag | Force the old flat fullscreen sampling (known-visible in EV-0083/84/85) |
-| vrmc-reproj-on.flag | Force reprojection (skips the auto fallback) |
-| vrmc-reproj-debug.flag | Colour-coded failure branches + NaN diagnostics |
-| vrmc-test-pattern.flag | Always draw the procedural test pattern |
-| vrmc-no-sampling.flag | Test pattern without touching provider textures |
-| vrmc-legacy-root-swap.flag | Restore the EV-0086 game-launch behaviour (root VC swap, chrome preference lost) |
-| vrmc-hide-chrome-always.flag | Keep the window chrome hidden for the whole launch |
+## Evidence / logs in this folder
 
-Push example:
-
-    xcrun devicectl device copy to --device <D1-UDID> \
-      --domain-type appDataContainer --domain-identifier dev.vrmc.vrmc \
-      --source /tmp/vrmc-reproj-debug.flag --destination Documents/vrmc-reproj-debug.flag
-
-## Next device run (EV-0088) — procedure
-
-1. Install the accepted build /tmp/VRMC-native-v14-auditfix.app (historical EV-0088 step; already installed, data preserved) - or
-   rebuild + restage with the commands in **"Rebuild / reinstall"**.
-2. StikDebug -> Assign amethyst.js -> Enable JIT -> launch **VRMC** (not from Home).
-3. Launcher -> **Play** -> wait ~15 s for the auto-open.
-4. Observe while the game runs:
-   - **Window chrome:** is the bottom bar/windows gone in the immersive session? (Expected: yes if the modal
-     presentation keeps the scene alive; if not, push vrmc-hide-chrome-always.flag and retry.)
-   - **Immersive content:** visible Minecraft image, black, or a coloured pattern? If a pattern: the badge
-     strip colour identifies the path (red = reprojection, green = flat sampling, blue = test pattern). If
-     black with a blue badge -> provider image is black; the texture readback lines below confirm.
-5. Background the app (press the Digital Crown once / look away and back), then return: does the immersive
-   space reopen by itself? Expected: didBecomeActive ... reopen=true -> foreground attempt 1 result=opened,
-   and VRMCImmersiveEnded generation=2 should only appear on a real end (auto-retry logs if the layer dies
-   immediately).
-6. Collect artefacts and record EV-0088:
-   - devicectl device copy from ... --source Documents/vrmc-compositor.log --destination /tmp/m3b/vrmc-compositor.log
-   - same for Documents/vrmc-shell.log and Documents/latestlog.txt; plus system crash logs.
-7. Decisive lines to read:
-   - [vrmc-comp] diag view 0/1 ... — conventions, d.z sign, in-frustum coverage; "... coverage 9x9: inside=...".
-   - [vrmc-comp] provider tex L/R ... — provider image luma **and alpha**; if auto-fallback fired:
-     "AUTO TEST-PATTERN: provider eye textures measured black ...".
-   - [vrmc-comp] frame N command buffer FAILED/... completed — presentation path health.
-   - [vrmc-comp] shading mode=... — and the mode badge colour on screen.
-   - [shell] activity ..., immersive session opened generation=..., auto-retry n/2, ignoring stale generation ...
-   - [VRMC] game surface presented modally over the SwiftUI host ... in the app log (new App window path).
-
-## Rebuild / reinstall
-
-    scripts/build_provider.sh                 # provider jar (verify sha) + scripts/push_provider_jar.sh to device
-    scripts/build_bridge.sh                   # arm64-ios bridge dylib (vtool visionOS retag, symbol checks)
-    cd runtime/native-shell && xcodebuild -project VRMCShell.xcodeproj -scheme VRMCShell \
-      -configuration Debug -destination 'generic/platform=visionOS' CODE_SIGNING_ALLOWED=NO build
-    # Amethyst executable (patched): replicate the Makefile native target with cmake against the iphoneos SDK
-    # in a copy of vendor/amethyst-build with patches/*.patch applied, then retag the executable:
-    #   vtool -arch arm64 -set-build-version 11 1.0 1.0 -replace -output <exe> <exe>
-    scripts/stage_native_app.sh <path/to/VRMCShell.framework> /tmp/vrmc-bridge-build/libvrmc_bridge.dylib
-    DEVICE=<D1-UDID> scripts/install_device.sh /tmp/VRMC-native-v14-auditfix.app   # update install (keeps data)
-
-See docs/mvp/M3_PLAN.md §17 and export/logs/m3b-* for the full build/stage log and hashes.
-
-## Build identities (installed on D1)
-
-| Item | sha256 |
-|---|---|
-| App tree (485 files, dev.vrmc.vrmc, signed) | 19a7078bbfe20c04364c03fdf7aa4b0a192d85aecc1285c7d8a6fbf5e942fe26 |
-| AngelAuraAmethyst executable (signed) | 52880363be47c1142466e8177691704fe1917ce31aba5179ff1e55a4d14b2e5e |
-| Frameworks/VRMCShell.framework/VRMCShell (signed) | 4880ab19e2bf2b2e4cf124e1e6026e877a03e31d39aa5b41662b7a667e24e2ef |
-| Frameworks/libvrmc_bridge.dylib (signed) | b7af2c77206670e3962968d25f3e2eb020a181311f91a9c9fb6b7abb7c2186f1 |
-| provider jar (Documents/instances/default/mods/vrmc-provider.jar, byte-identical to EV-0086) | 80ea3a757243e5eacfe655eb75d397b9bacdda80c3b98fea652edd7262e1f9ea |
-
-## What already works (unchanged since EV-0086)
-
-| Item | Evidence |
-|---|---|
-| Native visionOS launcher builds/runs; launcher UI + Play | EV-0079 |
-| SwiftUI app-lifecycle shell hosts the launcher and opens ImmersiveSpace/CompositorLayer | EV-0081 |
-| Game-start auto-open (15 s), game survives, no Vulkan device-loss | EV-0083 |
-| Compositor samples provider eye textures (eyes=1) and feeds ARKit tracking to the provider | EV-0083/84/85 |
-| Window content parking; clean compositor exit on background; re-entry lifecycle (generation 2 opens) | EV-0084/85/86 |
-| Compositor reprojection math + pass setup validated on Metal and in the simulator | EV-0087 |
-| Signed M3b app built and installed on D1 | EV-0087 |
-
-## Open issues to be decided by the next device run
-
-1. **Black immersive** — provider eye image black/unsynced vs device presentation; the texture readback,
-   command-buffer log, mode badge and auto test-pattern distinguish them in one run.
-2. **Window chrome** — expected fixed by the modal game-surface presentation; A/B with
-   vrmc-hide-chrome-always.flag / vrmc-legacy-root-swap.flag.
-3. **Re-entry** — expected fixed; auto-retry protects the gen-2 invalidation case.
-4. Stereo alignment / exotropia — only judgeable once content is visible; the CPU diag + badge path will
-   show whether reprojection or flat sampling is active.
-
-## Evidence / logs
-
-- evidence/EV-0087.md — build/static validation entry (EV-0087; full VERIFY.md entry recorded).
-- logs/m3b-shader-test.log, logs/m3b-reproj-summary.txt — Metal + simulator validation summaries.
-- runtime/probes/m3b-reproj/results/report.md (full probe report), results/m3b.log, results/summary.txt.
-- evidence/EV-0086.md, logs/*fixes-run.log, evidence/EV-0083/84/85.md — earlier device evidence.
-- export/patches/vrmc-m3w3-modal-game-surface.patch — the Amethyst modal game-surface patch.
-- export/VRMC-immersive-integration-blocker-2026-11-01.zip — this dossier (updated for M3b).
+- `evidence/EV-0090.md` … `evidence/EV-0094.md` — layout fix, M3c plan/root cause/acceptance
+- `logs/ev0094/` — step1 pattern + game-live compositor/shell/latestlog, drawable metas, triage,
+  operator reports
+- `logs/` (older) — M3b/EV-0086 reproduction evidence, retained as history
+- Runbook: `docs/mvp/M3C_DEVICE_RUN.md`; flag reference: `docs/mvp/M3C_FLAGS.md`
 
 
-## Alignment fix staged (EV-0088) + recovered M3b device logs (EV-0089)
+---
 
-After the macstream reference analysis (VERIFY.md Phase 8 root causes 3+4: eye matrices must be
-head-relative, and the provider must use the client's asymmetric per-eye FOV with cached-projection
-invalidation), VRMC now has a display-view channel:
-
-- compositor publishes `cp_view_get_tangents` + `cp_view_get_transform` + measured IPD to the bridge,
-- provider renders the display frustum and sets head-relative eye matrices, invalidating cached
-  projections (NaN farClip, as macstream 43981c8),
-- compositor uses flat 1:1 eye-texture mapping once views are published (EV-0086 black reprojection
-  branch bypassed).
-
-Offline: `scripts/test_display_views.sh` PASS (lopsided device views + symmetric fallback), bridge stub
-display-view roundtrip PASS, provider compiles; app/bridge/provider built+installed (device run pending).
-
-A recovered M3b device session log (14:41 local) shows the provider eye textures were **valid non-black
-content** (L mean RGB 83/108/51, R 78/100/48; 1024/1024 non-black, alpha 255), the first command buffer
-completed, and chrome/windows were parked/hidden; the session backgrounded before a visual alignment
-check. So EV-0086's black screen was compositor reprojection/presentation, not provider content.
-
-## ROOT CAUSE FOUND — M3c depth-clear fix (2026-11-01 evening)
-
-The black immersive was **not** the provider content, the drawable API, the compositor math, or the
-Amethyst shell. It was the **CompositorServices drawable depth clear value**:
-
-- M3b (`1b3b73c`) changed `rp.depthAttachment.clearDepth` from 1.0 to 0.0 (reverse-Z "infinity").
-- The known-good M3A probe (EV-0074, which displays on D1) clears to 1.0.
-- Device A/B: depth clear 0.0 -> black immersive (bright drawable readback, completed command buffer);
-  depth clear 1.0 -> solid magenta/cyan visible immediately, operator-confirmed, same build/app.
-- Fix in this build: default depth clear 1.0; `vrmc-depth-zero.flag` only for A/B.
-  Regression test: `scripts/tests/DepthClearRegressionTest.sh`.
-
-Installed build for the next session: /tmp/VRMC-native-v14-auditfix.app (final accepted build, EV-0094; shell framework 83cb12b9, bridge 109328f8, provider jar 2b889090, signed dev.vrmc.vrmc). This is the only staged app bundle retained: the diagnostic A/B builds (v1-v13, M3A/M3B probe shells) and their temp logs/pulls were deleted on 2026-11-01; the reusable build inputs (/tmp/vrmc-shell-dd, /tmp/vrmc-provider-build, /tmp/vrmc-bridge-build) and the Amethyst build caches were kept.
-
-### Next session (short, decisive)
-
-1. Unlock/wear D1; launch **VRMC** (Home or `devicectl device process launch --activate dev.vrmc.vrmc`).
-2. Launcher window appears with the **Enter VR** overlay button. Tap it.
-   Expected: beep on the first presented frame, window fades, and the eye-distinct stereo/alignment
-   test pattern fills the immersive field of view:
-   left eye warm/red, right eye green; one white centre cross per eye that must fuse into a single sharp
-   cross (doubled cross = misalignment); red corner marker = left eye, green = right eye; checker border.
-   This build (`v13-reentry`) carries the depth-clear fix, the stereo/alignment pattern and the re-entry fixes.
-3. Game run: StikDebug -> Assign amethyst.js -> Enable JIT -> launch VRMC -> Play.
-   Expected: game starts; auto-immersive opens ~15 s later; Vivecraft menu world + GUI fills the field
-   of view; head tracking works (move your head).
-4. Pull `Documents/vrmc-shell.log`, `Documents/vrmc-compositor.log`, `latestlog.txt` and record the
-   result (expected lines: `STATE ... CPSceneSessionRoleImmersiveSpaceApplication:fgActive`,
-   `layerState=2`, bright `drawable proof`, `depthZero=0`).
-5. Report anything that is still black/misaligned before judging stereo alignment.
-
-Known remaining items after the visual confirmation: stereo alignment check (flat 1:1 display frustum),
-window chrome hiding, background/foreground re-entry, provider GPU sync (deferred; bridge API ready).
-
-## RESOLVED ON DEVICE (EV-0094 PASS, 2026-11-01)
-
-The v14 build passed the on-device acceptance: with the EV-0093 depth-clear fix active the immersive shows
-the stereo/alignment pattern (fusion cross, per-eye tint, checker border) and a JIT game run renders the
-Vivecraft menu world in the immersive space with stereo aligned and head tracking. Operator: "the game
-launched successfully! the eyesight is aligned and it shows the game properly in immersive!". The
-black-immersive blocker is CLOSED; remaining work is M4 input, chrome, re-entry, provider GPU-sync device
-run and pacing/soak (M3-W5/W6).
+Older M3b-era evidence (EV-0086 black reproduction, display-view first runs) is retained in
+`logs/` and the repository history; it is superseded by the EV-0093/EV-0094 closure above.

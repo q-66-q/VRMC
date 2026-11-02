@@ -1,0 +1,11 @@
+EV-0094 operator reports (Vision Pro D1), verbatim from the session question UI:
+
+Step 1 (manual/immersive pattern):
+  "Yes - pattern + fusion cross + border visible, window faded"
+
+JIT game run (after the 19:04 local run):
+  "the game launched successfully! the eyesight is aligned and it shows the game properly in immersive!"
+
+Context: earlier report in the same session "Game visible but a window still floats over it" predated this
+v14 run; the successful v14 run's logs show both app windows alpha-0 parked and the operator did not report a
+floating window afterwards.

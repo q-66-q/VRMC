@@ -1,32 +1,27 @@
-Environment (VRMC — native immersive integration, M3b build, 2026-11-01)
+Environment (VRMC — accepted EV-0094 build, 2026-11-01)
 
 Device:
-  Apple Vision Pro, RealityDevice14,1 (Apple M2), visionOS 27.2 (24N120), Developer Mode ON
-Host:
-  MacBook Pro Mac16,7 (M4 Pro), macOS 27.0.1, Xcode 27.2 (27B52), visionOS 27.2 SDK
+  Apple Vision Pro, RealityDevice14,1 (M2), visionOS 27.2 (24N120), Developer Mode ON
 
-Native app (M3b, installed on D1 as dev.vrmc.vrmc 1.2.0, data container preserved):
-  Amethyst 1.2.0 source (vendor/amethyst-build) + patches
-  (vrmc-m1-amethyst-1.2.0, vrmc-m3w1-visionos-idiom, vrmc-m3w2-shell-hook,
-   vrmc-m3w3-modal-game-surface); cmake native build (Debug, iphoneos sysroot) + vtool
-  platform-11 retag; embedded runtime/native-shell/VRMCShell.framework and arm64-ios
-  libvrmc_bridge.dylib; 169 Mach-O + 6 frameworks re-signed with dev.vrmc.vrmc profile
-  (Team <TEAM_ID>); codesign --verify --deep --strict PASS.
-  Game surface presentation: modal over the live SwiftUI hosting controller (new); legacy
-  root-VC swap available via Documents/vrmc-legacy-root-swap.flag.
+Accepted build (EV-0094 audit-fix build):
+  staged app: VRMC-native-v14-auditfix.app
+  shell hash: 83cb12b9b8e3
+  bridge hash: 109328f8f560
+  provider jar hash: 2b889090186a
+  source commit: 8dd0018 (audit fixes + EV-0094); cleanup/tooling at 9c4470a
+  build tooling: scripts/stage_native_app.sh (defaults to accepted build), scripts/m3c_preflight.sh,
+  scripts/m3c_pull_and_check.sh, scripts/m3c_selfcheck.sh
 
-JIT:
-  StikDebug 3.2.0; Assign amethyst.js -> Enable JIT -> VRMC (always-attached TXM).
+Runtime stack:
+  MC 26.2, Fabric Loader 0.20.1, Vivecraft 26.2-1.3.15, VRMC provider (bridge ABI v2, display-view
+  native shared channel), LWJGL 3.4.1, MoltenVK 1.4.3/Vulkan 1.2.357, Java 25.
+  immersion: CompositorServices full immersion, depth clear 1.0 (EV-0093 fix), flat eye mapping,
+  display-view tangents/eye transforms applied; window parking alpha-only.
 
-Game stack:
-  MC 26.2, Fabric 0.20.1, Vivecraft 26.2-1.3.15, VRMC provider (bridge ABI 2), LWJGL 3.4.1,
-  MoltenVK 1.4.3/Vulkan 1.2.357, Java 25. Launch via launcher Play button.
+Host/sim verification:
+  scripts/m3c_selfcheck.sh (flat sampling, GPU-timeline sync, stereo pattern, parking A/B, re-entry
+  scenarios PASS), scripts/tests/DepthClearRegressionTest.sh, DisplayViewsTest,
+  DisplayViewsLayoutTest, bridge stub test.
 
-Provider / bridge (rebuilt, stage-verified):
-  vrmc-provider.jar sha256 80ea3a757243e5eacfe655eb75d397b9bacdda80c3b98fea652edd7262e1f9ea
-  libvrmc_bridge.dylib (device) sha256 deae9132f5e5a1ebc1d6d1102e13bb5645ce9be3a88e6c803ce65fd19dbfdd39
-
-Diagnostics (app Documents/ flags):
-  vrmc-reproj-off.flag, vrmc-reproj-on.flag, vrmc-reproj-debug.flag, vrmc-test-pattern.flag,
-  vrmc-no-sampling.flag, vrmc-legacy-root-swap.flag, vrmc-hide-chrome-always.flag
-  Compositor log: Documents/vrmc-compositor.log; shell log: Documents/vrmc-shell.log.
+Runbook/logs:
+  docs/mvp/M3C_DEVICE_RUN.md, docs/mvp/M3C_FLAGS.md, export/logs/ev0094/

@@ -1,0 +1,37 @@
+[m3c] pulling Documents from <D1-UDID> into /tmp/vrmc-ev0094-step2
+== session scope ==
+  compositor lines: 71  shell lines: 45
+  first compositor line: [vrmc-comp] starting compositor thread (generation 2)
+  first shell line:      [shell] 2026-11-02 05:00:16 +0000 vrmc_shell_start invoked
+== compositor diagnostics (last session) ==
+[vrmc-comp] diagnostics: reprojMode=0 debugShading=0 samplingDisabled=0 forceTestPattern=0 presentProof=0 clearProbe=0 dumpRaw=1 presentWait=0 selfTest=0 noDeviceAnchor=0 legacySingleDrawable=0 depthZero=0
+== first presented frame / layer state / frame lines ==
+[vrmc-comp] drawable topology: count=1 mainTarget=0(built_in) views=2 textures=2 rateMaps=0
+[vrmc-comp] first presented frame: drawables=1 presented=1 views=2 frame=0 generation=2 -> posting VRMCCompositorRunning
+  [vrmc-comp] frame 1680 eyes=0 anchor=1 anchorFails=0 leftView=0 ipd=0.0647 mode=test arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(0.02,1.74,0.21) p0=0x0 p1=0x0
+  [vrmc-comp] frame 1800 eyes=0 anchor=1 anchorFails=0 leftView=0 ipd=0.0646 mode=test arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(0.01,1.74,0.22) p0=0x0 p1=0x0
+== drawable readback (what was drawn) ==
+  [vrmc-comp] drawable proof L frame=1800 generation=2 src=1888x1792 fmt=115: mean=(183.5,77.9,69.8) luma=110.4 topStripLuma=163.1 centreLuma=170.9 max=(255,255,255) nonBlack=4096/4096
+  [vrmc-comp] drawable proof R frame=1800 generation=2 src=1888x1792 fmt=115: mean=(55.3,163.2,112.7) luma=110.4 topStripLuma=167.1 centreLuma=171.1 max=(255,255,255) nonBlack=4096/4096
+  meta: w=64 h=64 format=RGBA8 eye=L frame=1800 generation=2 srcWidth=1888 srcHeight=1792 pixelFormat=115 meanLuma=110.41 topStripLuma=163.09 centreLuma=170.94
+
+== immersive scene activation / parking (shell) ==
+  [shell] 2026-11-02 05:01:18 +0000 STATE immersive=true presenting=true appActive=true appState=0 scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive,UIWindowSceneSessionRoleApplication:fgActive] windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+  [shell] 2026-11-02 05:01:24 +0000 STATE immersive=true presenting=true appActive=true appState=0 scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive,UIWindowSceneSessionRoleApplication:fgActive] windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+  [shell] 2026-11-02 05:01:29 +0000 STATE immersive=true presenting=true appActive=true appState=0 scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive,UIWindowSceneSessionRoleApplication:fgActive] windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+  [shell] 2026-11-02 05:00:17 +0000 VRMCCompositorRunning generation=1 immersive=true selftest=true windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=10.0] scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0] scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=10.0]
+  [shell] 2026-11-02 05:00:43 +0000 VRMCImmersiveEnded generation=1 current=1 presenting=true windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=10.0] scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=10.0] scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+  [shell] 2026-11-02 05:00:53 +0000 willResignActive (grace 1.8 s before stopping the compositor) gameStarted=false immersive=false presenting=false windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+  [shell] 2026-11-02 05:01:13 +0000 VRMCCompositorRunning generation=2 immersive=true selftest=true windows=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+== verdict ==
+  OK: depthZero=0 (drawable depth clear 1.0, EV-0093 fix active)
+  OK: compositor presented at least one frame this log
+  OK: immersive scene was foreground-active while logging
+== provider eye textures (game run only) ==
+== window parking effectiveness ==
+  (windows not parked — selftest/manual mode leaves them visible by design)
+== mode / sampling ==
+  [vrmc-comp] diagnostics: reprojMode=0 debugShading=0 samplingDisabled=0 forceTestPattern=0 presentProof=0 clearProbe=0 dumpRaw=1 presentWait=0 selfTest=0 noDeviceAnchor=0 legacySingleDrawable=0 depthZero=0
+  [vrmc-comp] shading mode=flat (auto)
+  [vrmc-comp] TEST PATTERN state changed: active=1 haveEyes=0 samplingDisabled=0 forceTestPattern=0 autoTestPattern=0 selfTest=0 (blue mode badge on the pattern)
+[m3c] logs in /tmp/vrmc-ev0094-step2

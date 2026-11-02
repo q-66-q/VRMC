@@ -1,0 +1,80 @@
+[vrmc-comp] starting compositor thread (generation 1)
+[vrmc-comp] bridge resolved handle=0x8b26a610 eye=0x118bd477c tracking=0x118bd49a4 displayViews=0x118bd4a70 acquireEyes=0x118bd466c
+[vrmc-comp] ARKit session started (generation 1)
+[vrmc-comp] wait_until_running returned (generation 1) device=Apple M2 GPU
+[vrmc-comp] diagnostics: reprojMode=0 debugShading=0 samplingDisabled=0 forceTestPattern=0 presentProof=0 clearProbe=0 dumpRaw=1 presentWait=0 selfTest=0 noDeviceAnchor=0 legacySingleDrawable=0 depthZero=0
+[vrmc-comp] layer configuration colorFormat=115 depthFormat=252 foveation=0 layout=0
+[vrmc-comp] pipelines color=115 depth=252 reproj=1 flat=1 test=1 proof=1
+[vrmc-comp] drawable topology: count=1 mainTarget=0(built_in) views=2 textures=2 rateMaps=0
+[vrmc-comp]   drawable[0] target=0(built_in) views=2 textures=2 rateMaps=0
+[vrmc-comp] published display views L tangents=(-1.732,1.000,1.000,-1.192) Lpos=(-0.0328,-0.0265,-0.0347) R tangents=(-1.000,1.732,1.000,-1.192) Rpos=(0.0316,-0.0246,-0.0350) ipd=0.0645
+[vrmc-comp] drawable: colorFormat=115 views=2 textures=2 rateMaps=0 target=0(built_in)
+[vrmc-comp] viewToDevice col0=(1.0000,0.0003,0.0024,0.0000) col1=(-0.0004,0.9999,0.0151,-0.0000)
+[vrmc-comp] viewToDevice col2=(-0.0024,-0.0151,0.9999,-0.0000) col3=(-0.0328,-0.0265,-0.0347,1.0000)
+[vrmc-comp] projection col0=(0.7321,0.0000,0.0000,0.0000) col1=(-0.0000,0.9125,0.0000,-0.0000)
+[vrmc-comp] projection col2=(-0.2679,-0.0875,0.0000,-1.0000) col3=(0.0000,0.0000,0.1000,0.0000)
+[vrmc-comp] view 0 (left) texIndex=0 slice=0 viewport=(0,0,1888,1792) tangents l/r/d/u=(-1.732,1.000,-1.192,1.000) pos=(-0.0328,-0.0265,-0.0347) fwd=(0.002,0.015,-1.000)
+[vrmc-comp] view 0 attachments: color=0x1417a4280 1888x1792 fmt=115 type=2 arrayLength=1 slice=0 | depth=0x1417fc000 1888x1792 fmt=252 type=2 | rateMapCount=0
+[vrmc-comp] viewToDevice col0=(1.0000,-0.0024,0.0029,0.0000) col1=(0.0024,0.9999,0.0161,-0.0000)
+[vrmc-comp] viewToDevice col2=(-0.0030,-0.0161,0.9999,-0.0000) col3=(0.0316,-0.0246,-0.0350,1.0000)
+[vrmc-comp] projection col0=(0.7319,-0.0000,0.0000,-0.0000) col1=(0.0000,0.9123,0.0000,-0.0000)
+[vrmc-comp] projection col2=(0.2679,-0.0875,0.0000,-1.0000) col3=(0.0000,0.0000,0.1000,0.0000)
+[vrmc-comp] view 1 (right) texIndex=1 slice=0 viewport=(0,0,1888,1792) tangents l/r/d/u=(-1.000,1.732,-1.192,1.000) pos=(0.0316,-0.0246,-0.0350) fwd=(0.003,0.016,-1.000)
+[vrmc-comp] view 1 attachments: color=0x1417a4500 1888x1792 fmt=115 type=2 arrayLength=1 slice=0 | depth=0x1417fe580 1888x1792 fmt=252 type=2 | rateMapCount=0
+[vrmc-comp] provider eye tangents L=(-1.428,1.428,-1.428,1.428) R=(-1.428,1.428,-1.428,1.428) ipd=0.0645 haveEyes=0 displayViewsPublished=1
+[vrmc-comp] diag view 0 (left): center d=(-0.073,-0.016,-0.200) finite=1 behind=0 t=(-0.363,-0.081) uv=(0.373,0.528) inside=1
+[vrmc-comp] diag view 0 corner 0 ndc=(-1,-1) finite=1 behind=0 uv=(-0.092,0.903) inside=0
+[vrmc-comp] diag view 0 corner 1 ndc=(1,-1) finite=1 behind=0 uv=(0.846,0.906) inside=1
+[vrmc-comp] diag view 0 corner 2 ndc=(-1,1) finite=1 behind=0 uv=(-0.112,0.141) inside=0
+[vrmc-comp] diag view 0 corner 3 ndc=(1,1) finite=1 behind=0 uv=(0.857,0.138) inside=1
+[vrmc-comp] diag view 0 coverage 9x9: inside=72/81 behind=0/81 nonFinite=0/81 maxUvExcess=0.112
+[vrmc-comp] diag view 1 (right): center d=(0.074,-0.016,-0.200) finite=1 behind=0 t=(0.369,-0.081) uv=(0.629,0.528) inside=1
+[vrmc-comp] diag view 1 corner 0 ndc=(-1,-1) finite=1 behind=0 uv=(0.157,0.902) inside=1
+[vrmc-comp] diag view 1 corner 1 ndc=(1,-1) finite=1 behind=0 uv=(1.098,0.907) inside=0
+[vrmc-comp] diag view 1 corner 2 ndc=(-1,1) finite=1 behind=0 uv=(0.147,0.139) inside=1
+[vrmc-comp] diag view 1 corner 3 ndc=(1,1) finite=1 behind=0 uv=(1.122,0.138) inside=0
+[vrmc-comp] diag view 1 coverage 9x9: inside=72/81 behind=0/81 nonFinite=0/81 maxUvExcess=0.122
+[vrmc-comp] shading mode=flat (auto)
+[vrmc-comp] TEST PATTERN state changed: active=1 haveEyes=0 samplingDisabled=0 forceTestPattern=0 autoTestPattern=0 selfTest=0 (blue mode badge on the pattern)
+[vrmc-comp] first presented frame: drawables=1 presented=1 views=2 frame=0 generation=1 -> posting VRMCCompositorRunning
+[vrmc-comp] frame 1 eyes=0 anchor=0 anchorFails=1 leftView=0 ipd=0.0645 mode=test arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(0.00,0.00,0.00) p0=0x0 p1=0x0
+[vrmc-comp] drawable proof L frame=0 generation=1 src=1888x1792 fmt=115: mean=(183.5,77.9,69.8) luma=110.4 topStripLuma=163.1 centreLuma=170.9 max=(255,255,255) nonBlack=4096/4096
+[vrmc-comp] drawable proof R frame=0 generation=1 src=1888x1792 fmt=115: mean=(55.3,163.2,112.7) luma=110.4 topStripLuma=167.1 centreLuma=171.1 max=(255,255,255) nonBlack=4096/4096
+[vrmc-comp] frame 0 command buffer completed (first)
+[vrmc-comp] drawable proof L frame=1 generation=1 src=1888x1792 fmt=115: mean=(183.5,77.9,69.8) luma=110.4 topStripLuma=163.1 centreLuma=170.9 max=(255,255,255) nonBlack=4096/4096
+[vrmc-comp] drawable proof R frame=1 generation=1 src=1888x1792 fmt=115: mean=(55.3,163.2,112.7) luma=110.4 topStripLuma=167.1 centreLuma=171.1 max=(255,255,255) nonBlack=4096/4096
+[vrmc-comp] drawable proof L frame=2 generation=1 src=1888x1792 fmt=115: mean=(183.5,77.9,69.8) luma=110.4 topStripLuma=163.1 centreLuma=170.9 max=(255,255,255) nonBlack=4096/4096
+[vrmc-comp] drawable proof R frame=2 generation=1 src=1888x1792 fmt=115: mean=(55.3,163.2,112.7) luma=110.4 topStripLuma=167.1 centreLuma=171.1 max=(255,255,255) nonBlack=4096/4096
+[vrmc-comp] frame 120 eyes=0 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=test arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.06,1.19,0.02) p0=0x0 p1=0x0
+[vrmc-comp] provider eye textures changed: generation=1 publish=1 L=0x723b54fc00 R=0x109590c80 (handles are re-acquired every frame, never cached)
+[vrmc-comp] provider eye texture usage L=0x5 (shaderRead=1) R=0x5 (shaderRead=1) syncValid=0 signalValue=0 providerFrame=0
+[vrmc-comp] TEST PATTERN state changed: active=0 haveEyes=1 samplingDisabled=0 forceTestPattern=0 autoTestPattern=0 selfTest=0 (blue mode badge on the pattern)
+[vrmc-comp] frame 240 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.01,1.20,0.03) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] provider tex L L: mean=(88.3,24.3,26.1) alpha=255.0 max=(91,27,27) nonBlack=1024/1024 luma=46.21 frame=300
+[vrmc-comp] provider tex R R: mean=(88.7,24.6,25.9) alpha=255.0 max=(93,29,28) nonBlack=1024/1024 luma=46.39 frame=300
+[vrmc-comp] drawable proof L frame=300 generation=1 src=1888x1792 fmt=115: mean=(54.2,28.8,22.4) luma=35.1 topStripLuma=52.1 centreLuma=45.9 max=(238,203,168) nonBlack=4096/4096
+[vrmc-comp] drawable proof R frame=300 generation=1 src=1888x1792 fmt=115: mean=(60.8,30.1,23.4) luma=38.1 topStripLuma=51.7 centreLuma=46.1 max=(239,203,169) nonBlack=4096/4096
+[vrmc-comp] frame 360 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.02,1.19,0.01) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] frame 480 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.01,1.18,0.01) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] frame 600 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.05,1.18,0.01) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] provider tex L L: mean=(42.5,39.0,22.8) alpha=255.0 max=(85,77,38) nonBlack=1024/1024 luma=34.77 frame=600
+[vrmc-comp] provider tex R R: mean=(98.1,98.1,98.1) alpha=255.0 max=(119,119,119) nonBlack=976/1024 luma=98.10 frame=600
+[vrmc-comp] drawable proof L frame=600 generation=1 src=1888x1792 fmt=115: mean=(33.2,33.8,24.6) luma=30.5 topStripLuma=52.3 centreLuma=30.6 max=(255,255,255) nonBlack=4052/4096
+[vrmc-comp] drawable proof R frame=600 generation=1 src=1888x1792 fmt=115: mean=(34.3,35.3,25.0) luma=31.5 topStripLuma=53.3 centreLuma=63.7 max=(255,255,255) nonBlack=4048/4096
+[vrmc-comp] frame 720 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0644 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.03,1.20,0.03) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] frame 840 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0644 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.03,1.18,0.01) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] provider tex L L: mean=(109.2,109.2,109.2) alpha=255.0 max=(118,118,118) nonBlack=1024/1024 luma=109.18 frame=900
+[vrmc-comp] provider tex R R: mean=(55.7,50.3,39.6) alpha=249.1 max=(102,129,234) nonBlack=1024/1024 luma=48.51 frame=900
+[vrmc-comp] drawable proof L frame=900 generation=1 src=1888x1792 fmt=115: mean=(101.3,124.6,129.3) luma=118.4 topStripLuma=134.7 centreLuma=87.0 max=(255,255,255) nonBlack=3997/4096
+[vrmc-comp] drawable proof R frame=900 generation=1 src=1888x1792 fmt=115: mean=(101.5,127.9,137.2) luma=122.2 topStripLuma=135.1 centreLuma=51.9 max=(255,255,255) nonBlack=4052/4096
+[vrmc-comp] frame 960 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0644 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(0.04,1.18,0.02) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] frame 1080 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.04,1.18,0.01) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] frame 1200 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.01,1.19,-0.01) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] provider tex L L: mean=(140.1,160.6,167.2) alpha=148.8 max=(206,218,255) nonBlack=1024/1024 luma=155.97 frame=1200
+[vrmc-comp] provider tex R R: mean=(120.6,120.6,120.6) alpha=255.0 max=(255,255,255) nonBlack=1024/1024 luma=120.63 frame=1200
+[vrmc-comp] drawable proof L frame=1200 generation=1 src=1888x1792 fmt=115: mean=(107.9,135.0,142.8) luma=128.6 topStripLuma=135.4 centreLuma=158.5 max=(255,255,255) nonBlack=4047/4096
+[vrmc-comp] drawable proof R frame=1200 generation=1 src=1888x1792 fmt=115: mean=(107.3,133.4,143.6) luma=128.1 topStripLuma=135.4 centreLuma=93.9 max=(255,255,255) nonBlack=4054/4096
+[vrmc-comp] frame 1320 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.03,1.20,0.02) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] frame 1440 eyes=1 anchor=1 anchorFails=8 leftView=0 ipd=0.0645 mode=flat arrayCount=1 targets=[b] presented=1 encNil=0 nilColor=0 layerState=2 head=(-0.03,1.18,-0.06) p0=0x723b54fc00 p1=0x109590c80
+[vrmc-comp] stop requested before frame; exiting loop
+[vrmc-comp] posted VRMCImmersiveEnded (generation 1); presentedFrames=1499 framesWithoutDrawable=0 framesWithoutEncoder=0 anchorFails=21
