@@ -159,6 +159,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionGazeMathTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionMiddleGestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionLocomotionTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionSwipeGestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -207,6 +208,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-locomotion-test\] [0-9]+ checks" "$T/m4-locomotion.log"
   else
     cat "$T/m4-locomotion.log"; fail "m4-locomotion"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionSwipeGestureTest > "$T/m4-swipe.log" 2>&1 \
+     && grep -q "\[m4-swipe-test\] PASS" "$T/m4-swipe.log"; then
+    echo "[provider-tests] m4-swipe: PASS (opt-in open-hand swipe directions/cooldown)"
+    grep -E "\[m4-swipe-test\] [0-9]+ checks" "$T/m4-swipe.log"
+  else
+    cat "$T/m4-swipe.log"; fail "m4-swipe"
   fi
   # Cross-language fixture: set-but-missing must FAIL; unset is an explicit SKIP (never silent).
   FIXTURE="${VRMC_INPUT_FIXTURE:-}"

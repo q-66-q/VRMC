@@ -85,6 +85,7 @@ public final class VisionInput {
     // M4-W3 middle-pinch family (thumb tip to middle tip; disjoint from the thumb-index pinch).
     public static final String KEY_JUMP = "key.jump";
     public static final String KEY_SNEAK = "key.sneak";
+    public static final String KEY_RADIAL_MENU = "vivecraft.key.radialMenu";
     public static final String KEY_TELEPORT = "vivecraft.key.teleport";
     public static final String KEY_VR_INTERACT = "vivecraft.key.vrInteract";
     public static final String KEY_CLIMBEY_GRAB = "vivecraft.key.climbeyGrab";
@@ -106,6 +107,10 @@ public final class VisionInput {
     public static final String TUNE_MIDDLE_DOUBLE_MS = "middle.doubleMs";
     /** A/B safety switch: the whole M4-W3 middle-pinch family (default ON; set false to keep W1-only). */
     public static final String TUNE_MIDDLE_ENABLED = "middle.enabled";
+    public static final String TUNE_SWIPE_ENABLED = "swipe.enabled";
+    public static final String TUNE_SWIPE_SPEED = "swipe.speed";
+    public static final String TUNE_SWIPE_OPEN_RATIO = "swipe.openRatio";
+    public static final String TUNE_SWIPE_COOLDOWN_MS = "swipe.cooldownMs";
     public static final String TUNE_FIST_HOLD_MS = "fist.hold.ms";
     public static final String TUNE_ARM_MS = "arm.ms";
     public static final String TUNE_STALE_MS = "stale.ms";
@@ -120,6 +125,16 @@ public final class VisionInput {
     public static final float DEFAULT_MIDDLE_OFF = 0.050F;
     public static final long DEFAULT_MIDDLE_TAP_MS = 220L;
     public static final long DEFAULT_MIDDLE_DOUBLE_MS = 320L;
+    /** M4-W4 swipe gestures (opt-in): open-hand horizontal/vertical swipes for hotbar/scroll. */
+    public static final boolean DEFAULT_SWIPE_ENABLED = false;
+    public static final float DEFAULT_SWIPE_SPEED = 1.20F;      // metres/second
+    public static final float DEFAULT_SWIPE_OPEN_RATIO = 1.45F; // fistRatio above this = open hand
+    public static final long DEFAULT_SWIPE_COOLDOWN_MS = 350L;
+    public static final int SWIPE_NONE = 0;
+    public static final int SWIPE_LEFT = 1;
+    public static final int SWIPE_RIGHT = 2;
+    public static final int SWIPE_UP = 3;
+    public static final int SWIPE_DOWN = 4;
     public static final long DEFAULT_FIST_HOLD_MS = 400L;
     public static final long DEFAULT_ARM_MS = 100L;
     public static final long DEFAULT_STALE_MS = 250L;
@@ -171,6 +186,7 @@ public final class VisionInput {
         // M4-W3: middle-pinch family (left movement/snap handled as analog by VisionVR).
         new BindingDef(KEY_JUMP, HAND_RIGHT, SRC_MIDDLE_TAP, ActionSet.INGAME),
         new BindingDef(KEY_SNEAK, HAND_RIGHT, SRC_MIDDLE_PINCH, ActionSet.INGAME),
+        new BindingDef(KEY_RADIAL_MENU, HAND_RIGHT, SRC_MIDDLE_DOUBLE_TAP, ActionSet.INGAME),
     };
 
     /** Unique action names in binding-table order (used to resolve VRInputActions once). */
@@ -246,6 +262,13 @@ public final class VisionInput {
         int middleDoubleTapFrames;
         boolean middleTapPressed;
         boolean middleDoubleTapPressed;
+
+        // --- M4-W4 open-hand swipe edge detector (opt-in) ---
+        long lastMotionNs;
+        float lastWristX, lastWristY, lastWristZ;
+        long lastSwipeNs;
+        int swipeDirection;
+        int swipeFrames;
     }
 
     private final Hand[] hands = {new Hand(), new Hand()};
@@ -259,6 +282,10 @@ public final class VisionInput {
     private final float middleOff;
     private final long middleTapNanos;
     private final long middleDoubleNanos;
+    private final boolean swipeEnabled;
+    private final float swipeSpeed;
+    private final float swipeOpenRatio;
+    private final long swipeCooldownNanos;
     private final long fistHoldNanos;
     private final long armNanos;
     private final long staleNanos;
@@ -309,6 +336,10 @@ public final class VisionInput {
         this.middleOff = tuneFloat(tune, TUNE_MIDDLE_OFF, DEFAULT_MIDDLE_OFF);
         this.middleTapNanos = tuneLong(tune, TUNE_MIDDLE_TAP_MS, DEFAULT_MIDDLE_TAP_MS) * 1_000_000L;
         this.middleDoubleNanos = tuneLong(tune, TUNE_MIDDLE_DOUBLE_MS, DEFAULT_MIDDLE_DOUBLE_MS) * 1_000_000L;
+        this.swipeEnabled = tuneBool(tune, TUNE_SWIPE_ENABLED, DEFAULT_SWIPE_ENABLED);
+        this.swipeSpeed = tuneFloat(tune, TUNE_SWIPE_SPEED, DEFAULT_SWIPE_SPEED);
+        this.swipeOpenRatio = tuneFloat(tune, TUNE_SWIPE_OPEN_RATIO, DEFAULT_SWIPE_OPEN_RATIO);
+        this.swipeCooldownNanos = tuneLong(tune, TUNE_SWIPE_COOLDOWN_MS, DEFAULT_SWIPE_COOLDOWN_MS) * 1_000_000L;
         this.fistHoldNanos = tuneLong(tune, TUNE_FIST_HOLD_MS, DEFAULT_FIST_HOLD_MS) * 1_000_000L;
         this.armNanos = tuneLong(tune, TUNE_ARM_MS, DEFAULT_ARM_MS) * 1_000_000L;
         this.staleNanos = tuneLong(tune, TUNE_STALE_MS, DEFAULT_STALE_MS) * 1_000_000L;
@@ -358,6 +389,11 @@ public final class VisionInput {
     public float fistOn() { return this.fistOn; }
     public float fistOff() { return this.fistOff; }
     public boolean middleEnabled() { return this.middleEnabled; }
+    public boolean swipeEnabled() { return this.swipeEnabled; }
+    public float swipeSpeed() { return this.swipeSpeed; }
+    public float swipeOpenRatio() { return this.swipeOpenRatio; }
+    public int swipeDirection(int hand) { return this.hands[hand].swipeDirection; }
+    public long swipeCooldownMillis() { return this.swipeCooldownNanos / 1_000_000L; }
     public float middleOn() { return this.middleOn; }
     public float middleOff() { return this.middleOff; }
     public long middleTapMillis() { return this.middleTapNanos / 1_000_000L; }
@@ -529,6 +565,10 @@ public final class VisionInput {
         h.middleDoubleTapFrames = 0;
         h.middleTapPressed = false;
         h.middleDoubleTapPressed = false;
+        h.lastMotionNs = 0L;
+        h.lastSwipeNs = 0L;
+        h.swipeDirection = SWIPE_NONE;
+        h.swipeFrames = 0;
     }
 
     private static void resetGestures(Hand h) {
@@ -553,6 +593,10 @@ public final class VisionInput {
         h.middleDoubleTapFrames = 0;
         h.middleTapPressed = false;
         h.middleDoubleTapPressed = false;
+        h.lastMotionNs = 0L;
+        h.lastSwipeNs = 0L;
+        h.swipeDirection = SWIPE_NONE;
+        h.swipeFrames = 0;
     }
 
     /** Release both hands, both-fist state and every source (tracking loss / stale / bad poll). */
@@ -582,6 +626,7 @@ public final class VisionInput {
             updateSource(h, true, h.pinchDistance, nowNs);
             updateSource(h, false, h.fistRatio, nowNs);
             updateMiddleSource(h, nowNs);
+            updateSwipe(h, nowNs);
         }
         // Both-fist chord priority (M4-W1 follow-up): while BOTH hands present the fist gesture the
         // chord owns the fist-tap gesture, so the per-hand taps are suppressed and a both-fists hold
@@ -711,6 +756,51 @@ public final class VisionInput {
         if (h.middleTapFrames > 0) h.middleTapFrames--;
         h.middleDoubleTapPressed = h.middleDoubleTapFrames > 0;
         if (h.middleDoubleTapFrames > 0) h.middleDoubleTapFrames--;
+    }
+
+    /**
+     * M4-W4 open-hand swipe detector (opt-in, default OFF). A tracked, open, non-pinching hand whose
+     * wrist moves faster than {@code swipeSpeed} emits a short directional pulse (left/right/up/down)
+     * at most once per {@code swipeCooldownMs}. Deliberately conservative: the gesture is for
+     * hotbar/scroll convenience, never movement, and can be disabled with swipe.enabled=false.
+     */
+    private void updateSwipe(Hand h, long nowNs) {
+        if (!this.swipeEnabled) {
+            h.swipeDirection = SWIPE_NONE;
+            h.swipeFrames = 0;
+            return;
+        }
+        if (h.swipeFrames > 0) h.swipeFrames--;
+        if (h.swipeFrames == 0) h.swipeDirection = SWIPE_NONE;
+        long previousNs = h.lastMotionNs;
+        float px = h.lastWristX, py = h.lastWristY, pz = h.lastWristZ;
+        h.lastMotionNs = nowNs;
+        h.lastWristX = h.wx;
+        h.lastWristY = h.wy;
+        h.lastWristZ = h.wz;
+        if (previousNs == 0L) return;
+        long dtNs = nowNs - previousNs;
+        if (dtNs <= 0L || dtNs > 100_000_000L) return; // first frame or a tracking gap
+        boolean openHand = h.fistRatio > this.swipeOpenRatio && !h.pinchPressed && !h.fistPressed
+            && !h.middlePressed;
+        if (!openHand) return;
+        if (h.lastSwipeNs != 0L && nowNs - h.lastSwipeNs < this.swipeCooldownNanos) return;
+        float dt = (float) (dtNs * 1.0E-9);
+        float dx = h.wx - px;
+        float dy = h.wy - py;
+        float speed = (float) Math.sqrt((double) (dx * dx + dy * dy)) / dt;
+        if (!(speed > this.swipeSpeed)) return;
+        int direction;
+        if (Math.abs(dx) > Math.abs(dy) * 1.25F) {
+            direction = dx < 0.0F ? SWIPE_LEFT : SWIPE_RIGHT;
+        } else if (Math.abs(dy) > Math.abs(dx) * 1.25F) {
+            direction = dy < 0.0F ? SWIPE_DOWN : SWIPE_UP;
+        } else {
+            return;
+        }
+        h.swipeDirection = direction;
+        h.swipeFrames = this.tapFrames;
+        h.lastSwipeNs = nowNs;
     }
 
     /**

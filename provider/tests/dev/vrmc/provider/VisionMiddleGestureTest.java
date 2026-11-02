@@ -113,6 +113,16 @@ public final class VisionMiddleGestureTest {
         for (int i = 0; i < 3; i++) { tap.pollMs(16); jump |= tap.in.actionPressed(VisionInput.KEY_JUMP); }
         check("middle tap binds key.jump (right)", jump);
 
+        // Double-tap -> radial menu binding (right hand).
+        Rig dbl = new Rig();
+        dbl.poll(); dbl.pollMs(150);
+        dbl.rMiddle = PINCHED_MIDDLE; dbl.pollMs(16); dbl.rMiddle = OPEN_MIDDLE; dbl.pollMs(16);
+        dbl.rMiddle = PINCHED_MIDDLE; dbl.pollMs(16); dbl.rMiddle = OPEN_MIDDLE; dbl.pollMs(16);
+        dbl.in.setEnvironment(false, false, false);
+        boolean radial = dbl.in.actionPressed(VisionInput.KEY_RADIAL_MENU);
+        for (int i = 0; i < 3; i++) { dbl.pollMs(16); radial |= dbl.in.actionPressed(VisionInput.KEY_RADIAL_MENU); }
+        check("middle double-tap binds radial menu (right)", radial);
+
         tap.in.setEnvironment(true, false, false);
         check("GUI screen suppresses INGAME middle bindings",
             !tap.in.actionActive(VisionInput.KEY_SNEAK) && !tap.in.actionActive(VisionInput.KEY_JUMP));

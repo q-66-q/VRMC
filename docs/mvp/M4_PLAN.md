@@ -1,6 +1,6 @@
 # M4 plan — hands-only input (M4-W1: immersive-scene control)
 
-Status: **M4-W1 PASSED ON DEVICE; W2 smooth hands + shutdown hardening host+simulator PASS (EV-0097); gaze tracking-areas host build/tests PASS but runtime/device NOT RUN (EV-0098); W3 middle-pinch locomotion/core actions host PASS (EV-0099), device NOT RUN.** **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
+Status: **M4-W1 PASSED ON DEVICE; W2 smooth hands + shutdown hardening host+simulator PASS (EV-0097); gaze tracking-areas host build/tests PASS but runtime/device NOT RUN (EV-0098); W3 middle-pinch locomotion/core actions host PASS (EV-0099); W4 partial swipe hotbar/scroll + radial host PASS (EV-0100); device NOT RUN.** **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
 (EV-0096): synthetic plumbing + real-hands operator confirmation (“It ran very well!”); two follow-ups
 recorded: a reproducible shutdown-only JVM SIGSEGV to triage, and the operator-requested W2 features
 below.** This plan is scoped to the reported defect: once the game is in the immersive space the user
@@ -145,6 +145,19 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   deadzone/rotatePulseMs` in `vrmc-input-tune.properties` or `-Dvrmc.input.*`.
 - **Evidence:** m4-middle 15 checks + m4-locomotion 7 checks PASS, provider suite ALL PASS; real-hands
   threshold/feel tuning and AC-4 checklist remain device-only (W5).
+
+## 6e. W4 progress (2026-11-01, EV-0100)
+
+- **Opt-in open-hand swipes** (`swipe.enabled=false` by default): tracked open hand (fist ratio above
+  `swipe.openRatio`, no pinch/fist/middle press) moving faster than `swipe.speed` emits a 2-frame
+  directional pulse at most once per `swipe.cooldownMs`; horizontal/vertical dominance.
+- **Provider actions:** right-hand swipe left/right → hotbar previous/next (`changeHotbar`), up/down →
+  `InputSimulator.scrollMouse`; only the pulse rising edge acts; seated/keyboard suppressed.
+- **Radial menu:** right middle-pinch double-tap → `vivecraft.key.radialMenu`.
+- **Tuning:** `swipe.enabled/speed/openRatio/cooldownMs` in `vrmc-input-tune.properties` or
+  `-Dvrmc.input.*`.
+- **Still open for W4:** hotbar 1–9 selection, chat/keyboard toggle, swap/drop gestures, bow/climb
+  chord semantics, visible hands/held-item polish, full P0 checklist (device-only).
 
 ## 7. W2+ backlog (unchanged milestone content)
 

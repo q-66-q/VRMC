@@ -299,7 +299,8 @@ M4-W2 first slice (2026-11-01, EV-0097, host+simulator PASS): One-Euro hand-pose
   device NOT RUN): bridge mailbox, Swift onSpatialEvent, compositor 32x18 hover mask, provider
   tile->GUI-plane click mapping, opt-in via vrmc-gaze.flag. M4-W3 middle-pinch locomotion/core
   actions (EV-0099, host PASS; device NOT RUN): virtual stick -> freeMoveStrafe, jump/sneak,
-  snap turn; device smoothing/quit/gaze/locomotion runs pending.
+  snap turn. W4 partial (EV-0100, host PASS): opt-in open-hand swipes -> hotbar/scroll, middle
+  double-tap -> radial menu. Device smoothing/quit/gaze/locomotion/W4 runs pending.
 
 M4-W1 status (2026-11-01, EV-0095, host+simulator PASS): the immersive-scene input channel and the
 first gesture slice exist — G1 joint ingestion, G2 partial (pinch/fist/chord with hysteresis, arming,

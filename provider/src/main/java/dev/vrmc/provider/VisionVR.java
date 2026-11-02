@@ -100,6 +100,7 @@ public class VisionVR extends MCVR {
     private long rotatePulseNanos = 120_000_000L;
     private long rotatePulseUntilNs;
     private int rotatePulseDirection;
+    private int lastSwipeDirection = VisionInput.SWIPE_NONE;
     private VRInputAction[] bindingActions;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
@@ -197,11 +198,13 @@ public class VisionVR extends MCVR {
         logSmoothingConfig(this.smoothingConfig);
         System.out.printf("[VRMC-M4] locomotion: middleEnabled=%s virtual stick originZ=%.2f forwardScale=%.2f "
                 + "strafeScale=%.2f deadzone=%.2f rotatePulseMs=%d middleOn=%.3f middleOff=%.3f "
-                + "middleTapMs=%.0f middleDoubleMs=%.0f%n",
+                + "middleTapMs=%.0f middleDoubleMs=%.0f swipeEnabled=%s swipeSpeed=%.2f swipeCoolMs=%.0f%n",
             this.visionInput.middleEnabled(), this.moveOriginZ, this.moveForwardScale,
             this.moveStrafeScale, this.moveDeadzone, this.rotatePulseNanos / 1_000_000L,
             this.visionInput.middleOn(), this.visionInput.middleOff(),
-            (double) this.visionInput.middleTapMillis(), (double) this.visionInput.middleDoubleMillis());
+            (double) this.visionInput.middleTapMillis(), (double) this.visionInput.middleDoubleMillis(),
+            this.visionInput.swipeEnabled(), this.visionInput.swipeSpeed(),
+            this.visionInput.swipeCooldownMillis());
 
         this.initialized = true;
         this.initSuccess = true;
@@ -991,6 +994,43 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /**
+     * M4-W4 opt-in open-hand swipes (default OFF via swipe.enabled): right-hand horizontal swipe =
+     * hotbar previous/next; right-hand vertical swipe = mouse wheel (hotbar in game / list scroll in GUI).
+     * Only the rising edge of the 2-frame swipe pulse acts, so one swipe = one action.
+     */
+    private void applySwipeActions() {
+        if (this.visionInput == null || !this.visionInput.swipeEnabled()) {
+            this.lastSwipeDirection = VisionInput.SWIPE_NONE;
+            return;
+        }
+        int direction = this.visionInput.swipeDirection(VisionInput.HAND_RIGHT);
+        if (direction == this.lastSwipeDirection) return;
+        this.lastSwipeDirection = direction;
+        if (direction == VisionInput.SWIPE_NONE || this.dh.vrSettings.seated || KeyboardHandler.SHOWING) {
+            return;
+        }
+        switch (direction) {
+            case VisionInput.SWIPE_LEFT -> {
+                if (this.mc.gui.screen() == null) this.changeHotbar(-1);
+                System.out.println("[VRMC-M4] swipe right-hand LEFT -> hotbar previous");
+            }
+            case VisionInput.SWIPE_RIGHT -> {
+                if (this.mc.gui.screen() == null) this.changeHotbar(1);
+                System.out.println("[VRMC-M4] swipe right-hand RIGHT -> hotbar next");
+            }
+            case VisionInput.SWIPE_UP -> {
+                InputSimulator.scrollMouse(0.0D, 1.0D);
+                System.out.println("[VRMC-M4] swipe right-hand UP -> scroll up");
+            }
+            case VisionInput.SWIPE_DOWN -> {
+                InputSimulator.scrollMouse(0.0D, -1.0D);
+                System.out.println("[VRMC-M4] swipe right-hand DOWN -> scroll down");
+            }
+            default -> { }
+        }
+    }
+
     private static void writeAnalog2D(VRInputAction action, int slot, float x, float y, long origin) {
         VRInputAction.AnalogData a = action.analogData[slot];
         a.deltaX = -a.x;
@@ -1079,6 +1119,7 @@ public class VisionVR extends MCVR {
 
         this.applyActionData();
         this.applyLocomotion();
+        this.applySwipeActions();
 
         for (VRInputAction action : this.inputActions.values()) {
             if (action.isHanded()) {
