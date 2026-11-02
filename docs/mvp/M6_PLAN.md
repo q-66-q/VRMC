@@ -32,6 +32,16 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
   rebuilt from the release commit with device evidence.
 
+## Source offer + refreshed package (EV-0143)
+
+- `SOURCE_OFFER.md`: GPLv3 app/launcher/compositor + LGPLv3 separately-replaceable provider correspondence,
+  release-manifest source commit/versions pins, rebuild instructions, 3-year written offer, explicit
+  no-Minecraft/Vivecraft redistribution.
+- Release check requires it; the development package includes it plus M4/M5/M6 docs.
+- Clean-tree refresh: release check PASS, manifest `dirty_tree=no`, package
+  `/tmp/VRMC-dev-release.zip` bytes=206,440,226 sha256 `7cfc1433…`; device provider integrity PASS.
+- Acceptance gate still **NOT READY**; this is a development sideload package, not final release.
+
 ## Acceptance readiness report (EV-0139)
 
 - `scripts/m6_acceptance_report.sh` parses M5/M6 acceptance matrices, prints per-row status and counts,
