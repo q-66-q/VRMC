@@ -655,6 +655,9 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     const int reprojMode = readReprojMode();
     const BOOL debugShading = documentFlag(@"vrmc-reproj-debug.flag");
     const BOOL forceTestPattern = documentFlag(@"vrmc-test-pattern.flag");
+    // Diagnostic A/B: skip cp_drawable_set_device_anchor entirely (EV-0073 saw passthrough without an
+    // anchor; this isolates whether the anchor/reprojection path is what keeps the content off-screen).
+    const BOOL noDeviceAnchor = documentFlag(@"vrmc-no-anchor.flag");
     const BOOL presentProof = documentFlag(@"vrmc-present-proof.flag");
     const BOOL clearProbe = documentFlag(@"vrmc-clear-probe.flag");
     const BOOL dumpRawAlways = documentFlag(@"vrmc-drawable-dump.flag");
@@ -665,9 +668,10 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
         samplingDisabled = documentFlag(@"vrmc-no-sampling.flag") ? 1 : 0;
     }
     compLog("diagnostics: reprojMode=%d debugShading=%d samplingDisabled=%d forceTestPattern=%d "
-            "presentProof=%d clearProbe=%d dumpRaw=%d presentWait=%d selfTest=%d",
+            "presentProof=%d clearProbe=%d dumpRaw=%d presentWait=%d selfTest=%d noDeviceAnchor=%d",
             reprojMode, (int)debugShading, samplingDisabled, (int)forceTestPattern,
-            (int)presentProof, (int)clearProbe, (int)dumpRawAlways, (int)presentWait, (int)selfTest);
+            (int)presentProof, (int)clearProbe, (int)dumpRawAlways, (int)presentWait, (int)selfTest,
+            (int)noDeviceAnchor);
 
     // Query the layer's real configuration instead of hardcoding the colour format: the pipeline
     // must match what the drawable actually hands out.
@@ -1159,7 +1163,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     simd_float3 p1 = cp_view_get_transform(cp_drawable_get_view(drawable, 1)).columns[3].xyz;
                     drawableLeftView = (p0.x <= p1.x) ? 0 : 1;
                 }
-                if (anchorOK) {
+                if (anchorOK && !noDeviceAnchor) {
                     cp_drawable_set_device_anchor(drawable, anchor);
                 }
                 size_t textureCount = cp_drawable_get_texture_count(drawable);
