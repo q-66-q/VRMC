@@ -1,0 +1,42 @@
+
+=== build-provider ===
+[provider] compiled 8 class files from 7 sources
+[provider] jar:     /tmp/vrmc-provider-build/vrmc-provider.jar
+[provider] size:    27711 bytes
+[provider] sha256:  87b8fdc21846b9959ff3444ab4838ccd067f85944b6706fbb6cd5f0cd2138ee7
+[provider-tests] build-provider: PASS
+
+=== flag-test ===
+[provider-flags-test] GpuSyncFlags (off by default)
+  no flag file, no property -> OFF                     actual=false expected=false ok
+  null game dir, no property -> OFF                    actual=false expected=false ok
+  flag file -> ON                                      actual=true  expected=true  ok
+  flag file in other dir -> OFF for empty dir          actual=false expected=false ok
+  -Dvrmc.gpuSync=1, no flag file -> ON                 actual=true  expected=true  ok
+  -Dvrmc.gpuSync=0 beats flag file -> OFF              actual=false expected=false ok
+  -Dvrmc.gpuSync=false beats flag file -> OFF          actual=false expected=false ok
+  -Dvrmc.gpuSync=true -> ON                            actual=true  expected=true  ok
+  -Dvrmc.gpuSync=yes -> ON                             actual=true  expected=true  ok
+  -Dvrmc.gpuSync=on -> ON                              actual=true  expected=true  ok
+  -Dvrmc.gpuSync=garbage is explicit OFF               actual=false expected=false ok
+[provider-flags-test] PASS
+[provider-tests] flag-test: PASS
+
+=== fallback-test ===
+[provider-tests] fallback-off: PASS (no flag -> null, silent)
+[provider-tests] fallback-flagfile: PASS (requested, one warning, safe null)
+[VRMC-M2][gpu-sync] WARNING: enable failed: NoClassDefFoundError (com/mojang/logging/LogUtils); falling back to unsynchronized eye submission
+[provider-tests] fallback-property: PASS (-Dvrmc.gpuSync=1 requested, safe null)
+
+=== vkreflect-smoke ===
+[provider-tests] vkreflect-without-lwjgl: PASS (fails closed as designed)
+[provider-vkreflect-test] expected fail-closed: class not found: org.lwjgl.vulkan.VK10
+[provider-tests] vkreflect-with-lwjgl: PASS
+[provider-vkreflect-test] smokeTest: vk classes+structs ok: exportCreate=0x756778ffe8 semType=0x756778ffc8 semInfo=0x756778ffb0 sharedEventBit=32 timeline=1 success=0 allCommands=0x10000
+
+=== vulkan-host-test ===
+[provider-tests] vulkan-host-test: PASS
+[provider-vk-host-test] exportable timeline VkSemaphore=0x7b31dc80a0 MTLSharedEvent=0x7b34d34940
+[provider-vk-host-test] destroySemaphore: ok
+
+[provider-tests] ALL PASS

@@ -100,9 +100,11 @@ lifecycle change; they are not a substitute for device evidence for presentation
    per-eye projection parity check with the compositor diag logs.
 2. **Window chrome**: verify `persistentSystemOverlays(.hidden)` with the modal game surface.
 3. **Re-entry**: background/foreground reopen with the hardened shell; verify no generation-2 invalidation.
-4. **Provider GPU sync**: bridge additive API ready (timeline `MTLSharedEvent`); provider wiring is
-   deferred but recommended to remove the unsynchronized readback race (visible as L/R brightness
-   asymmetries in the readback probes).
+4. **Provider GPU sync**: implemented flag-gated and OFF by default (<gameDir>/vrmc-gpu-sync.flag or
+   -Dvrmc.gpuSync=1): exportable timeline VkSemaphore + MTLSharedEvent signalled through MC own
+   frame submission, with graceful fallback; host tests PASS (incl. real MoltenVK export), device
+   path NOT RUN (see docs/analysis/provider-gpu-sync.md). The EV-0094 device build keeps the
+   previous provider jar to minimise variables; stage the new jar for a later flagged sync run.
 5. Eye-target PNG capture (`instances/default/vrmc-capture.flag`) for off-device content inspection.
 6. **Depth semantics**: the flat sampled image is currently reported at a constant near depth (1.0) because
    0.0 blacks out the layer (EV-0093). Verify that late-stage reprojection remains stable while head-moving;

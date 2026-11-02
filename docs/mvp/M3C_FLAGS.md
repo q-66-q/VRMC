@@ -4,6 +4,7 @@ Flags are empty marker files in the app data container `Documents/` (or, for pro
 Minecraft game directory `Documents/instances/default/`). Most are read once when the shell/compositor
 thread starts, so **relaunch the app after pushing/removing one**. `devicectl` can copy and list files
 but not delete them; push `vrmc-clear-diagnostics.flag` to have the shell delete the diagnostic set at
+| vrmc-gpu-sync.flag | Enable the provider GPU-timeline sync (exportable timeline VkSemaphore + MTLSharedEvent, signalled through MC own frame submission) so the compositor can wait on the exact GPU frame before sampling. Off by default; first flagged launch only records the VK_EXT_metal_objects device-extension request and falls back, a second launch activates it. Details: docs/analysis/provider-gpu-sync.md. |
 startup (it removes itself last and never touches `vrmc-capture.flag`/`vrmc-drawable-dump.flag`).
 
 ## Shell flags (Documents/)

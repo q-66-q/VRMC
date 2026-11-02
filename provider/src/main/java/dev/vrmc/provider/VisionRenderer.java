@@ -62,10 +62,30 @@ public class VisionRenderer extends VRRenderer {
     private Boolean captureEnabled;
     private java.nio.file.Path captureDir;
     private int captured;
+    /**
+     * Provider-side GPU eye-frame sync, off unless the game-directory flag {@code vrmc-gpu-sync.flag}
+     * (or {@code -Dvrmc.gpuSync=1}) is present. Resolved once; {@code null} means "use the existing
+     * unsynchronized submitEyes path". See docs/analysis/provider-gpu-sync.md.
+     */
+    private GpuEyeSync gpuSync;
+    private boolean loggedSyncedSubmit;
 
     public VisionRenderer(MCVR vr) {
         super(vr);
         System.out.println("[VRMC-M2] VisionRenderer created");
+        this.gpuSync = resolveGpuSync();
+    }
+
+    /** Best-effort, never throws: {@link GpuEyeSync#tryEnable} logs one warning on a requested-but-unavailable path. */
+    private static GpuEyeSync resolveGpuSync() {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            return GpuEyeSync.tryEnable(mc != null ? mc.gameDirectory : null);
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M2][gpu-sync] WARNING: enable probe failed (" + t
+                + "); falling back to unsynchronized eye submission");
+            return null;
+        }
     }
 
     @Override
@@ -142,8 +162,7 @@ public class VisionRenderer extends VRRenderer {
             }
             this.lastLeftHandle = lt;
             this.lastRightHandle = rt;
-            int rc = VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT,
-                EYE_HALF_FOV_RAD);
+            int rc = submitEyes(lt, rt);
             if (rc != 0) {
                 VRSettings.LOGGER.warn("VRMC: submitEyes failed rc={}", rc);
             }
@@ -328,6 +347,56 @@ public class VisionRenderer extends VRRenderer {
             }
             return 0;
         }
+    }
+
+    /**
+     * Publish the eye textures to the bridge. When the flag-gated GPU sync is enabled and healthy this
+     * first appends a timeline signal to MC's own frame submission and then uses the synced ABI path
+     * ({@code submitEyesSynced}) so the compositor can wait on the exact GPU frame before sampling; any
+     * problem falls back to the unsynchronized {@code submitEyes} call for that frame and logs once.
+     */
+    private int submitEyes(long lt, long rt) {
+        long syncEvent = 0L;
+        long syncValue = 0L;
+        GpuEyeSync sync = this.gpuSync;
+        if (sync != null && sync.enabled()) {
+            long value = sync.nextSignalValue();
+            if (sync.signalOnGameFrameSubmit(value)) {
+                syncEvent = sync.sharedEvent();
+                syncValue = value;
+            }
+        }
+        if (syncEvent != 0L) {
+            try {
+                int rc = VrmcBridge.submitEyesSynced(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT,
+                    EYE_HALF_FOV_RAD, syncEvent, syncValue);
+                if (!this.loggedSyncedSubmit) {
+                    this.loggedSyncedSubmit = true;
+                    System.out.printf(
+                        "[VRMC-M2][gpu-sync] frame %d using synced submit: event=0x%x waitValue=%d%n",
+                        this.frameIndex, syncEvent, syncValue);
+                }
+                return rc;
+            } catch (UnsatisfiedLinkError e) {
+                // Bridge dylib predates nativeSubmitEyesSynced: revert permanently, keep rendering.
+                System.out.println("[VRMC-M2][gpu-sync] WARNING: bridge dylib has no "
+                    + "nativeSubmitEyesSynced (" + e + "); falling back to unsynchronized eye submission");
+                sync.close();
+                this.gpuSync = null;
+            }
+        }
+        return VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT,
+            EYE_HALF_FOV_RAD);
+    }
+
+    @Override
+    public void destroy() {
+        GpuEyeSync sync = this.gpuSync;
+        this.gpuSync = null;
+        if (sync != null) {
+            sync.close();
+        }
+        super.destroy();
     }
 
     void markPolled() {

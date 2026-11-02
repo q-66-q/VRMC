@@ -21,3 +21,21 @@ Rules:
 - S3 must evidence the injection point in the decompiled jar and across 26.2.x before M2 hardens;
   the fork fallback is decided at M0 exit.
 - No SteamVR/OpenVR dependency; no OpenXR assumption.
+## Flag-gated GPU eye-frame sync (off by default)
+
+The provider can hand the compositor a GPU timeline sync pair for the zero-copy eye handoff: one
+exportable timeline `VkSemaphore` on the game's MoltenVK device, its `MTLSharedEvent` exported through
+`VK_EXT_metal_objects`, signalled once per frame through MC's own `VulkanCommandEncoder` submission and
+published to the bridge with `VrmcBridge.submitEyesSynced` (bridge native-shared API; Java ABI v2
+unchanged). Any failure logs one warning and falls back to the existing unsynchronized `submitEyes` path.
+
+* Enable: `vrmc-gpu-sync.flag` in the Minecraft game directory, or `-Dvrmc.gpuSync=1`.
+  `-Dvrmc.gpuSync=0` force-disables; `-Dvrmc.gpuSync.debug=true` traces the reflection path.
+* `VK_EXT_metal_objects` must be enabled at device creation: the first flagged launch requests it in
+  `VRSettings.requiredVulkanDeviceExtensions` (same mechanism as `OpenVRStereoRenderer`), saves settings
+  and falls back, so ONE GAME RESTART is needed before the sync path can activate.
+* Host tests: `provider/tests/run_tests.sh` (flags, fallback, reflection plumbing, real MoltenVK
+  semaphore + `MTLSharedEvent` export).
+* Full design, device procedure and expected log lines: `docs/analysis/provider-gpu-sync.md`.
+* Status: host PASS; device path NOT RUN. The compositor only needs to wait when the acquired frame has
+  `sync.valid != 0` (see `docs/analysis/bridge-sync.md`).

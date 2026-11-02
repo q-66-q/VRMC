@@ -169,7 +169,11 @@ Version difference is acceptable for a protocol/usage gate, and the device-path 
 
 ---
 
-## 5. Provider-side integration (NOT implemented here; exact spec for the provider owner)
+## 5. Provider-side integration
+
+> **Status update (task-7, 2026-11-01):** implemented in `provider/`, flag-gated and OFF by default —
+> see `docs/analysis/provider-gpu-sync.md` for activation, expected log lines, host tests and failure
+> modes. The spec below is retained as the design/implementation reference.
 
 ### 5.1 Enable `VK_EXT_metal_objects` at device creation (one restart when first enabled)
 
