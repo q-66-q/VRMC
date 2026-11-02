@@ -1,11 +1,11 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-02 (host time)
-source commit: fe3c8d9 (plus uncommitted current provider/shell at staging time; regenerate from a clean commit for release)
-app tree sha256: 2388965a1908f9630f80f77e4f5b8fc4b44ddddf58175452613182faabd375f3 (path-independent, scripts/app_tree_sha256.sh)
-app path at staging: /tmp/VRMC-native-sprint.app
+source commit: 7d37fd7 (plus uncommitted current provider/shell at staging time; regenerate from a clean commit for release)
+app tree sha256: b0680cac1e25fdbc8e59689528b6e893b4b0635c1777accb91b84d2cb449474b (path-independent, scripts/app_tree_sha256.sh)
+app path at staging: /tmp/VRMC-native-handcalib.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58
+provider jar sha256: a421220003b0ac8ad3fcfafa777c321247d0befdd3704aa6d636c31aa331ff6e
 device install: OK (D1 <D1-UDID>)
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)

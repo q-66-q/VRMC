@@ -91,6 +91,7 @@ private func shellBuildDiagnosticsBundle() -> URL? {
         ("runtime settings", game.appendingPathComponent("vrmc-runtime.properties"), 32_768),
         ("input tuning", game.appendingPathComponent("vrmc-input-tune.properties"), 32_768),
         ("thermal state", game.appendingPathComponent("vrmc-thermal-state.txt"), 4_096),
+        ("hand calibration", game.appendingPathComponent("vrmc-hand-calibration.txt"), 16_384),
         ("vignette flag", docs.appendingPathComponent("vrmc-vignette.flag"), 1_024),
         ("game latest log", game.appendingPathComponent("logs/latest.log"), 262_144),
         ("compositor heartbeat", docs.appendingPathComponent("vrmc-heartbeat.txt"), 4_096),
@@ -1442,6 +1443,10 @@ struct VRControlOverlay: View {
                         .buttonStyle(.bordered)
                         Button("Restore performance") {
                             commandStatus = shellQueueGameCommand("restore-performance") ? "Performance restore queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
+                        Button("Calibrate hands") {
+                            commandStatus = shellQueueGameCommand("calibrate-hands") ? "Hand calibration started (follow action-bar prompts)." : "Queue failed."
                         }
                         .buttonStyle(.bordered)
                     }

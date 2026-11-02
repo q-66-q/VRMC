@@ -173,6 +173,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionStatusJsonFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionRuntimeSettingsFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionGazeMathFuzzTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionHandCalibrationTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/TestJson.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
@@ -271,6 +272,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-ring-chord-test\] [0-9]+ checks" "$T/m4-ring.log"
   else
     cat "$T/m4-ring.log"; fail "m4-ring-chord"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionHandCalibrationTest > "$T/m4-hand-calibration.log" 2>&1 \
+     && grep -q "\[m4-hand-calibration-test\] PASS" "$T/m4-hand-calibration.log"; then
+    echo "[provider-tests] m4-hand-calibration: PASS (phases/suggestions/report/NaN safety)"
+    grep -E "\[m4-hand-calibration-test\] [0-9]+ checks" "$T/m4-hand-calibration.log"
+  else
+    cat "$T/m4-hand-calibration.log"; fail "m4-hand-calibration"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionGazeMathFuzzTest > "$T/m4-gaze-fuzz.log" 2>&1 \
      && grep -q "\[m4-gaze-fuzz-test\] PASS" "$T/m4-gaze-fuzz.log"; then

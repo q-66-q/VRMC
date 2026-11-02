@@ -328,6 +328,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   Vivecraft's `autoSprint`/`autoSprintThreshold`; launcher toggle+slider. Parser 29 checks; key guard
   checked=33; app installed/provider pushed + integrity PASS. Device sprint feel NOT RUN.
 
+## Guided hand calibration (EV-0190)
+
+- Launcher **Calibrate hands** button runs the 9-second open/fist/pinch protocol and saves an advisory
+  report; diagnostics bundle includes `vrmc-hand-calibration.txt`.
+- Host tests/guards PASS; app installed/provider pushed + integrity PASS. Device calibration NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

@@ -290,6 +290,14 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   zero/huge GUI scale/aspect): 0 violations; tileToNdc null-or-in-range, eyeRay finite normalized,
   intersectGuiPlane null-or-in-[0,1]. Full provider suite PASS. Host only; device gaze NOT RUN.
 
+## 6x. Guided hand calibration (2026-11-02, EV-0190)
+
+- `VisionHandCalibration` implements a 3×3 s OPEN → FISTS → PINCH protocol; samples pinch distance and
+  fist ratio min/max, suggests `pinch.on/off` and `fist.on/off` with margins and writes an advisory report.
+- `calibrate-hands` command prompts via the action bar, samples tracked hands, writes game-dir
+  `vrmc-hand-calibration.txt`; launcher button and diagnostics bundle entry added.
+- Host tests 15 checks (+command 16); app installed/provider pushed + integrity PASS. Device protocol NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

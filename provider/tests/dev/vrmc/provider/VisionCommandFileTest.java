@@ -33,6 +33,9 @@ public final class VisionCommandFileTest {
         Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "restore-performance\n");
         check("restore-performance accepted", "restore-performance".equals(VisionCommandFile.take(dir, null)));
 
+        Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "calibrate-hands\n");
+        check("calibrate-hands accepted", "calibrate-hands".equals(VisionCommandFile.take(dir, null)));
+
         Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "do-something-dangerous\n");
         check("unknown command rejected", VisionCommandFile.take(dir, null) == null);
         String results = Files.readString(dir.resolve(VisionCommandFile.RESULT_FILE_NAME));

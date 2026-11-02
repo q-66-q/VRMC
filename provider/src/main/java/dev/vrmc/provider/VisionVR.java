@@ -143,6 +143,10 @@ public class VisionVR extends MCVR {
     private int preReductionSim = -1;
     private int preReductionFps = -1;
     private boolean statusAutoWritePending = true;
+    private final VisionHandCalibration handCalibration = new VisionHandCalibration();
+    private boolean handCalibrationActive;
+    private long handCalibrationStartNs;
+    private int handCalibrationLastPhase = -1;
     private boolean thermalReductionApplied;
     private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
@@ -475,6 +479,52 @@ public class VisionVR extends MCVR {
         }
     }
 
+    private void startHandCalibration() {
+        long now = System.nanoTime();
+        this.handCalibration.begin(now);
+        this.handCalibrationStartNs = now;
+        this.handCalibrationLastPhase = -1;
+        this.handCalibrationActive = true;
+        System.out.println("[VRMC-M4] hand calibration started (open/fist/pinch, 9 s)");
+    }
+
+    /** Guided W5 calibration: prompt 3 phases, sample tracked hands, then save an advisory report. */
+    private void updateHandCalibration() {
+        if (!this.handCalibrationActive) return;
+        long now = System.nanoTime();
+        int phase = this.handCalibration.phaseAt(now);
+        if (phase != this.handCalibrationLastPhase) {
+            this.handCalibrationLastPhase = phase;
+            showGameMessage(VisionHandCalibration.promptFor(phase));
+            System.out.println("[VRMC-M4] hand calibration phase=" + phase);
+        }
+        if (phase == VisionHandCalibration.PHASE_DONE) {
+            String report = this.handCalibration.report(now);
+            System.out.println(report);
+            try {
+                if (this.mc.gameDirectory != null) {
+                    java.nio.file.Files.writeString(
+                        this.mc.gameDirectory.toPath().resolve("vrmc-hand-calibration.txt"), report);
+                }
+            } catch (Throwable t) {
+                System.out.println("[VRMC-M4][WARN] could not write hand calibration report: " + t);
+            }
+            String suggestion = "n/a";
+            for (String line : report.split("\n")) {
+                if (line.startsWith("oneLine ")) suggestion = line.substring("oneLine ".length()).trim();
+            }
+            showGameMessage("[VRMC] hand calibration done: " + suggestion);
+            this.handCalibrationActive = false;
+            return;
+        }
+        for (int hand = 0; hand < VisionInput.HAND_COUNT; hand++) {
+            if (this.visionInput != null && this.visionInput.isHandTracked(hand)) {
+                this.handCalibration.record(phase, this.visionInput.pinchDistance(hand),
+                    this.visionInput.fistRatio(hand));
+            }
+        }
+    }
+
     /** Restore the settings captured by thermal/adaptive quality caps (explicit user command). */
     private String restorePerformanceReductions() {
         StringBuilder restored = new StringBuilder();
@@ -590,6 +640,10 @@ public class VisionVR extends MCVR {
                         + " hold=" + (this.holdLastPoseNanos / 1_000_000L) + "ms"
                         + " move=" + this.moveForwardScale + "/" + this.moveStrafeScale
                         + " components=" + (this.handComponentJoints ? "joints" : "identity") + ")";
+                }
+                case "calibrate-hands" -> {
+                    startHandCalibration();
+                    detail = "hand calibration started (open/fist/pinch, 9 s)";
                 }
                 case "restore-performance" -> {
                     detail = restorePerformanceReductions();
@@ -767,6 +821,7 @@ public class VisionVR extends MCVR {
         }
         pollCommandFile();
         pollThermalState();
+        updateHandCalibration();
         if (this.statusAutoWritePending && this.mc.gameDirectory != null) {
             writeStatusReport();
             this.statusAutoWritePending = false;
