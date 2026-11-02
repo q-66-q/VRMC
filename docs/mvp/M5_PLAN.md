@@ -120,6 +120,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   applies at the next immersive open.
 - Build/install PASS; runtime shader/appearance/comfort NOT RUN (device locked).
 
+## Advanced input tuning UI (EV-0123)
+
+- Launcher **Input tuning (advanced)** panel: middle-pinch and ring-pinch on/off thresholds (mm), swipe
+  speed (m/s), hotbar range (m); saved to `vrmc-input-tune.properties` in metres with off > on enforced
+  and unrelated keys preserved.
+- Applies live with **Reload input** or at the next launch.
+- Shell/app build/install PASS; device UI/tuning feel NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

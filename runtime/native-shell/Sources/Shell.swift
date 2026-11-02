@@ -1123,6 +1123,13 @@ struct VRControlOverlay: View {
     @State private var swipeGestures = false
     @State private var vignetteEnabled = false
     @State private var vignetteStrength = 0.5
+    // Advanced gesture tuning (metres for distance thresholds; hotbar range in metres).
+    @State private var middleOnMm = 35.0
+    @State private var middleOffMm = 50.0
+    @State private var ringOnMm = 32.0
+    @State private var ringOffMm = 46.0
+    @State private var swipeSpeed = 1.2
+    @State private var hotbarRange = 0.18
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var exportURL: URL?
@@ -1199,6 +1206,30 @@ struct VRControlOverlay: View {
                         .pickerStyle(.menu)
                     }
                     Stepper("Render distance: \(renderDistance)", value: $renderDistance, in: 6...24)
+                    DisclosureGroup("Input tuning (advanced)") {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Middle pinch on/off: \(Int(middleOnMm))/\(Int(middleOffMm)) mm").font(.caption2)
+                                Slider(value: $middleOnMm, in: 20...50, step: 1)
+                                Slider(value: $middleOffMm, in: 35...70, step: 1)
+                            }
+                            HStack {
+                                Text("Ring pinch on/off: \(Int(ringOnMm))/\(Int(ringOffMm)) mm").font(.caption2)
+                                Slider(value: $ringOnMm, in: 15...45, step: 1)
+                                Slider(value: $ringOffMm, in: 30...60, step: 1)
+                            }
+                            HStack {
+                                Text("Swipe speed: \(String(format: "%.1f", swipeSpeed)) m/s").font(.caption2)
+                                Slider(value: $swipeSpeed, in: 0.5...3.0, step: 0.1)
+                            }
+                            HStack {
+                                Text("Hotbar range: \(String(format: "%.2f", hotbarRange)) m").font(.caption2)
+                                Slider(value: $hotbarRange, in: 0.10...0.30, step: 0.01)
+                            }
+                            Text("Press Reload input to apply while the game runs; otherwise next launch. Keep off > on.").font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        .padding(.top, 4)
+                    }
                     Stepper("Frame limit: \(frameLimit)", value: $frameLimit, in: 60...120, step: 30)
                     HStack {
                         Text("World scale: \(String(format: "%.2f", worldScale))×").font(.caption)
@@ -1357,6 +1388,12 @@ struct VRControlOverlay: View {
         let vignette = shellReadVignette()
         vignetteEnabled = vignette.enabled
         vignetteStrength = vignette.strength
+        middleOnMm = (Double(input["middle.on"] ?? "") ?? 0.035) * 1000.0
+        middleOffMm = (Double(input["middle.off"] ?? "") ?? 0.050) * 1000.0
+        ringOnMm = (Double(input["ring.on"] ?? "") ?? 0.032) * 1000.0
+        ringOffMm = (Double(input["ring.off"] ?? "") ?? 0.046) * 1000.0
+        swipeSpeed = Double(input["swipe.speed"] ?? "") ?? 1.2
+        hotbarRange = Double(input["hotbar.range"] ?? "") ?? 0.18
     }
 
     private func applySettings() {
@@ -1373,6 +1410,16 @@ struct VRControlOverlay: View {
         var input = shellReadInputTune()
         input["middle.enabled"] = middleGestures ? "true" : "false"
         input["swipe.enabled"] = swipeGestures ? "true" : "false"
+        let mOn = min(middleOnMm, middleOffMm - 1.0) / 1000.0
+        let mOff = max(middleOffMm, middleOnMm + 1.0) / 1000.0
+        let rOn = min(ringOnMm, ringOffMm - 1.0) / 1000.0
+        let rOff = max(ringOffMm, ringOnMm + 1.0) / 1000.0
+        input["middle.on"] = String(format: "%.3f", mOn)
+        input["middle.off"] = String(format: "%.3f", mOff)
+        input["ring.on"] = String(format: "%.3f", rOn)
+        input["ring.off"] = String(format: "%.3f", rOff)
+        input["swipe.speed"] = String(format: "%.2f", swipeSpeed)
+        input["hotbar.range"] = String(format: "%.2f", hotbarRange)
         let runtimeOK = shellWriteRuntimeSettings(values)
         let inputOK = shellWriteInputTune(input)
         let vignetteOK = shellWriteVignette(enabled: vignetteEnabled, strength: vignetteStrength)

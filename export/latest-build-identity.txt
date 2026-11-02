@@ -1,9 +1,9 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-01 (host time)
-source commit: 3656ec1 (plus uncommitted current docs/shell at staging time; regenerate from a clean commit for release)
-app tree sha256: 2914e6dfb770bb795dbfacd9accf892486c64388015ee0e6902902ab6cca8320
-app path at staging: /tmp/VRMC-native-vignette.app
+source commit: f395514 (plus uncommitted current docs/shell at staging time; regenerate from a clean commit for release)
+app tree sha256: 8ec4b31aaba42ba107128aa615e646bf6e455bc79951f4133472fc52419f68a6
+app path at staging: /tmp/VRMC-native-tuning.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
 provider jar sha256: 7bc599e7da64e1242b1f984a3f7803b4af195f10aed5b250b06b1362280cb693
 device install: OK (D1 <D1-UDID>)
