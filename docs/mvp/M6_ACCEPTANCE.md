@@ -32,6 +32,7 @@ actual status comes from VERIFY evidence. **Device rows remain `NOT RUN` while D
 | Clean shutdown (no JVM SIGSEGV) | `CODE (device NOT RUN)` | EV-0097 teardown hardening; `vrmc-shutdown.log` now records init/destroy; verify on D1. |
 | Stale immersive/beeps on game stop | `CODE (device NOT RUN)` | commit 3c5d57c; verify on D1. |
 | Crash log capture + safe restart | `PARTIAL` | Minecraft/shell logs + shutdown journal; crash guard adds crash counting/safe mode and launcher warning (EV-0108). Device behavior NOT RUN. |
+| Compositor hang detection | `PARTIAL (build PASS)` | Heartbeat + 20 s stale watchdog/status (EV-0132); device hang/recovery NOT RUN. |
 | Release readiness check | `PARTIAL (host PASS)` | `scripts/m6_release_check.sh` PASS (licenses/notices/privacy/source dirs/no tracked MC binaries/usage strings/manifest fields); final clean-commit manifest + device acceptance still required. |
 | Background → foreground re-entry | `PARTIAL` | M3c re-entry + simulator scenario; final device check open. |
 | Release manifest / notices / privacy | `PARTIAL` | `scripts/m6_release_manifest.sh`, `THIRD_PARTY_NOTICES.md`, `PRIVACY.md`; sign-off pending. |

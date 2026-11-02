@@ -88,6 +88,7 @@ private func shellBuildDiagnosticsBundle() -> URL? {
         ("shutdown journal", game.appendingPathComponent("vrmc-shutdown.log"), 65_536),
         ("command results", game.appendingPathComponent("vrmc-command-result.txt"), 65_536),
         ("runtime settings", game.appendingPathComponent("vrmc-runtime.properties"), 32_768),
+        ("compositor heartbeat", docs.appendingPathComponent("vrmc-heartbeat.txt"), 4_096),
     ]
     // Include crash/teardown artifacts so a support bundle captures the evidence that matters.
     var extras: [URL] = [
@@ -394,6 +395,8 @@ final class ShellCoordinator {
     @ObservationIgnored private var needsDismiss = false
     @ObservationIgnored private var openAction: OpenImmersiveSpaceAction?
     @ObservationIgnored private var thermalTask: Task<Void, Never>?
+    @ObservationIgnored private var heartbeatTask: Task<Void, Never>?
+    @ObservationIgnored private var heartbeatStaleLogged = false
     @ObservationIgnored private var dismissAction: DismissImmersiveSpaceAction?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     /// NO-FRAME watchdog for the current open; cancelled once a presented frame arrives.
@@ -475,6 +478,7 @@ final class ShellCoordinator {
         refreshActivityStates("init")
         shellLog("coordinator ready chromeMode=\(chromeMode) selftest=\(selftestMode) noParking=\(noParking) hideWindowsOptIn=\(hideWindowsOptIn)")
         startThermalMonitor()
+        startHeartbeatWatchdog()
         evaluateCrashGuard()
         if selftestMode {
             scheduleSelfTestOpen()
@@ -628,6 +632,40 @@ final class ShellCoordinator {
                 try? await Task.sleep(for: .seconds(1))
             }
             self.shellLogSafe("OPEN-ON-LAUNCH: gave up after 15 attempts")
+        }
+    }
+
+    // MARK: - M6 compositor heartbeat watchdog
+
+    /// Detect a stalled compositor even without a crash: the compositor rewrites Documents/vrmc-heartbeat.txt
+    /// at most ~1 Hz while presenting. A stale heartbeat while immersive and presenting is logged once per
+    /// episode and surfaced in the launcher status; it does not silently kill the session.
+    private func startHeartbeatWatchdog() {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                guard let self else { return }
+                guard self.immersiveOpen && self.presenting else {
+                    self.heartbeatStaleLogged = false
+                    continue
+                }
+                let url = shellDocumentsURL().appendingPathComponent("vrmc-heartbeat.txt")
+                guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                      let modified = attrs[.modificationDate] as? Date else { continue }
+                let age = Date().timeIntervalSince(modified)
+                if age > 20.0 {
+                    if !self.heartbeatStaleLogged {
+                        self.heartbeatStaleLogged = true
+                        shellLog("WATCHDOG: compositor heartbeat stale \(Int(age))s while immersive+presenting; presentation may be stalled")
+                        self.statusMessage = "VR presentation stalled (heartbeat \(Int(age))s old)"
+                    }
+                } else if self.heartbeatStaleLogged {
+                    self.heartbeatStaleLogged = false
+                    shellLog("WATCHDOG: compositor heartbeat recovered (age \(Int(age))s)")
+                    self.statusMessage = "VR presenting"
+                }
+            }
         }
     }
 

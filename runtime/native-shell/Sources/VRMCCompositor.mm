@@ -229,6 +229,23 @@ static float readVignetteStrength(void) {
     return MIN(0.9f, value);
 }
 
+/// M6 watchdog heartbeat: written at most ~1 Hz while frames are presenting. The shell treats a stale
+/// file as a stalled compositor even if the process is still alive (no crash log otherwise).
+static void writeCompositorHeartbeat(int generation, int frameCount, size_t presented,
+                                     size_t drawableCount, long layerState) {
+    static double lastWrite = 0.0;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    double now = (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+    if (now - lastWrite < 1.0) return;
+    lastWrite = now;
+    NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *path = [docs.firstObject stringByAppendingPathComponent:@"vrmc-heartbeat.txt"];
+    NSString *text = [NSString stringWithFormat:@"generation=%d frame=%d presented=%zu drawables=%zu layerState=%ld time=%.3f\n",
+                      generation, frameCount, presented, drawableCount, layerState, now];
+    [text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
 static BOOL documentFlag(NSString *name) {
     NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *path = [docs.firstObject stringByAppendingPathComponent:name];
@@ -2346,6 +2363,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         frameCount, drawableCount);
             }
             frameCount++;
+            writeCompositorHeartbeat(generation, frameCount, presented, drawableCount, (long)cp_layer_renderer_get_state(lr));
             if (frameCount == 1 || frameCount % 120 == 0) {
                 char targets[32] = "";
                 size_t targetsUsed = 0;

@@ -32,6 +32,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
   rebuilt from the release commit with device evidence.
 
+## Heartbeat watchdog (EV-0132)
+
+- Compositor rewrites `Documents/vrmc-heartbeat.txt` at most 1 Hz while frames loop (generation, frame,
+  presented, drawables, layer state).
+- Shell checks every 5 s while immersive+presenting; >20 s stale logs a single WATCHDOG warning and sets
+  launcher status; recovery is logged; the heartbeat is included in diagnostics export. No auto-kill.
+- Build/install PASS; device hang behavior NOT RUN.
+
 ## Concurrency hardening (EV-0116)
 
 - `bridge/tests/bridge_shared_test.c` stress-tests the additive native-shared channels (display views,
