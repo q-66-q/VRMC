@@ -19,6 +19,7 @@
  * symmetric halfFovRad the Java layer passes while no display views exist.
  */
 #include <jni.h>
+#include <dlfcn.h>
 #include <math.h>
 #include <string.h>
 #include "vrmc_abi.h"
@@ -112,6 +113,18 @@ JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTL
     uint64_t out = 0;
     int32_t rc = vrmc_export_mtl_texture((uint64_t)vkImage, &out);
     return rc == 0 ? (jlong)out : 0;
+}
+
+JNIEXPORT void JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSignalGameStopping(
+    JNIEnv *env, jclass clazz) {
+    vrmc_shared_signal_game_stopping();
+    /* Tell the compositor immediately as well (frame polling would also see the flag, but the game may
+     * stop producing frames before the next poll). The symbol lives in VRMCShell.framework; on hosts
+     * without it this is a harmless no-op. */
+    void (*notify)(void) = (void (*)(void))dlsym(RTLD_DEFAULT, "VRMCCompositor_NotifyGameStopping");
+    if (notify != NULL) {
+        notify();
+    }
 }
 
 JNIEXPORT void JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeClearEyeTextures(

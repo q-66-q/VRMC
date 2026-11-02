@@ -95,6 +95,7 @@ public final class VrmcBridge {
     public static native long nativeExportMTLTexture(long vkImage);
     public static native long nativeGetDisplayViews(ByteBuffer out);
     public static native void nativeClearEyeTextures();
+    public static native void nativeSignalGameStopping();
 
     /**
      * ABI v3: copy the latest {@code vrmc_input_state} into the direct buffer (capacity must be at
@@ -131,6 +132,8 @@ public final class VrmcBridge {
     public static long getDisplayViews(ByteBuffer out) { return nativeGetDisplayViews(out); }
     /** Provider/game teardown: drop stored eye textures so the compositor stops sampling stale handles. */
     public static void clearEyeTextures() { nativeClearEyeTextures(); }
+    /** Provider/game teardown: tell the compositor/shell the game is going away (dismiss stale immersive). */
+    public static void signalGameStopping() { nativeSignalGameStopping(); }
     /** ABI v3: poll the latest published hand/input snapshot (see {@link #nativePollInput(ByteBuffer)}). */
     public static int pollInput(ByteBuffer out) { return nativePollInput(out); }
 }

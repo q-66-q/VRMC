@@ -177,6 +177,11 @@ public class VisionVR extends MCVR {
         // Shutdown ordering (M4 follow-up, EV-0096 defect): drop the eye-texture handles BEFORE the
         // renderer/VkImages are destroyed so the compositor cannot sample a freed MTLTexture.
         try {
+            VrmcBridge.signalGameStopping();
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M4][WARN] signalGameStopping at shutdown failed: " + t);
+        }
+        try {
             VrmcBridge.clearEyeTextures();
         } catch (Throwable t) {
             System.out.println("[VRMC-M4][WARN] clearEyeTextures at shutdown failed: " + t);

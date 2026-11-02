@@ -104,6 +104,13 @@ int32_t vrmc_shared_get_frame_sync(vrmc_shared_frame_sync *out);
  * compositor stops sampling handles whose VkImage/MTLTexture is about to be destroyed). */
 void vrmc_shared_clear_eye_textures(void);
 
+/* Game/VR teardown signal: the provider sets this from VisionVR.destroy() so the compositor/shell can
+ * dismiss the immersive space instead of leaving a stale test-pattern scene after the game exits.
+ * Also counts as an explicit reason for the compositor's no-eye fallback. */
+void vrmc_shared_signal_game_stopping(void);
+int32_t vrmc_shared_game_stopping(void);
+void vrmc_shared_clear_game_stopping(void);
+
 /* Push a tracking state (ARKit device anchor + predicted time) into the bridge. Subsequent
  * vrmc_get_tracking calls return this state until cleared. Returns 0 on success.
  * Allowed before vrmc_init (the compositor can start before the JVM provider initializes). */

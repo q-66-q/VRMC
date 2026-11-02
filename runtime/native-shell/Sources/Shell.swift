@@ -60,7 +60,11 @@ private let diagnosticFlagsClearedAtStartup = [
     "vrmc-present-wait.flag",
     "vrmc-input-sim.flag",
     "vrmc-no-anchor.flag",
+    "vrmc-capture.flag",
+    "vrmc-drawable-dump.flag",
+    "vrmc-audible-canary.flag",
     "autolaunch.flag",
+    "vrmc-clear-diagnostics.flag",
 ]
 
 private func neutralizeDiagnosticFlagsIfRequested() {
@@ -244,6 +248,9 @@ final class ShellCoordinator {
         noParking = shellDocumentFlag("vrmc-no-parking.flag")
         hideWindowsOptIn = shellDocumentFlag("vrmc-hide-windows.flag")
         observe(Notification.Name("VRMCGameStarted")) { $0.gameDidStart() }
+        observe(Notification.Name("VRMCGameStopped")) { coordinator, note in
+            coordinator.gameDidStop(reason: note.userInfo?["reason"] as? String ?? "unknown")
+        }
         observe(Notification.Name("VRMCImmersiveEnded")) { coordinator, note in
             coordinator.compositorDidEnd(generation: note.userInfo?["generation"] as? Int32)
         }
@@ -429,7 +436,7 @@ final class ShellCoordinator {
         lastOpenGeneration = VRMCCompositor_CurrentGeneration()
         // Audible canary: the operator can confirm the first presented frame even if they are not
         // looking at the centre of the field of view (diagnostic only; system sound, no asset).
-        AudioServicesPlaySystemSound(1057)
+        if shellDocumentFlag("vrmc-audible-canary.flag") { AudioServicesPlaySystemSound(1057) }
         noFrameTask?.cancel()
         noFrameTask = nil
         // Objective scene/immersion state logging must run in EVERY presenting mode (also selftest and
@@ -452,6 +459,36 @@ final class ShellCoordinator {
         startParkingLoop()
     }
 
+    /// Game provider teardown (or the compositor's eyes-lost fallback): stop presenting the immersive
+    /// space and return to the launcher instead of leaving a stale test-pattern scene and beeping.
+    private func gameDidStop(reason: String) {
+        shellLog("VRMCGameStopped received reason=\(reason) gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
+        gameStarted = false
+        wantsImmersive = false
+        reopenOnActive = false
+        autoRetries = 0
+        noFrameTask?.cancel(); noFrameTask = nil
+        parkingTask?.cancel(); parkingTask = nil
+        sceneStateTask?.cancel(); sceneStateTask = nil
+        VRMCCompositor_RequestStop()
+        if !immersiveOpen && !presenting {
+            setGameWindowsVisible(true, log: "window restored after game stop (not immersive)")
+            return
+        }
+        epoch += 1
+        let myEpoch = epoch
+        needsDismiss = true
+        immersiveOpen = false
+        presenting = false
+        statusMessage = "Game ended — window restored"
+        setGameWindowsVisible(true, log: "window restored after game stop")
+        Task { [weak self] in
+            guard let self else { return }
+            await self.dismissIfCurrent(myEpoch: myEpoch)
+            self.shellLogSafe("immersive space dismissed after game stop epoch=\(myEpoch)")
+        }
+    }
+
     private func compositorDidEnd(generation: Int32?) {
         let current = VRMCCompositor_CurrentGeneration()
         shellLog("VRMCImmersiveEnded generation=\(generation.map(String.init) ?? "nil") current=\(current) presenting=\(presenting) \(windowStateDescription())")
@@ -465,7 +502,7 @@ final class ShellCoordinator {
         let hadPresentedFrame = presenting
         presenting = false
         statusMessage = "VR ended — window restored"
-        AudioServicesPlaySystemSound(1073)
+        if shellDocumentFlag("vrmc-audible-canary.flag") { AudioServicesPlaySystemSound(1073) }
         noFrameTask?.cancel()
         noFrameTask = nil
         parkingTask?.cancel()

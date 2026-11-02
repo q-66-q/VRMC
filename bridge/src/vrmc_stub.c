@@ -35,6 +35,8 @@ static vrmc_tracking_state g_tracking;
 
 /* M3-W3/W4 native-side shared state (same-process app <-> bridge; additive, outside the Java ABI). */
 static pthread_mutex_t g_frame_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t g_game_stopping_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int g_game_stopping = 0;
 static vrmc_shared_eye_frame g_latest_frame;
 static int g_has_frame = 0;
 static uint64_t g_publish_sequence = 0;
@@ -239,6 +241,25 @@ void vrmc_shared_clear_tracking(void) {
     pthread_mutex_unlock(&g_tracking_mutex);
 }
 
+void vrmc_shared_signal_game_stopping(void) {
+    pthread_mutex_lock(&g_game_stopping_mutex);
+    g_game_stopping = 1;
+    pthread_mutex_unlock(&g_game_stopping_mutex);
+}
+
+int32_t vrmc_shared_game_stopping(void) {
+    pthread_mutex_lock(&g_game_stopping_mutex);
+    int32_t v = g_game_stopping;
+    pthread_mutex_unlock(&g_game_stopping_mutex);
+    return v;
+}
+
+void vrmc_shared_clear_game_stopping(void) {
+    pthread_mutex_lock(&g_game_stopping_mutex);
+    g_game_stopping = 0;
+    pthread_mutex_unlock(&g_game_stopping_mutex);
+}
+
 void vrmc_shared_clear_eye_textures(void) {
     pthread_mutex_lock(&g_frame_mutex);
     memset(&g_latest_frame, 0, sizeof(g_latest_frame));
@@ -246,6 +267,7 @@ void vrmc_shared_clear_eye_textures(void) {
     g_publish_sequence = 0;
     g_texture_generation = 0;
     pthread_mutex_unlock(&g_frame_mutex);
+    vrmc_shared_clear_game_stopping();
 }
 
 int32_t vrmc_shared_set_display_views(const vrmc_display_views *views) {
@@ -452,6 +474,10 @@ int main(void) {
         frame.texture_generation != 2) {
         printf("texture generation bumped without a handle change\n"); return 22;
     }
+    vrmc_shared_signal_game_stopping();
+    if (vrmc_shared_game_stopping() != 1) { printf("game-stopping signal failed\n"); return 26; }
+    vrmc_shared_clear_game_stopping();
+    if (vrmc_shared_game_stopping() != 0) { printf("game-stopping clear failed\n"); return 27; }
     if (t.head.position.x != 1.25f || t.ipd_m != 0.063f) { printf("tracking override not honored\n"); return 9; }
     vrmc_shared_clear_tracking();
     if (vrmc_get_tracking(&t, 456) != 0 || t.ipd_m != 0.064f) { printf("tracking clear failed\n"); return 10; }

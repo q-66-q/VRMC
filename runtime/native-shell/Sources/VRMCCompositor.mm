@@ -87,12 +87,17 @@ typedef int32_t (*set_display_views_fn)(const vrmc_display_views *);
 // (v2, no input channel) never breaks the compositor: publishing is skipped with one log line.
 typedef int32_t (*input_publish_fn)(const vrmc_input_state *);
 typedef uint64_t (*input_sequence_fn)(void);
+typedef int32_t (*game_stopping_fn)(void);
+typedef void (*clear_game_stopping_fn)(void);
 static eye_targets_fn gEyeFn;
 static acquire_eyes_fn gAcquireFn;
 static set_tracking_fn gTrackFn;
 static set_display_views_fn gDisplayViewsFn;
 static input_publish_fn gInputPublishFn;
 static input_sequence_fn gInputSequenceFn;
+static game_stopping_fn gGameStoppingFn;
+static clear_game_stopping_fn gClearGameStoppingFn;
+static std::atomic<int> gGameStoppedPosted{0};
 // Each immersive session (CompositorLayer callback) gets a generation. A stop request applies to the
 // generation that is current when it is made, so a late stop cannot kill the next session and a stale
 // session's VRMCImmersiveEnded can be told apart from the current one by the shell.
@@ -112,6 +117,16 @@ extern "C" void VRMCCompositor_RequestStop(void) {
 
 extern "C" int32_t VRMCCompositor_CurrentGeneration(void) {
     return gGeneration.load();
+}
+
+/// Provider teardown notification: post on the main queue so the SwiftUI shell can dismiss the
+/// immersive space. The bridge calls this directly from nativeSignalGameStopping, and the frame loop
+/// also polls the shared flag as a fallback.
+extern "C" void VRMCCompositor_NotifyGameStopping(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSLog(@"[vrmc-comp] game stopping: posting VRMCGameStopped");
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"VRMCGameStopped" object:nil];
+    });
 }
 
 static void compLog(const char *fmt, ...) {
@@ -160,9 +175,12 @@ static void resolveBridge(void) {
         gAcquireFn = (acquire_eyes_fn)dlsym(h, "vrmc_shared_acquire_eyes");
         gInputPublishFn = (input_publish_fn)dlsym(h, "vrmc_shared_publish_input");
         gInputSequenceFn = (input_sequence_fn)dlsym(h, "vrmc_shared_input_sequence");
+        gGameStoppingFn = (game_stopping_fn)dlsym(h, "vrmc_shared_game_stopping");
+        gClearGameStoppingFn = (clear_game_stopping_fn)dlsym(h, "vrmc_shared_clear_game_stopping");
         compLog("bridge resolved handle=%p eye=%p tracking=%p displayViews=%p acquireEyes=%p "
-                "publishInput=%p inputSeq=%p",
-                h, gEyeFn, gTrackFn, gDisplayViewsFn, gAcquireFn, gInputPublishFn, gInputSequenceFn);
+                "publishInput=%p inputSeq=%p gameStopping=%p",
+                h, gEyeFn, gTrackFn, gDisplayViewsFn, gAcquireFn, gInputPublishFn, gInputSequenceFn,
+                gGameStoppingFn);
         if (gInputPublishFn == NULL) {
             // Fail safe on an old bridge: log once and keep presenting. The provider sees no fresh
             // snapshots and releases everything (its stale-input timer), so this can never stick input.
@@ -1695,6 +1713,34 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                 haveEyes = (gEyeFn(&eyeFrame.eyes) == 0) && eyeFrame.eyes.left_texture != 0 &&
                            eyeFrame.eyes.right_texture != 0;
             }
+            // Game-stop handling: the provider signals teardown from VisionVR.destroy() (and clears
+            // the eye textures). Without this, the immersive space would keep presenting the fallback
+            // test pattern after the game exits. A 5 s no-eye timeout is the crash/no-destroy fallback.
+            {
+                static BOOL hadEyesOnce = NO;
+                static uint64_t lastEyesNs = 0;
+                uint64_t nowNs = clock_gettime_nsec_np(CLOCK_MONOTONIC);
+                if (haveEyes) {
+                    hadEyesOnce = YES;
+                    lastEyesNs = nowNs;
+                }
+                BOOL gameStopping = (gGameStoppingFn != NULL) && (gGameStoppingFn() != 0);
+                BOOL eyesLostTimeout = hadEyesOnce && !haveEyes && lastEyesNs != 0 &&
+                    (nowNs - lastEyesNs) > 5ull * 1000000000ull;
+                if (gGameStoppedPosted.load() == 0 && (gameStopping || eyesLostTimeout)) {
+                    if (gGameStoppedPosted.exchange(1) == 0) {
+                        if (gClearGameStoppingFn != NULL) gClearGameStoppingFn();
+                        const char *reason = gameStopping ? "provider-signal" : "eyes-lost-timeout";
+                        compLog("game stopping detected (%s); posting VRMCGameStopped", reason);
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [[NSNotificationCenter defaultCenter]
+                                postNotificationName:@"VRMCGameStopped"
+                                              object:nil
+                                            userInfo:@{@"reason" : @(reason)}];
+                        });
+                    }
+                }
+            }
             const vrmc_eye_targets *eyesPtr = &eyeFrame.eyes;
             static uint32_t loggedTextureGeneration = 0;
             static int loggedEyeTextureUsage = 0;
@@ -2088,6 +2134,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
 @end
 
 extern "C" void VRMCCompositor_InitAndRun(cp_layer_renderer_t layerRenderer) {
+    gGameStoppedPosted.store(0);
     openLog();
     int32_t generation = gGeneration.fetch_add(1) + 1;
     compLog("starting compositor thread (generation %d)", generation);
