@@ -11,7 +11,7 @@ found (EV-0093), so the next device session starts from a known-good, reproducib
 | Provider jar | `/tmp/vrmc-provider-build/vrmc-provider.jar` sha256 `8e7070221ccb56acb938eb0b67d02282ad2c88e046f5f1a2fde74521f46683da` (device copy verified) |
 | Bridge dylib | `/tmp/vrmc-bridge-build/libvrmc_bridge.dylib` (device build; unsigned sha256 `38624e12…`) |
 | Shell framework | device xros build, `BUILD SUCCEEDED`, staged framework sha256 `6edb3b949bc1b951…` (v12) |
-| Staged app | `/tmp/VRMC-native-v12-stereo.app`; `codesign --verify --deep --strict: PASS`; installed on D1 as `VRMC-native-v12-stereo.app` |
+| Staged app | `/tmp/VRMC-native-v14-auditfix.app`; `codesign --verify --deep --strict: PASS`; installed on D1 as `VRMC-native-v14-auditfix.app` (final accepted build) |
 | Installed bundle | `dev.vrmc.vrmc`, url `…/Application/06226F0B…/VRMC-native-v12-stereo.app/` |
 
 ## Host self-checks (all PASS)

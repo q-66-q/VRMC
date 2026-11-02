@@ -65,7 +65,7 @@ layer-state logging, and a no-JIT immersive selftest. Info.plist unchanged.
 | T6 | Legacy compositor + current shell | not needed (root cause found) |
 | T7 | Deprecated single-drawable API + depth 0.0 | black -> the drawable API is not the cause |
 | T9 | Depth clear 1.0 (probe parity) + clear-only colours | **magenta/cyan visible** -> root cause |
-| T10 | Default depth 1.0 (array API) + scene logging | staged as `/tmp/VRMC-native-v11-depthfix.app` (installed); visual re-confirmation pending |
+| T10 | Default depth 1.0 (array API) + scene logging | superseded by the accepted v14 build; visual/game acceptance PASS (EV-0094) |
 
 ## 4. Device acceptance - DONE (2026-11-01, EV-0094 PASS)
 

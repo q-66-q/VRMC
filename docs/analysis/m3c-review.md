@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-01 · **Auditor:** m3c-reviewer (task-6; read-only outside this file)
 **Range audited:** `f4d0617..HEAD`; HEAD moved during the audit (`d142f9c` -> `54cee57` -> `def7681`). Findings are stated against the files as of `def7681`; line numbers were re-checked at that revision.
-**Installed build under test:** `/tmp/VRMC-native-v13-reentry.app` (the app the operator is about to run). No device access was used.
+**Installed build under test:** `/tmp/VRMC-native-v13-reentry.app` at audit time (the accepted EV-0094 run later used the v14 build with the audit fixes). No device access was used.
 
 ---
 

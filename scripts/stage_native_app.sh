@@ -9,8 +9,8 @@
 # Usage:  scripts/stage_native_app.sh <VRMCShell.framework> [libvrmc_bridge.dylib]
 #
 # Env overrides (all optional):
-#   SRC_APP     app bundle to copy              (default /tmp/VRMC-native-fixes.app)
-#   DEST_APP    staged output bundle            (default /tmp/VRMC-native-m3b.app)
+#   SRC_APP     app bundle to copy              (default /tmp/VRMC-native-v14-auditfix.app)
+#   DEST_APP    staged output bundle            (default /tmp/VRMC-native-next.app)
 #   IDENTITY    codesigning identity            (default ${VRMC_SIGN_IDENTITY:-})
 #   PROFILE     provisioning profile            (default: SRC_APP/embedded.mobileprovision, else the
 #                                                newest matching profile under Xcode's profile dir)
@@ -26,8 +26,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FW_SRC="${1:-}"
 BRIDGE_SRC="${2:-}"
-SRC_APP="${SRC_APP:-/tmp/VRMC-native-fixes.app}"
-DEST_APP="${DEST_APP:-/tmp/VRMC-native-m3b.app}"
+SRC_APP="${SRC_APP:-/tmp/VRMC-native-v14-auditfix.app}"
+DEST_APP="${DEST_APP:-/tmp/VRMC-native-next.app}"
 IDENTITY="${IDENTITY:-${VRMC_SIGN_IDENTITY:-}}"
 BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
 DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"

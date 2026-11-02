@@ -74,7 +74,7 @@ Push example:
 
 ## Next device run (EV-0088) — procedure
 
-1. Install VRMC-native-m3b.app (already done via devicectl device install, data container preserved) — or
+1. Install the accepted build /tmp/VRMC-native-v14-auditfix.app (historical EV-0088 step; already installed, data preserved) - or
    rebuild + restage with the commands in **"Rebuild / reinstall"**.
 2. StikDebug -> Assign amethyst.js -> Enable JIT -> launch **VRMC** (not from Home).
 3. Launcher -> **Play** -> wait ~15 s for the auto-open.
@@ -110,7 +110,7 @@ Push example:
     # in a copy of vendor/amethyst-build with patches/*.patch applied, then retag the executable:
     #   vtool -arch arm64 -set-build-version 11 1.0 1.0 -replace -output <exe> <exe>
     scripts/stage_native_app.sh <path/to/VRMCShell.framework> /tmp/vrmc-bridge-build/libvrmc_bridge.dylib
-    DEVICE=<D1-UDID> scripts/install_device.sh /tmp/VRMC-native-m3b.app   # update install (keeps data)
+    DEVICE=<D1-UDID> scripts/install_device.sh /tmp/VRMC-native-v14-auditfix.app   # update install (keeps data)
 
 See docs/mvp/M3_PLAN.md §17 and export/logs/m3b-* for the full build/stage log and hashes.
 
@@ -188,10 +188,7 @@ Amethyst shell. It was the **CompositorServices drawable depth clear value**:
 - Fix in this build: default depth clear 1.0; `vrmc-depth-zero.flag` only for A/B.
   Regression test: `scripts/tests/DepthClearRegressionTest.sh`.
 
-Installed build for the next session: `/tmp/VRMC-native-v13-reentry.app` (shell framework with the
-depth-clear fix, stereo/alignment pattern, scene logging, resilient re-entry; bridge `38624e12…`,
-provider jar `8e707022…`, signed `dev.vrmc.vrmc`). A pending
-`Documents/vrmc-clear-diagnostics.flag` removes stale diagnostic flags on the next launch.
+Installed build for the next session: /tmp/VRMC-native-v14-auditfix.app (final accepted build, EV-0094; shell framework 83cb12b9, bridge 109328f8, provider jar 2b889090, signed dev.vrmc.vrmc). This is the only staged app bundle retained: the diagnostic A/B builds (v1-v13, M3A/M3B probe shells) and their temp logs/pulls were deleted on 2026-11-01; the reusable build inputs (/tmp/vrmc-shell-dd, /tmp/vrmc-provider-build, /tmp/vrmc-bridge-build) and the Amethyst build caches were kept.
 
 ### Next session (short, decisive)
 

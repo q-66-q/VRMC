@@ -1,7 +1,7 @@
 # M3c device run — operator checklist (EV-0094)
 
 One-page procedure for the next Apple Vision Pro session. Full context: `docs/mvp/M3C_PLAN.md`,
-flags reference: `docs/mvp/M3C_FLAGS.md`. Installed build: `VRMC-native-v13-reentry.app`
+flags reference: `docs/mvp/M3C_FLAGS.md`. Installed build: `/tmp/VRMC-native-v14-auditfix.app`
 (depth-clear fix EV-0093 + eye-distinct stereo/alignment pattern + scene logging + resilient re-entry).
 
 ## Before you start
