@@ -284,6 +284,12 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   summary shows climb state when active. JSON tests/guards pass; app installed/provider pushed.
 - Device H9 climbing behavior NOT RUN.
 
+## 6v. Gaze math fuzz (2026-11-02, EV-0186)
+
+- 500,000 randomized tile/ray/plane cases (invalid ids/grids, finite random frustum/NDC/rotation/positions,
+  zero/huge GUI scale/aspect): 0 violations; tileToNdc null-or-in-range, eyeRay finite normalized,
+  intersectGuiPlane null-or-in-[0,1]. Full provider suite PASS. Host only; device gaze NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

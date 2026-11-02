@@ -172,6 +172,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionPoseSmootherFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionStatusJsonFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionRuntimeSettingsFuzzTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionGazeMathFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/TestJson.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
@@ -270,6 +271,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-ring-chord-test\] [0-9]+ checks" "$T/m4-ring.log"
   else
     cat "$T/m4-ring.log"; fail "m4-ring-chord"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionGazeMathFuzzTest > "$T/m4-gaze-fuzz.log" 2>&1 \
+     && grep -q "\[m4-gaze-fuzz-test\] PASS" "$T/m4-gaze-fuzz.log"; then
+    echo "[provider-tests] m4-gaze-fuzz: PASS (500k invalid tile/ray/plane cases null-or-in-range)"
+    grep -E "\[m4-gaze-fuzz-test\] cases=" "$T/m4-gaze-fuzz.log"
+  else
+    cat "$T/m4-gaze-fuzz.log"; fail "m4-gaze-fuzz"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionRuntimeSettingsFuzzTest > "$T/m5-settings-fuzz.log" 2>&1 \
      && grep -q "\[m5-settings-fuzz-test\] PASS" "$T/m5-settings-fuzz.log"; then
