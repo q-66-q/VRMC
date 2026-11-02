@@ -1,11 +1,11 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-01 (host time)
-source commit: 108cbc9 (plus uncommitted current docs/provider at staging time; regenerate from a clean commit for release)
-app tree sha256: 17433e3dd88f9728c078d3e2ed9a16e407d4d744716ffc5893cb150a75e04021
-app path at staging: /tmp/VRMC-native-controls.app
+source commit: 81020cf (plus uncommitted current docs/shell at staging time; regenerate from a clean commit for release)
+app tree sha256: 926f663d92d9aa2c32b4a841713d0df151ec81e647b243915dc76082c124d9e6
+app path at staging: /tmp/VRMC-native-gazeopt.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
 provider jar sha256: 4fa767954a58fd10a8be645162cc2af954b1eded251cec11107699ed8a202cd1
 device install: OK (D1 <D1-UDID>)
-provider jar push: OK -> Documents/instances/default/mods/vrmc-provider.jar
+provider jar push: OK -> Documents/instances/default/mods/vrmc-provider.jar (previous push)
 device lock at staging: passcodeRequired=true (no behavior test performed)

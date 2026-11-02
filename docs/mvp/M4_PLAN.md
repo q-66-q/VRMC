@@ -222,6 +222,14 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   the proven aim path. Pure helper host-tested (identity/rotation-magnitude/degenerate).
 - Full provider suite PASS; provider pushed. Device visible-hands/held-item appearance NOT RUN.
 
+## 6m. Gaze config opt-in (2026-11-01, EV-0126)
+
+- The layer's tracking-area format/usage and the `onSpatialEvent` handler are now installed **only**
+  when `Documents/vrmc-gaze.flag` exists (with `vrmc-no-tracking-areas.flag` as an override off).
+  Gaze-off sessions therefore keep the exact accepted EV-0094 layer configuration.
+- Shell/app build/install PASS; simulator input scenario is currently unusable (the app backgrounds
+  immediately before any compositor log), so no simulator evidence for gaze; device NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

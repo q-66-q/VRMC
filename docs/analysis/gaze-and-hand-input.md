@@ -1,6 +1,6 @@
 # Gaze + hand input (M4-W2) — operator requirements, API findings, and plan
 
-Status: **IMPLEMENTED OFFLINE (EV-0098); smooth hands implemented (EV-0097). Runtime/device NOT RUN.** (2026-11-01, after the EV-0096 on-device input acceptance).
+Status: **IMPLEMENTED OFFLINE (EV-0098); tracking-area layer config/spatial handler opt-in (EV-0126). Runtime/device NOT RUN; simulator unusable (immediate backgrounding).** (2026-11-01, after the EV-0096 on-device input acceptance).
 Owner: Lead. This note records the operator's requested interaction model and the exact visionOS
 APIs available to build it. It is the design input for the M4-W2 work; nothing here is implemented or
 verified yet.

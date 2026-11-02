@@ -319,10 +319,11 @@ struct ShellLayerConfiguration: CompositorLayerConfiguration {
         configuration.layout = .dedicated
         configuration.isFoveationEnabled = false
         configuration.colorFormat = .rgba16Float
-        // M4-W2: enable tracking-area textures for gaze hover + indirect pinch targeting. Pick the
-        // first integer format the layer supports; the compositor only renders the mask when
-        // Documents/vrmc-gaze.flag is present, so this is additive and fail-safe.
-        if #available(visionOS 26.0, *) {
+        // M4-W2: tracking-area textures are OPT-IN via Documents/vrmc-gaze.flag. Leaving the layer
+        // configuration untouched unless gaze is requested keeps the device/simulator presentation path
+        // exactly like the accepted build (the simulator regressed when this was unconditional).
+        let gazeRequested = shellDocumentFlag("vrmc-gaze.flag") && !shellDocumentFlag("vrmc-no-tracking-areas.flag")
+        if #available(visionOS 26.0, *), gazeRequested {
             let supported = capabilities.supportedTrackingAreasFormats
             if let format = supported.first(where: { $0 == .r32Uint || $0 == .r16Uint }) {
                 configuration.trackingAreasFormat = format
@@ -1461,7 +1462,9 @@ struct VRMCShellApp: App {
             CompositorLayer(configuration: ShellLayerConfiguration()) { layerRenderer in
                 // M4-W2: the system tags indirect pinch activations with the tracking area the user
                 // was gazing at. Forward the id/phase/kind into the bridge; the provider turns the
-                // tile into a GUI click. Events without a tracking area are ignored.
+                // tile into a GUI click. Events without a tracking area are ignored. Gaze is opt-in:
+                // do not install the handler unless tracking areas were requested.
+                if shellDocumentFlag("vrmc-gaze.flag") && !shellDocumentFlag("vrmc-no-tracking-areas.flag") {
                 layerRenderer.onSpatialEvent = { events in
                     for event in events where event.trackingAreaIdentifier != .invalid {
                         let phase: Int32
@@ -1483,6 +1486,7 @@ struct VRMCShellApp: App {
                         shellLog("spatial event tile=\(event.trackingAreaIdentifier) phase=\(phase) kind=\(kind)")
                         VRMCInput_PublishGazeEvent(event.trackingAreaIdentifier.rawValue, phase, kind)
                     }
+                }
                 }
                 VRMCCompositor_InitAndRun(layerRenderer)
             }
