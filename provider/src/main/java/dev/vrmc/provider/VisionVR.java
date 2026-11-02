@@ -272,7 +272,9 @@ public class VisionVR extends MCVR {
         this.initialized = true;
         this.initSuccess = true;
         appendShutdownLog("init", "bridgeReady=" + this.bridgeReady + " abi=" + VrmcBridge.ABI_VERSION);
-        writeStatusReport();
+        // Do NOT write the status document here: dh.vrPlayer/trackers are still being constructed during
+        // VRState.initializeVR, and tracker queries (e.g. ClimbTracker.isClimbeyClimb) NPE until vrPlayer
+        // exists. statusAutoWritePending writes it on the first update after init returns.
         System.out.println("[VRMC-M2] VisionVR.init() succeeded");
         return true;
     }
@@ -331,14 +333,16 @@ public class VisionVR extends MCVR {
             this.lastFrameP50Ms,
             this.lastFrameP95Ms,
             this.lastMissed90Frames,
-            this.dh.bowTracker != null && this.mc.player != null
+            this.dh.vrPlayer != null && this.dh.bowTracker != null && this.mc.player != null
                 && this.dh.bowTracker.isActive(this.mc.player),
-            this.dh.bowTracker != null && this.dh.bowTracker.isNotched(),
-            this.dh.bowTracker == null ? 0.0F
+            this.dh.vrPlayer != null && this.dh.bowTracker != null && this.dh.bowTracker.isNotched(),
+            this.dh.vrPlayer == null || this.dh.bowTracker == null ? 0.0F
                 : Math.max(0.0F, Math.min(1.0F, this.dh.bowTracker.getDrawPercent())),
-            this.dh.climbTracker != null && this.dh.climbTracker.isGrabbingLadder(),
-            this.dh.climbTracker != null && this.dh.climbTracker.isClimbeyClimb(),
-            this.dh.climbTracker != null && this.mc.player != null
+            this.dh.vrPlayer != null && this.dh.climbTracker != null
+                && this.dh.climbTracker.isGrabbingLadder(),
+            this.dh.vrPlayer != null && this.dh.climbTracker != null
+                && this.dh.climbTracker.isClimbeyClimb(),
+            this.dh.vrPlayer != null && this.dh.climbTracker != null && this.mc.player != null
                 && this.dh.climbTracker.isActive(this.mc.player),
             this.visionInput == null ? "" : this.visionInput.gestureSummary());
         String json = VisionStatusJson.build(data, java.time.Instant.now());

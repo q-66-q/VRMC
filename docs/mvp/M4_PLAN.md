@@ -322,6 +322,14 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Moved to host-tested `VisionLogFormat.locomotionLine` with explicit types; `m4-log-format` 6 checks;
   full provider suite PASS; provider pushed + device integrity PASS. VR init retest required.
 
+## 7b. Device-found init NPE (2026-11-02, EV-0210)
+
+- After the EV-0209 format fix advanced init, device latestlog showed `NullPointerException` in
+  `ClimbTracker.isActive/isClimbeyClimb` from `VisionVR.writeStatusReport` called during `VisionVR.init`
+  before `dh.vrPlayer` existed.
+- Removed the init-time status write (auto status now happens on the first update after init) and guarded
+  bow/climb fields with `dh.vrPlayer != null`. Provider pushed + device integrity PASS; relaunch required.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
