@@ -113,6 +113,8 @@ public class VisionVR extends MCVR {
     private Map<String, String> inputTuning = Map.of();
     /** Experimental M4 visual polish: attach the tip component to the index fingertip (default identity). */
     private boolean handComponentJoints;
+    /** M5 seated parity: allow the HMD-aim fallback to drive the controller/GUI pointer when seated. */
+    private boolean seatedHmdPointer;
     private final Matrix4f[] tipComponent = {new Matrix4f(), new Matrix4f()};
     private final Vector3f tipOffsetTmp = new Vector3f();
     private float hotbarRange = VisionHotbarWheel.DEFAULT_HALF_RANGE_METRES;
@@ -388,6 +390,7 @@ public class VisionVR extends MCVR {
         if (settings.hasSeated) this.dh.vrSettings.seated = settings.seated;
         if (settings.hasSeatedFreeMove) this.dh.vrSettings.seatedFreeMove = settings.seatedFreeMove;
         if (settings.hasSeatedUseHMD) this.dh.vrSettings.seatedUseHMD = settings.seatedUseHMD;
+        if (settings.hasSeatedHmdPointer) this.seatedHmdPointer = settings.seatedHmdPointer;
         if (settings.hasWorldRotationIncrement) this.dh.vrSettings.worldRotationIncrement = settings.worldRotationIncrement;
         if (settings.hasWorldScale) this.dh.vrSettings.worldScale = settings.worldScale;
         if (settings.hasManualHeight) this.dh.vrSettings.manualCalibration = settings.manualHeight;
@@ -698,7 +701,10 @@ public class VisionVR extends MCVR {
                 VisionHandPose.gazeFallback(this.hmdPose, hand == VisionInput.HAND_RIGHT,
                     this.controllerPose[c]);
             }
-            this.controllerTracking[c] = tracked;
+            // M5 seated parity (opt-in): when seated with no tracked hand, the HMD-aim fallback pose
+            // may drive the controller/GUI pointer. Input actions still require real gestures.
+            this.controllerTracking[c] = tracked
+                || (this.seatedHmdPointer && this.dh.vrSettings.seated);
         }
     }
 

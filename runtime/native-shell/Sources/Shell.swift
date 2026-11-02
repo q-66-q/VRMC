@@ -1113,6 +1113,7 @@ struct VRControlOverlay: View {
     @State private var seated = false
     @State private var seatedFreeMove = false
     @State private var snapAngle = 45
+    @State private var seatedHmdPointer = false
     @State private var preset = "none"
     @State private var renderDistance = 12
     @State private var frameLimit = 90
@@ -1197,6 +1198,7 @@ struct VRControlOverlay: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Toggle("Seated mode", isOn: $seated)
                     Toggle("Seated free move", isOn: $seatedFreeMove)
+                    Toggle("Seated HMD pointer (head-aim GUI cursor)", isOn: $seatedHmdPointer)
                     HStack {
                         Text("Turn").font(.caption)
                         Spacer()
@@ -1426,6 +1428,7 @@ struct VRControlOverlay: View {
         let values = shellReadRuntimeSettings()
         seated = values["comfort.seated"] == "true"
         seatedFreeMove = values["comfort.seatedFreeMove"] == "true"
+        seatedHmdPointer = values["comfort.seatedHmdPointer"] == "true"
         if let raw = values["comfort.worldRotationIncrement"], let angle = Float(raw) {
             let allowed = [0, 15, 30, 45, 90]
             snapAngle = allowed.min(by: { abs(Double($0) - Double(angle)) < abs(Double($1) - Double(angle)) }) ?? 0
@@ -1459,6 +1462,7 @@ struct VRControlOverlay: View {
         var values = shellReadRuntimeSettings()
         values["comfort.seated"] = seated ? "true" : "false"
         values["comfort.seatedFreeMove"] = seatedFreeMove ? "true" : "false"
+        values["comfort.seatedHmdPointer"] = seatedHmdPointer ? "true" : "false"
         values["comfort.worldRotationIncrement"] = String(snapAngle)
         values["performance.preset"] = preset
         values["performance.renderDistance"] = String(renderDistance)

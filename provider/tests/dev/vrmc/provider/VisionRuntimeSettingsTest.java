@@ -30,6 +30,7 @@ public final class VisionRuntimeSettingsTest {
         explicit.put("performance.framerateLimit", "72");
         explicit.put("performance.vsync", "false");
         explicit.put("diagnostics.periodSeconds", "15");
+        explicit.put("comfort.seatedHmdPointer", "true");
         explicit.put("comfort.worldScale", "1.25");
         explicit.put("comfort.manualHeight", "1.70");
         VisionRuntimeSettings v = VisionRuntimeSettings.parse(explicit);
@@ -41,6 +42,7 @@ public final class VisionRuntimeSettingsTest {
         check("explicit framerate", v.hasFramerateLimit && v.framerateLimit == 72);
         check("explicit vsync", v.hasVsync && !v.vsync);
         check("diagnostics period", v.diagnosticPeriodSeconds == 15);
+        check("explicit seated hmd pointer", v.hasSeatedHmdPointer && v.seatedHmdPointer);
         check("explicit world scale", v.hasWorldScale && Math.abs(v.worldScale - 1.25F) < 1.0E-4F);
         check("explicit manual height", v.hasManualHeight && Math.abs(v.manualHeight - 1.70F) < 1.0E-4F);
         check("no warnings", v.warnings.isEmpty(), String.valueOf(v.warnings));

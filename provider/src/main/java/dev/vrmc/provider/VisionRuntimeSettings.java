@@ -22,6 +22,7 @@ import java.util.Properties;
  * comfort.seated=true|false
  * comfort.seatedFreeMove=true|false
  * comfort.seatedUseHMD=true|false
+ * comfort.seatedHmdPointer=true|false  (use HMD aim for the GUI/controller pointer when seated and no hand tracked)
  * comfort.worldRotationIncrement=0|45|...   (0 = smooth rotation, &gt;0 = snap angle degrees)
  * comfort.worldScale=0.1..5
  * comfort.manualHeight=-1|1.0..2.2         (-1 = auto height)
@@ -44,6 +45,8 @@ public final class VisionRuntimeSettings {
     public final boolean seatedUseHMD;
     public final boolean hasWorldRotationIncrement;
     public final float worldRotationIncrement;
+    public final boolean hasSeatedHmdPointer;
+    public final boolean seatedHmdPointer;
     public final boolean hasWorldScale;
     public final float worldScale;
     public final boolean hasManualHeight;
@@ -63,6 +66,7 @@ public final class VisionRuntimeSettings {
     private VisionRuntimeSettings(boolean hasSeated, boolean seated, boolean hasSeatedFreeMove,
                                   boolean seatedFreeMove, boolean hasSeatedUseHMD, boolean seatedUseHMD,
                                   boolean hasWorldRotationIncrement, float worldRotationIncrement,
+                                  boolean hasSeatedHmdPointer, boolean seatedHmdPointer,
                                   boolean hasWorldScale, float worldScale,
                                   boolean hasManualHeight, float manualHeight,
                                   boolean hasRenderDistance, int renderDistance,
@@ -78,6 +82,8 @@ public final class VisionRuntimeSettings {
         this.seatedUseHMD = seatedUseHMD;
         this.hasWorldRotationIncrement = hasWorldRotationIncrement;
         this.worldRotationIncrement = worldRotationIncrement;
+        this.hasSeatedHmdPointer = hasSeatedHmdPointer;
+        this.seatedHmdPointer = seatedHmdPointer;
         this.hasWorldScale = hasWorldScale;
         this.worldScale = worldScale;
         this.hasManualHeight = hasManualHeight;
@@ -143,6 +149,9 @@ public final class VisionRuntimeSettings {
         Boolean useHmdValue = boolOrNull(props, "comfort.seatedUseHMD", warnings);
         boolean hasSeatedUseHMD = useHmdValue != null;
         boolean seatedUseHMD = Boolean.TRUE.equals(useHmdValue);
+        Boolean seatedPointerValue = boolOrNull(props, "comfort.seatedHmdPointer", warnings);
+        boolean hasSeatedHmdPointer = seatedPointerValue != null;
+        boolean seatedHmdPointer = Boolean.TRUE.equals(seatedPointerValue);
 
         boolean hasRotation = props.containsKey("comfort.worldRotationIncrement");
         float rotation = 0.0F;
@@ -222,7 +231,8 @@ public final class VisionRuntimeSettings {
             if (v == null) { /* keep default */ } else diagnosticPeriod = v;
         }
         return new VisionRuntimeSettings(hasSeated, seated, hasSeatedFreeMove, seatedFreeMove,
-            hasSeatedUseHMD, seatedUseHMD, hasRotation, rotation, hasWorldScale, worldScale,
+            hasSeatedUseHMD, seatedUseHMD, hasRotation, rotation,
+            hasSeatedHmdPointer, seatedHmdPointer, hasWorldScale, worldScale,
             hasManualHeight, manualHeight, hasRender, render, hasSim, sim,
             hasFps, fps, hasVsync, vsync, diagnosticPeriod, preset, warnings);
     }
@@ -274,6 +284,7 @@ public final class VisionRuntimeSettings {
             + " seated=" + (hasSeated ? seated : "unchanged")
             + " seatedFreeMove=" + (hasSeatedFreeMove ? seatedFreeMove : "unchanged")
             + " seatedUseHMD=" + (hasSeatedUseHMD ? seatedUseHMD : "unchanged")
+            + " seatedHmdPointer=" + (hasSeatedHmdPointer ? seatedHmdPointer : "unchanged")
             + " worldRotationIncrement=" + (hasWorldRotationIncrement ? worldRotationIncrement : "unchanged")
             + " worldScale=" + (hasWorldScale ? worldScale : "unchanged")
             + " manualHeight=" + (hasManualHeight ? manualHeight : "unchanged")

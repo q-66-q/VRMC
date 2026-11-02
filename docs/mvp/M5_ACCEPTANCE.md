@@ -7,7 +7,7 @@ device PASS. D1 is currently unavailable, so all device rows are `NOT RUN`.
 |---|---|---|---|
 | H1 | Title/menu/continue/new world | Launcher -> JIT game -> GUI pointer via right pinch; menu entry via left fist tap; automatic immersive open | `PARTIAL` (device W1 PASS EV-0096; current build needs re-check) |
 | H2 | Free move, snap/smooth turn, teleport, jump, sneak | Left middle-pinch virtual stick; turn angle picker 0/15/30/45/90; left pinch teleport (suppressed during use/bow); right middle tap jump; right middle hold sneak | `HOST PASS` (EV-0099), device `NOT RUN` |
-| H3 | Seated and standing modes | Runtime settings + launcher toggles; provider falls back correctly in seated | `HOST PASS`, device `NOT RUN` |
+| H3 | Seated and standing modes | Runtime settings + launcher toggles; opt-in seated HMD pointer parity (`comfort.seatedHmdPointer`) | `HOST PASS` (EV-0129), device `NOT RUN` |
 | H4 | Break/place/attack/use/eat/entity interact | Right pinch attack/click; right fist hold use/bow; contextual VR interact bindings | device `PARTIAL` (W1) / current build `NOT RUN` |
 | H5 | Inventory, hotbar, crafting, chests, drag/drop | Both-fist tap inventory; ring-pinch hotbar wheel 1–9; optional swipes hotbar ±/swap/drop; GUI pointer | `HOST PASS`, device `NOT RUN` |
 | H6 | Pause/options/death/respawn | Left fist tap menu; GUI pointer; no dedicated respawn gesture (GUI) | device `PARTIAL`, current build `NOT RUN` |

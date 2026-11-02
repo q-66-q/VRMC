@@ -152,6 +152,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   max(2, frames/10).
 - Build/install PASS; device UI/behavior NOT RUN; simulator remains unusable (immediate backgrounding).
 
+## Seated HMD pointer parity (EV-0129)
+
+- Opt-in `comfort.seatedHmdPointer`: when seated with no tracked hand, the HMD-aim fallback pose may
+  drive `controllerTracking`/the GUI cursor; gesture actions still require real hands. Default off
+  preserves prior behavior. Launcher toggle added.
+- m5-settings 23 checks, full provider suite PASS; app installed/provider pushed. Device seated
+  behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
