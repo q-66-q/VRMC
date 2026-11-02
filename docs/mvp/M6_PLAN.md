@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Stale-package guard (EV-0180)
+
+- `scripts/m6_check_release_current.sh` compares a package's embedded manifest app/provider hashes with
+  the current local builds; `m6_release_ready.sh` runs it before package verification.
+- Current package app `2939c509…`/provider `5379fe2c…` match → PASS; host gates PASS; acceptance NOT READY.
+
 ## Refreshed package for restore build (EV-0179)
 
 - Package refreshed to app `2939c509…` + provider `5379fe2c…`: bytes=206,470,289 sha256

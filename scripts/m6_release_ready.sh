@@ -29,6 +29,13 @@ step() { echo; echo "===== $* ====="; }
 step "host release check"
 if scripts/m6_release_check.sh; then echo "[release-ready] OK release check"; else echo "[release-ready] FAIL release check"; fail=1; fi
 
+step "package freshness vs current build"
+if scripts/m6_check_release_current.sh "$ZIP" "${RELEASE_APP_BUNDLE:-}" "${RELEASE_PROVIDER_JAR:-/tmp/vrmc-current/vrmc-provider.jar}"; then
+  echo "[release-ready] OK package pins current build"
+else
+  echo "[release-ready] FAIL package is stale relative to current build"; fail=1
+fi
+
 step "package verification ($ZIP)"
 if [ -f "$ZIP" ]; then
   if scripts/m6_verify_release_package.sh "$ZIP"; then echo "[release-ready] OK package"; else echo "[release-ready] FAIL package"; fail=1; fi
