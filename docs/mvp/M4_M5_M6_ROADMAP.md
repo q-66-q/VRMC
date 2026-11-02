@@ -46,7 +46,7 @@ diagnostics, shell thermal monitor) + recenter safety chord HOST PASS (EV-0103) 
 
 ## M6 — hardening + acceptance
 
-Status: PLANNED; scope and offline groundwork in `docs/mvp/M6_PLAN.md`.
+Status: IN PROGRESS offline (EV-0102/EV-0108): shutdown journal, soak/release harnesses, privacy/acceptance matrix, crash guard + release check host PASS; device gates NOT RUN. Scope in `docs/mvp/M6_PLAN.md`.
 
 1. **Stability:** clean shutdown/restart, crash log capture/safe restart, 60-min soak + 20-launch /
    10-load harness, watchdog-kill detection.

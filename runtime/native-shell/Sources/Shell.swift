@@ -332,6 +332,11 @@ final class ShellCoordinator {
     private(set) var noParking = false
     /// Restore the old isHidden=true parking for A/B (default: alpha-only, never hide).
     private(set) var hideWindowsOptIn = false
+    /// M6 crash guard: previous session ended without a clean destroy-complete; after two consecutive
+    /// unclean sessions the automatic immersive open is suppressed (manual Enter VR still works).
+    private(set) var safeMode = false
+    private(set) var crashGuardMessage = ""
+
     /// User-facing status for the window overlay (manual "Enter VR" control, Option 2 staging).
     private(set) var statusMessage = "Preparing VR"
     /// Last failure to open the immersive space, shown in the window so errors stay actionable.
@@ -381,6 +386,7 @@ final class ShellCoordinator {
         refreshActivityStates("init")
         shellLog("coordinator ready chromeMode=\(chromeMode) selftest=\(selftestMode) noParking=\(noParking) hideWindowsOptIn=\(hideWindowsOptIn)")
         startThermalMonitor()
+        evaluateCrashGuard()
         if selftestMode {
             scheduleSelfTestOpen()
         }
@@ -534,6 +540,61 @@ final class ShellCoordinator {
             }
             self.shellLogSafe("OPEN-ON-LAUNCH: gave up after 15 attempts")
         }
+    }
+
+    // MARK: - M6 crash guard
+
+    private func crashCountURL() -> URL {
+        shellDocumentsURL().appendingPathComponent("vrmc-crash-count.txt")
+    }
+
+    private func evaluateCrashGuard() {
+        let docs = shellDocumentsURL()
+        let gameDir = docs.appendingPathComponent("instances/default")
+        let shutdown = gameDir.appendingPathComponent("vrmc-shutdown.log")
+        let countURL = crashCountURL()
+        var count = Int((try? String(contentsOf: countURL, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") ?? 0
+        var unclean = false
+        if let text = try? String(contentsOf: shutdown, encoding: .utf8) {
+            let lines = text.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            if let last = lines.last, last.contains("event=") {
+                if last.contains("destroy-complete") {
+                    count = 0
+                } else {
+                    unclean = true
+                    count += 1
+                }
+            }
+        }
+        try? String(count).write(to: countURL, atomically: true, encoding: .utf8)
+        if unclean {
+            crashGuardMessage = "Previous VR session ended unexpectedly (no clean shutdown)."
+            lastOpenError = count >= 2
+                ? "Two recent sessions ended unexpectedly; automatic VR is disabled. Use Enter VR after exporting diagnostics."
+                : "Previous session ended unexpectedly; diagnostics are available from Export diagnostics."
+            shellLog("CRASH-GUARD: \(crashGuardMessage) count=\(count)")
+        } else {
+            crashGuardMessage = ""
+        }
+        let flag = docs.appendingPathComponent("vrmc-safe-mode.flag")
+        if count >= 2 {
+            safeMode = true
+            try? Data("safe".utf8).write(to: flag)
+            shellLog("CRASH-GUARD: safe mode enabled (count=\(count)); automatic VR open suppressed")
+        } else {
+            safeMode = false
+            try? FileManager.default.removeItem(at: flag)
+        }
+    }
+
+    /// Clear the crash guard from the launcher after the user has exported diagnostics.
+    func clearCrashGuard() {
+        safeMode = false
+        crashGuardMessage = ""
+        lastOpenError = nil
+        try? FileManager.default.removeItem(at: crashCountURL())
+        try? FileManager.default.removeItem(at: shellDocumentsURL().appendingPathComponent("vrmc-safe-mode.flag"))
+        shellLog("CRASH-GUARD: cleared by user (manual)")
     }
 
     // MARK: - M5 thermal/performance diagnostics
@@ -780,6 +841,11 @@ final class ShellCoordinator {
 
     private func openVR(reason: String) {
         guard !immersiveOpen, !opening else { return }
+        if safeMode && (reason == "auto" || reason == "onlaunch") {
+            shellLog("SAFE MODE: automatic VR open suppressed (previous sessions did not shut down cleanly); use Enter VR")
+            statusMessage = "Crash safe mode: automatic VR disabled — use Enter VR"
+            return
+        }
         guard let openAction else {
             shellLog("\(reason): openImmersiveSpace action not bound yet")
             return
@@ -994,6 +1060,16 @@ struct VRControlOverlay: View {
             Text(shell.statusMessage).font(.caption).foregroundStyle(.secondary)
             if let error = shell.lastOpenError {
                 Text(error).font(.caption).foregroundStyle(.red)
+            }
+            if !shell.crashGuardMessage.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(shell.crashGuardMessage).font(.caption2).foregroundStyle(.orange)
+                    if shell.safeMode {
+                        Button("Clear crash safe mode") { shell.clearCrashGuard() }
+                            .font(.caption2)
+                            .buttonStyle(.bordered)
+                    }
+                }
             }
 
             DisclosureGroup("VRMC settings (next game launch)", isExpanded: $showSettings) {

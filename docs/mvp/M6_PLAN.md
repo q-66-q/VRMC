@@ -1,6 +1,6 @@
 # M6 plan — hardening + acceptance
 
-Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak/release harnesses, privacy + M6 acceptance matrix host/build PASS; device gates remain `NOT RUN` while D1 is unavailable. See `docs/mvp/M6_ACCEPTANCE.md`.
+Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak/release harnesses, privacy + acceptance matrix; EV-0108: crash guard/safe mode + release readiness check. Host/build PASS; device gates remain `NOT RUN` while D1 is unavailable. See `docs/mvp/M6_ACCEPTANCE.md`.
 
 ## Scope (AGENT §7 M6: AC-1…AC-6 + K gates evidenced)
 
@@ -13,6 +13,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   publication gate, no Minecraft binaries in git, privacy manifest, install-size budget.
 - **Acceptance:** AC-1…AC-6 matrix with evidence/waiver table, hands-only AC-4 checklist, final
   VERIFY §10 sign-off.
+
+## Implemented offline (EV-0102/EV-0108)
+
+- Append-only `vrmc-shutdown.log`, `scripts/m6_soak_harness.sh`, `scripts/m6_release_manifest.sh`.
+- Crash guard: startup evaluates the last shutdown journal event; two consecutive unclean sessions
+  enable safe mode (automatic immersive open suppressed, manual Enter VR available, launcher can clear).
+- `scripts/m6_release_check.sh`: host readiness gate for licenses/notices/privacy/source dirs/no tracked
+  Minecraft binaries/usage strings/manifest fields (PASS).
 
 ## Offline groundwork to add
 
