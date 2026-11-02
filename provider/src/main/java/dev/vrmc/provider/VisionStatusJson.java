@@ -32,6 +32,9 @@ public final class VisionStatusJson {
         public final float frameP50Ms;
         public final float frameP95Ms;
         public final int missed90Frames;
+        public final boolean bowActive;
+        public final boolean bowNotched;
+        public final float bowDrawPercent;
 
         public Data(String generatedAt, int abi, boolean bridgeReady, boolean initialized,
                     long displayViewsGen, int trackedFrames, boolean seated, boolean inputHealthy,
@@ -39,7 +42,8 @@ public final class VisionStatusJson {
                     String runningOnVisionOS, String runtimeSettings, float hotbarRange,
                     String inputTuning, String thermalState, String thermalResponse,
                     boolean adaptiveFramerate, boolean adaptiveFramerateApplied,
-                    float frameP50Ms, float frameP95Ms, int missed90Frames) {
+                    float frameP50Ms, float frameP95Ms, int missed90Frames,
+                    boolean bowActive, boolean bowNotched, float bowDrawPercent) {
             this.generatedAt = generatedAt;
             this.abi = abi;
             this.bridgeReady = bridgeReady;
@@ -62,6 +66,9 @@ public final class VisionStatusJson {
             this.frameP50Ms = frameP50Ms;
             this.frameP95Ms = frameP95Ms;
             this.missed90Frames = missed90Frames;
+            this.bowActive = bowActive;
+            this.bowNotched = bowNotched;
+            this.bowDrawPercent = bowDrawPercent;
         }
     }
 
@@ -89,7 +96,10 @@ public final class VisionStatusJson {
         bool(json, "adaptiveFramerateApplied", d.adaptiveFramerateApplied, true);
         rawNumber(json, "frameP50Ms", d.frameP50Ms, true);
         rawNumber(json, "frameP95Ms", d.frameP95Ms, true);
-        number(json, "missed90Frames", d.missed90Frames, false);
+        number(json, "missed90Frames", d.missed90Frames, true);
+        bool(json, "bowActive", d.bowActive, true);
+        bool(json, "bowNotched", d.bowNotched, true);
+        rawNumber(json, "bowDrawPercent", d.bowDrawPercent, false);
         json.append("}\n");
         return json.toString();
     }

@@ -272,6 +272,12 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   zero timestamps, periodic reset → 0 violations; outputs finite and rotations unit-length. Full provider
   suite PASS. Host only; device NOT RUN.
 
+## 6t. Bow diagnostic telemetry (2026-11-02, EV-0174)
+
+- Status JSON exposes `bowActive`, `bowNotched`, `bowDrawPercent` from `dh.bowTracker`; launcher provider
+  summary shows bow state only while active. JSON tests/guards pass; app installed/provider pushed.
+- Device two-hand bow behavior NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

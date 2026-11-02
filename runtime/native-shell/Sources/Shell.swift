@@ -1555,7 +1555,13 @@ struct VRControlOverlay: View {
             let adaptive = (obj["adaptiveFramerateApplied"] as? Bool) == true ? "capped" : "off"
             let p95 = (obj["frameP95Ms"] as? Double).map { String(format: "%.1f", $0) } ?? "?"
             let missed = obj["missed90Frames"].map { "\($0)" } ?? "?"
-            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)"
+            var bow = ""
+            if (obj["bowActive"] as? Bool) == true {
+                let pct = (obj["bowDrawPercent"] as? Double).map { Int(($0 * 100).rounded()) } ?? 0
+                let notched = (obj["bowNotched"] as? Bool) == true ? "notched " : ""
+                bow = " bow=\(notched)\(pct)%"
+            }
+            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)\(bow)"
         } else {
             providerStatusLine = ""
         }
