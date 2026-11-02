@@ -243,7 +243,11 @@ static void writeCompositorHeartbeat(int generation, int frameCount, size_t pres
     NSString *path = [docs.firstObject stringByAppendingPathComponent:@"vrmc-heartbeat.txt"];
     NSString *text = [NSString stringWithFormat:@"generation=%d frame=%d presented=%zu drawables=%zu layerState=%ld time=%.3f\n",
                       generation, frameCount, presented, drawableCount, layerState, now];
-    [text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    // Keep filesystem I/O off the render thread. Writes are throttled to <=1 Hz above; a dropped final
+    // queued write on abrupt process death is harmless (the watchdog then reports a stale heartbeat).
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        [text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    });
 }
 
 static BOOL documentFlag(NSString *name) {

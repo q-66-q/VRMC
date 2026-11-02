@@ -82,6 +82,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Async heartbeat write (EV-0153)
+
+- Heartbeat throttling stays on the frame thread (≤1 Hz), but the atomic file write is dispatched to a
+  utility QoS background queue: no synchronous watchdog filesystem I/O on the render thread.
+- Dropped final queued write on abrupt process death is harmless (watchdog reports stale heartbeat).
+- Shell/app build/install PASS; device runtime performance NOT RUN.
+
 ## Heartbeat watchdog (EV-0132)
 
 - Compositor rewrites `Documents/vrmc-heartbeat.txt` at most 1 Hz while frames loop (generation, frame,
