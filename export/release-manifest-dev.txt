@@ -1,6 +1,6 @@
 # VRMC release manifest
-# generated: 2026-11-01T23:21:42-1000
-source_commit=086d11c08467b8c65b6491c429cd9efeec8dd2b4
+# generated: 2026-11-02T00:08:52-1000
+source_commit=03297f8313779b70cba5e197a129c7df40e60c47
 source_branch=main
 dirty_tree=no
 product=VRMC
@@ -18,12 +18,12 @@ moltenvk=1.4.3 (source-built-app-bundled)
 xcode=27.2 (27B52)
 visionos_sdk=27.2
 visionos_sim_runtime=27.0
-app_bundle=/tmp/VRMC-native-ring.app
-app_bundle_sha256=0726af92d1f671a4856fb8d49943b2852a0822fe1ea7110479daedd8e9d47f5b
+app_bundle=/tmp/VRMC-native-holdpose.app
+app_bundle_sha256=79b7a0cf99921b16c64c0277ed3f17bc726dba4ccaaa3002a37f7e35006bb000
 bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
 provider_jar=/tmp/vrmc-current/vrmc-provider.jar
-provider_jar_sha256=cc24d16b923210f6f0fe00afc614ade4f3fd6edc0733a4674abc1cb83493b890
+provider_jar_sha256=7a9a1118f0a78d29e1afa56d2bcf7ef25f61cced227426e97edba9cca028dff7
 license_app=LICENSE:present
 license_provider=provider/LICENSE:present
 third_party_notices=THIRD_PARTY_NOTICES.md:present
