@@ -960,3 +960,1674 @@ StikDebug prefs plist.
 result reproduces on cold relaunch.
 
 **Actual:** five cold launches (pids 1623/1625/1632/1634/1636) each logged
+`[JIT26] Requesting 64 MB`, `Got JIT mapping 0x…`, tier 3/4 `HelloJit::hot`/`main`,
+`HELLOJIT iterations=200000000 … elapsed_ms=616/620/799/759/730`, and `JLI_Launch returned 0`.
+Three launches without a debugger cleanly reported the required StikDebug assignment. One crash at
+15:41 occurred when no script was assigned.
+
+**Criteria:** (1) compiled methods executed — `HELLOJIT` output + tier 3/4 compiles; (2) no
+`brk #0x69` trap — successful runs exit 0; (3) cache executable after detach — detach-after-first-br
+then continued compilation/execution; (4) cold relaunch reproduces — five distinct pids.
+
+**Artifacts:** `evidence/EV-0021/s1a-jit.log`, `summary.log`, `main-fixed.c`, `main-fix.diff`, and the
+15:41 crash `.ips`.
+
+**Limitations:** S1a is compatibility-mode only; S1b native visionOS is still pending. The enabler
+needs StikDebug with a script assigned to the app per install (free-profile 7-day re-sign), so A2 stays
+MEDIUM.
+
+### EV-0022 — S1b native visionOS harness: built and signed with a VISIONOS-relabelled JRE (device run pending)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:12:16-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) — install blocked |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:** copy the iOS JRE and relabel all 39 Mach-O files to platform VISIONOS with `vtool`;
+create a native visionOS console harness (`S1BProbe`) embedding the relabelled JRE and `HelloJit`;
+build (`generic/platform=visionOS`), sign nested JRE + app, verify; attempt install on D1.
+
+**Actual:** build, sign and verify pass; both the app and `libjvm.dylib` report platform VISIONOS
+(minos 27.0/27.2). Uninstall of `dev.vrmc.s1a` fails
+(`AMDeviceRemoteCopyMountedDevicesList returned no mount information`) and install fails
+`ApplicationVerificationFailed`: the free-profile 3-app limit already counts `dev.vrmc.s1a`,
+StikDebug and SideStore. The attempts also hit `IXRemoteErrorDomain 6` (connection invalid),
+consistent with a locked/asleep device.
+
+**Artifacts:** `evidence/EV-0022/build.log`, `summary.log`, `main.c`, `project.yml`,
+`install-error.log`.
+
+**Next:** unlock D1, free the slot (uninstall `dev.vrmc.s1a`), install `dev.vrmc.s1b`, control-run
+(expect a JIT26 trap), then one StikDebug Enable JIT pass with a script assigned to `dev.vrmc.s1b`.
+
+### EV-0023 — S1b native visionOS harness runs on D1: launches without UI/scene and waits for the JIT debugger
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:23:52-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native app) |
+| Status | `PARTIAL` |
+
+**Procedure:** uninstall `dev.vrmc.s1a` to free the free-profile slot; install `dev.vrmc.s1b`; launch the
+native visionOS console harness via devicectl (no enabler); pull `Documents/s1b-jit.log` and crashes.
+
+**Actual:** the native app launches; the log shows `[S1B] console-start`, the resolved bundle/classes
+paths, and `no JIT debugger attached (CS_DEBUGGED=0 ppid=1)` with the StikDebug instruction. It exits
+cleanly with no crash report and no scene-lifecycle failure. The JVM is not started because the
+handshake requires an attached debugger.
+
+**Artifacts:** `evidence/EV-0023/s1b-jit.log`, `summary.log`.
+
+**Next:** assign `universal.js` to S1BProbe in StikDebug, launch with Enable JIT, then check for the
+native JIT26 mapping + `HELLOJIT`.
+
+### EV-0024 — S1b PASS: native visionOS app JITs and executes on D1 with the VISIONOS-relabelled JRE
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:27:55-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native `dev.vrmc.s1b`) |
+| Status | `PASS` |
+
+**Procedure:** assign `universal.js` to S1BProbe in StikDebug, then Enable JIT → S1BProbe; the harness
+completes the JIT26 handshake and starts the JVM; pull the app log and crash reports.
+
+**Actual:** log shows `universal JIT26 script detected; sending 0x69 extension`,
+`[JIT26] Requesting 64 MB`, `Got JIT mapping 0x111d6c000`, `mapping at RW=…, RX=…`, tier 3/4
+`HelloJit::hot`/`main`, `HELLOJIT iterations=200000000 … elapsed_ms=616`, and
+`JLI_Launch returned 0`. No crash reports.
+
+**Significance:** the **relabelled iOS JRE runs natively on visionOS with JIT26** — no fresh xros
+OpenJDK build is needed for the JVM/code-cache path (C3's remaining risk is LWJGL/natives and full-MC
+integration).
+
+**Artifacts:** `evidence/EV-0024/s1b-jit.log`, `summary.log`.
+
+**Next:** S2 device render — MC 26.2 Vulkan world on D1 (M0's last open gate).
+
+### EV-0025 — S2 device render: Vulkan offscreen clear+readback executes on D1 (MoltenVK 1.4.2, Apple M2)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:30:42-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native `dev.vrmc.s2probe`) |
+| Status | `PASS` |
+
+**Procedure:** extend S2Probe with a Vulkan render test — create `VkDevice`, clear a 64×64 RGBA8 image
+to `(0.25, 0.5, 0.75, 1.0)`, copy it to a host-visible buffer, and read the pixel back; build, sign,
+install and launch the native visionOS probe on D1; pull `Documents/s2-probe.log`.
+
+**Actual:** log shows `Created VkDevice ... Apple M2 GPU`, `RENDER-TEST pixel = (64,128,191,255)`,
+`RENDER-TEST PASS`, and `probe rc=0`.
+
+**Scope:** device **executes Vulkan commands** through MoltenVK/M2 — not just extension enumeration.
+Still offscreen only: no swapchain/window/present and no Minecraft world, so ST-S2's device criterion
+remains open.
+
+**Artifacts:** `evidence/EV-0025/s2-probe.log`, `summary.log`, `probe_mvk.c`, `s2probe-build8.log`.
+
+### EV-0026 — S2 step 4 load test: all 12 retagged VISIONOS natives dlopen in the D1 probe
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:32:12-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native `dev.vrmc.s2probe`) |
+| Status | `PASS` |
+
+**Procedure:** embed the 12 retagged VISIONOS dylibs (MoltenVK, LWJGL 3.4.1 subset, SDL3, openal,
+shaderc, spirv-cross, freetype) in S2Probe; pass the Frameworks directory to the probe; `dlopen` each
+dylib and resolve a representative export; build/sign/install/launch and pull the log.
+
+**Actual:** all 12 dylibs load in the visionOS process. Seven resolve their representative symbol
+(MoltenVK, SDL3, freetype, lwjgl core, openal, shaderc, spirv-cross); the five LWJGL extension dylibs
+(nanovg/opengl/stb/tinyfd/vma) load but do not export `JNI_OnLoad`, which is a symbol-name mismatch
+rather than a load failure. `jemalloc` remains absent (use `-Dorg.lwjgl.system.allocator=system`).
+
+**Artifacts:** `evidence/EV-0026/s2-probe.log`, `summary.log`, `probe_mvk.c`, `main.m`.
+
+### EV-0027 — S2 step 5a: CAMetalLayer VkSurfaceKHR created on D1; probe clean with 12 natives loaded
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:34:19-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native `dev.vrmc.s2probe`) |
+| Status | `PASS` |
+
+**Procedure:** attach a `CAMetalLayer` to the probe view and pass it to the Vulkan probe; create a
+`VkSurfaceKHR` with `VK_EXT_metal_surface`; query caps/formats; also run the offscreen render and native
+load tests; pull the log.
+
+**Actual:** `SURFACE-TEST PASS` — `currentExtent 1280x720`, `minImageCount=2`, `maxImageCount=3`,
+60 formats. `RENDER-TEST PASS`, native load test **12 ok / 0 failed**, `probe rc=0`.
+
+**Scope:** surface creation only; swapchain/present and the MC world remain open (S2 steps 5b/6).
+
+**Artifacts:** `evidence/EV-0027/s2-probe.log`, `summary.log`, `probe_mvk.c`, `main.m`,
+`s2probe-build12.log`.
+
+### EV-0028 — S2 step 5b: Vulkan swapchain + present on D1 (CAMetalLayer, 1280x720, 3 images)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:47:54-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2, native `dev.vrmc.s2probe`) |
+| Status | `PASS` |
+
+**Procedure:** create a `VK_KHR_swapchain` device on the `CAMetalLayer` surface; acquire an image, clear
+it, transition to `PRESENT_SRC`, submit and present; pull the log.
+
+**Actual:** `## swapchain test: 1280x720 fmt=44 mode=2 images=3`, `submit=0 present=0`,
+`## SWAPCHAIN-TEST PASS`, `probe rc=0`. `SURFACE-TEST` and offscreen `RENDER-TEST` also pass in the
+same run.
+
+**Scope:** present path proven; MC boot/title/world (S2 step 6) and the Java GLFW stub remain.
+
+**Artifacts:** `evidence/EV-0028/s2-probe.log`, `summary.log`, `probe_mvk.c`, `main.m`,
+`s2probe-build13.log`.
+
+### EV-0029 — Amethyst re-signed for <TEAM_ID> installs and launches on D1 (MC boot pending)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:54:26-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** take the release Amethyst IPA (arm64, unsigned), change its bundle id to
+`dev.vrmc.amethyst`, sign 22 nested Mach-O and the app with the free-team profile +
+`get-task-allow`; install via devicectl and launch normally; pull crash logs.
+
+**Actual:** installation and launch succeed; the `AngelAuraAmethyst` process remains alive. The only
+crash log present is an older 12:46 entry, not this run.
+
+**Why it matters:** Amethyst bundles `UniversalJIT26`/`Extension`, MoltenVK, EGL/LWJGL natives and the
+Vulkan bridge, so it is the fastest path to an MC-on-device boot test.
+
+**Next:** assign `universal.js` in StikDebug to Amethyst, launch it with Enable JIT, set up a demo/
+offline account, install MC 26.2 and start a world; capture the MC logs and crash state.
+
+### EV-0030 — Amethyst launched via StikDebug dies immediately (attach→continue→detach, no crash report)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T16:59:44-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `FAIL` |
+
+**Procedure:** launch the re-signed Amethyst via StikDebug Enable JIT to configure Minecraft; inspect
+StikDebug `idevice_log`, Amethyst `latestlog.txt`, process list and system crash logs.
+
+**Actual:** StikDebug sends `$vAttach`, `$c`, `$D` within ~28 ms; the Amethyst process is gone
+afterwards. No new crash report in `systemCrashLogs` (only the older 12:46 entry). A normal devicectl
+launch keeps the process alive (pid 1889). Amethyst's log stops at version-list startup; no account or
+version is installed yet.
+
+**Likely cause / next:** the JIT launch path kills the app before setup, or Amethyst aborts at startup
+when no script is assigned. Workaround to test: configure Minecraft with a normal launch, then relaunch
+under StikDebug only for the game JVM (next evidence ID).
+
+**Artifacts:** `evidence/EV-0030/summary.log`, `latestlog.txt`.
+
+### EV-0031 — MC 26.2 on D1: Amethyst JIT + Java 25 work; boot aborts on missing LWJGL 3.4.1 spvc
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T18:00:12-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** install Java 25 as an Amethyst external runtime; enable
+`debug.debug_always_attached_jit` so its dyld bypass loads the external JRE; launch Amethyst via
+StikDebug with `amethyst.js` assigned and press Play on MC 26.2; pull the launcher log and the
+Minecraft crash report.
+
+**Actual:** `[JIT26] Requesting 240 MB` → mapping granted; `[DyldLVBypass]` hooks active; Java 25
+selected from `Documents/java_runtimes/java-25-openjdk`; `Launching Minecraft 26.2` and
+`NativeLibrariesBootstrap` run. Crash: `Loading library spvc` →
+`NoClassDefFoundError: org/lwjgl/util/spvc/Spvc`. The log reports **LWJGL 3.3.3-snapshot**; the released
+IPA has no `lwjgl_versions.txt` or 3.4.1 assets, while MC 26.2 requires LWJGL 3.4.1.
+
+**Conclusion:** the device launch stack (JIT → JVM → dyld bypass → Java 25 → MC main) is proven; the
+remaining blocker is the launcher's bundled LWJGL version. Next: install the current Amethyst
+development build (source supports LWJGL 3.4.1).
+
+**Artifacts:** `evidence/EV-0031/latestlog.txt`, `crash.txt`, `summary.log`.
+
+### EV-0032 — MC 26.2 on D1: after grafting LWJGL 3.4.1 Java, JNI_OnLoadGLFW in the app binary crashes (embedded 3.3.3 natives)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T18:40:23-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `FAIL` |
+
+**Procedure:** graft merged LWJGL 3.4.1 Java jars + the current source's 3.4.1 iOS natives into the
+launcher; re-sign and install; launch via StikDebug with `amethyst.js`; pull `latestlog` and `hs_err`.
+
+**Actual:** the `spvc` class error is gone and MC 26.2's `Main` starts, but the JVM dies with
+`SIGSEGV` in `jni_GetStaticObjectField`, called from `JNI_OnLoadGLFW` **inside the Amethyst app binary**,
+reached from `org.lwjgl.system.Library.<clinit>`. The app binary embeds LWJGL 3.3.3 JNI code, which is
+incompatible with the grafted 3.4.1 Java classes.
+
+**Conclusion:** file grafting cannot fix the LWJGL version. The app must be rebuilt from current
+Amethyst source (which supports 3.4.1), or another launcher/runtime must be used. The full problem
+dossier has been exported to `export/` (and zipped).
+
+**Artifacts:** `evidence/EV-0032/latestlog.txt`, `hs_err.log`, `summary.log`; `export/`.
+
+### EV-0033 — StikDebug 3.2.0 reinstalled for <TEAM_ID>; pairing/DDI/scripts preserved and amethyst.js present
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T20:07:33-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** download the official StikDebug 3.2.0 IPA; change its bundle id to the existing
+`com.stik.stikdebug.<TEAM_ID>` and re-sign with a fresh free-team profile; install over the existing
+app; push `amethyst.js` to `Documents/scripts`; verify container data; attempt launch.
+
+**Actual:** install succeeds and the existing data is preserved — `pairingFile.plist`, `DDI/`, and
+`Documents/scripts/` (`Geode.js`, `legacy.js`, `maciOS.js`, plus the pushed `amethyst.js`). Launch
+verification is blocked by CoreDevice XPC errors (“connection invalidated”) while the device is
+locked/asleep; no StikDebug crash report was produced.
+
+**Next:** wake/unlock D1, open StikDebug, long-press Amethyst → Assign Script → `amethyst.js`. The
+MC 26.2 LWJGL 3.4.1 blocker (EV-0031/EV-0032) is independent and still needs a current-source
+Amethyst rebuild.
+
+**Artifacts:** `evidence/EV-0033/summary.log`.
+
+### EV-0034 — S2 DEVICE WORLD RENDER: Minecraft 26.2 runs a world on Apple Vision Pro with Vulkan/MoltenVK
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T20:28:16-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:** launch Amethyst via StikDebug Enable JIT (`amethyst.js`, JIT26 mapping 240 MB); force
+`preferredGraphicsBackend:"vulkan"` + `startedCleanly:true` in MC `options.txt`; launch MC 26.2 with
+LWJGL 3.4.1 + external Java 25; create and enter a singleplayer world; capture the MC log.
+
+**Actual:** `[JavaLauncher] RENDERER is set to libMoltenVK.dylib`,
+`Using graphics backend Vulkan, using drivers: 1.2.357 MoltenVK 1.4.3`,
+`Backend library: LWJGL version 3.4.1-snapshot`, `[VulkanBridge] game renders through Vulkan` (no ANGLE
+fallback). Sound engine and texture atlases loaded; world **“New World”** created: 49 spawn chunks,
+`<player> joined the game` at 20:27:54.
+
+**Significance:** first Minecraft 26.2 world rendered on Apple Vision Pro. `devicectl` screenshot
+capture is unavailable on visionOS, so the MC log is the evidence. A 30-minute soak is running for the
+ST-S2 device pass (next evidence ID).
+
+**Artifacts:** `evidence/EV-0034/latestlog.txt`, `summary.log`.
+
+### EV-0035 — S2 device world session: 4m20s of MC 26.2 Vulkan on D1 with a clean save and shutdown (30-min soak deferred)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T20:32:38-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** continue the EV-0034 world session; capture the MC log; measure duration and shutdown
+behaviour.
+
+**Actual:** joined 20:27:54, left/paused 20:32:14, stopped 20:32:16 = **4m20s in-world**, clean chunk
+saves and `Stopping!`; no exception or crash. The user stopped early, so the 30-minute soak is deferred.
+Mouse/cursor behaviour was abnormal on visionOS (noted for M1 input work; user says it does not matter
+now).
+
+**Artifacts:** `evidence/EV-0035/latestlog.txt`, `summary.log`.
+
+### EV-0036 — M1 T3 acceptance: source-built Amethyst v1.2.0 runs Minecraft 26.2 Vulkan world on D1
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:26:08-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:** assemble the Amethyst 1.2.0 source tree (reference tree + submodules) and build `payload`
+with the JDK 8 toolchain (deps: native, mcmetal, ame_vulkan, java, jre, assets; MobileGlues/MobileGL
+renderer deps dropped for the Vulkan path); re-sign 167 Mach-O for <TEAM_ID> as `dev.vrmc.amethyst` and
+install over the existing data container; set `preferredGraphicsBackend:"vulkan"` +
+`startedCleanly:true`; launch via StikDebug with `amethyst.js` and press Play.
+
+**Actual:** JIT26 mapping 240 MB; `LWJGL version 3.4.1-snapshot`;
+`Using graphics backend Vulkan, using drivers: 1.2.357 MoltenVK 1.4.3`; 49 spawn chunks;
+`<player> joined the game` at 22:24:18; process alive. App tree
+`sha256 4b1f959a3ead6ad8cc8d08f3c1c672da1484de1764ba738fa5d74d46347cc20a` (558 MB), version
+`1.2.0-development`.
+
+**Limitations:** new data containers still need the manual `options.txt` defaults (crash-reset resets the
+backend); MobileGlues/MobileGL renderers are not in this build (not needed for Vulkan). M1 remains open
+on fresh-install acceptance, app-side defaults, BundleScriptMap re-check, input, and the 30-minute soak.
+
+**Artifacts:** `evidence/EV-0036/latestlog.txt`, `summary.log`.
+
+### EV-0037 — M1 T4: app-side defaults force Vulkan and clear the crash marker — MC boots from a reset options.txt
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:37:38-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PASS` |
+
+**Procedure:** patch Amethyst `MinecraftOptionUtils` to force `preferredGraphicsBackend` (the
+launcher-decided value) and set `startedCleanly:true` before every launch; deliberately reset device
+`options.txt` to `preferredGraphicsBackend:"default"` + `startedCleanly:false` (the old failing state);
+launch via StikDebug with `amethyst.js` and press Play.
+
+**Actual:** post-launch options show `preferredGraphicsBackend:"vulkan"` and `startedCleanly:true`; no
+“Detected unexpected shutdown” reset in the log; `Using graphics backend Vulkan, using drivers:
+1.2.357 MoltenVK 1.4.3`; world joined 22:36:25; process alive. Patched app tree
+`sha256 d8e7a6f6f95d1b4f5a77e70cae2e64a2ed816a32488070d4b36efd3d9a7c1156`.
+
+**Artifacts:** `evidence/EV-0037/latestlog.txt`, `summary.log`.
+
+### EV-0038 — M1 T1: stack pinned with sha256 for Amethyst, StikDebug, OpenJDK, LWJGL, MoltenVK, MC and amethyst.js; check_versions green
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:44:00-10:00 |
+| Status | `PASS` |
+
+**Actual:** `versions.env` rewritten with the M1 pins and per-component sha256 (Amethyst source-build
+tree `3d3a7c18…`, StikDebug IPA `f3b4e1ea…`, JRE tree `7393cf1a…`, LWJGL jars `e6ff1d07…` + natives
+`e5cd4f30…`, MoltenVK `03198606…`, MC JSON `267d4b17…`, `amethyst.js` `7fb4b14b…`); env file made
+bash-sourceable; `scripts/check_versions.sh` → **8 passed, 0 failed**.
+
+**Artifacts:** `evidence/EV-0038/versions.env`, `check_versions.out`, `summary.log`.
+
+---
+
+### EV-0039 — M1 T2: re-sign, install, push-JIT, MC-options and log-capture scripts live in scripts/ and are re-runnable
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:46:27-10:00 |
+| Status | `PASS` |
+
+**Actual:** added `scripts/install_device.sh` (DEVICE/UNINSTALL_BUNDLE_ID/DRY_RUN) and
+`scripts/README.md`; parameterized `sign_ipa.sh` (BUNDLE_ID/TEAM_ID/IDENTITY/XCENT/PROFILE) and the
+push/options/capture scripts (DEVICE + bundle ids). Rehearsals: sign copy of DummyProfile.app (3
+Mach-O, team <TEAM_ID>), re-push `amethyst.js` (device hash matches `7fb4b1…`), re-run
+`set_mc_options` (vulkan/true), capture logs, DRY_RUN install. Push hit one transient device disconnect
+and succeeded on retry.
+
+**Artifacts:** `evidence/EV-0039/summary.log`, rehearsal logs.
+
+---
+
+### EV-0040 — M1 T5: visionOS mouse-delta fix implemented; verdict PARTIAL pending post-patch on-headset verification
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:46:43-10:00 |
+| Status | `PARTIAL` |
+
+**Actual:** root cause: `GCMouse` deltas gated on `windowScene.pointerLockState.locked` (visionOS
+provides no pointer lock). Patch forwards deltas when `isGrabbing` or virtual mouse is enabled;
+installed in app tree `b1955fac…`. Post-patch mouse behaviour was not confirmed on the headset during
+the sprint (device was relaunched with newer builds). **T5 closed as PARTIAL per directive**; follow-up
+`task-1` (T5-FUP1) covers cursor visibility / edge-delta / grab-transition verification.
+
+**Artifacts:** `evidence/EV-0040/summary.log`, `mouse-delta.patch`.
+
+---
+
+### EV-0041 — M1 T3: app-shell route decided — build Amethyst 1.2.0 from source, brand as dev.vrmc.vrmc (ADR-0008)
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:47:06-10:00 |
+| Status | `PASS` |
+
+**Actual:** ADR-0008 accepted: build Amethyst 1.2.0 (reference tree + submodules), apply VRMC patches,
+brand `dev.vrmc.vrmc`; pin/re-sign route only as an emergency fallback that requires a recorded blocker
+and transition deadline. Backed by EV-0036 (source build runs MC 26.2 Vulkan world), EV-0037 and
+EV-0040. W1 remaining: branding/display name+icon, repo-committed reproducible build script, first-run
+layer, clean-container acceptance.
+
+**Artifacts:** `evidence/EV-0041/summary.log`, `docs/adr/0008-m1-app-shell-build-from-source.md`.
+
+### EV-0042 — M1 T4 progress: branded VRMC app (dev.vrmc.vrmc) installed on D1 with a fresh container
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T22:55:20-10:00 |
+| Device | D1 Apple Vision Pro `RealityDevice14,1` (visionOS 27.2) |
+| Status | `PARTIAL` |
+
+**Procedure:** create a `dev.vrmc.vrmc` provisioning profile; brand the source-built 1.2.0 payload as
+VRMC (bundle id + display/name); re-sign 167 Mach-O; uninstall the `dev.vrmc.amethyst` test app (fresh
+container) and install VRMC.
+
+**Actual:** profile `<TEAM_ID>.dev.vrmc.vrmc` created; app signed, tree
+`sha256 446862ef3c13a37ec95c8e12d3546ec3dc5ed593eb4fb492b1f2b9f4be91f884`; VRMC 1.2.0 installed.
+Installed apps: SideStore, StikDebug 3.2.0, VRMC 1.2.0. **No Amethyst test app remains.** First-run
+acceptance (VRMC-specific `amethyst.js` assignment, account, MC 26.2 download, world) is pending.
+
+**Artifacts:** `evidence/EV-0042/summary.log`.
+
+### EV-0043 — M1 T4 acceptance: fresh VRMC install reaches the MC 26.2 world with app-side provisioning
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:09:24-10:00 |
+| Status | `PASS` |
+
+**Actual:** fresh `dev.vrmc.vrmc` container, no test-build data; log shows forced always-attached JIT
+on TXM, `DyldLVBypass` hooks active, internal `java-25-openjdk`, `preferredGraphicsBackend=vulkan`,
+`Using graphics backend Vulkan … MoltenVK 1.4.3`, world joined 23:08:23. No Mac-side pushes for
+JRE/options/script after install; only the on-device StikDebug script assignment and the launcher's
+account/version flow.
+
+**Artifacts:** `evidence/EV-0043/latestlog.txt`, `summary.log`.
+
+---
+
+### EV-0044 — M1 T6: 30-minute MC 26.2 world soak — no game crash, no watchdog kill; thermal recorded
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:40:30-10:00 |
+| Status | `PASS` |
+
+**Actual:** 1805 s continuous in-world (23:08:23–23:38:28); process alive at check; 0 ERROR/Exception
+lines after join; no game crash, no game watchdog kill. Thermal recorded from system metadata:
+`Thermal Level: 0 / Thermal State: serious` at 23:11:09. Incident: StikDebug 3.2.0 was SIGKILLed by a
+FrontBoard scene-update watchdog at 23:11:09 (background); the game was unaffected.
+
+**Artifacts:** `evidence/EV-0044/latestlog.txt`, `summary.log`, `StikDebug-…ips`.
+
+---
+
+### EV-0045 — T5-FUP1: in-world cursor does not hide and camera rotation is not smooth — FAIL
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:46:26-10:00 |
+| Status | `FAIL` |
+
+**Actual:** user report; source analysis shows the SDL3 path feeds absolute cursor positions when
+`isGrabbing` is false (visible pointer + jerky rotation), raw deltas when true. SDL3 grab forwarding not
+confirmed on visionOS. Follow-up `task-2`; T5 itself stays closed PARTIAL.
+
+**Artifacts:** `evidence/EV-0045/summary.log`.
+
+---
+
+### EV-0046 — Background once freezes Minecraft (needs refresh) and audio is lost — FAIL, fix in progress
+
+| Field | Value |
+|---|---|
+| Date | 2026-10-31T23:46:26-10:00 |
+| Status | `FAIL` |
+
+**Actual:** user backgrounded the game once; it froze and needed a refresh/relaunch, sound was lost.
+Source: `SceneDelegate` lifecycle callbacks are empty; `updateAudioSettings()` only runs at `viewDidLoad`;
+the render gate depends on `UIApplication` notifications. Fix in progress (scene callbacks + audio
+reactivation/interruption handling); follow-up `task-3`.
+
+**Artifacts:** `evidence/EV-0046/summary.log`.
+
+### EV-0047 — T5-FUP1 retest: rotation smooth (grab path active); cursor still visible (cosmetic, accepted)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:07:09-10:00 |
+| Status | `PARTIAL` |
+
+**Actual:** log shows `[Input] nativeSetGrabbing 1` → `grabState isGrabbing=1`; user confirms rotation is
+now smooth. Cursor still visible: `pointerLockSupported=1` but `pointerLockState.locked=0` even while
+grabbing, so visionOS never hides the system pointer through `prefersPointerLocked`. User accepted the
+cursor visibility as cosmetic. `task-2` closed.
+
+**Artifacts:** `evidence/EV-0047/latestlog.txt`, `summary.log`.
+
+---
+
+### EV-0048 — Lifecycle/audio retest: background/foreground resumes with sound after scene+audio fix
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:07:09-10:00 |
+| Status | `PASS` |
+
+**Actual:** user reports “everything else is good” with only the accepted cursor cosmetic issue; no
+freeze and no sound loss on background/foreground. Log shows OpenAL CoreAudio initialized and a normal
+session. `task-3` closed.
+
+**Artifacts:** `evidence/EV-0048/latestlog.txt`.
+
+### EV-0049 — M1 W1: reproducible launcher build script tested from a fresh Amethyst 1.2.0 tree + VRMC patches
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:10:30-10:00 |
+| Status | `PASS` |
+
+**Actual:** committed `scripts/build_launcher.sh`, `patches/vrmc-m1-amethyst-1.2.0.patch` and
+`docs/mvp/LAUNCHER_BUILD.md`; ran the script against a fresh copy of the reference tree with submodules
+and cached depends: exit 0, payload version 1.2.0 with `lwjgl_versions.txt`, `Frameworks/lwjgl34` and
+bundled `java-25-openjdk`; unsigned payload tree `sha256 0b0b80ec…` (rebuild hashes are not bit-identical
+because of zip/asset timestamps; inputs are pinned by `AMETHYST_SOURCE_TREE_SHA256` and
+`VRMC_PATCH_SHA256`).
+
+**Artifacts:** `evidence/EV-0049/buildtest.log`, `summary.log`.
+
+### EV-0050 — M1 W3: explicit in-app JIT preflight guidance for StikDebug/amethyst.js installed (verification pending)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:17:04-10:00 |
+| Status | `PARTIAL` |
+
+**Actual:** added `[JIT] preflight` logging (`isJITEnabled`/`hasTXM`/`hasMirrored`) and a TXM alert that
+states the exact steps (long-press VRMC → Assign Script → `amethyst.js`; Enable JIT → VRMC; keep VRMC
+open and the game continues automatically). Rebuilt, re-signed (167 Mach-O) and installed as
+`dev.vrmc.vrmc` (tree `sha256 01804065…`). No-JIT launch-flow verification on D1 is pending.
+
+**Artifacts:** `evidence/EV-0050/summary.log`.
+
+### EV-0051 — M1 W3 verification: no-JIT launch preflight guides to StikDebug and the game continues after JIT is enabled — PASS
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:24:41-10:00 |
+| Status | `PASS` |
+
+**Actual:** log shows `[JIT] preflight isJITEnabled=0 hasTXM=1 hasMirrored=1`; user confirms the alert
+flow (Assign Script → `amethyst.js`, Enable JIT → VRMC) and that the game continued after JIT was
+enabled. Installed build tree `sha256 01804065…`.
+
+**Artifacts:** `evidence/EV-0051/latestlog.txt`, `w3-summary.log`.
+
+---
+
+### EV-0052 — M1 W7 verification: clean save/quit and save preserved across relaunch — PASS
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:24:41-10:00 |
+| Status | `PASS` |
+
+**Actual:** log shows joined 00:23:17, `Saving and pausing game...` 00:23:56, `left the game` 00:23:57,
+`Stopping!` 00:23:59. User confirms the relaunched world loads with changes preserved. Combined with the
+30-minute soak (EV-0044), acceptance #2 is complete.
+
+**Artifacts:** `evidence/EV-0052/latestlog.txt`, `w7-summary.log`.
+
+### EV-0053 — M1 W6: log/crash retrieval path confirmed — in-app Send logs/Log output share + repo capture scripts
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:29:57-10:00 |
+| Status | `PASS` |
+
+**Actual:** launcher menu `Send logs` shares `latestlog.old.txt`; in-game **Log output** overlay
+(`PLLogOutputView`) has a *Share latestlog.txt* action and per-line share, and appears on fatal exit;
+MC crash reports are stored under `Documents/instances/default/crash-reports/`; repo scripts retrieve
+logs (EV-0039). Device share-sheet not exercised per user decision.
+
+**Artifacts:** `evidence/EV-0053/summary.log`.
+
+### EV-0054 — M1 W1 polish: VRMC app icon + first-run welcome checklist built/signed (install pending device wake)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:34:30-10:00 |
+| Status | `PARTIAL` |
+
+**Actual:** committed `assets/branding/` (VRMC icon PNGs) + `scripts/make_icon.py`, wired them into
+`scripts/build_launcher.sh`; added a one-time “Welcome to VRMC” checklist in
+`LauncherMenuViewController` (StikDebug script/JIT, account, MC install, Play; Java 25/LWJGL/Vulkan
+note). Built and re-signed (tree `e9ad22b6…`); install failed 8× because the device is asleep/locked
+(`AMDeviceCreate`/`IXRemoteError`). Install and visual verification pending the next awake-device
+session.
+
+**Artifacts:** `evidence/EV-0054/summary.log`.
+
+### EV-0055 — M1 W1: reproducible build re-verified with VRMC branding assets and updated patch set
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:39:00-10:00 |
+| Status | `PASS` |
+
+**Actual:** `scripts/build_launcher.sh` ran from a fresh reference tree with the 11-file VRMC patch and
+`assets/branding/` icon installation: exit 0, payload version 1.2.0 (Java 25/LWJGL 3.4.1), tree
+`sha256 6c17e7b5…`. Icon files were regenerated after this run (layout tweak); branding-copy mechanics
+unchanged.
+
+**Artifacts:** `evidence/EV-0055/buildtest.log`, `summary.log`.
+
+### EV-0056 — M1 W1: final branded VRMC build (icon + first-run checklist) installed on D1
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:43:00-10:00 |
+| Status | `PASS` |
+
+**Actual:** rebuilt with the final icon layout and first-run checklist, branded `dev.vrmc.vrmc` /
+VRMC, 167 Mach-O re-signed; install succeeded on retry after the device woke (final app tree
+`sha256 ee8d4558…`). App list shows VRMC. Visual verification of the icon/welcome screen pending the
+next launch (cosmetic).
+
+**Artifacts:** `evidence/EV-0056/summary.log`.
+
+### EV-0057 — M1 milestone CLOSED — launcher shell + fresh install + flat MC boot + 30-minute soak all evidenced
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:39:13-10:00 |
+| Status | `PASS` |
+
+**Actual:** M1 exit criteria met — fresh install → world (EV-0043), 1805 s soak (EV-0044), save/relaunch
+(EV-0052). Acceptance matrix #1–#5/#7 PASS; #6 PASS with controller-first defaults deferred to M4.
+W1–W7 closed or closed-with-accepted-cosmetic. Matrix: `docs/mvp/M1_ACCEPTANCE.md`.
+
+**Artifacts:** `evidence/EV-0057/summary.log`.
+
+---
+
+### EV-0058 — M2 started: plan + native bridge ABI v1 stub (compiled/tested) + provider mod skeleton
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:40:18-10:00 |
+| Status | `PASS` |
+
+**Actual:** `docs/mvp/M2_PLAN.md` committed; `bridge/abi/vrmc_abi.h` ABI v1 (fail-closed) +
+`bridge/src/vrmc_stub.c` compiled (`libvrmc_bridge.dylib sha256 386e3a92…`) and `VRMC_STUB_TEST` prints
+`ok version=1 frames=1 ipd=0.064`; provider scaffold (`VisionVR` fail-closed init, `VisionRenderer`,
+`VRStateMixin`, resources). Next: S4a Vulkan→Metal eye-handoff spike + provider build harness.
+
+**Artifacts:** `evidence/EV-0058/summary.log`.
+
+### EV-0059 — M2-W1 host harness: provider scaffold substitutes VisionVR on desktop Fabric and fails closed without the bridge
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:43:38-10:00 |
+| Status | `PASS` |
+
+**Actual:** provider scaffold compiled (javac 25) against MC 26.2 + Fabric 0.19.3 + Vivecraft
+26.2-1.3.15 and packaged; installed in the desktop Fabric harness with `vrEnabled=true`,
+`stereoProviderPluginID=OPENVR`. Log: `[VRMC-M2] provider redirect; original=…MCOpenVR`,
+`VisionVR constructed`, `dh.vr is now dev.vrmc.provider.VisionVR`, `init() skeleton reached; failing
+closed`; Vivecraft shows `Render setup failed: VRMC M2: native bridge not wired yet / VR provider: VRMC`.
+No SteamVR/OpenVR runtime involved. Provider jar `sha256 cc766804…`. S4a static findings in
+`docs/mvp/S4A_FINDINGS.md`.
+
+**Artifacts:** `evidence/EV-0059/m2-harness.log`, `summary.log`, `vrmc-provider.jar`.
+
+### EV-0060 — M2-W4/W5 host: bridge handshake + provider init + stereo eye targets + per-frame submit loop (no SteamVR)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T00:48:06-10:00 |
+| Status | `PASS` |
+
+**Actual:** JNI shim (`bridge/src/vrmc_jni.c`) + `VrmcBridge` + bridge-backed `VisionVR`/`VisionRenderer`
+ported from the macstream reference; provider jar `sha256 9c91d7b9…`, bridge dylib
+`sha256 303dbc35…`. Host harness log: `[VRMC-M2] bridge handshake ok (ABI v1)`,
+`VisionVR.init() succeeded`, `VisionRenderer created`, `eye target L/R 1024x1024`,
+`VR Provider supplied texture resolution: 1024 x 1024`, `Total shaded pixels per frame: 2.1MP`,
+tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run hit an
+`MCVR.updateAim` NPE from null controller component transforms — fixed with identity transforms.
+
+**Artifacts:** `evidence/EV-0060/m2-bridge-run2.log`, `summary.log`, `vrmc-provider.jar`,
+`libvrmc_bridge.dylib`.
+
+### EV-0061 — M2 review fixes: host/device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:08:52-10:00 |
+| Commit | `ee81a466790e854b85eab5f9a0c32d4eac39a07b` |
+| Dirty state | GENT.md, README.md, VERIFY.md, bridge/abi/vrmc_abi.h, docs/adr/0005-input-psvr2-and-hands.md, docs/mvp/M1_ACCEPTANCE.md, docs/mvp/M2_PLAN.md, docs/mvp/MACSTREAM_REFERENCE.md, docs/mvp/MVP_SCOPE.md, docs/mvp/SPIKES.md, provider/HOST_HARNESS.md, provider/src/main/java/dev/vrmc/provider/VisionVR.java, scripts/log_evidence.sh, docs/adr/0009-macstream-tracked-reference.md |
+| Device | documentation + host harness only; device remains NOT RUN |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. apply the three required fixes and three confirmations from the M2 review
+2. update AGENT/VERIFY/M2_PLAN/SPIKES/MACSTREAM_REFERENCE/ADR-0009/bridge ABI header and the provider host-only code path
+
+**Expected:** EV-0060 explicitly host-scoped; identity fallback host-only with fail-loud device path; macstream port recorded; S4a split gates; W6 preconditions; ABI policy
+
+**Actual:** all six applied; host harness code compiled; provider jar rebuilt with -Dvrmc.hostHarness flag path; docs propagated. Device items remain NOT RUN.
+
+**Artifacts:** evidence/EV-0061/summary.log (0ba5f2374544)
+
+**Limitations:** Companion scope EV-0062 records the PSVR2 P1/DEFERRED decision.
+
+---
+
+### EV-0062 — PSVR2 Sense controller input (F1–F3) — DEFERRED (out of MVP scope), not BLOCKED
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:08:52-10:00 |
+| Commit | `ee81a466790e854b85eab5f9a0c32d4eac39a07b` |
+| Dirty state | GENT.md, README.md, VERIFY.md, bridge/abi/vrmc_abi.h, docs/adr/0005-input-psvr2-and-hands.md, docs/mvp/M1_ACCEPTANCE.md, docs/mvp/M2_PLAN.md, docs/mvp/MACSTREAM_REFERENCE.md, docs/mvp/MVP_SCOPE.md, docs/mvp/SPIKES.md, provider/HOST_HARNESS.md, provider/src/main/java/dev/vrmc/provider/VisionVR.java, scripts/log_evidence.sh, docs/adr/0009-macstream-tracked-reference.md |
+| Device | scope decision (no device run) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `DEFERRED` |
+
+**Procedure:**
+
+1. record the permanent scope decision and propagate it through the specification, ADR-0005, spikes, milestones, risks and verification docs
+
+**Expected:** PSVR2 is P1/DEFERRED; MVC/P0 scope is hands-only; no document claims controller input parity
+
+**Actual:** F1–F3 moved to the P1 register; AC-4 hands-only; M4/M6 exit hands-only; G2/G3/G4 HIGH (no fallback); ST-S5 split; DEFERRED status defined in VERIFY; ADR-0005 amended; docs propagated.
+
+**Artifacts:** evidence/EV-0062/summary.log (2ec87797eec6)
+
+**Limitations:** Re-entry requires a new scope decision. Not BLOCKED: BLOCKED would imply a future automatic resolution.
+
+### EV-0063 — S4a-host PASS: MoltenVK MTLTexture export + Metal pixel readback + MTLSharedEvent synchronization work on macOS host
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:13:12-10:00 |
+| Commit | `d329ed07e46d37aaf0ed37cdc16f78cecbb7584e` |
+| Dirty state | runtime/probes/s4a-host/ |
+| Device | host macOS (Mac16,7, MoltenVK 1.4.2; visual parity with bundled 1.4.3 build) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. spike runtime/probes/s4a-host/spike_s4a.mm: create VkInstance/device with VK_EXT_metal_objects; export MTLDevice; create exportable VkImage; clear it to red via Vulkan; export MTLTexture; read it back through Metal; verify pixels
+2. create a timeline VkSemaphore with VK_EXPORT_METAL_OBJECT_TYPE_METAL_SHARED_EVENT_BIT_EXT; export MTLSharedEvent; signal value 42 from Vulkan; read signaledValue in Metal
+
+**Expected:** MTLDevice + MTLTexture export works, Metal pixels match Vulkan clear, MTLSharedEvent observes Vulkan signal
+
+**Actual:** PASS: exported MTLDevice yes; exported MTLTexture 64x64 (RGBA8Unorm); Metal readback pixel = 255,0,0,255 as expected; timeline VkSemaphore exported MTLSharedEvent, signaledValue=42 after Vulkan signal. Binary semaphore export yields nil (timeline required). S4a-device remains NOT RUN.
+
+**Artifacts:** evidence/EV-0063/spike_s4a.mm (cce0584a3fa2); evidence/EV-0063/spike_s4a (7cb4158a87e0); evidence/EV-0063/spike_s4a.log (0816d75c4ebd); evidence/EV-0063/summary.log (8422d7310a4c)
+
+**Limitations:** Host gate only. Device gate (S4a-device) is separate: macOS Metal object handles do not prove visionOS MoltenVK/Metal. M3 must use a timeline semaphore for shared-event sync.
+
+### EV-0064 — S4a-device probe staged inside the VRMC app — NOT RUN (device locked)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T01:27:44-10:00 |
+| Commit | `f72572b5383b5361a2bc6982fed6bbbdafa9e9e1` |
+| Dirty state | atches/vrmc-m1-amethyst-1.2.0.patch, scripts/build_launcher.sh, versions.env, assets/vulkan_include/, runtime/probes/s4a-device/ |
+| Device | D1 Apple Vision Pro (passcodeRequired=true at attempt time) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `NOT RUN` |
+
+**Procedure:**
+
+1. add Natives/vrmc_s4a_probe.m to the app (triggered by Documents/vrmc_s4a_device.flag), wire it into CMake/main.m, build/sign/install with bundled MoltenVK 1.4.3
+2. push the flag file and try to launch the app via devicectl
+
+**Expected:** S4a-DEVICE PASS in Documents/s4a-device.log (MTLDevice+MTLTexture export, Metal readback, timeline MTLSharedEvent sync)
+
+**Actual:** probe built/installed (tree 6d6d4773...), flag present; launch blocked because the device is locked; no log produced. NOT RUN.
+
+**Artifacts:** evidence/EV-0064/vrmc_s4a_probe.m (d9b8176487ab); evidence/EV-0064/summary.log (69c29b4aa8f1); evidence/EV-0064/build.log (e0c75105d02a)
+
+**Limitations:** Unlock the AVP and launch VRMC to execute the probe; then pull Documents/s4a-device.log. This is a separate gate from S4a-host (EV-0063).
+
+### EV-0065 — S4a-device PASS: bundled MoltenVK 1.4.3 exports MTLDevice/MTLTexture and timeline MTLSharedEvent sync works on D1
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:14:36-10:00 |
+| Commit | `a95cfe133faa1e506ecb9f6fcabe3b47a9b0ef22` |
+| Dirty state | untime/probes/s4a-device/vrmc_s4a_probe.m |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. probe compiled into the VRMC app (runtime/probes/s4a-device), triggered by Documents/vrmc_s4a_device.flag on launch
+2. load Frameworks/libMoltenVK.dylib; VK_EXT_metal_objects device extension; export MTLDevice; create exportable VkImage; clear red via Vulkan; export MTLTexture; read back via Metal; timeline MTLSharedEvent export + signal 42 via Vulkan
+
+**Expected:** MTLDevice+MTLTexture export works, Metal pixel readback correct, timeline MTLSharedEvent sees Vulkan signal
+
+**Actual:** PASS on D1: VK_EXT_metal_objects=1; MTLDevice export yes; MTLTexture 64x64 RGBA8Unorm export yes; Metal readback=255,0,0,255; timeline MTLSharedEvent export yes, signaledValue=42 after Vulkan signal. App tree 5089b4a8... . S4a-host and S4a-device gates both PASS.
+
+**Artifacts:** evidence/EV-0065/s4a-device.log (f938eae4da2c); evidence/EV-0065/vrmc_s4a_probe.m (c10d310bd021); evidence/EV-0065/summary.log (a9503ebdde39); evidence/EV-0065/build.log (c25ce90131de)
+
+**Limitations:** This validates the M3 eye-texture/compositor substrate on device. M2-W6 (provider init on device) and M3 (compositor stereo/head tracking) remain NOT RUN.
+
+### EV-0066 — M2-W6 prep: iOS bridge dylib embedded/signed + JVM arg injection + provider/Vivecraft jars staged on device
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:18:52-10:00 |
+| Commit | `2ed77e148dd1d7288a9483c1cb851484c4274afe` |
+| Dirty state | atches/vrmc-m1-amethyst-1.2.0.patch, scripts/build_launcher.sh, versions.env |
+| Device | D1 Apple Vision Pro (bridge dylib installed; Fabric loader missing) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. build libvrmc_bridge for arm64-apple-ios14 with JNI headers; embed in app Frameworks; sign (168 Mach-O); add -Dvrmc.bridge.lib in JavaLauncher when the dylib exists
+2. install app; push vrmc-provider.jar and vivecraft-26.2-1.3.15-fabric.jar into Documents/instances/default/mods/
+
+**Expected:** app+bridge+mods staged; W6 device provider run still needs Fabric loader
+
+**Actual:** bridge dylib built (platform IOS minos 14.0, JNI symbols), embedded/signed (app tree 8dc643ae...); JVM arg injection added; provider+Vivecraft jars staged. Device has only vanilla 26.2 — Fabric 0.19.3 loader install remains, so W6 device run is NOT RUN.
+
+**Artifacts:** evidence/EV-0066/libvrmc_bridge_ios.dylib (f43e80048646); evidence/EV-0066/summary.log (d7c8c3824b7b); evidence/EV-0066/build.log (5a3caa98a366)
+
+**Limitations:** M2-W6 preconditions: Fabric 0.19.3 -> Vivecraft (staged) -> provider (staged) -> launch. Remaining device action: install Fabric loader via launcher UI.
+
+### EV-0067 — M2-W6 device attempt 1 — provider init reached but crashed on component-transform guard; fix applied
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:41:08-10:00 |
+| Commit | `5db3fd020b7af789043875f2d63d2d541509fa05` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (Fabric 0.20.1 + Vivecraft 26.2-1.3.15 + vrmc-provider) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `FAIL` |
+
+**Procedure:**
+
+1. launch MC via VRMC with JIT; Fabric 0.20.1; provider mixin + bridge dylib; Vivecraft vrEnabled=true/OPENVR
+
+**Expected:** provider init and stable frame loop with no SteamVR
+
+**Actual:** provider redirect fired; VisionVR constructed; dh.vr=VisionVR; bridge handshake ok (ABI v1); VisionVR.init() succeeded; VisionRenderer created; eye targets 1024x1024. Then crashed in poll(): IllegalStateException 'missing controller/hand transform on device (controller=0, component=handgrip)' from the identity guard. Root cause: guard applied to static component offsets, not tracking data. Fix applied: identity component offsets; fail-loud moved to tracking-pose validation; new provider jar pushed.
+
+**Artifacts:** evidence/EV-0067/latestlog.txt (840911a8cb09); evidence/EV-0067/crash.txt (4fb8cc85a244); evidence/EV-0067/summary.log (7d0c3eb6d324)
+
+**Limitations:** Retry with updated provider jar; expected provider init + frame loop, then record EV-0068.
+
+---
+
+### EV-0068 — M2-W6 PASS: device provider init + bridge handshake + stereo render passes + no SteamVR (Fabric 0.20.1)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:46:38-10:00 |
+| Commit | `5db3fd020b7af789043875f2d63d2d541509fa05` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. launch MC 26.2 via VRMC with StikDebug JIT; Fabric Loader 0.20.1; Vivecraft 26.2-1.3.15 + vrmc-provider; bridge dylib ABI v1 stub; Vivecraft vrEnabled=true/OPENVR
+
+**Expected:** provider init + bridge handshake + stereo eye targets/render passes + no SteamVR/OpenVR runtime
+
+**Actual:** PASS: provider redirect fired; VisionVR constructed; dh.vr=VisionVR; [vrmc-stub] init ok abi=1; bridge handshake ok (ABI v1); VisionVR.init() succeeded; VisionRenderer created; eye targets L/R 1024x1024; Vivecraft 'Active RenderPasses: LEFT, RIGHT' + GUI/keyboard/radial/telescope targets; tracking frames polled (1501+); no crash report; no SteamVR failure. Game is not playable yet: M3 compositor/head tracking and M4 input are NOT RUN (low/unusable view, no click) — expected.
+
+**Artifacts:** evidence/EV-0068/latestlog.txt (6109d4b0ce6b); evidence/EV-0068/summary.log (4e88c1f1aa1c)
+
+**Limitations:** Fabric pin is 0.19.3 in versions.env; device used 0.20.1 as a compatibility candidate and the provider loaded + initialized successfully. M2 remainder: wire S4a device eye export/submit into VisionRenderer; M3/M4 next.
+
+### EV-0069 — M2-W5 device eye handoff PASS: Vulkan VkImage exported to MTLTexture (ABI v2) and submitted from the provider
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:55:52-10:00 |
+| Commit | `09646565f8bd8083d3fc24ea1bf6ebe5bbdb7e8c` |
+| Dirty state | ridge/abi/vrmc_abi.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2; Fabric 0.20.1, Vivecraft 26.2-1.3.15) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. provider VisionRenderer reads the Vulkan eye VkImage via GraphicsHelper.getTextureHandle; bridge ABI v2 vrmc_export_mtl_texture exports MTLTexture (vkGetMTLTextureMVK); vrmc_submit_eyes receives real Metal handles
+
+**Expected:** first frame logs a non-zero VkImage->MTLTexture export and submit succeeds, no crash
+
+**Actual:** device log: '[VRMC-M2] vulkan eye export: VkImage=0x139dccf00 -> MTLTexture=0x7107982300'; ABI 2 handshake; LEFT/RIGHT render passes; 9*300 tracking frames; no export/submit failures; clean stop.
+
+**Artifacts:** evidence/EV-0069/latestlog.txt (456598e4b757); evidence/EV-0069/summary.log (9d696e716cae)
+
+**Limitations:** Completes M2-W5's device eye-handoff item. Immersive presentation/head tracking remain M3; input remains M4.
+
+---
+
+### EV-0070 — M2 milestone CLOSED — provider init + stereo eye targets + ABI v2 eye handoff + no VR runtime, all evidenced
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:56:02-10:00 |
+| Commit | `09646565f8bd8083d3fc24ea1bf6ebe5bbdb7e8c` |
+| Dirty state | ridge/abi/vrmc_abi.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java, docs/mvp/M2_ACCEPTANCE.md |
+| Device | D1 Apple Vision Pro (device bring-up) + host harness |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. review M2 exit criteria against the recorded evidence; verify the 2026-11-01 review's host-vs-device split is respected
+
+**Expected:** M2 exit criteria 1-6 evidenced; M3/M4 explicitly NOT RUN
+
+**Actual:** M2 CLOSED: provider init (EV-0068), stereo targets (EV-0068), handshake (EV-0068), eye handoff (host EV-0060; substrate EV-0063/EV-0065; device VkImage->MTLTexture EV-0069), no VR runtime (EV-0068), host harness (EV-0060). M3 compositor/head tracking and M4 input remain NOT RUN; game not playable yet by design.
+
+**Artifacts:** evidence/EV-0070/summary.log (4c16ecfc39f8); evidence/EV-0070/M2_ACCEPTANCE.md (f44f89c6301a)
+
+**Limitations:** Fabric 0.20.1 vs pin 0.19.3 recorded as candidate; pin/ADR decision carried to M3. Next milestone: M3.
+
+### EV-0071 — M3a gate 1 PASS: the launcher builds as a native visionOS (xros) payload
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T06:58:52-10:00 |
+| Commit | `c492da428ef78c456723da4d9731e5dd1d8035e4` |
+| Dirty state | docs/adr/0010-m3-native-visionos-app.md, docs/mvp/M3_PLAN.md |
+| Device | host build only (no device launch yet) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. make PLATFORM=11 RELEASE=0 payload with the VRMC patch set; verify Mach-O platform, Info.plist and relabelled natives
+
+**Expected:** native visionOS payload builds (platform VISIONOS, arm64)
+
+**Actual:** build exit 0; main binary platform VISIONOS minos 1.0 sdk 1.0; Frameworks/lwjgl34/liblwjgl.dylib relabelled VISIONOS; Info version 1.2.0. Native launch/immersive space/MC hosting NOT RUN.
+
+**Artifacts:** evidence/EV-0071/xros-build.log (4ed0a94835cb); evidence/EV-0071/summary.log (5ee957097c35)
+
+**Limitations:** M3a gate 1 of 3. Gates 2 (immersive space + ARKit poses) and 3 (MC/JVM/JIT/Vulkan inside the native app) remain NOT RUN; ADR-0010 chooses the native app route.
+
+### EV-0072 — M3a gate 2 PARTIAL: native immersive space + CompositorServices render loop work on D1; stereo presentation still missing (passthrough)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T07:45:21-10:00 |
+| Commit | `b4ac6ae2c67f9e480405f84b7684355502f8a9fc` |
+| Dirty state | runtime/probes/m3a-immersive/ |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. build/sign native visionOS probe (dev.vrmc.vrmc), install over the existing app, launch, tap Open immersive space
+2. CompositorLayer + Metal clear per-eye test pattern + encodePresent; ARKit world tracking; log to Documents/m3a-probe.log
+
+**Expected:** immersive red/green stereo test pattern visible; ARKit anchor logged
+
+**Actual:** immersive space opened and the CompositorServices render loop ran 2700+ frames without a crash (frame 2400/2700 logs), but the user saw passthrough instead of the test pattern and the ARKit anchor stayed '(pending)'. Three crash modes were fixed (premature endSubmission, missing cp_drawable_encode_present, main-thread blocking watchdog); remaining: device anchor/presentation-time wiring. PARTIAL.
+
+**Artifacts:** evidence/EV-0072/m3a-probe.log (7429c689f551); evidence/EV-0072/summary.log (bb6166ce7e0b); evidence/EV-0072/latest.ips (1d892683991f)
+
+**Limitations:** Next: port probe to the Apple C sample structure (cp_drawable_set_device_anchor + cp_time_to_cf_time_interval) and verify visual presentation before marking gate 2 PASS.
+
+### EV-0073 — M3a gate 2 diagnostics: per-eye GPU content renders correctly (readback red/green) but presentation is black/passthrough — PARTIAL
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T08:03:46-10:00 |
+| Commit | `5ba0820bbccbdb47d4800423cbeb52b3989da2b5` |
+| Dirty state | untime/probes/m3a-immersive/Sources/M3AProbeApp.swift, runtime/probes/m3a-immersive/project.yml, runtime/probes/m3a-immersive/Sources/Bridging.h, runtime/probes/m3a-immersive/Sources/ProbeRenderer.mm |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. C-sample-shaped native visionOS probe: CompositorLayer full immersion, dedicated thread, per-eye Metal clear, ARKit anchor at presentation time, encodePresent, GPU readback
+
+**Expected:** user sees red/green stereo; readback proves content
+
+**Actual:** readback eye0 pixel0 = r=0.800 g=0.050 b=0.050 a=1.000, cb completed status=4/no error; view count=2, 1888x1792 rgba16Float; user sees pure black with device anchor set and passthrough without it; ARKit anchor success pos=(-0.00,1.17,0.00). Rendering correct; presentation/anchor wiring missing.
+
+**Artifacts:** evidence/EV-0073/m3a-probe.log (d7554f35b13e); evidence/EV-0073/summary.log (b5a7be9ba34f)
+
+**Limitations:** Gate 2 remains PARTIAL. Next: compare against the Apple-style reference sample (build blocked: Metal Toolchain missing) or port remaining drawable/layer setup; no further device churn until then. VRMC launcher restored.
+
+### EV-0074 — M3a gate 2 PASS: native visionOS immersive space presents per-eye CompositorServices stereo (red/green) on D1
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T08:07:45-10:00 |
+| Commit | `ae6b4e49fcb3a1407e157ccaf839b5ae032ae640` |
+| Dirty state | untime/probes/m3a-immersive/Sources/ProbeRenderer.mm |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. install native visionOS probe, open immersive space, render per-eye clear test pattern through CompositorServices (depth attachment + rate map parity), ARKit anchor at presentation time
+
+**Expected:** user sees left-eye red / right-eye green immersive stereo; readable GPU content and completed command buffer
+
+**Actual:** PASS: user reports seeing both red and green in the immersive space; log shows 2 views 1888x1792 rgba16Float, depthTex present, cb completed status=4/no error, eye0 readback r=0.800 g=0.050 b=0.050 a=1.000, ARKit anchor success. Root cause of earlier black screen: missing drawable depth attachment/rasterization-rate map in the render pass.
+
+**Artifacts:** evidence/EV-0074/m3a-probe.log (3223a0efc509); evidence/EV-0074/summary.log (45101ebed920)
+
+**Limitations:** Gate 2 PASS. Gate 3 (hosting MC/JVM/JIT/Vulkan in the native app) remains NOT RUN; next milestone step. VRMC launcher restored after the probe.
+
+### EV-0075 — M3a gate 3 attempt PARTIAL/blocked: native visionOS launcher runs but its window content is blank, so JIT+MC hosting is unverified
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T08:18:40-10:00 |
+| Commit | `c9a2103a940c186756c7bc07f85da14b60c7a079` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. native PLATFORM=11 build, brand/sign (168 Mach-O), install, StikDebug Enable JIT, launch, compare direct devicectl launch
+
+**Expected:** launcher UI visible and playable, then MC/JVM/JIT/Vulkan start in the native app
+
+**Actual:** App launches without crashing (process alive; pre-init/version list logged) but window title bar only, content blank; no [JIT] lines, no game launch. Direct launch shows the same blank window. No crash report; StikDebug did not crash. Gate 3 remains NOT RUN.
+
+**Artifacts:** evidence/EV-0075/latestlog.txt (df4c114d892e); evidence/EV-0075/summary.log (f33411283127)
+
+**Limitations:** Compat launcher reinstalled; data intact. Next: native window/scene debugging or ADR-0010 fallback B (companion) if not quickly fixable.
+
+### EV-0076 — M3a gate 3 diagnostics: native window/scene + LauncherSplitViewController are correct (1280x720) but content renders blank
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T08:29:29-10:00 |
+| Commit | `fb431a0b56d1fa331a3a2edd98cf7c9ea0591a84` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. install instrumented native launcher, launch via StikDebug JIT flow, read Documents/native-ui.log
+
+**Expected:** launcher content visible; game launch possible
+
+**Actual:** willConnect bounds 1280x720; rootVC=LauncherSplitViewController; window visible/alpha 1; view _UISplitViewControllerPanelImplView 1280x720 with 2 subviews; user still sees blank content. Native UIKit presentation issue; gate 3 NOT RUN.
+
+**Artifacts:** evidence/EV-0076/native-ui.log (5a169b8ec222); evidence/EV-0076/latestlog.txt (905db9b62d30); evidence/EV-0076/summary.log (c80f05a7f355)
+
+**Limitations:** Window/scene/rootVC are correct => issue is UIKit content rendering on visionOS native, not scene setup. Compat launcher restored. Next: SwiftUI window shell hosting launcher VC (M3-W1) or ADR-0010 fallback companion.
+
+### EV-0077 — M3a gate 3 PASS: native visionOS app hosts MC 26.2 + Fabric + Vivecraft + provider + JIT + Vulkan (auto-launch bypass of blank UI)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T08:38:21-10:00 |
+| Commit | `53ccc91fbe7d4530915b5131b558700be25b4520` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. native PLATFORM=11 app with auto-launch flag; StikDebug Enable JIT -> VRMC; wait for game boot; inspect latestlog
+
+**Expected:** JVM/JIT/Vulkan/MC/provider start inside the native app
+
+**Actual:** PASS: [JIT] isJITEnabled=1 always-attached; MoltenVK Vulkan 1.4.3; Loading Minecraft 26.2 with Fabric Loader 0.20.1 (21 mods); VisionVR init + bridge ABI 2; LEFT/RIGHT render passes; VkImage->MTLTexture eye export; tracking frames 601+. Blank native UIKit launcher content remains the only gate-3b caveat (auto-launch used).
+
+**Artifacts:** evidence/EV-0077/latestlog.txt (1dccd43e97e3); evidence/EV-0077/summary.log (c240486fcaf4)
+
+**Limitations:** M3a gates 1/2/3 all PASS => M3a complete. Next: M3-W1 native UI (SwiftUI shell/root VC) + M3-W2 CompositorServices consumption of provider eye textures + ARKit poses. Compat launcher restored after the test.
+
+### EV-0078 — M3-W1 attempt PARTIAL: native root-VC workaround fires but crashes — UIKit launcher VCs require UISplitViewController
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T08:51:12-10:00 |
+| Commit | `cad8c38a834f37dde63dc5fab8c401b2b9485a5d` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. native build with VRMCNativeBuild marker; root VC swapped to LauncherNavigationController; launch via StikDebug JIT
+
+**Expected:** launcher content renders as a plain navigation UI
+
+**Actual:** native branch executed (rootVC=LauncherNavigationController logged) then crashed: NSException in -[LauncherProfilesViewController viewWillAppear:] building @[sidebarViewController drawAccountButton, ...] because self.splitViewController is nil (sidebar macro). Blank split-view content (EV-0076) + this crash confirm the native launcher needs a native-specific UI shell; auto-launch (EV-0077) remains the only working boot path.
+
+**Artifacts:** evidence/EV-0078/latestlog-native-ui.txt (f11425cd3931); evidence/EV-0078/native-ui.log (8d4f97dd5eca); evidence/EV-0078/AngelAuraAmethyst-2026-11-01-085003.ips (9bac8011c069); evidence/EV-0078/summary.log (1dbffd0ebf69)
+
+**Limitations:** export/ replaced with the native-UI blocker dossier per operator instruction; compat launcher restored. Next: native SwiftUI shell or split-view-compatible shim invoking the existing launch path.
+
+### EV-0079 — M3-W1 PASS: native visionOS launcher UI renders and Play launches the game — UIKit idiom spoof fix
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T09:53:02-10:00 |
+| Commit | `656905ddf4f6c0dd599ac50b9685a10f13af6f75` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. fresh Amethyst 1.2.0 tree with vrmc-m1 + vrmc-m3w1 patches; build_launcher.sh PLATFORM=11; brand/sign dev.vrmc.vrmc (visionOS profile); install; StikDebug Enable JIT -> VRMC; press Play
+
+**Expected:** launcher UI visible; Play starts fabric-loader-0.20.1-26.2 without autolaunch
+
+**Actual:** PASS: operator-confirmed launcher UI and Play launch (no autolaunch flag). Log: VSIONOS native app, JIT isJITEnabled=1/always-attached, Launching Minecraft fabric-loader-0.20.1-26.2, MC 26.2 + Fabric 0.20.1, Vulkan/MoltenVK 1.4.3, VisionVR provider init/ABI 2, LEFT/RIGHT passes, VkImage->MTLTexture export, 901+ tracking frames, Vivecraft MenuWorlds built. Root cause: init_hookUIKitConstructor forced Phone/Pad idiom, hiding native visionOS window content; fix skips spoof when realUIIdiom == 6.
+
+**Artifacts:** evidence/EV-0079/latestlog.txt (5e66507217f9); evidence/EV-0079/summary.log (7c6a7e0af783)
+
+**Limitations:** M3-W1 PASS. Remaining M3: M3-W2/W3 (CompositorServices consumes provider eye MTLTextures + pose transfer), W4 ARKit pose -> provider, W5/W6 pacing/acceptance. export/ blocker dossier resolved; replace with resolution/build notes.
+
+### EV-0080 — M3-W2 groundwork PASS (host): native shared eye-texture and ARKit-pose surface added to the bridge without ABI v2 changes
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T09:55:57-10:00 |
+| Commit | `bce705853fa7c5dcf4dc176fa236a0622486b4f2` |
+| Dirty state | ridge/src/vrmc_stub.c, bridge/abi/vrmc_native_shared.h |
+| Device | host stub test only (no device test for this increment) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. add vrmc_native_shared.h + shared state in vrmc_stub.c; build host dylib; run stub test harness
+
+**Expected:** stub test passes; shared eye handles and tracking override honored; Java ABI remains v2
+
+**Actual:** PASS: stub test ok version=2 frames=1 ipd=0.064 shared_left=0xaaa; shared eyes fail before submit and match after; tracking override/clear honored; symbols exported. Java ABI unchanged v2.
+
+**Artifacts:** evidence/EV-0080/vrmc_native_shared.h (9f4807f33ab6); evidence/EV-0080/summary.log (6428a74a9115)
+
+**Limitations:** Groundwork only: no device test; native app must be rebuilt with this bridge when the SwiftUI app-lifecycle shell lands (ImmersiveSpace/CompositorLayer require SwiftUI scenes; UIKit cannot create a LayerRenderer). Next: M3-W2 native SwiftUI shell + compositor consumption.
+
+### EV-0081 — M3-W2 PASS: SwiftUI app-lifecycle shell hosts launcher + opens CompositorServices immersive space (test pattern)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T11:07:06-10:00 |
+| Commit | `c348cecd243c3afd03e1ecf0300a9c58ba52fc93` |
+| Dirty state | cripts/build_launcher.sh, patches/vrmc-m3w2-shell-hook.patch, runtime/native-shell/, scripts/build_shell.sh |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. native app embedded VRMCShell.framework; main.m dlopen/vrmc_shell_start; WindowGroup hosts LauncherSplitViewController; ImmersiveSpace + CompositorLayer renderer; StikDebug JIT
+
+**Expected:** launcher UI hosted by SwiftUI; immersive space opens and presents CompositorServices content
+
+**Actual:** PASS: shell log shows vrmc_shell_start invoked, launcher host appeared, openImmersiveSpace result=opened; operator saw launched launcher and immersive red/green test pattern.
+
+**Artifacts:** evidence/EV-0081/vrmc-shell.log (9e0aefc8f00a); evidence/EV-0081/g1-summary.log (ef846d78607b)
+
+**Limitations:** Next: sample provider eye textures and push ARKit tracking; see the auto-open device-loss issue.
+
+### EV-0082 — M3-W3/W4 attempt PARTIAL: auto-open immersive during game start causes VK_ERROR_DEVICE_LOST; mitigations staged (delayed open, no GPU block, sampling kill switch)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T11:07:12-10:00 |
+| Commit | `c348cecd243c3afd03e1ecf0300a9c58ba52fc93` |
+| Dirty state | cripts/build_launcher.sh, patches/vrmc-m3w2-shell-hook.patch, runtime/native-shell/, scripts/build_shell.sh |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. shell auto-opens immersive on VRMCGameStarted; compositor samples provider eye textures and pushes ARKit tracking
+
+**Expected:** game renders, immersive shows MC eye textures with head tracking
+
+**Actual:** auto-open succeeded and compositor ran 1080 frames (anchor OK) but eyes=0; MC crashed with VK_ERROR_DEVICE_LOST 'Failed to wait for semaphore' (GuiRenderer); app crashed at cp_frame_end_submission during layer invalidation. Mitigations staged: 15 s settle delay before open, no waitUntilCompleted, layer-state-guarded endSubmission, MTLDevice identity check, Documents/vrmc-no-sampling.flag fallback.
+
+**Artifacts:** evidence/EV-0082/autoopen-shell.log (97a3e691ed7e); evidence/EV-0082/vrmc-compositor.log (b064ca8e7d56); evidence/EV-0082/latestlog.txt (c7ceba38f7c0); evidence/EV-0082/crash-2026-11-01_11.02.41-client.txt (044165c49af2); evidence/EV-0082/app.ips (796070c18e60); evidence/EV-0082/g2-summary.log (494f35bee207)
+
+**Limitations:** Awaiting retest with mitigations; if crash persists, use sampling kill switch to separate presentation/window transition from texture sampling as the cause.
+
+### EV-0083 — M3-W3/W4 first light PARTIAL: compositor samples provider eye textures (eyes=1) and provider receives ARKit tracking; game survives; alignment/window/background issues
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T11:18:04-10:00 |
+| Commit | `487cc5923ecff4f5ed19d01227e53a98291853d2` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. mitigation build: delayed immersive auto-open after game start; compositor samples vrmc_shared_eye_textures and pushes vrmc_shared_set_tracking
+
+**Expected:** immersive shows MC eye textures aligned and head-tracked; game alive
+
+**Actual:** Game alive; auto-open after 15 s; compositor eyes=1 (provider textures 0x72219ca580/0x72219ca300), anchor=1, head tracking reaches provider (tracking frames with real head positions). Operator: immersive did not align; game window remained visible/confusing; immersive quit when app went background. Flat fullscreen sampling without per-eye projection/FOV alignment; window/scene handling missing.
+
+**Artifacts:** evidence/EV-0083/vrmc-compositor.log (f6db1e941f24); evidence/EV-0083/vrmc-shell.log (e5c3e7db7445); evidence/EV-0083/latestlog.txt (26f41a2ccf30); evidence/EV-0083/summary.log (bc01484d7a2b)
+
+**Limitations:** M3-W3 data path proven; next: window visibility + scenePhase + per-eye projection/aspect/FOV parity.
+
+### EV-0084 — M3-W3/W4 PARTIAL: window parking works; compositor crashes on background at cp_frame_end_submission; alignment still pending
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T11:36:41-10:00 |
+| Commit | `2863aa4a6281305d96b57f38538a23bf5233a670` |
+| Dirty state | untime/native-shell/Sources/Shell.swift, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/arm64-apple-xros.swiftmodule, runtime/native-shell/build/VRMCShell.framework/VRMCShell |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. window-parking + scenePhase build; game start -> delayed auto-open -> immersive; background/return
+
+**Expected:** game window hidden, immersive survives background, MC eye textures aligned
+
+**Actual:** Window hidden (windows=3 alpha=0), compositor eyes=1/anchor=1/tracking to frame 2760. On background the app crashed: SIGABRT __BUG_IN_CLIENT__ at cp_frame_end_submission (VRMCCompositorThread) when the layer invalidated. Operator: window disappeared, immersive crashed after background, still not aligned.
+
+**Artifacts:** evidence/EV-0084/vrmc-shell.log (40ad5a6638fa); evidence/EV-0084/vrmc-compositor.log (97a5778d012c); evidence/EV-0084/app.ips (d873f3ba0fa1); evidence/EV-0084/summary.log (7e03d7caef8b)
+
+**Limitations:** Next: compositor graceful stop on scene background; then per-eye projection/FOV alignment.
+
+### EV-0085 — M3-W3/W4 final attempt PARTIAL: background compositor exit is clean, but SwiftUI observers die with game root replacement; exotropia and window chrome remain
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T11:59:38-10:00 |
+| Commit | `5493626878038d9876bf6f2c1d8d9c61484283ff` |
+| Dirty state | untime/native-shell/Sources/Bridging.h, runtime/native-shell/Sources/Shell.swift, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Headers/Bridging.h, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/arm64-apple-xros.swiftmodule, runtime/native-shell/build/VRMCShell.framework/VRMCShell |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. early-stop/window-hidden/eye-swap build: game start -> auto immersive -> window parked -> background -> return
+
+**Expected:** immersive survives background and reopens; window chrome hidden; aligned stereo
+
+**Actual:** Auto-open and window parking work; background compositor exits cleanly (no new crash; latest crash remains 11:34). But no willResignActive/didEnterBackground/VRMCImmersiveEnded/scenePhase logs after game start because SwiftUI WindowGroup content was destroyed when the game replaced window.rootViewController; re-entry fails. Operator: window bottom bar still present; exotropia persists despite eye swap.
+
+**Artifacts:** evidence/EV-0085/vrmc-shell.log (9f467a879ad2); evidence/EV-0085/vrmc-compositor.log (8aee8497ce84); evidence/EV-0085/latestlog.txt (7beb4ddfac48); evidence/EV-0085/summary.log (069ad1a75765)
+
+**Limitations:** Next: keep SwiftUI root/observers alive (present SurfaceViewController instead of replacing root, or app-level observer); window chrome/scene handling; per-eye projection/FOV parity. export/ updated with this dossier.
+
+### EV-0086 — M3-W3/W4 fixes device run PARTIAL: shell re-entry lifecycle works, but immersive is black and window chrome remains; exotropia unverified
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T13:11:28-10:00 |
+| Commit | `335a65ff995f6d5f25471f3d45313da6b54aa925` |
+| Dirty state | ridge/abi/vrmc_abi.h, bridge/src/vrmc_jni.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java, runtime/native-shell/Sources/Bridging.h, runtime/native-shell/Sources/Shell.swift, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Headers/Bridging.h, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/arm64-apple-xros.swiftdoc, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/arm64-apple-xros.swiftmodule, runtime/native-shell/build/VRMCShell.framework/VRMCShell |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. install user's three fixes together (app+bridge+provider jar); JIT -> Play -> auto-open -> background/foreground
+
+**Expected:** window chrome gone, immersive survives background and reopens, eyes aligned
+
+**Actual:** Shell lifecycle works (auto-open, window parked windows=2 visible=false, background stop/dismiss/restore, foreground reopen generation 2 opened). But operator sees completely black immersive and windows still visible; compositor logs per-eye tangents/provider FOV/ipd and eyes=1 frames, so sampling runs but reprojection outputs black; chrome not removed by persistentSystemOverlays. Exotropia fix unverified.
+
+**Artifacts:** evidence/EV-0086/vrmc-shell.log (989c5ad2213d); evidence/EV-0086/vrmc-compositor.log (430a9bbecd55); evidence/EV-0086/latestlog.txt (fca1227ebf2a); evidence/EV-0086/summary.log (5412378b4305)
+
+**Limitations:** Next: debug reprojection (center/corner ray->uv logging), verify viewToDevice/inverse projection conventions and frustum mapping; alternative chrome hiding; generation-2 invalidation. export/ updated with this evidence.
+
+### EV-0087 — M3b fixes integrated (build/static validation): no-black compositor diagnostics, modal game surface + chrome fixing, hardened re-entry; device run pending
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T14:02:40-10:00 |
+| Commit | `c9a7a0da3681e697f8458c455f7c97ffcba76b59` |
+| Dirty state | gitignore, runtime/native-shell/Sources/Shell.swift, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/arm64-apple-xros.swiftdoc, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/arm64-apple-xros.swiftmodule, runtime/native-shell/build/VRMCShell.framework/VRMCShell, scripts/README.md, patches/vrmc-m3w3-modal-game-surface.patch, runtime/probes/m3b-reproj/, runtime/probes/m3b-shader-test/, scripts/build_bridge.sh, scripts/build_provider.sh, scripts/push_provider_jar.sh, scripts/stage_native_app.sh |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) - app reinstalled, no device test run |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Integrate M3b fixes: VRMCCompositor diagnostics/no-black fallbacks/black-texture detection; Shell.swift epoch-guarded reopen + scene-activity gating + chrome mode; Amethyst modal game-surface patch (vrmc-m3w3) keeping the SwiftUI scene alive; build/stage scripts; provider/bridge built reproducibly.
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Black-immersive root cause found and fixed (EV-0093)**: M3b changed the CompositorServices drawable depth clear from 1.0 to 0.0, which makes visionOS 27.2 present the layer black even though the colour drawable is bright; device A/B (known-good probe / deprecated-API / minimal-window builds) shows 0.0 -> black, 1.0 -> visible, operator-confirmed. Default is 1.0 again, with `vrmc-depth-zero.flag` for A/B and a regression test. Provider/display-view path was already device-proven correct (EV-0091/EV-0092). Manual "Enter VR" entry, scene-activation/layer-state logging, alpha-only first-frame-gated parking and the no-JIT selftest are in the installed build; final visual + game-in-immersive acceptance run is EV-0094 (operator). |
+3. Build Amethyst native executable from vendor/amethyst-build + patches 1-4 via cmake (Debug, iphoneos sysroot) then vtool -set-build-version 11 1.0 1.0; stage into the EV-0086 app bundle with new framework + rebuilt bridge, re-sign 169 Mach-O, codesign --verify --deep --strict.
+4. Install the staged app on D1 with devicectl (update install, data container preserved).
+5. Code/convention validation: macOS Metal shader unit test (runtime/probes/m3b-shader-test) and visionOS simulator reprojection probe (runtime/probes/m3b-reproj) incl. reconstructed EV-0086 device views.
+
+**Expected:** Compositor ray->UV math validated; no-black diagnostic paths in place; installable signed app ready for a decisive device run of the three EV-0086 issues.
+
+**Actual:** Compositor math validated (87.88% of reconstructed EV-0086 device pixels inside the provider frustum, 0 behind-camera, 0 NaN; exact shader reproduces a pattern 25/25 probe pixels incl. presented drawable; black provider texture reproduces EV-0086 black exactly). New compositor adds CPU ray->UV + per-eye coverage logs, provider eye-texture 32x32 centre readback with luma/alpha (auto test-pattern if black twice), colour-coded debug branches, alpha=1, texture-map/viewport use, command-buffer health logs and Documents flag switches. Shell.swift adds epoch-guarded open/dismiss, foreground-scene gating, confirmed-dismiss and bounded auto-retry. Amethyst patch presents the game surface modally over the live SwiftUI host (default) so persistentSystemOverlays(.hidden) keeps hiding the window chrome; legacy root swap behind vrmc-legacy-root-swap.flag. Provider jar/bridge rebuilt; app staged+installed. No device run performed (operator needed).
+
+**Artifacts:** evidence/EV-0087/shader-test.log (d37f556e5b67); evidence/EV-0087/m3b-reproj-report.md (dca79dcfe491); evidence/EV-0087/m3b-reproj-summary.txt (2cd534a6e372); evidence/EV-0087/m3b-reproj-run.log (ed30384780e9); evidence/EV-0087/framework-build.log (29ba40e594b3); evidence/EV-0087/stage-app.log (fd66ee6af674); evidence/EV-0087/build-artifacts.txt (2a0d22d839d2); evidence/EV-0087/device-apps.txt (fcb4dc140b7b); evidence/EV-0087/git-diff-stat.txt (fb4b1600bb42)
+
+**Limitations:** NOT device evidence: black-screen root cause narrowed to provider eye-texture content or device presentation (compositor math refuted); window-chrome fix depends on the new modal presentation actually preserving the chrome preference on device; re-entry hardening unverified. Next run must use the new diagnostics (cpu diag / provider tex / cmd buffer / mode badge) and record EV-0088. Simulator is not evidence for stereo optics/tracking (VERIFY 0.7).
+
+### EV-0088 — M3-W3/W4 host PASS: macstream-style display-view channel (per-eye tangents + eye transforms -> provider projection) and flat mapping; device run pending
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:08:52-10:00 |
+| Commit | `1b3b73c8312549fa73ddb93057c843411d92e737` |
+| Dirty state | ridge/abi/vrmc_native_shared.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/VRMCShell, scripts/test_display_views.sh, scripts/tests/ |
+| Device | host validation only (device run NOT RUN) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. port macstream Phase 8 root causes 3+4: publish CompositorServices display views to provider, provider renders display frustum/eye transforms, compositor flat mapping; offline frustum test
+
+**Expected:** provider frustum from display tangents maps near-plane corners to NDC corners; display-view bridge roundtrip; provider compiles
+
+**Actual:** PASS: DisplayViewsTest PASS (both lopsided device views and symmetric fallback: corners exact; straight-ahead NDC offset matches -(r+l)/(r-l), -(top+bottom)/(top-bottom)); bridge stub test PASS incl. display views generation; provider javac PASS; jar rebuilt; app+shell+bridge rebuilt/signed/installed and provider jar hash-verified. Device validation pending.
+
+**Artifacts:** evidence/EV-0088/display-views-test.log (c4c86568d9cb); evidence/EV-0088/summary.log (6082d71f7565)
+
+**Limitations:** Device run is the remaining verification (EV-0088). Next: run the three-issue procedure and check aligned stereo/no black.
+
+### EV-0088 — M3-W3/W4 host PASS: macstream-style display-view channel (per-eye tangents + eye transforms -> provider projection) and flat mapping; device run pending
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:08:52-10:00 |
+| Commit | `1b3b73c8312549fa73ddb93057c843411d92e737` |
+| Dirty state | ridge/abi/vrmc_native_shared.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/VRMCShell, scripts/test_display_views.sh, scripts/tests/ |
+| Device | host validation only (device run NOT RUN) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. port macstream Phase 8 root causes 3+4: publish CompositorServices display views to provider, provider renders display frustum/eye transforms, compositor flat mapping; offline frustum test
+
+**Expected:** provider frustum from display tangents maps near-plane corners to NDC corners; display-view bridge roundtrip; provider compiles
+
+**Actual:** PASS: DisplayViewsTest PASS (both lopsided device views and symmetric fallback: corners exact; straight-ahead NDC offset matches -(r+l)/(r-l), -(top+bottom)/(top-bottom)); bridge stub test PASS incl. display views generation; provider javac PASS; jar rebuilt; app+shell+bridge rebuilt/signed/installed and provider jar hash-verified. Device validation pending.
+
+**Artifacts:** evidence/EV-0088/display-views-test.log (c4c86568d9cb); evidence/EV-0088/summary.log (6082d71f7565)
+
+**Limitations:** Device run is the remaining verification (EV-0088). Next: run the three-issue procedure and check aligned stereo/no black.
+
+### EV-0089 — Recovered M3b device logs PARTIAL: provider eye textures valid (non-black) and chrome/windows parked; session backgrounded before visual alignment check
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:11:31-10:00 |
+| Commit | `6a440de4efff1531b0074aca3e60b16e1f40e2b6` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. recover Documents/vrmc-shell.log + vrmc-compositor.log from the 14:41 M3b session
+
+**Expected:** provider eye textures valid and presentation proceeds; visual alignment confirmed
+
+**Actual:** Provider textures non-black (L mean RGB 83/108/51, R 78/100/48; nonBlack 1024/1024, alpha 255) and first command buffer completed; chrome/windows hidden in shell log. Session backgrounded immediately (stop/invalidation + VRMCImmersiveEnded), so no visual alignment report. Confirms EV-0086 black was compositor reprojection/presentation, not provider content.
+
+**Artifacts:** evidence/EV-0089/vrmc-shell.log (110619294653); evidence/EV-0089/vrmc-compositor.log (f7bb65acad9e); evidence/EV-0089/summary.log (5c5f4a682e0d)
+
+**Limitations:** Display-view alignment fix (EV-0088) is built/installed but device-locked; alignment device run pending.
+
+### EV-0090 — M3-W3/W4 device run PARTIAL: display views live; found/fixed JNI grouped-vs-interleaved left-eye transform bug; pre-fix pure black (dark menu world + wrong left transform)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:35:43-10:00 |
+| Commit | `65594d8e72d64e7ac1474eb5eeaec560222313af` |
+| Dirty state | ridge/src/vrmc_jni.c, scripts/tests/DisplayViewsLayoutTest.c |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. run game with display-view build; pull shell/compositor/latestlog; compare published vs applied eye transforms; add layout test; fix JNI
+
+**Expected:** applied left/right eye transforms match published display views; aligned non-black image
+
+**Actual:** Compositor published display views (L tangents -1.732/1.000/1.000/-1.192, Lpos(-0.0328,-0.0259,-0.0403), Rpos(0.0311,-0.0250,-0.0404), ipd 0.0639), sampled provider textures (dark menu-world content, luma 14-59), frames 6360, flat mode. Provider applied RIGHT correctly but LEFT Lpos=(-0.0024,-0.0155,0.9999): JNI grouped layout vs provider interleaved layout bug. Operator saw pure black. JNI fixed to interleaved per-eye; DisplayViewsLayoutTest PASS; app rebuilt/installed; relaunch pending.
+
+**Artifacts:** evidence/EV-0090/latestlog.txt (ae1dcc0b8ddd); evidence/EV-0090/vrmc-compositor.log (e956e49b44fa); evidence/EV-0090/vrmc-shell.log (aede819e1ab8); evidence/EV-0090/display-views-layout.log (0ff05a7324be); evidence/EV-0090/summary.log (e9de6a9fcaf4)
+
+**Limitations:** Pre-fix black explained by (a) dark menu world world58 and (b) corrupted left-eye transform. Relaunch after install to verify applied Lpos/Rpos and visual.
+
+### EV-0091 — Fresh post-JNI-fix device runs recovered PARTIAL: provider eye-render + display-view channel correct and eye textures bright; test-pattern flag present; operator-reported black remains unexplained by content
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T16:50:00-10:00 |
+| Commit | `f4d0617` (installed `VRMC-native-layoutfix.app`, built from the interleaved-JNI fix working tree; device run logs pulled after the fact) |
+| Dirty state | clean (logs pulled from the device container) |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. pull Documents/{latestlog.txt, vrmc-compositor.log, vrmc-shell.log} from D1 after the two post-JNI-fix runs (15:36 and 16:39 HST)
+2. correlate provider display-view application, compositor frame/present logs, provider eye-texture readbacks, and Documents flags
+
+**Expected:** a correct provider/display-view path produces bright per-eye textures, and the operator visual report matches that content
+
+**Actual:** 16:39 run: display views applied exactly (Lpos -0.0322,-0.0266,-0.0356; Rpos 0.0321,-0.0246,-0.0354, ipd 0.0644), compositor mode=flat, frames 0..1080, first command buffer completed, provider eye textures bright (frame 0 L mean RGB 115.6/110.4/89.1 luma 105.05, R 113.9/108.7/87.6 luma 103.38; later probes luma 103-154, nonBlack 919-1024/1024, alpha 255). 15:36 run: display views correct (Lpos -0.0316,-0.0268,-0.0357) and bright textures (luma 43-128). Documents/vrmc-test-pattern.flag existed on the device since 16:13, and the shipped compositor forces the procedural pattern when that flag is present (the build does not log the resolved flag, so this is code-path certainty, not log certainty). The operator reported a pure-black immersive for this session; the app backgrounded ~13 s after the immersive opened. No command buffer FAILED lines exist in any log.
+
+**Artifacts:** evidence/EV-0091-fresh/latestlog-1639.txt (e64e25f3f57e); evidence/EV-0091-fresh/vrmc-compositor.log; evidence/EV-0091-fresh/vrmc-shell.log
+
+**Limitations:** No authoritative operator statement exists for the 15:36 run; the test-pattern flag state was not logged by this build; these runs used the pre-M3c shell (immediate alpha+isHidden parking) and `vrmc-legacy-root-swap.flag`, so the modal-game-surface path had never been exercised.
+
+### EV-0092 — M3c presentation diagnostics PARTIAL: the compositor provably writes a bright image into the presented built_in drawable, yet the device shows a black immersive; the same shell/compositor displays correctly in the simulator
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T17:45:00-10:00 |
+| Commit | `4e3220a` (M3c diagnostics build; staged app hashes below) |
+| Dirty state | clean at pull time (working tree committed as 4e3220a; staged framework/bridge/provider hashes recorded) |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 17.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. build/stage/install the M3c diagnostic app: shell framework (CompositorServices present path rewritten to cp_frame_query_drawables, drawn-drawable readback, test-pattern/clear-probe/present-proof modes, no-JIT selftest, alpha-only parking after the first presented frame and periodic re-park), bridge `38624e12…`, provider jar `8e707022…`
+2. no-JIT selftest: push Documents/vrmc-immersive-selftest.flag, launch via `devicectl device process launch --terminate-existing`, pull Documents/{vrmc-compositor.log, vrmc-shell.log, vrmc-drawable-L/R.raw,.meta}
+3. JIT game run (operator-assisted): StikDebug -> Enable JIT -> VRMC -> Play; pull the same logs + latestlog
+4. simulator control: a minimal visionOS-simulator host app that dlopens the same VRMCShell.framework and calls `vrmc_shell_start` (no JVM/game); selftest immersive + simctl screenshot
+
+**Expected:** a bright drawable that the operator can see in the headset; if the drawable is bright but the headset is black, the CompositorServices/presentation stage above Metal is at fault
+
+**Actual:** no-JIT selftest on D1: immersive space opened (openImmersiveSpace result=opened), compositor posted its first presented frame and ran 960 frames of the forced test pattern (one drawable, target built_in, views=2, textures=2, encNil=0, nilColor=0); the drawn-drawable readback is bright (64x64 strided proof: mean luma 130.6, top-strip 188.3, max 255, nonBlack 4096/4096; raw dumps + meta in evidence) and the first command buffer completed. Operator reported a purple/black immersive (no pattern visible). JIT game run: provider initialized (menu world world37), display views applied exactly (Lpos -0.0322,-0.0266,-0.0356), compositor presented 12000+ frames in flat mode sampling the provider textures (drawable proof luma 64-75, nonBlack >4000/4096, encNil=0), and the operator reported full immersion active (pitch-black room) with the game visible only in a floating 2D window and no immersive content. Simulator control with the same framework: the selftest immersive displays the full-screen test pattern correctly (simctl screenshot), so the shell/compositor logic is not inherently broken.
+
+**Artifacts:** evidence/EV-0092/selftest-compositor.log (3555c613653e); evidence/EV-0092/selftest-shell.log (4c75eedcf003); evidence/EV-0092/vrmc-drawable-L.raw (b3ea116fbf64); evidence/EV-0092/vrmc-drawable-L.raw.meta (01e6bc469bda); evidence/EV-0092/manual-game-compositor.log (896719767f28); evidence/EV-0092/manual-game-shell.log (d9fb7f1dcf55); evidence/EV-0092/manual-game-latestlog.txt (6ec5e331a1a9); evidence/EV-0092/sim-real-shell-pattern.png (e207c907201c)
+
+**Limitations:** the operator's report is informal (single observer, no recording); the presentation failure is reproducible on D1 but the cause is not yet isolated (candidate diffs: two-view dedicated layout vs simulator one-view, Amethyst hybrid window/scene environment vs pure-SwiftUI simulator host, device anchor/reprojection path). Manual "Enter VR" button and objective scene-activation/layer-state logging are implemented but the device re-test had not run when this entry was written. No PASS is claimed.
+
+### EV-0093 — M3c ROOT CAUSE PASS (device A/B): the M3b drawable depth-clear change (1.0 -> 0.0) blacks out the CompositorServices immersive on visionOS 27.2; probe-parity 1.0 displays
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T18:10:00-10:00 |
+| Commit | `4e3220a` (diagnostics builds; depth fix committed with this evidence) |
+| Dirty state | working tree carried the depth-clear fix; staged app/framework/bridge/provider hashes recorded |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` (root cause + fix, device A/B operator-confirmed) |
+
+**Procedure:**
+
+1. control: install the known-good M3A probe app (re-signed as `dev.vrmc.vrmc`, EV-0074 code) on D1, operator taps "Open immersive space"
+2. bisect A: install staged VRMC builds that differ only in one variable (minimal SwiftUI window; deprecated single-drawable API; clear-only colours) with drawable depth clear 0.0; operator observes; pull shell/compositor logs
+3. bisect B: same build with probe-parity depth clear 1.0 (`vrmc-depth-near.flag`), operator observes
+4. trace the depth-clear value across the compositor history (487cc59 .. f4d0617) and the M3A probe source
+
+**Expected:** the variant(s) that differ in the causal variable separate black from visible content
+
+**Actual:** PASS (root cause isolated, operator-confirmed):
+- `486cc59/2863aa4/5493626/335a65f` compositor revisions clear the drawable depth to **1.0**; M3b commit `1b3b73c` changed it to **0.0** ("flat image at infinity"), and every device run from EV-0087 onward was black. The known-good M3A probe clears to 1.0.
+- D1 A/B: depth 0.0 -> **black** (minimal-window build, deprecated-API build, pure-SwiftUI host build: operator "window and black"/"black immersive", while logs show `layerState=2`, frames presented, encNil=0 and a bright drawn-drawable readback); depth 1.0 -> **solid magenta/cyan immersive visible immediately** ("magenta/cyan visible now!"), same shell/compositor/app, only the depth clear value differs.
+- Fix: default `rp.depthAttachment.clearDepth = 1.0`; `vrmc-depth-zero.flag` retains 0.0 for A/B. Regression guard `scripts/tests/DepthClearRegressionTest.sh` PASS.
+- Verification lesson: the same depth-0.0 framework displays correctly in the visionOS simulator, so simulator output is not evidence for this presentation path (VERIFY §0.7); only D1 reproduces it.
+
+**Artifacts:** evidence/EV-0093/probe-control-m3a-probe.log (8dc8ae00d41a); evidence/EV-0093/deprecated-api-depth0-compositor.log (2161a88ea084); evidence/EV-0093/minwin-depth0-compositor.log (5245b708fc19); evidence/EV-0093/minwin-depth0-shell.log (22836a827b20); evidence/EV-0093/pure-swiftui-host-depth0-shell.log (81878e2ebfd1); evidence/EV-0093/host-selftest-depth0-shell.log (3ca35f2b7b8c)
+
+**Limitations:** the operator report is informal (single observer, no recording); the final default build (array-API path + depth 1.0, no diagnostic flags) is staged and installed but its visual confirmation and the first game-in-immersive run (JIT) are the remaining M3-W3/W4 acceptance steps (recorded as EV-0094 when run). Stereo alignment, window chrome, re-entry and provider GPU sync are still open.
+
+---
+
+## 7. Status dashboard
+
+| Area | Status | Basis |
+|---|---|---|
+| Specification (AGENT.md) | `PASS` | M0 formally closed 2026-10-31 (Decision 45=A) |
+| Reference baseline | `PARTIAL` | EV-0001, EV-0002 |
+| Repo foundation + tooling | `PASS` | EV-0003; commit `3332cdb` |
+| JIT mechanism (S1) | `PASS` | EV-0021 (compat, five cold runs) + EV-0024 (native visionOS: JIT26 mapping, tier 3/4, `HELLOJIT`) |
+| JVM/JIT runtime (C3) | `PASS (relabelled JRE)` | OpenJDK 25.0.4 iOS JRE relabelled to VISIONOS works on D1 (EV-0022/EV-0024); no fresh xros OpenJDK build needed for the runtime path |
+| Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
+| **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
+| **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Black-immersive root cause found and fixed (EV-0093)**: M3b changed the CompositorServices drawable depth clear from 1.0 to 0.0, which makes visionOS 27.2 present the layer black even though the colour drawable is bright; device A/B (known-good probe / deprecated-API / minimal-window builds) shows 0.0 -> black, 1.0 -> visible, operator-confirmed. Default is 1.0 again, with `vrmc-depth-zero.flag` for A/B and a regression test. Provider/display-view path was already device-proven correct (EV-0091/EV-0092). Manual "Enter VR" entry, scene-activation/layer-state logging, alpha-only first-frame-gated parking and the no-JIT selftest are in the installed build; final visual + game-in-immersive acceptance run is EV-0094 (operator). |
+| **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
+| M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
+| M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
+| S4a-host eye handoff | `PASS` | MoltenVK MTLTexture export + Metal pixel readback + timeline MTLSharedEvent sync on macOS host (EV-0063) |
+| S4a-device eye handoff | `PASS` | Bundled MoltenVK 1.4.3: MTLDevice+MTLTexture export, Metal readback correct, timeline MTLSharedEvent sync on D1 (EV-0065) |
+| M2-W5 device eye handoff | `PASS` | ABI v2 `vrmc_export_mtl_texture` on device: VkImage→MTLTexture + submit (EV-0069) |
+| M2-W6 device provider init | `PASS` | Device: bridge handshake ABI v1, `VisionVR.init()`, stereo render passes LEFT/RIGHT, 1501+ tracking frames, no SteamVR (EV-0068); Fabric 0.20.1 compatibility candidate |
+| M2 review propagation | `PASS` | Host-only EV-0060 scoping, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI policy (EV-0061) |
+| PSVR2 controllers | `DEFERRED (out of MVP scope)` | P1 register; hands-only is the P0 input path (EV-0062) |
+| M1 T2 — repo scripts | `PASS` | Parameterized, re-runnable scripts + README (EV-0039) |
+| M1 T5 — mouse | `PARTIAL` | visionOS delta-gate patch (EV-0040); follow-up: rotation now smooth, cursor visibility accepted cosmetic (EV-0045/EV-0047), task-2 closed |
+| Provider integration | `PASS (host) / NOT RUN (device)` | EV-0006/EV-0009 injection; EV-0059/EV-0060 host provider+stereo loop; **device runtime (M2-W6) NOT RUN** |
+| Stereo compositor | `NOT RUN` | ST-S4 pending |
+| Input (hands) | `NOT RUN` | ST-S5-hands pending; hands-only is the sole P0 path (G2–G4 HIGH, no controller fallback) |
+| Input (PSVR2 controllers) | `DEFERRED (out of MVP scope)` | P1 register; not counted at MVP exit |
+| Performance/thermal | `NOT RUN` | ST-S6 pending |
+| S1a harness | `PASS (compat)` | JIT26 mapping + tier 3/4 + `HELLOJIT` + exit 0 across five cold relaunches (EV-0021); StikDebug needs `universal.js` assigned to the app per install |
+| S1b harness (native visionOS) | `PASS` | VISIONOS-relabelled JRE builds/signs (EV-0022), launches (EV-0023), and JITs + executes on D1 (EV-0024) |
+| M1 launcher probe (Amethyst) | `BLOCKED` | JIT + Java 25 reach MC 26.2 main (EV-0031); LWJGL 3.3.3 vs 3.4.1 mismatch; grafting 3.4.1 Java crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (EV-0032); needs current-source rebuild |
+| Launcher shell | `NOT RUN` | M1 |
+| Acceptance AC-1…AC-6 | `NOT RUN` | Device tests pending |
+
+---
+
+## 8. Open blockers
+
+| Blocker | Owner | Unblock condition |
+|---|---|---|
+| M2-W6: Fabric loader on D1 | Open | Device instance has vanilla 26.2 only. Install Fabric 0.19.3 via launcher Profiles → + → "Install Fabric/Quilt" (Minecraft 26.2); Vivecraft + provider jars are already in `instances/default/mods`. Then launch with JIT to run the provider. |
+| M1 T6: 30-minute device soak | **DONE** | 1805 s continuous world session, no game crash/watchdog kill, thermal `serious` recorded (EV-0044); StikDebug watchdog incident noted |
+| Lifecycle/audio defect | **CLOSED** | Background freeze + sound loss fixed; retest PASS (EV-0048), task-3 closed |
+| M1 W1 — reproducible build | `PASS` | `scripts/build_launcher.sh` + `patches/vrmc-m1-amethyst-1.2.0.patch` + `LAUNCHER_BUILD.md`; tested from a fresh tree (EV-0049) |
+| M1 W3 — JIT readiness | `PASS` | explicit TXM alert + `[JIT] preflight` log (EV-0050); no-JIT flow verified (EV-0051) |
+| M1 W7 — save/relaunch | `PASS` | clean save/quit + reload preserved (EV-0052) |
+| M1 W6 — observability | `PASS` | in-app Send logs / Log output share + repo capture scripts (EV-0053) |
+| M1 W1 polish — icon + first-run | `PASS (install)` | icon assets + first-run checklist; reproducible build re-verified (EV-0054/EV-0055); final build installed (EV-0056); visual check pending next launch |
+| M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
+| ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
+| All device tests | Lead | Product build exists |
+| M3c final visual confirmation of the depth-clear fix (EV-0093) | Open | The fixed build (`VRMC-native-v11-depthfix.app`, depth clear 1.0 default + scene-activation logging) is signed/installed on D1. Operator must unlock/wear D1, launch VRMC, tap **Enter VR** (expect the bright test pattern / beep), then run the JIT game (StikDebug -> Enable JIT -> Play) and confirm the game fills the field of view; pull `Documents/{vrmc-shell.log,vrmc-compositor.log,latestlog.txt}` and record EV-0094. |
+
+---
+
+## 9. Change log
+
+| Date | Change |
+|---|---|
+| 2026-10-31 | File created; EV-0001 recorded (workspace/toolchain/reference baseline, `PARTIAL`). |
+| 2026-10-31 | Acceptance criteria, budgets, test suites, and evidence protocol established. |
+| 2026-10-31 | Review revision: rule/§ cross-references corrected, valid-EV rule added, S1/S3/K3/DT-18/CT-07 criteria tightened, device OS recorded, propagation requirement added. |
+| 2026-10-31 | EV-0002 recorded (external JIT26 demonstration, `PARTIAL`); S1 internal reproduction remains `NOT RUN`; A2 → MEDIUM in AGENT.md; totals 32/26/7. |
+| 2026-10-31 | M0 foundation committed (`3332cdb`); EV-0003 records the tooling self-test (`PASS`, AT-009). |
+| 2026-10-31 | EV-0004 records the S1 host pre-test (`PARTIAL`): relabelled iOS JRE 25 JITs on macOS and the JIT26 request site traps as expected. Device S1 remains `NOT RUN`. |
+| 2026-10-31 | EV-0005 records the S2 host pre-test (`PARTIAL`): MC 26.2 boots with Vulkan via MoltenVK 1.4.2 and no GL fallback. Device S2, world render, and soak remain `NOT RUN`. |
+| 2026-10-31 | EV-0006 records S3 static analysis (`PARTIAL`): injection point exists and `initializeVR` bytecode is identical across 1.3.14/1.3.15; runtime Mixin test pending. Added interpretation/scope notes to EV-0004/EV-0005 and the AT allocation rule. |
+| 2026-10-31 | S1a harness scaffolded in `runtime/probes/s1a`; EV-0007 records the build self-check and host JIT run (`PARTIAL`). EV-0008 records the device-build attempt (`BLOCKED`: AVP locked; no AVP profile). |
+| 2026-10-31 | EV-0009 records the S3 runtime probe (`PASS`, desktop): the Mixin substitutes `VisionVR` for `MCOpenVR` with no SteamVR. Injection decision: Mixin, no fork. |
+| 2026-10-31 | EV-0010 records the MoltenVK v1.4.2 visionOS build (`PASS`, host): `xros-arm64`, platform VISIONOS, minos 27.2. Device stage still `NOT RUN`. |
+| 2026-10-31 | EV-0011: S1a builds and signs successfully (AVP profile created); install is `BLOCKED` by the free-profile 3-app limit. |
+| 2026-10-31 | EV-0012: 12 LWJGL/helper dylibs retagged to platform VISIONOS (MoltenVK from EV-0010); load test pending. |
+| 2026-10-31 | EV-0013: visionOS S2 probe app builds and signs with MoltenVK + retagged natives embedded; install pending the app-slot decision. |
+| 2026-10-31 | EV-0014: host MC 26.2 world rendered through Vulkan/MoltenVK for 21 minutes, clean shutdown; full 30-min soak still pending. |
+| 2026-10-31 | Amethyst removed with approval; S1AProbe installed on D1. EV-0015 corrected: UIScene-adoption crash, not JIT26. |
+| 2026-10-31 | EV-0016 (`PASS`, D1): MoltenVK 1.4.2 on visionOS/Apple M2 exposes all 5 required extensions and 9 required features; maxPushDescriptors=287. Device render still pending. |
+| 2026-10-31 | EV-0017 (`FAIL`): UIKit/SwiftUI probe crashed before JVM output; root cause is `JLI_Launch` re-entering the app main. EV-0018: console-style harness starts the JVM and traps at `BreakGetJITMapping` without an enabler. |
+| 2026-10-31 | EV-0019 (`FAIL`): post-patch launches still trap at `BreakGetJITMapping`. |
+| 2026-10-31 | EV-0020 (`FAIL`, BLOCKED): StikDebug launches/attaches then detaches without JIT26 preparation; all four on-device scripts patched. |
+| 2026-10-31 | EV-0021 (`PASS (compat)`): Assign-Script + JIT26 extension handshake; five cold launches with `[JIT26]` mapping, tier 3/4, `HELLOJIT`, exit 0. |
+| 2026-10-31 | EV-0022 (`PARTIAL`): native visionOS S1b harness built/signed; 39 JRE Mach-O relabelled VISIONOS; install blocked by the 3-app free-profile limit and device state. |
+| 2026-10-31 | EV-0023 (`PARTIAL`): after freeing the slot, `dev.vrmc.s1b` installs and launches natively on D1 without a scene crash; waits for the JIT debugger and exits cleanly when none is attached. |
+| 2026-10-31 | EV-0024 (`PASS`): native visionOS app JITs and executes on D1 with the VISIONOS-relabelled JRE (`HELLOJIT` 616 ms, exit 0). S1 spike complete (compat + native). |
+| 2026-10-31 | EV-0025 (`PASS`): D1 executes a Vulkan offscreen clear+readback through MoltenVK/M2 (`pixel=(64,128,191,255)`). |
+| 2026-10-31 | EV-0026 (`PASS`): all 12 retagged VISIONOS natives dlopen in the D1 probe. |
+| 2026-10-31 | EV-0027 (`PASS`): CAMetalLayer→VkSurfaceKHR works on D1 (1280x720, 60 formats); probe clean with 12 natives. |
+| 2026-10-31 | EV-0028 (`PASS`): VK_KHR_swapchain + present works on D1 (1280x720, 3 images, FIFO, submit/present 0). S2 device graphics primitives complete; MC boot/title/world remains. |
+| 2026-10-31 | EV-0029 (`PARTIAL`): release Amethyst re-signed for <TEAM_ID> installs and launches on D1. |
+| 2026-10-31 | EV-0030 (`FAIL`): Amethyst launched via StikDebug attaches/continues/detaches in ~28 ms and dies with no crash report; normal launch works. |
+| 2026-10-31 | EV-0031 (`PARTIAL`): external Java 25 + always-attached JIT + dyld bypass work; MC 26.2 reaches `NativeLibrariesBootstrap` but aborts on missing `org.lwjgl.util.spvc.Spvc` (release bundles LWJGL 3.3.3). |
+| 2026-10-31 | EV-0032 (`FAIL`): grafting 3.4.1 Java/natives clears `spvc` but crashes in the app's embedded 3.3.3 `JNI_OnLoadGLFW` (JVM SIGSEGV). Needs a current-source Amethyst rebuild; **problem exported to `export/` + zip**. |
+| 2026-10-31 | EV-0033 (`PARTIAL`): StikDebug 3.2.0 reinstalled under the existing bundle id (pairing/DDI/scripts preserved); `amethyst.js` pushed. |
+| 2026-10-31 | **EV-0034 (`PASS`): first Minecraft 26.2 world on Apple Vision Pro** — Vulkan via MoltenVK 1.4.3, LWJGL 3.4.1, JIT26 mapping, world “New World” joined at 20:27:54. |
+| 2026-10-31 | EV-0035 (`PARTIAL`): 4m20s in-world with clean save/shutdown, no crash; user stopped early so the 30-min soak is deferred. |
+| 2026-10-31 | **M0 formally CLOSED on EV-0034** (Decision 45=A): S2's M0 gate is device world render only; the 30-minute soak is now an **M1 exit gate** (EV-0035 = feasibility, not the gate). Recorded in AGENT §4.5/§5/§6/§7/§11/§13 and this dashboard. |
+| 2026-10-31 | M1 stack pinning (Decision 46=A+C fact record): Amethyst → 1.2.0, MoltenVK → 1.4.3, StikDebug script → amethyst.js; ADR-0007 records the changes and evidence impact. |
+| 2026-10-31 | **EV-0036 (`PASS`): T3 acceptance** — our own source-built Amethyst v1.2.0 (167 binaries re-signed) boots MC 26.2 to a Vulkan/MoltenVK world on D1. |
+| 2026-10-31 | EV-0037 (`PASS`): app-side defaults force Vulkan + clear the crash marker; MC boots from a deliberately reset options.txt. |
+| 2026-10-31 | Sprint-1 close-out: T1 EV-0038 (`PASS`), T2 EV-0039 (`PASS`), T5 EV-0040 (`PARTIAL`), T3 EV-0041 (`PASS`). T4/T6 open on device operations. |
+| 2026-10-31 | EV-0042 (`PARTIAL`): branded **VRMC (dev.vrmc.vrmc)** installed with a fresh container. |
+| 2026-10-31 | EV-0043 (`PASS`, T4), EV-0044 (`PASS`, T6), EV-0045/0046 (`FAIL`, input + lifecycle defects). |
+| 2026-11-01 | EV-0057 M1 CLOSED; EV-0058 M2 scaffold; EV-0059 M2-W1 host harness. **EV-0060 (`PASS`) M2-W4/W5 host integration**: bridge ABI v1 handshake, provider init, stereo eye targets, per-frame `vrmc_submit_eyes`, no SteamVR; macstream reference mapped in `docs/mvp/MACSTREAM_REFERENCE.md`. Next ID `EV-0061`. |
+| 2026-11-01 | **M2 review propagation + PSVR2 scope downgrade.** EV-0060 scoped as **M2-W4/W5 host PASS**; M2-W6 device bring-up and M3 are **NOT RUN**; S4a split into host/device gates. Identity controller transforms marked **host-only** (device missing data fails loudly). macstream is a tracked LGPL-3.0 reference (upstream `ec5a851c…`, design + partial provider port, no code in the GPL launcher; ADR-0009). PSVR2 Sense = **P1 / DEFERRED (out of MVP scope)**, not BLOCKED: F1–F3 moved to P1, AC-4/§1/§3/§4/§6/§7/§11 updated, G2/G3/G4 → HIGH (hands-only has no fallback), ST-S4/ST-S5 split. New status `DEFERRED (out of MVP scope)` added to the legend. Next ID `EV-0062`. |
+| 2026-11-01 | **EV-0061 (`PASS`): M2 review fixes applied** (host/device scope, host-only identity fallback, macstream compliance, S4a split gates, W6 preconditions, ABI evolution policy). **EV-0062 (`DEFERRED`): PSVR2 Sense controller input — out of MVP scope (P1), not BLOCKED.** Next ID `EV-0063`. |
+| 2026-11-01 | **EV-0063 (`PASS`): S4a-host** — exportable VkImage → MTLTexture works, Metal reads the Vulkan clear correctly, and MTLSharedEvent sync works with a **timeline** semaphore. **S4a-device remains NOT RUN** (separate gate). Next ID `EV-0064`. |
+| 2026-11-01 | **EV-0064 (`NOT RUN`)**: S4a-device probe staged inside the VRMC app (bundled MoltenVK 1.4.3), marker pushed, but the device was locked (passcodeRequired=true) so it could not be launched. Unlock AVP and launch VRMC to execute; log = Documents/s4a-device.log. Next ID `EV-0065`. |
+| 2026-11-01 | **EV-0065 (`PASS`): S4a-device** — bundled MoltenVK 1.4.3 on D1 exports MTLDevice/MTLTexture, Metal reads back the Vulkan clear correctly, and timeline MTLSharedEvent sync works (signaledValue 42). M3's zero-copy eye-handoff substrate is device-validated; **M2-W6 (provider init on device) and M3 remain NOT RUN**. Next ID `EV-0066`. |
+| 2026-11-01 | **EV-0066 (`PARTIAL`): M2-W6 prep** — arm64-ios JNI bridge dylib built/embedded/signed; launcher passes `-Dvrmc.bridge.lib`; `vrmc-provider.jar` + Vivecraft jar staged in the device instance mods. **Remaining device step: install Fabric 0.19.3 loader**; W6 provider run still NOT RUN. Next ID `EV-0067`. |
+| 2026-11-01 | **EV-0067 (`FAIL`)**: first W6 device attempt reached provider init + bridge handshake + eye targets, then crashed on the host-only identity guard applied to static component transforms; fix: identity component offsets + tracking-pose validity guard. **EV-0068 (`PASS`)**: after the fix, device provider init + stereo render passes (LEFT/RIGHT) + 1501+ tracking frames + no SteamVR; device used Fabric Loader **0.20.1** (pin is 0.19.3 → compatibility candidate; pin/ADR decision pending). Game remains unplayable by design: M3 compositor/head tracking and M4 input are NOT RUN. Next ID `EV-0069`. |
+| 2026-11-01 | **EV-0069 (`PASS`): M2-W5 device eye handoff** — ABI v2 `vrmc_export_mtl_texture` on D1: `VkImage=0x139dccf00 -> MTLTexture=0x7107982300`, submitted; clean run. **EV-0070 (`PASS`): M2 milestone CLOSED** — all exit criteria evidenced; M2 acceptance matrix added. M3 compositor/head tracking and M4 input remain NOT RUN (game not playable yet). Fabric 0.20.1 vs pin 0.19.3 carry-over. Next ID `EV-0071`. |
+| 2026-11-01 | **EV-0071 (`PASS`): M3 started, M3a gate 1** — `PLATFORM=11` native visionOS payload builds (platform VISIONOS, relabelled natives). **NOT RUN:** native app launch on D1, CompositorServices immersive space/ARKit, MC/JVM/JIT/Vulkan hosting in the native app. M2 remains CLOSED; M3 plan `docs/mvp/M3_PLAN.md`, ADR-0010 (native app route; companion fallback only if MC hosting fails). Next ID `EV-0072`. |
+| 2026-11-01 | **EV-0072 (`PARTIAL`): M3a gate 2** — native visionOS immersive space + CompositorServices loop work (2700+ frames; three crash modes fixed: premature endSubmission, missing `cp_drawable_encode_present`, main-thread watchdog), but the user sees passthrough instead of the red/green test pattern and the ARKit anchor never resolves. Next: port to the C sample structure with `cp_drawable_set_device_anchor` + presentation-time conversion; then gate 3. VRMC launcher restored after the probe. Next ID `EV-0073`. || 2026-11-01 | **EV-0073 (`PARTIAL`): M3a gate 2 diagnostics** — GPU readback proves the per-eye render path is correct (eye0 pixel `r=0.800 g=0.050 b=0.050 a=1.000`, command buffer completed), but the user sees black with the ARKit device anchor set and passthrough without it. Rendering correct; presentation/anchor wiring is the remaining blocker. Next: compare against the reference sample (Metal Toolchain needed) or port its remaining drawable/layer setup. VRMC launcher restored. Next ID `EV-0074`. || 2026-11-01 | **EV-0074 (`PASS`): M3a gate 2** — native visionOS immersive space shows the per-eye red/green CompositorServices stereo test pattern (operator-confirmed); log: 2 views 1888x1792 rgba16Float, depth attachment present, cb completed, readback r=0.800. Root cause of earlier black screen: missing drawable depth attachment/rasterization-rate map. Gate 3 (MC/JVM/JIT/Vulkan in native app) next. Next ID `EV-0075`. || 2026-11-01 | **EV-0075 (`PARTIAL`/blocked): M3a gate 3 attempt** — native visionOS launcher installs and launches without crashing, but its window content is blank (pre-init/version list logged; no [JIT] lines, no game). Direct launch same. No crash report; StikDebug did not crash. Gate 3 remains NOT RUN; compat launcher restored, data intact. Next: native window/scene debugging or ADR-0010 fallback B. Next ID `EV-0076`. || 2026-11-01 | **EV-0076 (`PARTIAL`): M3a gate 3 diagnostics** — native window/scene and `LauncherSplitViewController` are created and sized correctly (1280x720, view 2 subviews) yet content renders blank; issue is native-visionOS UIKit presentation, not scene setup. Compat launcher restored; data intact. Next: SwiftUI window shell hosting the launcher VC (M3-W1) or ADR-0010 fallback companion. Next ID `EV-0077`. || 2026-11-01 | **EV-0077 (`PASS`): M3a gate 3** — the native visionOS app auto-launched MC 26.2/Fabric 0.20.1/Vivecraft and logged JIT enabled, Vulkan/MoltenVK, VisionVR provider init (ABI 2), LEFT/RIGHT passes, `VkImage→MTLTexture` eye export, tracking frames 601+. **M3a gates 1–3 all PASS.** Remaining native-app issue: blank UIKit launcher content (M3-W1); next M3-W2 consumes the eye textures/poses in CompositorServices. Compat launcher restored. Next ID `EV-0078`. || 2026-11-01 | **EV-0078 (`PARTIAL`): M3-W1 root-VC workaround** — the native branch runs (`rootVC=LauncherNavigationController`) but crashes in `-[LauncherProfilesViewController viewWillAppear:]`: `@[sidebarViewController drawAccountButton, ...]` with `self.splitViewController == nil` (sidebar macro). Blank split content + this crash prove a native-specific UI shell is required; auto-launch (EV-0077) remains the only boot path. **`export/` cleared of the old Amethyst/LWJGL dossier and replaced with the native-UI blocker dossier** per operator instruction; compat launcher restored. Next ID `EV-0079`. || 2026-11-01 | **EV-0079 (`PASS`): M3-W1** — native visionOS launcher UI renders after the UIKit idiom spoof fix (`vrmc-m3w1-visionos-idiom.patch`: skip spoof when real idiom is Vision/6); Play launched `fabric-loader-0.20.1-26.2` with no autolaunch flag. Log: JIT enabled, MC 26.2 + Fabric 0.20.1, Vulkan/MoltenVK 1.4.3, VisionVR provider/ABI 2, LEFT/RIGHT passes, VkImage→MTLTexture export, 901+ tracking frames. `build_launcher.sh` now supports `PLATFORM=11`; `export/` replaced with resolved/build notes. Next: M3-W2/W3 compositor consumption of provider textures + poses. Next ID `EV-0080`. || 2026-11-01 | **EV-0080 (`PASS`, host): M3-W2 groundwork** — bridge gains native-side shared state (`vrmc_shared_eye_textures`, `vrmc_shared_set_tracking`, `vrmc_shared_clear_tracking`; stub test passes, Java ABI stays v2). No device test. Next: SwiftUI app-lifecycle shell for ImmersiveSpace/CompositorLayer, then compositor consumption of provider eye textures + ARKit pose. Next ID `EV-0081`. || 2026-11-01 | **EV-0081 (`PASS`): M3-W2 shell** — SwiftUI app-lifecycle framework hosts `LauncherSplitViewController` and opens a CompositorServices immersive space (test pattern); `vrmc_shell_start` / `openImmersiveSpace result=opened` in `vrmc-shell.log`. **EV-0082 (`PARTIAL`): M3-W3/W4** — auto-open on game start + compositor 1080 frames/ARKit anchor but eyes=0; MC `VK_ERROR_DEVICE_LOST 'Failed to wait for semaphore'`, compositor `__BUG_IN_CLIENT__` at `cp_frame_end_submission`. Mitigations staged. Next ID `EV-0083`. || 2026-11-01 | **EV-0083 (`PARTIAL`): M3-W3/W4 first light** — mitigations fixed the device-loss; game alive; auto-open 15 s after start; compositor `eyes=1` (provider MTLTextures 0x72219ca580/0x72219ca300), anchor OK, provider tracking frames with real head poses. Operator: immersive did not align, game window remained visible, immersive quit when app backgrounded. Data path proven; next: window hiding, scenePhase, per-eye projection/FOV/aspect alignment. Next ID `EV-0084`. || 2026-11-01 | **EV-0084 (`PARTIAL`): M3-W3/W4** — window parking works (`windows=3 alpha=0`), immersive shows sampled provider eye textures (`eyes=1`) with live tracking, but backgrounding crashes the app (`__BUG_IN_CLIENT__` at `cp_frame_end_submission` on layer invalidation) and alignment is still flat fullscreen (no per-eye projection/FOV parity). Next: graceful compositor stop on background, then projection alignment/sync. Next ID `EV-0085`. || 2026-11-01 | **EV-0085 (`PARTIAL`, final attempt): M3-W3/W4** — background compositor exit is clean (no new crash) but after the game replaces the window root VC the SwiftUI observers are gone (`window parked` is the last shell line), so immersive cannot be re-entered; window bottom bar remains despite alpha/isHidden; exotropia persists after view 0/1 swap. Root causes documented; **`export/` replaced with the current immersive-integration blocker dossier + evidences**. Next: keep SwiftUI observers alive (modal game surface/app-level observer), window scene chrome, per-eye projection/FOV parity. Next ID `EV-0086`. || 2026-11-01 | **Operator-confirmed issue summary (export update)**: (1) **window cannot be hidden** — content parks (alpha/isHidden) but visionOS bottom bar/chrome remains; (2) **game cannot present again after background** — game keeps running but immersive cannot be re-entered (SwiftUI observers destroyed by game root-VC replacement); (3) **perspective is exotropia** — stereo eyes diverge outward, view swap did not fix; flat fullscreen sampling without per-eye projection/FOV parity. `export/README.md` + zip updated with the issue summary; evidence EV-0083/84/85. Next ID `EV-0086`. || 2026-11-01 | **EV-0086 (`PARTIAL`): three-fix device run** — integrated fixes (persistentSystemOverlays, app-level coordinator/reopen, symmetric 110° FOV + per-eye reprojection + measured IPD) with matching app/bridge/provider jar. **Shell re-entry works** (background stop/dismiss, foreground reopen generation 2). **Operator: completely black immersive + windows still visible**; compositor logs view tangents, provider tangents ±1.428, ipd 0.065, eyes=1 frames 1…1680 — data path runs, reprojection outputs black. Exotropia fix unverified. `export/` updated with evidence. Next: CPU ray→UV diagnostics/convention fix, chrome alternative. Next ID `EV-0087`. |
+| 2026-11-01 | **EV-0087 (`PARTIAL`, build/static validation): M3b fixes integrated** — compositor reprojection math validated (Metal shader unit test + visionOS simulator probe; EV-0086 device views 87.9% inside / 0 behind / 0 NaN); no-black diagnostics added (CPU ray->UV, provider eye-texture readback + auto test-pattern, branch colours, alpha=1, command-buffer health, Documents flags); Shell epoch-guarded re-entry; Amethyst modal game-surface patch keeps the SwiftUI scene alive so window-chrome hiding can work; provider jar + bridge rebuilt; signed app installed on D1. **Device run NOT RUN** — next ID `EV-0088`. |
+
+| 2026-11-01 | **EV-0091 (`PARTIAL`)**: fresh post-JNI-fix device logs recovered — provider eye-render + display-view channel correct, textures bright (luma 103-154), first command buffer completed; `vrmc-test-pattern.flag` present since 16:13 (not logged by that build). Next ID `EV-0092`. |
+| 2026-11-01 | **EV-0092 (`PARTIAL`)**: M3c presentation diagnostics on D1 — no-JIT selftest and a JIT game run prove the compositor writes a bright image into the presented built_in drawable (raw readbacks + meta, encNil=0) yet the operator sees a black immersive; full immersion is active and the game remains in a floating 2D window. The same VRMCShell.framework displays the test pattern correctly in a simulator host app. Manual "Enter VR" button, scene-activation/layer-state logging, alpha-only first-frame parking + periodic re-park and willResignActive grace are implemented; presentation root cause not yet isolated. Next ID `EV-0093`. |
+| 2026-11-01 | M3c operator directive (Option 2): keep the startup window, add a manual "Enter VR" trigger first, then make the automatic post-JIT entry the default; do not change the Info.plist preferred scene role until the manual path is verified. Implemented (manual overlay button + auto path + error surface); device validation pending. |
+
+| 2026-11-01 | **EV-0093 (`PASS`, device A/B): black-immersive ROOT CAUSE** — M3b (`1b3b73c`) changed the CompositorServices drawable depth clear from 1.0 to 0.0; visionOS 27.2 then presents the whole immersive layer black even though the colour drawable is bright and the command buffer completes. Controls: known-good M3A probe displays (depth 1.0); minimal-window, deprecated-API and pure-SwiftUI-host builds with depth 0.0 are black; the same build with depth 1.0 shows solid magenta/cyan (operator-confirmed). Fix: default depth clear 1.0, `vrmc-depth-zero.flag` A/B, `scripts/tests/DepthClearRegressionTest.sh` PASS. Simulator did not reproduce (not evidence for this path). Next: EV-0094 final visual/game run. |
+| 2026-11-01 | M3c recovery: a read->write round-trip on VERIFY.md/AGENT.md truncated their tails (VERIFY 2631->961 lines, AGENT 699->653); both restored from commit 3f9ab0d via `git show <commit>:FILE > FILE`, the intended M3c change-log rows re-applied, and AGENT.md gained rule 0.8 forbidding read->write round-trips on long files. |
+| 2026-11-01 | M3c self-check tooling: runtime/probes/m3c-provider-sim/ headless simulator harness (flat sampling / GPU-timeline sync / stereo pattern / window-parking A-B / background->foreground re-entry - scenarios PASS) and scripts/m3c_selfcheck.sh one-command host+simulator suite; shell re-entry generalized + hardened for layer-invalidates-before-background. Device validation remains EV-0094. |
+| 2026-11-01 | Propagation: M3C_PLAN (root cause, bisect results, next session), compositor-presentation.md §6 resolution, export/README root-cause + next-run dossier, scripts/README regression test. |
+
+---
+
+## 10. Sign-off
+
+| Role | Name | Decision | Date |
+|---|---|---|---|
+| Verification owner | — | pending | — |
+| Lead | — | pending | — |
+| 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported: compositor `vrmc_shared_set_display_views` (per-eye `cp_view_get_tangents` + `cp_view_get_transform` + measured IPD); provider `getDisplayViews` renders `frustum(l·n,r·n,d·n,u·n)` with head-relative eye matrices and NaN cache invalidation; compositor switches to flat 1:1 mapping (reprojection/black branch bypassed). Host checks all PASS: DisplayViewsTest (both device display views + symmetric fallback, corners exact, straight-ahead NDC offset formula), bridge stub display-view roundtrip, provider javac. App+shell+bridge rebuilt/signed/installed; provider jar rebuilt/pushed/hash-verified. **Device run NOT RUN → next EV-0089.** |
+| 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported (display views, head-relative eye matrices, asymmetric per-eye frustum, NaN projection cache invalidation, flat mapping); offline frustum/bridge/provider checks PASS; app+bridge+provider built/installed. **EV-0089 (`PARTIAL`): recovered M3b device logs** — provider eye textures valid non-black (L/R mean RGB), first command buffer completed, chrome/windows parked/hidden; session backgrounded before visual alignment check. Device locked; alignment device run pending. Next ID `EV-0090`. || 2026-11-01 | **EV-0090 (`PARTIAL`): display-view device run** — compositor published display views and flat-sampled provider textures (frames 6360; L tangents -1.732/1.000/1.000/-1.192, Lpos(-0.0328,-0.0259,-0.0403), Rpos(0.0311,-0.0250,-0.0404), ipd 0.0639; provider textures dark menu world world58 luma 14–59). Provider applied RIGHT exactly but LEFT was garbage due JNI grouped vs provider interleaved layout; fixed to interleaved per-eye, `DisplayViewsLayoutTest` PASS, app rebuilt/installed; relaunch pending. Next ID `EV-0091`. |
