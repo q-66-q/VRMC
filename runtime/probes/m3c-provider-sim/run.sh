@@ -63,7 +63,7 @@ wait_for_log() { # wait_for_log <file> <pattern> [tries]
 }
 
 run_case() {
-  local name="$1" sync="$2" mode="${3:-provider}"
+  local name="$1" sync="$2" mode="${3:-provider}" extra="${4:-}"
   local case_dir="$OUT/case-$name"
   rm -rf "$case_dir"; mkdir -p "$case_dir"
   # Fresh install per scenario: guarantees a fresh process (simctl launch reuses a running app) and a
@@ -78,6 +78,7 @@ run_case() {
     echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
     echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
     if [ "$sync" = "1" ]; then echo "sync" > "$DATA/Documents/vrmc-fake-provider-sync.flag"; fi
+    if [ -n "$extra" ]; then echo "$extra" > "$DATA/Documents/$extra"; fi
   fi
   xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
   # Wait for the first presented frame + the 5 s scene-state line, so the copied logs are complete.
@@ -96,6 +97,10 @@ run_case() {
     python3 "$HERE/check.py" "$case_dir" --pattern || overall=1
   elif [ "$sync" = "1" ]; then
     python3 "$HERE/check.py" "$case_dir" --require-sync --require-parking || overall=1
+  elif [ "$name" = "hidepark" ]; then
+    python3 "$HERE/check.py" "$case_dir" --require-parking --require-hidden || overall=1
+  elif [ "$name" = "nopark" ]; then
+    python3 "$HERE/check.py" "$case_dir" --require-noparking || overall=1
   else
     python3 "$HERE/check.py" "$case_dir" --require-parking || overall=1
   fi
@@ -131,6 +136,8 @@ run_reentry() {
 
 run_case flat 0
 run_case sync 1
+run_case hidepark 0 provider vrmc-hide-windows.flag
+run_case nopark 0 provider vrmc-no-parking.flag
 run_case pattern 0 pattern
 run_reentry
 if [ "$overall" != "0" ]; then echo "[provider-sim] OVERALL FAIL"; exit 1; fi

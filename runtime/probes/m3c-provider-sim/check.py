@@ -34,6 +34,8 @@ def main():
     args = sys.argv[2:]
     require_sync = "--require-sync" in args
     require_parking = "--require-parking" in args
+    require_hidden = "--require-hidden" in args
+    require_noparking = "--require-noparking" in args
     reentry = "--reentry" in args
     pattern = "--pattern" in args
 
@@ -84,6 +86,14 @@ def main():
         parking_ok = ("window parked after first presented frame" in stext) and ("alpha=0.00" in stext)
         print(f"{'window parking':32s} {('seen' if parking_ok else 'missing'):24s} {'seen':8s} {'PASS' if parking_ok else 'FAIL'}")
         if not parking_ok: failures += 1
+    if require_hidden:
+        hidden_ok = "hidden=true" in stext
+        print(f"{'isHidden parking mode':32s} {('seen' if hidden_ok else 'missing'):24s} {'seen':8s} {'PASS' if hidden_ok else 'FAIL'}")
+        if not hidden_ok: failures += 1
+    if require_noparking:
+        nopark_ok = ("parking disabled by vrmc-no-parking.flag" in stext) and ("window parked after first presented frame" not in stext)
+        print(f"{'no-parking mode respected':32s} {('seen' if nopark_ok else 'missing'):24s} {'seen':8s} {'PASS' if nopark_ok else 'FAIL'}")
+        if not nopark_ok: failures += 1
     if reentry:
         bg_ok = "didEnterBackground" in stext
         fg_ok = "reason=foreground" in stext

@@ -188,8 +188,9 @@ Amethyst shell. It was the **CompositorServices drawable depth clear value**:
 - Fix in this build: default depth clear 1.0; `vrmc-depth-zero.flag` only for A/B.
   Regression test: `scripts/tests/DepthClearRegressionTest.sh`.
 
-Installed build for the next session: `/tmp/VRMC-native-v11-depthfix.app` (shell framework + bridge
-`38624e12…`, provider jar `8e707022…`, signed `dev.vrmc.vrmc`). A pending
+Installed build for the next session: `/tmp/VRMC-native-v13-reentry.app` (shell framework with the
+depth-clear fix, stereo/alignment pattern, scene logging, resilient re-entry; bridge `38624e12…`,
+provider jar `8e707022…`, signed `dev.vrmc.vrmc`). A pending
 `Documents/vrmc-clear-diagnostics.flag` removes stale diagnostic flags on the next launch.
 
 ### Next session (short, decisive)
@@ -200,7 +201,7 @@ Installed build for the next session: `/tmp/VRMC-native-v11-depthfix.app` (shell
    test pattern fills the immersive field of view:
    left eye warm/red, right eye green; one white centre cross per eye that must fuse into a single sharp
    cross (doubled cross = misalignment); red corner marker = left eye, green = right eye; checker border.
-   This build (`v12-stereo`) also carries the depth-clear fix from v11.
+   This build (`v13-reentry`) carries the depth-clear fix, the stereo/alignment pattern and the re-entry fixes.
 3. Game run: StikDebug -> Assign amethyst.js -> Enable JIT -> launch VRMC -> Play.
    Expected: game starts; auto-immersive opens ~15 s later; Vivecraft menu world + GUI fills the field
    of view; head tracking works (move your head).

@@ -35,8 +35,10 @@ FULL=1 runtime/probes/m3c-provider-sim/run.sh # rebuild framework + fake dylib
 ```
 
 Scenarios: `flat` (provider texture through the flat sampled path), `sync` (same with a real
-`MTLSharedEvent` → compositor `encodeWaitForEvent`), `pattern` (eye-distinct stereo/alignment test
-pattern: proof border, warm left-eye tint, white centre fusion cross, red eye marker).
+`MTLSharedEvent` → compositor `encodeWaitForEvent`), `hidepark` (alpha+isHidden parking A/B),
+`nopark` (parking disabled), `pattern` (eye-distinct stereo/alignment test pattern: proof border, warm
+left-eye tint, white centre fusion cross, red eye marker), `reentry` (background via Settings →
+foreground VRMC → the immersive space reopens and presents again).
 
 Requires the visionOS simulator (default `F025E133-019D-4811-944F-F3C8226E14CB`; override with
 `SIM=<udid>`). Outputs per scenario: `/tmp/vrmc-provider-sim/case-flat/` and `case-sync/`
