@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Release gate default app freshness (EV-0187)
+
+- `m6_release_ready.sh` defaults `RELEASE_APP_BUNDLE` from `export/latest-build-identity.txt`'s staged app
+  path, so package freshness checks both app and provider hashes without explicit overrides.
+- Current match app `2388965a…`/provider `a109ae56…`; host gates PASS; acceptance NOT READY.
+
 ## Refreshed package for auto-sprint build (EV-0185)
 
 - Package refreshed to app `2388965a…` + provider `a109ae56…`: bytes=206,471,014 sha256

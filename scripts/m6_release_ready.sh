@@ -24,6 +24,12 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 fail=0; acceptance_ready=0
+# Default package-freshness app path to the staged app recorded by the latest build identity. This makes
+# the release gate check both app and provider by default without hardcoding a staging path.
+if [ -z "${RELEASE_APP_BUNDLE:-}" ] && [ -f export/latest-build-identity.txt ]; then
+  ID_APP=$(sed -n 's/^app path at staging: //p' export/latest-build-identity.txt | head -1)
+  [ -n "$ID_APP" ] && [ -d "$ID_APP" ] && RELEASE_APP_BUNDLE="$ID_APP"
+fi
 step() { echo; echo "===== $* ====="; }
 
 step "host release check"
