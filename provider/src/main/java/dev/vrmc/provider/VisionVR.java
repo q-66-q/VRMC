@@ -259,16 +259,9 @@ public class VisionVR extends MCVR {
         System.out.println("[VRMC-M4] hand components: mode=" + (this.handComponentJoints ? "joints" : "identity")
             + " (hands.componentMode/-Dvrmc.hands.componentMode) holdLastPoseMs="
             + (this.holdLastPoseNanos / 1_000_000L));
-        System.out.printf("[VRMC-M4] locomotion: middleEnabled=%s ringEnabled=%s hotbarRange=%.2f "
-                + "swipeEnabled=%s virtual stick originZ=%.2f forwardScale=%.2f "
-                + "strafeScale=%.2f deadzone=%.2f rotatePulseMs=%d middleOn=%.3f middleOff=%.3f "
-                + "middleTapMs=%.0f middleDoubleMs=%.0f swipeSpeed=%.2f swipeCoolMs=%.0f%n",
-            this.visionInput.middleEnabled(), this.visionInput.ringEnabled(), this.hotbarRange,
-            this.visionInput.swipeEnabled(), this.moveOriginZ, this.moveForwardScale,
-            this.moveStrafeScale, this.moveDeadzone, this.rotatePulseNanos / 1_000_000L,
-            this.visionInput.middleOn(), this.visionInput.middleOff(),
-            (double) this.visionInput.middleTapMillis(), (double) this.visionInput.middleDoubleMillis(),
-            this.visionInput.swipeSpeed(), this.visionInput.swipeCooldownMillis());
+        System.out.println(VisionLogFormat.locomotionLine(this.visionInput, this.hotbarRange,
+            this.moveOriginZ, this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone,
+            this.rotatePulseNanos));
 
         this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
         applyRuntimeSettings(this.runtimeSettings);

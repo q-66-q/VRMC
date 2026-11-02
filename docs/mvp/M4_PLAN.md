@@ -315,6 +315,13 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - m5-command 18 checks; full provider suite PASS; app installed/provider pushed + integrity PASS.
   Device panic/recovery behavior NOT RUN.
 
+## 7a. Device-found init format crash (2026-11-02, EV-0209)
+
+- Device run produced `IllegalFormatConversionException: f != Long` at `VisionVR.init:262`: the startup
+  locomotion log formatted `swipeCooldownMillis()` (long) with `%.0f`.
+- Moved to host-tested `VisionLogFormat.locomotionLine` with explicit types; `m4-log-format` 6 checks;
+  full provider suite PASS; provider pushed + device integrity PASS. VR init retest required.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
