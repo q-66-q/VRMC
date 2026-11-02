@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Reproducibility check (EV-0155)
+
+- `scripts/m6_reproducibility_check.sh` builds the provider twice from the same source and compares
+  sha256/bytes (requires the normal host toolchain/deps; does not touch `/tmp/vrmc-current` or device).
+- Used as the standing release-integrity check for the fixed-timestamp jar.
+
 ## Reproducible provider jar (EV-0154)
 
 - `build_provider.sh` packages with fixed entry timestamps (`jar --date`, override `REPRO_TIMESTAMP`)
