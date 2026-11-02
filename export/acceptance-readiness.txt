@@ -1,0 +1,33 @@
+# VRMC acceptance readiness report
+# generated: 2026-11-02T00:03:46-1000
+# source: docs/mvp/M5_ACCEPTANCE.md, docs/mvp/M6_ACCEPTANCE.md
+
+## M5_ACCEPTANCE.md
+H1     `PARTIAL` (device W1 PASS EV-0096; current build needs re-check) 
+H2     `HOST PASS` (EV-0099), device `NOT RUN` 
+H3     `HOST PASS` (EV-0129), device `NOT RUN` 
+H4     device `PARTIAL` (W1) / current build `NOT RUN` 
+H5     `HOST PASS`, device `NOT RUN` 
+H6     device `PARTIAL`, current build `NOT RUN` 
+H7     `HOST PASS` math only, device appearance `NOT RUN` 
+H8     host `PASS`, device `NOT RUN` 
+H9     host `PASS`, device `NOT RUN` 
+H10    host/docs PASS, device `NOT RUN` 
+
+## M6_ACCEPTANCE.md
+AC-1   M1 CLOSED (EV-0043/0044/0052/0057); native immersive path EV-0094. Re-verify after M4/M5 changes and on a clean install for release. 
+AC-2   EV-0094 operator-confirmed stereo alignment + head tracking; M3-W5/W6 90 Hz/soak still NOT RUN. 
+AC-3   W1 device PASS (EV-0096); W2–W4 host PASS (EV-0097–EV-0101); full AC-4 hands checklist NOT RUN. 
+AC-4   Guesture slices host-tested; real-hands P0 checklist, gesture tuning, no-stuck stress on D1 required. 
+AC-5   `scripts/m6_soak_harness.sh` prepared (dry-run PASS); device run required. 
+AC-6   THIRD_PARTY_NOTICES/licensing present; release manifest script prepared; final source-publication/EULA gate needs release review. 
+K1     needs D1 timing runs (`DT-14`). 
+K2     M5 presets/diagnostics implemented; device pacing trace required. 
+K3     240 fps latency rig protocol + rig availability still required. 
+K4     M6 soak harness + shutdown journal; device run required. 
+K5     shell thermal monitor implemented (EV-0101); device thermal soak required. 
+K6     release manifest records app/bundle size; needs device install measurement. 
+
+## summary
+rows=22 pass=0 partial=3 not-run=11
+[acceptance] RESULT: report only (use --require-pass for the release gate)

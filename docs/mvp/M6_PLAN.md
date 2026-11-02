@@ -32,6 +32,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
   rebuilt from the release commit with device evidence.
 
+## Acceptance readiness report (EV-0139)
+
+- `scripts/m6_acceptance_report.sh` parses M5/M6 acceptance matrices, prints per-row status and counts,
+  and `--require-pass` is the release gate (all rows explicit PASS).
+- Current snapshot in `export/acceptance-readiness.txt`: **NOT READY** (device AC/K/H gates NOT RUN;
+  host-pass/partial rows excluded from PASS).
+- Release check remains host readiness only; the acceptance report is the explicit device gate.
+
 ## Device diagnostics pull (EV-0137)
 
 - `scripts/m6_device_diagnostics_pull.sh [OUT_DIR]` copies local VRMC logs/status/config out of the
