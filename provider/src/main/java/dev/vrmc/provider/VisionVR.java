@@ -346,7 +346,8 @@ public class VisionVR extends MCVR {
             this.dh.climbTracker != null && this.dh.climbTracker.isGrabbingLadder(),
             this.dh.climbTracker != null && this.dh.climbTracker.isClimbeyClimb(),
             this.dh.climbTracker != null && this.mc.player != null
-                && this.dh.climbTracker.isActive(this.mc.player));
+                && this.dh.climbTracker.isActive(this.mc.player),
+            this.visionInput == null ? "" : this.visionInput.gestureSummary());
         String json = VisionStatusJson.build(data, java.time.Instant.now());
         java.nio.file.Path path = this.mc.gameDirectory.toPath().resolve("vrmc-status.json");
         try {

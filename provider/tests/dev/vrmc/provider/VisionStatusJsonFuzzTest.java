@@ -26,7 +26,7 @@ public final class VisionStatusJsonFuzzTest {
                 (i & 2) == 0, (i & 4) == 0, true, runtime, runtime, hotbar, tuning, thermal,
                 thermal, true, false, rnd.nextFloat() * 20.0F, 1.0F, i,
                 (i & 1) == 0, (i & 2) == 0, rnd.nextFloat(),
-                (i & 4) == 0, (i & 8) == 0, (i & 16) == 0);
+                (i & 4) == 0, (i & 8) == 0, (i & 16) == 0, "g" + i);
             String json;
             Map<String, Object> parsed;
             try {

@@ -301,6 +301,13 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   `vrmc-input-tune.properties` (other keys preserved), then reloads the input engine; launcher button.
 - Host tests 15 checks (+command 16); app installed/provider pushed + integrity PASS. Device protocol NOT RUN.
 
+## 6y. Raw-gesture diagnostics (2026-11-02, EV-0195)
+
+- Status JSON exposes a compact `gestures` summary (per-hand pinch/fist/middle/ring/swipe + ring chord);
+  launcher shows it only when non-empty for stuck-gesture/AC-4 debugging.
+- m4-input 187 checks; status-field guard checked=18; app installed/provider pushed + integrity PASS.
+  Device behavior NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

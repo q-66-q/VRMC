@@ -1606,7 +1606,9 @@ struct VRControlOverlay: View {
             if grabbing || climbey || climbActive {
                 climb = " climb=\(grabbing ? "grab" : "-")/\(climbey ? "climbey" : "-")/\(climbActive ? "active" : "-")"
             }
-            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)\(bow)\(climb)"
+            let gestures = obj["gestures"] as? String ?? ""
+            let gestureText = gestures.isEmpty ? "" : " gestures=\(gestures)"
+            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)\(bow)\(climb)\(gestureText)"
         } else {
             providerStatusLine = ""
         }

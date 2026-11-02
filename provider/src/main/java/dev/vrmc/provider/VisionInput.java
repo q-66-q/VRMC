@@ -522,6 +522,30 @@ public final class VisionInput {
 
     public boolean middleEnabled() { return this.middleEnabled; }
     public boolean ringEnabled() { return this.ringEnabled; }
+
+    /** Compact raw-gesture summary for diagnostics (helps spot stuck hands); empty when nothing held. */
+    public String gestureSummary() {
+        StringBuilder b = new StringBuilder(48);
+        appendHand(b, HAND_LEFT, "L");
+        appendHand(b, HAND_RIGHT, "R");
+        if (bothRingPinchPressed()) {
+            if (b.length() > 0) b.append(' ');
+            b.append("ring-chord");
+        }
+        return b.toString();
+    }
+
+    private void appendHand(StringBuilder b, int hand, String tag) {
+        StringBuilder h = new StringBuilder(24);
+        if (this.hands[hand].pinchPressed) h.append("pinch,");
+        if (this.hands[hand].fistPressed) h.append("fist,");
+        if (this.hands[hand].middlePressed) h.append("middle,");
+        if (this.hands[hand].ringPressed) h.append("ring,");
+        if (this.hands[hand].swipeDirection != SWIPE_NONE) h.append("swipe,");
+        if (h.length() == 0) return;
+        if (b.length() > 0) b.append(' ');
+        b.append(tag).append(':').append(h, 0, h.length() - 1);
+    }
     public boolean swipeEnabled() { return this.swipeEnabled; }
     public float swipeSpeed() { return this.swipeSpeed; }
     public float swipeOpenRatio() { return this.swipeOpenRatio; }

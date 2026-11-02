@@ -54,6 +54,7 @@ public final class VisionInputTest {
             tuningOverrides();
             tuningSummary();
             invalidTuningFailsSafe();
+            gestureSummary();
         } catch (Throwable t) {
             t.printStackTrace();
             failures++;
@@ -677,6 +678,20 @@ public final class VisionInputTest {
     // ------------------------------------------------------------------------------------------
     // 12. tuning overrides (file Map + -D system properties, read once)
     // ------------------------------------------------------------------------------------------
+    private static void gestureSummary() {
+        section("gesture diagnostics summary");
+        Rig rig = new Rig();
+        rig.poll(); rig.pollMs(150);
+        rig.in.setEnvironment(false, false, false);
+        check("empty summary when no gestures", rig.in.gestureSummary().isEmpty());
+        rig.lPinch = PINCHED;
+        rig.rFist = FIST;
+        rig.pollMs(150);
+        String summary = rig.in.gestureSummary();
+        check("summary contains left pinch", summary.contains("L:pinch"));
+        check("summary contains right fist", summary.contains("R:fist"));
+    }
+
     private static void invalidTuningFailsSafe() {
         section("invalid hand-edited tuning falls back to safe defaults");
         VisionInput in = new VisionInput(Map.ofEntries(

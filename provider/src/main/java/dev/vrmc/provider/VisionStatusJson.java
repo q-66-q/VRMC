@@ -32,6 +32,7 @@ public final class VisionStatusJson {
         public final float frameP50Ms;
         public final float frameP95Ms;
         public final int missed90Frames;
+        public final String gestures;
         public final boolean bowActive;
         public final boolean bowNotched;
         public final float bowDrawPercent;
@@ -47,7 +48,8 @@ public final class VisionStatusJson {
                     boolean adaptiveFramerate, boolean adaptiveFramerateApplied,
                     float frameP50Ms, float frameP95Ms, int missed90Frames,
                     boolean bowActive, boolean bowNotched, float bowDrawPercent,
-                    boolean climbGrabbing, boolean climbeyClimb, boolean climbActive) {
+                    boolean climbGrabbing, boolean climbeyClimb, boolean climbActive,
+                    String gestures) {
             this.generatedAt = generatedAt;
             this.abi = abi;
             this.bridgeReady = bridgeReady;
@@ -76,6 +78,7 @@ public final class VisionStatusJson {
             this.climbGrabbing = climbGrabbing;
             this.climbeyClimb = climbeyClimb;
             this.climbActive = climbActive;
+            this.gestures = gestures;
         }
     }
 
@@ -104,6 +107,7 @@ public final class VisionStatusJson {
         rawNumber(json, "frameP50Ms", d.frameP50Ms, true);
         rawNumber(json, "frameP95Ms", d.frameP95Ms, true);
         number(json, "missed90Frames", d.missed90Frames, true);
+        field(json, "gestures", d.gestures, true);
         bool(json, "bowActive", d.bowActive, true);
         bool(json, "bowNotched", d.bowNotched, true);
         rawNumber(json, "bowDrawPercent", d.bowDrawPercent, true);
