@@ -122,6 +122,8 @@ public class VisionVR extends MCVR {
     private float hotbarWheelStartX;
     private int hotbarWheelSelected;
     private String lastThermalState = "";
+    private String thermalResponse = "notify";
+    private boolean thermalReductionApplied;
     private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
     private long rotatePulseUntilNs;
@@ -305,7 +307,8 @@ public class VisionVR extends MCVR {
             json.append("  \"hotbarRange\": ").append(this.hotbarRange).append(",\n");
             json.append("  \"inputTuning\": \"").append(this.visionInput == null ? ""
                 : this.visionInput.tuningSummary().replace("\"", "'")).append("\",\n");
-            json.append("  \"thermalState\": \"").append(this.lastThermalState).append("\"\n");
+            json.append("  \"thermalState\": \"").append(this.lastThermalState).append("\",\n");
+            json.append("  \"thermalResponse\": \"").append(this.thermalResponse).append("\"\n");
             json.append("}\n");
             Files.writeString(dir.toPath().resolve("vrmc-status.json"), json.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -403,6 +406,7 @@ public class VisionVR extends MCVR {
         if (settings.hasSimulationDistance) this.mc.options.simulationDistance().set(settings.simulationDistance);
         if (settings.hasFramerateLimit) this.mc.options.framerateLimit().set(settings.framerateLimit);
         if (settings.hasVsync) this.mc.options.enableVsync().set(settings.vsync);
+        this.thermalResponse = settings.thermalResponse;
         System.out.println("[VRMC-M5] runtime settings: " + settings.summary());
         System.out.println("[VRMC-M5] diagnostics: periodSeconds=" + settings.diagnosticPeriodSeconds);
     }
@@ -416,9 +420,40 @@ public class VisionVR extends MCVR {
         String advisory = VisionThermalState.advisory(state);
         if (advisory != null) {
             System.out.println("[VRMC-M5] thermal state=" + state + " -> " + advisory);
-            showGameMessage(advisory);
+            if ("reduce".equals(this.thermalResponse) && !this.thermalReductionApplied) {
+                applyThermalReduction(state);
+            } else {
+                showGameMessage(advisory);
+            }
         } else {
             System.out.println("[VRMC-M5] thermal state=" + state);
+            this.thermalReductionApplied = false;
+        }
+    }
+
+    /**
+     * Opt-in M5 thermal protection: cap render distance/simulation distance and frame limit once when
+     * shell thermal state becomes serious/critical. Never auto-restores (avoids oscillation); the user
+     * can raise values in the launcher after cooling.
+     */
+    private void applyThermalReduction(String state) {
+        this.thermalReductionApplied = true;
+        try {
+            int render = this.mc.options.renderDistance().get();
+            int sim = this.mc.options.simulationDistance().get();
+            int fps = this.mc.options.framerateLimit().get();
+            int newRender = Math.min(render, 8);
+            int newSim = Math.min(sim, 8);
+            int newFps = Math.min(fps, 72);
+            if (newRender != render) this.mc.options.renderDistance().set(newRender);
+            if (newSim != sim) this.mc.options.simulationDistance().set(newSim);
+            if (newFps != fps) this.mc.options.framerateLimit().set(newFps);
+            String detail = "render " + render + "->" + newRender + ", sim " + sim + "->" + newSim
+                + ", fps " + fps + "->" + newFps;
+            System.out.println("[VRMC-M5] thermal protection (" + state + "): " + detail);
+            showGameMessage("[VRMC] thermal protection: " + detail + " (raise later in launcher)");
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M5][WARN] thermal reduction failed: " + t);
         }
     }
 

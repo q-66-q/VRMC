@@ -177,6 +177,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - m5-thermal 8 checks, full provider suite PASS; app installed/provider pushed. Device K5 thermal
   behavior NOT RUN.
 
+## Thermal quality reduction (EV-0133)
+
+- Opt-in `performance.thermalResponse=notify|reduce` (default notify) with launcher picker.
+- On serious/critical thermal state with `reduce`, provider caps render/simulation distance to ≤8 and
+  frame limit to ≤72 once per pressure episode; never auto-restores (user raises after cooling);
+  logs/action-bar show the change; `thermalResponse` in status JSON.
+- m5-settings 25 checks, full provider suite PASS; app installed/provider pushed. Device K5 thermal
+  behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

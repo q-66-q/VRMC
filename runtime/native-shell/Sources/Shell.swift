@@ -1165,6 +1165,7 @@ struct VRControlOverlay: View {
     @State private var autoHeight = true
     @State private var manualHeight = 1.70
     @State private var diagPeriod = 30
+    @State private var thermalResponse = "notify"
     @State private var middleGestures = true
     @State private var swipeGestures = false
     @State private var vignetteEnabled = false
@@ -1327,6 +1328,16 @@ struct VRControlOverlay: View {
                             Text("Height: \(String(format: "%.2f", manualHeight)) m").font(.caption)
                             Slider(value: $manualHeight, in: 1.30...2.10, step: 0.01)
                         }
+                    }
+                    HStack {
+                        Text("Thermal response").font(.caption)
+                        Spacer()
+                        Picker("Thermal response", selection: $thermalResponse) {
+                            Text("Notify").tag("notify")
+                            Text("Reduce quality").tag("reduce")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
                     Stepper("Diagnostics period: \(diagPeriod)s", value: $diagPeriod, in: 10...120, step: 10)
                     Button {
@@ -1502,6 +1513,7 @@ struct VRControlOverlay: View {
             autoHeight = true
         }
         if let raw = values["diagnostics.periodSeconds"], let n = Int(raw) { diagPeriod = min(120, max(10, (n / 10) * 10)) }
+        thermalResponse = values["performance.thermalResponse"] == "reduce" ? "reduce" : "notify"
         let input = shellReadInputTune()
         middleGestures = input["middle.enabled"]?.lowercased() != "false"
         swipeGestures = ["true", "1"].contains(input["swipe.enabled"]?.lowercased() ?? "")
@@ -1532,6 +1544,7 @@ struct VRControlOverlay: View {
         values["comfort.worldScale"] = String(format: "%.2f", worldScale)
         values["comfort.manualHeight"] = autoHeight ? "-1" : String(format: "%.2f", manualHeight)
         values["diagnostics.periodSeconds"] = String(diagPeriod)
+        values["performance.thermalResponse"] = thermalResponse
         var input = shellReadInputTune()
         input["middle.enabled"] = middleGestures ? "true" : "false"
         input["swipe.enabled"] = swipeGestures ? "true" : "false"
