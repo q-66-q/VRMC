@@ -50,6 +50,10 @@ private let diagnosticFlagsClearedAtStartup = [
     "vrmc-immersive-selftest.flag",
     "vrmc-open-on-launch.flag",
     "vrmc-clear-probe.flag",
+    "vrmc-present-proof.flag",
+    "vrmc-no-parking.flag",
+    "vrmc-hide-windows.flag",
+    "vrmc-hide-chrome-always.flag",
     "vrmc-legacy-single-drawable.flag",
     "vrmc-depth-near.flag",
     "vrmc-depth-zero.flag",
@@ -83,8 +87,32 @@ private func neutralizeDiagnosticFlagsIfRequested() {
     shellLog("clear-diagnostics: done")
 }
 
+/// Diagnostic open flags captured BEFORE vrmc-clear-diagnostics deletes them, so pushing
+/// clear-diagnostics + selftest/open-on-launch together still opens the immersive space this launch.
+private enum ShellStartupFlags {
+    static var selftest = false
+    static var openOnLaunch = false
+}
+
+/// Rotate an append-only session log to <name>.prev.log at app start, so each launch has its own file.
+/// The session logs otherwise accumulate across launches (EV-0091/EV-0092 contain 18+ launches in one
+/// file), which makes whole-file log triage produce false PASS/REGRESSION verdicts.
+private func rotateSessionLog(_ name: String, prev: String) {
+    let docs = shellDocumentsURL()
+    let fm = FileManager.default
+    let cur = docs.appendingPathComponent(name)
+    let old = docs.appendingPathComponent(prev)
+    try? fm.removeItem(at: old)
+    if fm.fileExists(atPath: cur.path) {
+        try? fm.moveItem(at: cur, to: old)
+    }
+}
+
 @_cdecl("vrmc_shell_start")
 public func vrmcShellStart() -> Int32 {
+    rotateSessionLog("vrmc-shell.log", prev: "vrmc-shell.prev.log")
+    ShellStartupFlags.selftest = shellDocumentFlag("vrmc-immersive-selftest.flag")
+    ShellStartupFlags.openOnLaunch = shellDocumentFlag("vrmc-open-on-launch.flag")
     shellLog("vrmc_shell_start invoked")
     // Must run before VRMCShellApp.main() so no autolaunch/on-launch flag survives this process.
     neutralizeDiagnosticFlagsIfRequested()
@@ -210,8 +238,8 @@ final class ShellCoordinator {
     private init() {
         hideChromeAlways = shellDocumentFlag("vrmc-hide-chrome-always.flag")
         chromeMode = hideChromeAlways ? "hidden-always" : "hidden-when-immersive"
-        selftestMode = shellDocumentFlag("vrmc-immersive-selftest.flag")
-        openOnLaunch = shellDocumentFlag("vrmc-open-on-launch.flag")
+        selftestMode = ShellStartupFlags.selftest
+        openOnLaunch = ShellStartupFlags.openOnLaunch
         noParking = shellDocumentFlag("vrmc-no-parking.flag")
         hideWindowsOptIn = shellDocumentFlag("vrmc-hide-windows.flag")
         observe(Notification.Name("VRMCGameStarted")) { $0.gameDidStart() }
@@ -394,6 +422,10 @@ final class ShellCoordinator {
         presenting = true
         statusMessage = "VR presenting"
         lastOpenError = nil
+        // The auto-retry after a layer that dies right after opening compares generations. The open
+        // request happens before the compositor thread exists (generation 0), so the real generation is
+        // only known here, at the first presented frame.
+        lastOpenGeneration = VRMCCompositor_CurrentGeneration()
         // Audible canary: the operator can confirm the first presented frame even if they are not
         // looking at the centre of the field of view (diagnostic only; system sound, no asset).
         AudioServicesPlaySystemSound(1057)
@@ -570,10 +602,13 @@ final class ShellCoordinator {
                 try? await Task.sleep(for: .milliseconds(300))
             }
             guard self.appActive && self.windowSceneActive else {
-                self.shellLogSafe("\(reason): scene not foreground-active; deferring open to next activation")
+                self.shellLogSafe("\(reason): scene not foreground-active; deferring open to next activation (will retry)")
+                // Retry on the next app activation: appDidBecomeActive re-opens when reopenOnActive is set,
+                // so an auto open that loses the race with scene activation is not silently dropped.
+                self.reopenOnActive = true
+                self.statusMessage = "VR open deferred (will retry)"
                 if reason == "manual" {
                     self.lastOpenError = "The VRMC window must be in front. Look at the app and tap Enter VR again."
-                    self.statusMessage = "VR open deferred"
                 }
                 return
             }

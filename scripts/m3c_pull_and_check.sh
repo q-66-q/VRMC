@@ -29,6 +29,31 @@ COMP="$OUTDIR/vrmc-compositor.log"
 SHELLLOG="$OUTDIR/vrmc-shell.log"
 fail=0
 
+# B1 (audit): session-scoped triage. The device logs rotate per app launch (vrmc-compositor.log /
+# vrmc-shell.log are this launch; *.prev.log is the previous one), but a pull can still contain several
+# compositor sessions (one log = one app launch, but multiple immersive sessions inside it). Analyse only
+# the LAST session so stale lines cannot produce a false PASS/REGRESSION.
+SCOPE="$OUTDIR/session"
+mkdir -p "$SCOPE"
+if [ -f "$COMP" ]; then
+  start=$(grep -n 'starting compositor thread' "$COMP" 2>/dev/null | tail -1 | cut -d: -f1)
+  if [ -n "${start:-}" ]; then
+    tail -n +"$start" "$COMP" > "$SCOPE/vrmc-compositor.session.log"
+    COMP="$SCOPE/vrmc-compositor.session.log"
+  fi
+fi
+if [ -f "$SHELLLOG" ]; then
+  start=$(grep -n 'vrmc_shell_start invoked' "$SHELLLOG" 2>/dev/null | tail -1 | cut -d: -f1)
+  if [ -n "${start:-}" ]; then
+    tail -n +"$start" "$SHELLLOG" > "$SCOPE/vrmc-shell.session.log"
+    SHELLLOG="$SCOPE/vrmc-shell.session.log"
+  fi
+fi
+echo "== session scope =="
+echo "  compositor lines: $(wc -l < "$COMP" 2>/dev/null | tr -d ' ' || echo 0)  shell lines: $(wc -l < "$SHELLLOG" 2>/dev/null | tr -d ' ' || echo 0)"
+echo "  first compositor line: $(head -1 "$COMP" 2>/dev/null | cut -c1-120)"
+echo "  first shell line:      $(head -1 "$SHELLLOG" 2>/dev/null | cut -c1-120)"
+
 echo "== compositor diagnostics (last session) =="
 grep -E 'diagnostics: reprojMode' "$COMP" 2>/dev/null | tail -2 || echo "  (no diagnostics line)"
 

@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0094`.
+**Next evidence ID:** `EV-0095`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -2310,7 +2310,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Procedure:**
 
 1. Integrate M3b fixes: VRMCCompositor diagnostics/no-black fallbacks/black-texture detection; Shell.swift epoch-guarded reopen + scene-activity gating + chrome mode; Amethyst modal game-surface patch (vrmc-m3w3) keeping the SwiftUI scene alive; build/stage scripts; provider/bridge built reproducibly.
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Black-immersive root cause found and fixed (EV-0093)**: M3b changed the CompositorServices drawable depth clear from 1.0 to 0.0, which makes visionOS 27.2 present the layer black even though the colour drawable is bright; device A/B (known-good probe / deprecated-API / minimal-window builds) shows 0.0 -> black, 1.0 -> visible, operator-confirmed. Default is 1.0 again, with `vrmc-depth-zero.flag` for A/B and a regression test. Provider/display-view path was already device-proven correct (EV-0091/EV-0092). Manual "Enter VR" entry, scene-activation/layer-state logging, alpha-only first-frame-gated parking and the no-JIT selftest are in the installed build; final visual + game-in-immersive acceptance run is EV-0094 (operator). |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; **M3-W3/W4 visual acceptance PASS on D1 (EV-0094)**. Black-immersive root cause was the M3b drawable depth-clear change 1.0 -> 0.0 (EV-0093); with the default 1.0 the immersive shows the eye-distinct stereo/alignment pattern (fusion cross, per-eye tint, checker border; drawable readback L luma 110.4 / R luma 110.4, centre ~171) and a JIT game run renders the Vivecraft menu world in the immersive space with stereo aligned and head tracking, operator-confirmed. The black-immersive blocker is CLOSED. Remaining M3 work: M4 input, window chrome, background re-entry device check, provider GPU-sync device run, M3-W5/W6 90 Hz/soak. |
 3. Build Amethyst native executable from vendor/amethyst-build + patches 1-4 via cmake (Debug, iphoneos sysroot) then vtool -set-build-version 11 1.0 1.0; stage into the EV-0086 app bundle with new framework + rebuilt bridge, re-sign 169 Mach-O, codesign --verify --deep --strict.
 4. Install the staged app on D1 with devicectl (update install, data container preserved).
 5. Code/convention validation: macOS Metal shader unit test (runtime/probes/m3b-shader-test) and visionOS simulator reprojection probe (runtime/probes/m3b-reproj) incl. reconstructed EV-0086 device views.
@@ -2497,6 +2497,35 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 ---
 
+### EV-0094 — M3c on-device visual acceptance PASS: manual/auto immersive shows the stereo/alignment pattern and a JIT game run renders the Vivecraft menu world in the immersive space (stereo aligned, head tracking active)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T19:04:30-10:00 |
+| Commit | audit-fix build: shell '83cb12b9b8e3', bridge '109328f8f560', provider jar '2b889090186a' (staged app VRMC-native-v14-auditfix.app) |
+| Dirty state | clean (code+docs for the audit fixes committed together with this entry) |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | PASS (M3-W3/W4 visual acceptance; the black-immersive blocker is closed) |
+
+**Procedure:**
+
+1. build/stage/install VRMC-native-v14-auditfix.app; push the provider jar (round-trip sha256 verified: provider jar '2b889090186a'), set the game-dir capture flag content to 'off', push clear-diagnostics + drawable-dump flags
+2. operator unlock/wear D1, launch VRMC, pinch the manual **Enter VR** overlay button
+3. operator JIT flow: StikDebug -> assign script -> Enable JIT -> launch VRMC fresh -> press Play; the shell auto-opens the immersive space ~15 s after VRMCGameStarted
+4. pull Documents/{vrmc-shell.log, vrmc-compositor.log, latestlog.txt, vrmc-drawable-*.raw,.meta} and inspect session-scoped triage
+
+**Expected:** the immersive shows the eye-distinct stereo/alignment pattern (warm/red left, green right, single fused white centre cross, red/green corner eye markers, cyan/white checker border) and the JIT game renders the Vivecraft menu world in the immersive space with head tracking; no black, no floating window
+
+**Actual:** PASS, operator-confirmed.
+- Manual/immersive pattern (operator): "Yes - pattern + fusion cross + border visible, window faded". The logged session (05:00:16 UTC) shows depthZero=0, one built_in drawable with 2 views/2 textures, first presented frame, layerState=2, CPSceneSessionRoleImmersiveSpaceApplication:fgActive, and a bright per-eye drawable readback proving correct eye-distinct content: L mean RGB (183.5,77.9,69.8) luma 110.4, R mean RGB (55.3,163.2,112.7) luma 110.4, centre luma ~171, nonBlack 4096/4096; meta meanLuma=110.41.
+- JIT game run (operator): "the game launched successfully! the eyesight is aligned and it shows the game properly in immersive!" Logged run: VRMCGameStarted 05:04:02 UTC; auto openImmersiveSpace result=opened 05:04:17; first presented frame -> VRMCCompositorRunning; windows parked alpha=0.00 (both app windows) with periodic re-park; compositor diagnostics depthZero=0, mode=flat; provider eye textures live and changing (mean luma 46 -> 35 -> 109 -> 156 as MenuWorlds world59 rendered; display views applied exactly, e.g. Lpos=(-0.0328,-0.0265,-0.0347) Rpos=(0.0316,-0.0246,-0.0347), ipd 0.0645); drawable proof luma 35 -> 118 -> 129, nonBlack ~4000/4096, first command buffer completed, no command-buffer FAILED lines; tracking frames present. Operator ended the session at 05:04:34 (headset off / crown) after confirming the view.
+- This closes the black-immersive blocker: with the EV-0093 depth-clear fix active (depthZero=0) the same shell/compositor now displays both the procedural pattern and the live game image on D1, and the operator reports correct stereo alignment and head tracking.
+
+**Artifacts:** evidence/EV-0094/step1-compositor.log (5266bbf170f1); evidence/EV-0094/step1-shell.log (2b7d561ce8af); evidence/EV-0094/step1-drawable-L.raw (e56de470180f); evidence/EV-0094/step1-drawable-R.raw (4eadbe925be1); evidence/EV-0094/step1-drawable-L.meta (98ec5e82b916); evidence/EV-0094/game-live-compositor.log (07af3471a8d1); evidence/EV-0094/game-live-shell.log (f7694840ff19); evidence/EV-0094/game-live-latestlog.txt (8e8ed4dbfea5); evidence/EV-0094/game-drawable-L.meta (4e10f56b5669); evidence/EV-0094/game-latestlog-final.txt (8e8ed4dbfea5)
+
+**Limitations:** operator reports are informal (no recording) and the game session was ended by the operator ~17 s after the immersive opened, so this is functional first-light acceptance, not a stability/soak test (M3-W5/W6 remain). The 05:00 pattern session was opened by a stale selftest flag captured before clear-diagnostics (the H2 fix deliberately captured it); it proves the compositor/pattern path on device, while the manual button gesture itself uses the same openImmersiveSpace path exercised by the game run. Stereo alignment is operator-confirmed but not quantitatively measured; 90 Hz pacing, window chrome, background/foreground re-entry, M4 input and provider GPU-sync device paths remain open. Provider eye-target PNG capture was disabled for this run by flag content ('off').
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -2509,7 +2538,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
 | **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Black-immersive root cause found and fixed (EV-0093)**: M3b changed the CompositorServices drawable depth clear from 1.0 to 0.0, which makes visionOS 27.2 present the layer black even though the colour drawable is bright; device A/B (known-good probe / deprecated-API / minimal-window builds) shows 0.0 -> black, 1.0 -> visible, operator-confirmed. Default is 1.0 again, with `vrmc-depth-zero.flag` for A/B and a regression test. Provider/display-view path was already device-proven correct (EV-0091/EV-0092). Manual "Enter VR" entry, scene-activation/layer-state logging, alpha-only first-frame-gated parking and the no-JIT selftest are in the installed build; final visual + game-in-immersive acceptance run is EV-0094 (operator). |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; **M3-W3/W4 visual acceptance PASS on D1 (EV-0094)**. Black-immersive root cause was the M3b drawable depth-clear change 1.0 -> 0.0 (EV-0093); with the default 1.0 the immersive shows the eye-distinct stereo/alignment pattern (fusion cross, per-eye tint, checker border; drawable readback L luma 110.4 / R luma 110.4, centre ~171) and a JIT game run renders the Vivecraft menu world in the immersive space with stereo aligned and head tracking, operator-confirmed. The black-immersive blocker is CLOSED. Remaining M3 work: M4 input, window chrome, background re-entry device check, provider GPU-sync device run, M3-W5/W6 90 Hz/soak. |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -2549,7 +2578,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
-| M3c final visual confirmation of the depth-clear fix (EV-0093) | Open | The fixed build (`VRMC-native-v11-depthfix.app`, depth clear 1.0 default + scene-activation logging) is signed/installed on D1. Operator must unlock/wear D1, launch VRMC, tap **Enter VR** (expect the bright test pattern / beep), then run the JIT game (StikDebug -> Enable JIT -> Play) and confirm the game fills the field of view; pull `Documents/{vrmc-shell.log,vrmc-compositor.log,latestlog.txt}` and record EV-0094. |
+| M3c black immersive / device presentation | **CLOSED** | EV-0093 root cause fixed (CompositorServices drawable depth clear 1.0) and EV-0094 device acceptance PASS: stereo pattern + JIT game-in-immersive, aligned with head tracking, operator-confirmed. Remaining follow-ups (M4 input, chrome, re-entry, GPU-sync device run, 90 Hz soak) are tracked separately. |
 
 ---
 
@@ -2620,6 +2649,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | M3c recovery: a read->write round-trip on VERIFY.md/AGENT.md truncated their tails (VERIFY 2631->961 lines, AGENT 699->653); both restored from commit 3f9ab0d via `git show <commit>:FILE > FILE`, the intended M3c change-log rows re-applied, and AGENT.md gained rule 0.8 forbidding read->write round-trips on long files. |
 | 2026-11-01 | M3c provider GPU sync (task-7): flag-gated, off-by-default provider half of the bridge task-4 GPU handoff implemented (exportable timeline VkSemaphore + MTLSharedEvent via VK_EXT_metal_objects, signalled through MC own Vulkan submission, submitEyesSynced); graceful fallback on every failure; host suite PASS incl. real MoltenVK (heap-buffer SIGSEGV caught pre-device). Java ABI v2 unchanged; device NOT RUN; EV-0094 build keeps the previous provider jar. |
 | 2026-11-01 | M3c self-check tooling: runtime/probes/m3c-provider-sim/ headless simulator harness (flat sampling / GPU-timeline sync / stereo pattern / window-parking A-B / background->foreground re-entry - scenarios PASS) and scripts/m3c_selfcheck.sh one-command host+simulator suite; shell re-entry generalized + hardened for layer-invalidates-before-background. Device validation remains EV-0094. |
+| 2026-11-01 | **EV-0094 (PASS, device): M3c visual acceptance** - operator-confirmed stereo/alignment pattern (border, fusion cross, per-eye tint; drawable readback L luma 110.4 / R luma 110.4, centre ~171) and a JIT game run rendering MenuWorlds world59 in the immersive space with stereo aligned and head tracking (auto-open 05:04:17 UTC, windows alpha-0 parked, depthZero=0, provider textures luma 35-156, drawable proof luma 35-129, no command-buffer failures). The black-immersive blocker is closed; root cause EV-0093. Remaining: M4 input, chrome, re-entry, GPU-sync device run, M3-W5/W6 pacing/soak. Next ID EV-0095. |
 | 2026-11-01 | Propagation: M3C_PLAN (root cause, bisect results, next session), compositor-presentation.md §6 resolution, export/README root-cause + next-run dossier, scripts/README regression test. |
 
 ---

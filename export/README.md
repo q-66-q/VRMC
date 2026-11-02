@@ -212,3 +212,12 @@ provider jar `8e707022…`, signed `dev.vrmc.vrmc`). A pending
 
 Known remaining items after the visual confirmation: stereo alignment check (flat 1:1 display frustum),
 window chrome hiding, background/foreground re-entry, provider GPU sync (deferred; bridge API ready).
+
+## RESOLVED ON DEVICE (EV-0094 PASS, 2026-11-01)
+
+The v14 build passed the on-device acceptance: with the EV-0093 depth-clear fix active the immersive shows
+the stereo/alignment pattern (fusion cross, per-eye tint, checker border) and a JIT game run renders the
+Vivecraft menu world in the immersive space with stereo aligned and head tracking. Operator: "the game
+launched successfully! the eyesight is aligned and it shows the game properly in immersive!". The
+black-immersive blocker is CLOSED; remaining work is M4 input, chrome, re-entry, provider GPU-sync device
+run and pacing/soak (M3-W5/W6).

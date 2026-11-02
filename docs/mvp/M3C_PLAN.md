@@ -1,6 +1,8 @@
 # M3c plan — black immersive on device: presentation-stage isolation (2026-11-01)
 
-Status: **ROOT CAUSE FOUND AND FIXED in code; final visual/game re-confirmation pending operator**.
+Status: **RESOLVED ON DEVICE (EV-0094 PASS).** Black-immersive root cause found and fixed (EV-0093), and the
+v14 build passed the on-device visual acceptance: stereo/alignment pattern and a JIT game run rendering the
+Vivecraft menu world in the immersive space with stereo aligned and head tracking, operator-confirmed.
 Evidence: EV-0091 (fresh post-JNI-fix runs), EV-0092 (M3c diagnostics + simulator control),
 EV-0093 (depth-clear A/B root cause). No gate is claimed until the final build is visually confirmed on
 D1; M3-W3/W4 remains PARTIAL.
@@ -65,34 +67,36 @@ layer-state logging, and a no-JIT immersive selftest. Info.plist unchanged.
 | T9 | Depth clear 1.0 (probe parity) + clear-only colours | **magenta/cyan visible** -> root cause |
 | T10 | Default depth 1.0 (array API) + scene logging | staged as `/tmp/VRMC-native-v11-depthfix.app` (installed); visual re-confirmation pending |
 
-## 4. Next device session (operator) — decisive, short
+## 4. Device acceptance - DONE (2026-11-01, EV-0094 PASS)
 
-1. Unlock/wear D1. The installed build is `VRMC-native-v13-reentry.app` (depth-clear fix + eye-distinct
-   stereo/alignment test pattern + scene-activation logging + resilient background/foreground re-entry;
-   signed, installed). The pending
-   `vrmc-clear-diagnostics.flag` cleans stale diagnostic flags on first launch.
-2. Launch **VRMC** from Home (or `devicectl device process launch --activate dev.vrmc.vrmc`).
-   Expected: launcher window with the **Enter VR** overlay button.
-3. Tap **Enter VR**. Expected: first-presented-frame beep; the window fades; the immersive shows the
-   eye-distinct stereo/alignment test pattern (v12 build; v11 has the plain gradient):
-   - left eye = warm/red tint, right eye = green tint (close one eye to confirm eye order);
-   - a white centre cross per eye that must **fuse into one sharp cross** when the eyes are aligned;
-   - a corner marker (red = left eye, green = right eye) with a white outline;
-   - a cyan/white checker border (present-proof) around each eye image.
-   If the crosses appear doubled / horizontally offset, stereo alignment is off (report which way).
-   Pull
-   `Documents/vrmc-shell.log` (`STATE ... scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive]`)
-   and `Documents/vrmc-compositor.log` (`layerState=2`, bright `drawable proof`).
-4. Game run: StikDebug -> Assign amethyst.js -> Enable JIT -> VRMC -> Play. Expected: game starts, auto
-   immersive opens ~15 s later, the menu world + GUI fills the field of view and head tracking works.
-5. Record EV-0093 update / EV-0094 per step with operator report; end with M3-W3/W4 visual acceptance.
+The staged v14 build was installed and run on D1:
+- manual/immersive test: the eye-distinct stereo/alignment pattern displays (fusion cross, per-eye tint,
+  checker border); the drawable readback proves the per-eye content (L warm, R green, centre luma ~171).
+  Operator: "pattern + fusion cross + border visible, window faded".
+- JIT game run: auto-immersive after VRMCGameStarted; the Vivecraft menu world renders in the immersive
+  space with stereo aligned and head tracking. Operator: "the game launched successfully! the eyesight is
+  aligned and it shows the game properly in immersive!". Logs: depthZero=0, mode=flat, provider eye
+  textures live (luma 35-156), drawable proof luma 35-129, windows parked alpha-0, no command-buffer
+  failures. The black-immersive blocker is CLOSED (root cause EV-0093).
+
+## 4b. Independent audit (m3c-reviewer, pre-device-run)
+
+Report: docs/analysis/m3c-review.md (no runtime blocker; depth fix and present path verified
+in source and in the installed binary). Fixed before handoff: B1 per-launch log rotation +
+session-scoped triage; H1 proof border on the manual test pattern; H2 complete diagnostic-flag
+cleanup + pre-neutralisation capture of selftest/open-on-launch; H3 re-entry trap removed from
+the operator checklist; M1 auto-retry generation; M2 deferred-open retry; M4 provider capture
+can now be disabled by flag content (off); M5 preflight script + recorded build identity;
+M6 self-check builds the shell framework; M7 texture-vs-view index in the format probe.
+Residual MEDIUM: cancelled-frame submission contract (documented in code), device-unproven
+provider sync/capture paths.
 
 ## 5. Follow-ups after visual confirmation
 
 Headset-free regression tooling now in-repo: `runtime/probes/m3c-provider-sim/` runs the real shell +
 compositor in the visionOS simulator against a fake provider dylib (real `MTLTexture`s, known pattern)
 and asserts the flat sampled output orientation/layout, the `MTLSharedEvent` sync wait path, the
-stereo/alignment test pattern markers and background→foreground re-entry (`run.sh`, four scenarios, all
+stereo/alignment test pattern markers and background→foreground re-entry (`run.sh`, six scenarios, all
 PASS). One-command self-check: `scripts/m3c_selfcheck.sh`. Use these after any compositor/shader/bridge/
 lifecycle change; they are not a substitute for device evidence for presentation or stereo.
 

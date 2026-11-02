@@ -3,15 +3,20 @@
 Flags are empty marker files in the app data container `Documents/` (or, for provider flags, in the
 Minecraft game directory `Documents/instances/default/`). Most are read once when the shell/compositor
 thread starts, so **relaunch the app after pushing/removing one**. `devicectl` can copy and list files
-but not delete them; push `vrmc-clear-diagnostics.flag` to have the shell delete the diagnostic set at
-| vrmc-gpu-sync.flag | Enable the provider GPU-timeline sync (exportable timeline VkSemaphore + MTLSharedEvent, signalled through MC own frame submission) so the compositor can wait on the exact GPU frame before sampling. Off by default; first flagged launch only records the VK_EXT_metal_objects device-extension request and falls back, a second launch activates it. Details: docs/analysis/provider-gpu-sync.md. |
+push vrmc-clear-diagnostics.flag to have the shell delete the shell/compositor diagnostic
+set at startup (it removes itself last and never touches the provider game-dir flags or
+vrmc-drawable-dump.flag).
+
+The append-only session logs rotate at every app launch: vrmc-shell.log / vrmc-compositor.log
+contain only the current launch, *.prev.log the previous one; analyze only the current files
+(the triage script scopes to the last session automatically).
 startup (it removes itself last and never touches `vrmc-capture.flag`/`vrmc-drawable-dump.flag`).
 
 ## Shell flags (Documents/)
 
 | Flag | Effect |
 |---|---|
-| `vrmc-clear-diagnostics.flag` | At startup, delete the diagnostic flags below + stale `autolaunch.flag`; logs one line per deletion, then deletes itself. |
+| vrmc-clear-diagnostics.flag | At startup, delete the shell/compositor diagnostic flags documented here + stale autolaunch.flag, one log line per deletion, then itself. It never touches the provider game-dir flags or vrmc-drawable-dump.flag. vrmc-immersive-selftest.flag / vrmc-open-on-launch.flag are captured BEFORE the deletion, so pushing clear-diagnostics + selftest together still opens the space this launch. |
 | `vrmc-immersive-selftest.flag` | Open the immersive space without the game/JIT ~3 s after launch (retries 1/s for 15 s), leave windows visible, force the procedural pattern + proof overlay + drawable dumps. Diagnostic only. |
 | `vrmc-open-on-launch.flag` | Open the immersive space ~3 s after launch WITHOUT forcing the test pattern (used by the simulator provider-sampling harness; with a real game it is a manual-style open). |
 | `vrmc-no-parking.flag` | Never park the 2D windows in immersive mode (A/B; windows stay visible). |
@@ -40,6 +45,7 @@ startup (it removes itself last and never touches `vrmc-capture.flag`/`vrmc-draw
 | Flag | Effect |
 |---|---|
 | `vrmc-capture.flag` | Enable off-by-default eye-target PNG capture: `<gameDir>/vrmc-capture/vrmc_eye_L_f<N>.png`, `vrmc_eye_R_f<N>.png`, `vrmc_world_f<N>.png` (defaults: every 300 frames, max 3). |
+| vrmc-gpu-sync.flag | Enable the provider GPU-timeline sync (exportable timeline VkSemaphore + MTLSharedEvent, signalled through MC own frame submission) so the compositor can wait on the exact GPU frame before sampling. Off by default; the first flagged launch only records the VK_EXT_metal_objects device-extension request and falls back, a second launch activates it. Details: docs/analysis/provider-gpu-sync.md. |
 
 ## Expected log lines for a healthy manual/immersive run
 

@@ -7,7 +7,10 @@ when present. No PC, no streaming.
 > **Status: M3 in progress — native visionOS app + CompositorServices stereo presenter.** The
 > launcher, JVM/JIT runtime, Minecraft 26.2 + Fabric + Vivecraft and the VRMC provider (LGPL) run
 > end-to-end on Apple Vision Pro; current work is the immersive presentation path. In the latest device
-> iteration the black-immersive root cause was found and fixed (drawable depth-clear value; EV-0093).
+> iteration the black-immersive root cause was found and fixed (drawable depth-clear value; EV-0093) and
+> the immersive path passed on-device acceptance: the stereo/alignment pattern displays and a JIT game run
+> renders the Vivecraft menu world in the immersive space with stereo aligned and head tracking
+> (EV-0094 PASS).
 > Status claims are governed by [`VERIFY.md`](VERIFY.md); the operating manual is
 > [`AGENT.md`](AGENT.md), and the current plan/root-cause dossier is
 > [`docs/mvp/M3C_PLAN.md`](docs/mvp/M3C_PLAN.md).

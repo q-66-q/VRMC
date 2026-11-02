@@ -315,9 +315,11 @@ Flag read at startup only: pushing/removing these flags requires an app relaunch
 3. Colour/brightness: the 16:39 provider textures were bright (luma ~105) while EV-0090's were dark
    (luma ~14–60). Compare `vrmc-drawable-L.meta` `meanLuma` with the `provider tex L` log line of the
    same run to tell "dark content" from "pipeline darkening".
-4. The shell flag neutralisation covers `autolaunch.flag`/`vrmc-immersive-on-launch.flag`; for a
-   selftest run push `vrmc-clear-diagnostics.flag` + `vrmc-immersive-selftest.flag` together if the
-   container may still hold an old on-launch flag.
+4. The shell flag neutralisation now covers every documented shell/compositor diagnostic flag and
+   captures vrmc-immersive-selftest.flag / vrmc-open-on-launch.flag BEFORE deleting them, so
+   pushing vrmc-clear-diagnostics.flag + vrmc-immersive-selftest.flag together works (audit H2).
+   Session logs rotate per app launch (*.prev.log keeps the previous one) and the triage script
+   scopes to the last session (audit B1).
 5. The bridge eye-frame API requires the rebuilt `libvrmc_bridge.dylib` (bridge-sync) to be staged
    together with this framework; without it the compositor falls back to `vrmc_shared_eye_textures`
    (no GPU timeline wait).

@@ -107,7 +107,19 @@ static void compLog(const char *fmt, ...) {
 static void openLog(void) {
     if (gLog) return;
     NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *path = [paths.firstObject stringByAppendingPathComponent:@"vrmc-compositor.log"];
+    NSString *dir = paths.firstObject;
+    NSString *path = [dir stringByAppendingPathComponent:@"vrmc-compositor.log"];
+    // B1 (audit): rotate the append-only session log once per process so one file = one app launch.
+    // Whole-file evidence triage otherwise mixes 18+ compositor sessions (false PASS/REGRESSION risk).
+    static dispatch_once_t rotateOnce;
+    dispatch_once(&rotateOnce, ^{
+        NSString *prev = [dir stringByAppendingPathComponent:@"vrmc-compositor.prev.log"];
+        NSFileManager *fm = [NSFileManager defaultManager];
+        [fm removeItemAtPath:prev error:nil];
+        if ([fm fileExistsAtPath:path]) {
+            [fm moveItemAtPath:path toPath:prev error:nil];
+        }
+    });
     gLog = fopen(path.UTF8String, "a");
 }
 
@@ -810,9 +822,13 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                 framesWithoutDrawable++;
                 if (!warnedNoDrawables) {
                     warnedNoDrawables = YES;
-                    compLog("NO-DRAWABLE: frame %d returned 0 drawables; abandoning the frame WITHOUT "
-                            "start/endSubmission (CompositorServices aborts on end_submission without a "
-                            "presented drawable)", frameCount);
+                    // cp_frame_start_submission already ran above. The array-API contract marks a
+                    // 0-count frame as cancelled and "invalid to access", so it is abandoned without
+                    // calling cp_frame_end_submission (the known-good M3A probe only ends submissions
+                    // it presented; a mid-submission abandon here is the documented cancellation path).
+                    compLog("NO-DRAWABLE: frame %d cancelled (0 drawables after startSubmission); "
+                            "abandoning without cp_frame_end_submission per the array-API contract",
+                            frameCount);
                 }
                 continue;
             }
@@ -867,10 +883,20 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             // Pipelines are built from the formats the DRAWABLE actually reports. A mismatch between
             // the configured colour format and the presented texture silently drops the draw (and
             // possibly the whole pass, including the load-action clear), which presents as black.
+            // M7 (audit): view index != texture index in general. Use the first view's texture-map
+            // texture index (clamped to the drawable's texture count) for the attachment-format probe.
+            size_t probeTexIndex = 0;
+            size_t probeTexCount = cp_drawable_get_texture_count(mainDrawable);
+            if (views > 0) {
+                cp_view_texture_map_t probeMap =
+                    cp_view_get_view_texture_map(cp_drawable_get_view(mainDrawable, 0));
+                probeTexIndex = cp_view_texture_map_get_texture_index(probeMap);
+                if (probeTexIndex >= probeTexCount) probeTexIndex = 0;
+            }
             id<MTLTexture> probeColor = views > 0
-                ? cp_drawable_get_color_texture(mainDrawable, (size_t)leftView) : nil;
+                ? cp_drawable_get_color_texture(mainDrawable, probeTexIndex) : nil;
             id<MTLTexture> probeDepth = views > 0
-                ? cp_drawable_get_depth_texture(mainDrawable, (size_t)leftView) : nil;
+                ? cp_drawable_get_depth_texture(mainDrawable, probeTexIndex) : nil;
             if (probeColor != nil) {
                 MTLPixelFormat actualColor = probeColor.pixelFormat;
                 MTLPixelFormat actualDepth = probeDepth != nil ? probeDepth.pixelFormat : MTLPixelFormatInvalid;
@@ -1337,7 +1363,9 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 [enc drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
                             }
                         }
-                        if ((presentProof || selfTest) && pipes.proof != nil) {
+                        // H1 (audit): the manual Enter-VR path has no provider eyes and shows the test
+                        // pattern; draw the proof border then too, so the runbook's expected border is real.
+                        if ((presentProof || selfTest || (!haveEyes && testPatternNow)) && pipes.proof != nil) {
                             [enc setRenderPipelineState:pipes.proof];
                             float viewportSize[2] = { (float)viewport.width, (float)viewport.height };
                             [enc setFragmentBytes:viewportSize length:sizeof(viewportSize) atIndex:2];

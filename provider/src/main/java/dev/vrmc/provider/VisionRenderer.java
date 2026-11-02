@@ -300,8 +300,21 @@ public class VisionRenderer extends VRRenderer {
             dir = java.nio.file.Path.of(explicit);
         } else {
             java.io.File gameDir = Minecraft.getInstance().gameDirectory;
-            if (gameDir == null || !new java.io.File(gameDir, "vrmc-capture.flag").isFile()) {
+            java.io.File flag = gameDir == null ? null : new java.io.File(gameDir, "vrmc-capture.flag");
+            if (flag == null || !flag.isFile()) {
                 return false;
+            }
+            // The flag file can be overwritten (devicectl cannot delete files) to disable capture:
+            // content "off" / "0" / "false" turns it off without changing the provider jar again.
+            try {
+                String text = java.nio.file.Files.readString(flag.toPath()).trim()
+                    .toLowerCase(java.util.Locale.ROOT);
+                if (text.equals("0") || text.equals("off") || text.equals("false")) {
+                    System.out.println("[VRMC-CAP] eye-target PNG capture disabled by flag content (" + text + ")");
+                    return false;
+                }
+            } catch (RuntimeException | java.io.IOException ignored) {
+                // empty/unreadable flag => enabled (existence semantics, as before)
             }
             dir = gameDir.toPath().resolve("vrmc-capture");
         }
