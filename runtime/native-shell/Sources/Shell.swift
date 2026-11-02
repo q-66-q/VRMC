@@ -1454,6 +1454,10 @@ struct VRControlOverlay: View {
                             commandStatus = shellQueueGameCommand("apply-hand-calibration") ? "Apply calibration queued." : "Queue failed."
                         }
                         .buttonStyle(.bordered)
+                        Button("Release stuck input") {
+                            commandStatus = shellQueueGameCommand("release-input") ? "Input release queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
                     }
                     if !commandStatus.isEmpty {
                         Text(commandStatus).font(.caption2).foregroundStyle(.secondary)

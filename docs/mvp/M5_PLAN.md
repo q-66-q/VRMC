@@ -341,6 +341,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   and queues `reload-input`; runtime/comfort settings, saves/logs and crash guard stay intact.
 - Shell/app build/install PASS; provider unchanged + integrity PASS. Device UI NOT RUN.
 
+## Release-input panic command (EV-0196)
+
+- Launcher **Release stuck input** queues a provider reset that clears all held actions; gestures re-arm
+  only on fresh input. m5-command 18 checks; app installed/provider pushed + integrity PASS.
+- Device panic/recovery behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

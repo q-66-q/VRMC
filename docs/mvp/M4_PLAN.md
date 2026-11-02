@@ -308,6 +308,13 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - m4-input 187 checks; status-field guard checked=18; app installed/provider pushed + integrity PASS.
   Device behavior NOT RUN.
 
+## 6z. Release-input panic command (2026-11-02, EV-0196)
+
+- `release-input` resets the gesture engine/bindings/hotbar wheel/snap-turn pulse, releasing all held
+  actions; gestures re-arm only on fresh input. Launcher button + action-bar feedback.
+- m5-command 18 checks; full provider suite PASS; app installed/provider pushed + integrity PASS.
+  Device panic/recovery behavior NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

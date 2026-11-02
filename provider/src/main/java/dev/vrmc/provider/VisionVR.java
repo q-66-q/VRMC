@@ -648,6 +648,17 @@ public class VisionVR extends MCVR {
                     applyRuntimeSettings(this.runtimeSettings);
                     detail = "runtime settings reloaded and applied";
                 }
+                case "release-input" -> {
+                    this.visionInput = new VisionInput(this.inputTuning);
+                    this.bindingActions = null;
+                    this.resolvedActionMap = null;
+                    this.hotbarWheelActive = false;
+                    this.rotatePulseDirection = 0;
+                    this.rotatePulseUntilNs = 0L;
+                    detail = "input engine reset; held actions released (sources re-arm on fresh gestures)";
+                    System.out.println("[VRMC-M4] " + detail);
+                    showGameMessage("[VRMC] " + detail);
+                }
                 case "reload-input" -> {
                     detail = reloadInputTuning();
                 }

@@ -40,6 +40,9 @@ public final class VisionCommandFileTest {
         check("apply-hand-calibration accepted",
             "apply-hand-calibration".equals(VisionCommandFile.take(dir, null)));
 
+        Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "release-input\n");
+        check("release-input accepted", "release-input".equals(VisionCommandFile.take(dir, null)));
+
         Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "do-something-dangerous\n");
         check("unknown command rejected", VisionCommandFile.take(dir, null) == null);
         String results = Files.readString(dir.resolve(VisionCommandFile.RESULT_FILE_NAME));
