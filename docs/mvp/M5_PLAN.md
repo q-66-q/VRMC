@@ -281,6 +281,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   runtime/input-tune/vignette files are removed and saves/logs/crash guard are kept.
 - Shell/app build/install PASS; device dialog interaction NOT RUN.
 
+## Diagnostics bundle completeness (EV-0159)
+
+- Support bundle now also captures `vrmc-input-tune.properties`, `vrmc-thermal-state.txt`,
+  `vrmc-vignette.flag` and the real Minecraft log `instances/default/logs/latest.log`, alongside
+  shell/compositor/thermal/status/shutdown/command/heartbeat/settings/crash artifacts.
+- Shell/app build/install PASS; device export/share UI NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
