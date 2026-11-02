@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-01.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0096`.
+**Next evidence ID:** `EV-0097`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -2557,6 +2557,34 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Host + simulator plumbing evidence only. **NOT proven / not claimed:** real ARKit hand tracking on the Vision Pro; device input end-to-end (compositor→bridge→provider→Vivecraft actions); the device synthetic Step 1; hand-authorization prompt behavior; mixin application inside a live Minecraft/Fabric process (compile/target-level only on the host); hands acceptance (AC-4 / ST-S5-hands remain `NOT RUN`); stereo optics, thermals, latency, comfort. Simulator evidence is plumbing only (VERIFY §0 rule 7). Metal host probe SKIP (no MoltenVK macOS SDK on this host; pre-existing). Provider jar sha varies per build by design (jar timestamps). The operator device procedure is `docs/mvp/M4_DEVICE_RUN.md` (Step 1 synthetic = SYNTHETIC only; Step 2 real hands = the S5-hands check).
 
+### EV-0096 — M4-W1 on-device immersive input acceptance: synthetic plumbing + real-hand operator confirmation (shutdown crash noted)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T21:47:53-10:00 |
+| Commit | `b352d84` (M4-W1) + signed staged app tree sha256 `102c0e55…21b1c` and provider jar sha256 `94cfe0d9…84bd` (git-ignored `artifacts/staged/`); installed over the EV-0094 build with the data container preserved |
+| Dirty state | clean (this entry is committed with the device-run docs update) |
+| Device | **D1 Apple Vision Pro RealityDevice14,1, visionOS 27.2 (physical)** |
+| Host | M16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` (M4-W1 input slice, operator-confirmed) — full AC-4/ST-S5-hands remains `NOT RUN`; shutdown crash is a recorded follow-up defect |
+
+**Procedure:**
+
+1. Install `artifacts/staged/VRMC-native-m4-input.app` on D1 over the EV-0094 build (data container preserved), push the M4 provider jar (sha256 round-trip `94cfe0d9…`), push `vrmc-clear-diagnostics.flag`.
+2. **Step 1 — synthetic:** push `vrmc-input-sim.flag=cycle`, launch VRMC through StikDebug/JIT, press Play, wait for auto-immersive, run two gesture cycles, quit; pull `vrmc-shell.log`, `vrmc-compositor.log`, `latestlog.txt`.
+3. **Step 2 — real hands:** push the clear-diagnostics trigger (deletes the synthetic flag at app startup), relaunch through StikDebug/JIT, **allow the hand-tracking permission prompt**, use real hands in the immersive scene (right pinch = select/attack, right fist tap = right-click/use, left pinch = teleport/shift, left fist = menu, both fists = inventory), quit; pull the same logs.
+
+**Expected:** the immersive scene is controllable from inside the headset — the synthetic gesture cycle drives Vivecraft actions through the ABI v3 channel, and real ARKit hands are authorized, tracked continuously and drive the same bindings; no stuck input; presentation unchanged.
+
+**Actual:** **PASS** for the M4-W1 input slice; operator: **“It ran very well!”**
+- **Step 1 (SYNTHETIC plumbing):** compositor `INPUT-SIM SYNTHETIC ... input publish ... valid_mask=3 source=synthetic` every frame, cycle phase/lap logs, **6144 presented frames**, windows parked, background→foreground re-entry OK; provider ABI 3 handshake, `input channel ready`, 12/12 binding rows over 10 actions, **120 action-dispatch lines** (`vivecraft.key.guiLeftClick` 19 pairs, `ingameMenuButton` 20, `key.inventory` 18, `key.attack` 3 after a screen closed so the INGAME set became active); the both-fist chord produced **only** `key.inventory` (no simultaneous click/Escape). Session end: compositor `input release valid_mask=0` + provider `hand lost` → `[WARN] input stale ... all actions released` (stuck-input safety path exercised on device).
+- **Step 2 (REAL hands):** `hand tracking authorization: request result status=allowed`; `ARKit session started ... hand tracking supported=1 provider=started authorization=allowed inputMode=arkit`; every frame published with `source=arkit` and real `valid_mask` transitions as hands entered/left the camera view (`L1R0` → `L1R1` ↗), real wrist/aim `[VRMC-M4] pose:` diagnostics, real pinch/fist edges and **120 action-dispatch lines** across the W1 bindings; no stuck input, no input errors; operator confirmed the game was controllable from the immersive scene with real hands.
+- **Known defect (recorded follow-up, reproduced 2/2 runs, shutdown only):** after `[Minecraft] Stopping!` the JVM writes a SIGSEGV report in a native Foundation thread (`objc_retain`); the faulting register equals a provider eye `MTLTexture` handle exported earlier in the same run (`0x7225e35900`). The host app keeps running (shell/compositor logs continue and it backgrounds normally), so this is a game-teardown crash (likely the M3 eye-texture lifetime/teardown race), **not an input-path failure** — all input verification completed before it. Triage/fix is a follow-up.
+
+**Artifacts:** `evidence/EV-0096/` — 10 hashed artifacts: Step-1 compositor/shell/game logs + M4 extracts, Step-2 compositor/shell/game logs, and `operator-session.md` (full session notes, build identities, crash description/evidence-class statement).
+
+**Limitations:** Operator reports are informal (no recording). This is device evidence for the **M4-W1 input slice only**, not full AC-4/ST-S5-hands acceptance: locomotion beyond look/pinch teleport, jump, sneak, hotbar, bow/climbing and the complete P0 action checklist were not exercised; it is also not stereo-optics, thermal, or latency evidence. The reproducible shutdown-only JVM crash is a real defect and must be fixed before claiming device stability. Targeted follow-ups are recorded in `docs/mvp/M4_PLAN.md` (W2) and the device run report.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -2570,7 +2598,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
 | **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. M3/M4 were NOT RUN at closure; **M4-W1 input now host+simulator PASS (EV-0095); device/hands still NOT RUN** |
 | **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; **M3-W3/W4 visual acceptance PASS on D1 (EV-0094)**. Black-immersive root cause was the M3b drawable depth-clear change 1.0 -> 0.0 (EV-0093); with the default 1.0 the immersive shows the eye-distinct stereo/alignment pattern (fusion cross, per-eye tint, checker border; drawable readback L luma 110.4 / R luma 110.4, centre ~171) and a JIT game run renders the Vivecraft menu world in the immersive space with stereo aligned and head tracking, operator-confirmed. The black-immersive blocker is CLOSED. **M4-W1 input path host+simulator PASS (EV-0095); device/hands NOT RUN.** Remaining M3 work: M4-W1 device run, window chrome, background re-entry device check, provider GPU-sync device run, M3-W5/W6 90 Hz/soak. |
-| **M4-W1 immersive input (host + simulator)** | **PASS (host + simulator plumbing) / NOT RUN (device, hands)** | EV-0095: ABI v3 hand-input channel + hands-only gesture/action engine + C->Java contract fixture + simulator input scenario + one-command selfchecks; independent verifier PASS with no open BLOCKER/HIGH (`docs/analysis/m4-input-verification.md`). Device synthetic and real-hands runs are the next evidence step (`docs/mvp/M4_DEVICE_RUN.md`). |
+| **M4-W1 immersive input (host + simulator + device)** | **PASS (M4-W1 slice, operator-confirmed on D1) / AC-4 NOT RUN** | EV-0095 host+simulator plumbing PASS (independent verifier) + **EV-0096 device acceptance PASS**: synthetic cycle and real ARKit hands (authorization=allowed) both drove Vivecraft through the ABI v3 channel in the immersive scene; operator: “It ran very well!”. Recorded follow-ups: reproducible shutdown-only JVM SIGSEGV (M3 eye-texture teardown hypothesis), full P0 hands checklist/locomotion (W2). |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -2611,7 +2639,8 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
 | M3c black immersive / device presentation | **CLOSED** | EV-0093 root cause fixed (CompositorServices drawable depth clear 1.0) and EV-0094 device acceptance PASS: stereo pattern + JIT game-in-immersive, aligned with head tracking, operator-confirmed. Remaining follow-ups (M4 input, chrome, re-entry, GPU-sync device run, 90 Hz soak) are tracked separately. |
-| M4-W1 device/hands input run | Open | EV-0095 host+simulator PASS. Unblock: run `docs/mvp/M4_DEVICE_RUN.md` Step 1 (synthetic, after JIT; SYNTHETIC evidence only) and Step 2 (real hands) on D1 with the staged `artifacts/staged/VRMC-native-m4-input.app` + provider jar; Step 2 operator-confirmed is required before moving AC-4/ST-S5-hands. |
+| M4-W1 device input run (W1 slice) | **DONE (EV-0096)** | Synthetic Step 1 + real-hands Step 2 run on D1 with the staged M4 app/provider jar; operator-confirmed control from the immersive scene. Remaining: full AC-4/ST-S5-hands P0 checklist (locomotion/jump/…), W2 features (gaze hover+pinch selection, smooth hands). |
+| Shutdown JVM SIGSEGV after game stop | Open | Reproduced 2/2 device runs: `objc_retain` SIGSEGV in a native thread after `[Minecraft] Stopping!`; faulting register equals a provider eye `MTLTexture` handle. Hypothesis: M3 eye-texture lifetime/teardown race. Unblock: triage retain/stop ordering + reproduce with input path disabled; fix and re-run EV. |
 
 ---
 
@@ -2685,6 +2714,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | Build-artifact cleanup: removed the diagnostic A/B app bundles (VRMC-native-v1..v13, M3A/M3B probe shells) and temp logs/pulls used during the black-immersive investigation; the accepted EV-0094 build, provider jar, bridge/shell build dirs and Amethyst build caches are retained. stage_native_app.sh defaults and the export runbook now point at the accepted build. No product-code change. |
 | 2026-11-01 | **EV-0094 (PASS, device): M3c visual acceptance** - operator-confirmed stereo/alignment pattern (border, fusion cross, per-eye tint; drawable readback L luma 110.4 / R luma 110.4, centre ~171) and a JIT game run rendering MenuWorlds world59 in the immersive space with stereo aligned and head tracking (auto-open 05:04:17 UTC, windows alpha-0 parked, depthZero=0, provider textures luma 35-156, drawable proof luma 35-129, no command-buffer failures). The black-immersive blocker is closed; root cause EV-0093. Remaining: M4 input, chrome, re-entry, GPU-sync device run, M3-W5/W6 pacing/soak. Next ID EV-0095. |
 | 2026-11-01 | Propagation: M3C_PLAN (root cause, bisect results, next session), compositor-presentation.md §6 resolution, export/README root-cause + next-run dossier, scripts/README regression test. |
+| 2026-11-01 | **EV-0096 (`PASS`, device D1): M4-W1 on-device input acceptance** — synthetic Step 1 (6144 presented frames, 120 action-dispatch lines, chord priority, release/stale safety path exercised) and real-hands Step 2 (`authorization=allowed`, `provider=started inputMode=arkit`, continuous real hand tracking, 120 action-dispatch lines); operator: “It ran very well!”. The reported “only the window can control the game” defect is fixed on device. Follow-ups: reproducible shutdown-only JVM SIGSEGV (likely M3 eye-texture teardown race), full AC-4/ST-S5-hands checklist (W2: gaze hover+pinch selection, smooth hands). Next ID `EV-0097`. |
 | 2026-11-01 | **EV-0095 (`PASS`, host + simulator): M4-W1 immersive input** — ABI v3 hand-input channel (752 B `vrmc_input_state`, `vrmc_poll_input`, native-shared publish/acquire, `nativePollInput`), ARKit 27-joint compositor capture with explicit authorization + synthetic `vrmc-input-sim.flag` + zeroed release-on-exit, pure-Java pinch/fist gesture engine (hysteresis, 100 ms arming, 250 ms stale release, both-fist chord priority) + W1 action bindings + `VRInputAction.isEnabled` Mixin, cross-language C->Java fixture (`50926fdc…` / `43d52113…`), and a simulator input scenario. Host + simulator PASS including both one-command selfchecks; independent verifier: no open BLOCKER/HIGH (`docs/analysis/m4-input-verification.md`). **Device synthetic and real hands NOT RUN** — the reported "only the window can control the game" defect is fixed in code and operator validation is the next step (`docs/mvp/M4_DEVICE_RUN.md`). AC-4/ST-S5-hands unchanged. Next ID `EV-0096`. |
 
 ---

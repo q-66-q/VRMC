@@ -4,17 +4,18 @@ VRMC runs **Minecraft: Java Edition 26.2 + Fabric + the real Vivecraft mod** nat
 Vision Pro, with head-tracked stereo and hand-tracked input (PSVR2 controllers are P1, post-MVP)
 when present. No PC, no streaming.
 
-> **Status: M3 visual acceptance PASS (EV-0094); M4-W1 immersive input implemented — host + simulator
-> PASS (EV-0095), device/hands run pending.** The launcher, JVM/JIT runtime, Minecraft 26.2 + Fabric +
-> Vivecraft and the VRMC provider (LGPL) run end-to-end on Apple Vision Pro. The black-immersive root
-> cause was found and fixed (drawable depth-clear value; EV-0093), and the immersive path passed
-> on-device acceptance: the stereo/alignment pattern displays and a JIT game run renders the Vivecraft
-> menu world in the immersive space with stereo aligned and head tracking (EV-0094). M4-W1 adds the
-> ABI v3 ARKit hand-input channel, a hands-only pinch/fist gesture slice and the immersive GUI/menu +
-> attack/use/teleport bindings, so the game is controllable *from the immersive scene* in code; the
-> operator device run (synthetic then real hands) is the next evidence step
-> ([`docs/mvp/M4_DEVICE_RUN.md`](docs/mvp/M4_DEVICE_RUN.md)). Locomotion beyond teleport, the full
-> gesture set, window chrome, re-entry, GPU-sync device run and pacing/soak remain open.
+> **Status: M3 visual acceptance PASS (EV-0094); M4-W1 immersive input PASSED ON DEVICE (EV-0096).**
+> The launcher, JVM/JIT runtime, Minecraft 26.2 + Fabric + Vivecraft and the VRMC provider (LGPL) run
+> end-to-end on Apple Vision Pro. The black-immersive root cause was found and fixed (drawable
+> depth-clear value; EV-0093), and the immersive path passed on-device acceptance: the stereo/alignment
+> pattern displays and a JIT game run renders the Vivecraft menu world in the immersive space with
+> stereo aligned and head tracking (EV-0094). M4-W1 adds the ABI v3 ARKit hand-input channel, a
+> hands-only pinch/fist gesture slice and the immersive GUI/menu + attack/use/teleport bindings; the
+> on-device session passed both the synthetic plumbing step and **real hands** (authorization allowed,
+> continuous tracking, game controllable from the immersive scene — operator: “It ran very well!”,
+> EV-0096). Open items: a reproducible shutdown-only JVM SIGSEGV to triage, the full hands P0
+> checklist/locomotion, and the W2 work requested by the operator (gaze highlight + pinch selection,
+> smoothly tracked hands). Window chrome, re-entry, GPU-sync device run and pacing/soak remain open.
 > Status claims are governed by [`VERIFY.md`](VERIFY.md); the operating manual is
 > [`AGENT.md`](AGENT.md), the current plans are
 > [`docs/mvp/M3C_PLAN.md`](docs/mvp/M3C_PLAN.md) and [`docs/mvp/M4_PLAN.md`](docs/mvp/M4_PLAN.md),

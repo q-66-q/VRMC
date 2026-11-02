@@ -1,9 +1,11 @@
 # M4 plan — hands-only input (M4-W1: immersive-scene control)
 
-Status: **M4-W1 IMPLEMENTED — host + simulator PASS (EV-0095); device synthetic and real-hands
-verification NOT RUN.** This plan is scoped to the reported defect: once the game is in the immersive
-space the user cannot control it there; only the 2D window accepts input. Full M4 (gesture set,
-locomotion, comfort, S5-hands acceptance) remains the milestone; W1 is the first end-to-end slice.
+Status: **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
+(EV-0096): synthetic plumbing + real-hands operator confirmation (“It ran very well!”); two follow-ups
+recorded: a reproducible shutdown-only JVM SIGSEGV to triage, and the operator-requested W2 features
+below.** This plan is scoped to the reported defect: once the game is in the immersive space the user
+cannot control it there; only the 2D window accepts input. Full M4 (gesture set, locomotion, comfort,
+S5-hands acceptance) remains the milestone; W1 is the first end-to-end slice.
 Device procedure: [M4_DEVICE_RUN.md](M4_DEVICE_RUN.md) (Step 1 synthetic = SYNTHETIC evidence only;
 Step 2 real hands = the S5-hands check).
 
@@ -88,6 +90,29 @@ cross-language C->Java fixture, provider gesture/pose/dispatch tests, simulator 
 full `scripts/m3c_selfcheck.sh` including the M4 step); real-hands/device still **NOT RUN**
 (AC-4/ST-S5-hands unchanged). The defect is fixed in code and evidenced at the host + simulator level;
 the operator-confirmed in-headset fix is the next device session (`M4_DEVICE_RUN.md`).
+
+## 6b. W2 — operator-requested follow-ups (2026-11-01 device session)
+
+After the on-device acceptance run the operator requested, in this priority order:
+
+1. **Gaze highlight + pinch selection** (chosen interaction: eyes highlight the target; pinch confirms — no
+   click-free dwell). Implementation path (API spike + design in
+   [docs/analysis/gaze-and-hand-input.md](../analysis/gaze-and-hand-input.md)): CompositorServices
+   **tracking areas** (visionOS 26+) — render interactive region IDs into the drawable tracking-area
+   textures, `addHoverEffect(.automatic)` gives true-gaze system highlight, and the SwiftUI
+   cross-import `LayerRenderer.onSpatialEvent` + `SpatialEventCollection.Event.trackingAreaIdentifier`
+   reports which region was activated. First iteration: tile the game GUI into tracking areas, map the
+   activated tile to GUI pixel coordinates in the provider, and synthesize the GUI click (the same
+   InputSimulator path GUI clicks already use). Keep the existing hand-ray/pinch path as fallback and
+   behind a flag while the two are compared.
+2. **Smooth, continuous hands**: real 27-joint tracking is already live end-to-end (EV-0096); add pose
+   smoothing/filtering (One-Euro) and, if useful, visible hands/held item rendering from the joint data;
+   tune fist thresholds (device run observed a right-fist engage at ratio 1.24 vs threshold 1.25 — too
+   little margin) and the aim basis for stability.
+
+Also to fix before M4 exit: the reproducible **shutdown-only JVM SIGSEGV** after `[Minecraft] Stopping!`
+(`objc_retain` in a native thread; faulting register equals a provider eye `MTLTexture`); hypothesis is
+the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the device acceptance.
 
 ## 7. W2+ backlog (unchanged milestone content)
 
