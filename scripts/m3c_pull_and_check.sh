@@ -66,5 +66,23 @@ elif grep -q 'CPSceneSessionRoleImmersiveSpaceApplication' "$SHELLLOG" 2>/dev/nu
 else
   echo "  WARN: no immersive-scene activation logged (manual Enter VR not tapped / space not open?)"
 fi
+
+
+echo "== provider eye textures (game run only) =="
+grep -E 'provider eye textures|provider tex L|provider tex R|eye frame sync' "$COMP" 2>/dev/null | tail -4 | sed 's/^/  /' || true
+
+echo "== window parking effectiveness =="
+if grep -q 'window parked after first presented frame' "$SHELLLOG" 2>/dev/null; then
+  grep -E 'window parked after first presented frame|window re-parked' "$SHELLLOG" 2>/dev/null | tail -2 | sed 's/^/  /'
+  if grep -E 'window parked after first presented frame.*alpha=0.00' "$SHELLLOG" 2>/dev/null | grep -q 'hidden=false'; then
+    echo "  NOTE: alpha-only parking (isHidden not set); if the operator still saw a floating window, A/B with vrmc-hide-windows.flag"
+  fi
+else
+  echo "  (windows not parked — selftest/manual mode leaves them visible by design)"
+fi
+
+echo "== mode / sampling =="
+grep -E 'shading mode=|TEST PATTERN state|diagnostics:' "$COMP" 2>/dev/null | tail -3 | sed 's/^/  /' || true
+
 echo "[m3c] logs in $OUTDIR"
 exit $fail

@@ -96,5 +96,9 @@ layer-state logging, and a no-JIT immersive selftest. Info.plist unchanged.
    deferred but recommended to remove the unsynchronized readback race (visible as L/R brightness
    asymmetries in the readback probes).
 5. Eye-target PNG capture (`instances/default/vrmc-capture.flag`) for off-device content inspection.
+6. **Depth semantics**: the flat sampled image is currently reported at a constant near depth (1.0) because
+   0.0 blacks out the layer (EV-0093). Verify that late-stage reprojection remains stable while head-moving;
+   if it does not, the correct long-term solution is to export the provider's per-pixel depth (or a depth
+   estimate) into the drawable depth attachment instead of a constant clear.
 6. Clean up: remove diagnostic flags from the container (clear-diagnostics already covers them), keep
    the depth regression test in the repo.
