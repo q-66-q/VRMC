@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Settings-key parity guard (EV-0172)
+
+- `scripts/check_settings_keys.sh` extracts every runtime/input key literal the launcher writes (31 keys)
+  and requires provider source recognition; release check runs it and reports PASS.
+- Prevents silent UI/provider drift (the reload-input regression class). Device gates NOT RUN.
+
 ## Refreshed package + gate verification (EV-0171)
 
 - Clean-tree release check/reproducibility PASS; package refreshed to bytes=206,459,555 sha256

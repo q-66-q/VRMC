@@ -49,6 +49,13 @@ else
 fi
 rm -f "$REPRO_LOG"
 
+# 4d. Launcher settings keys must all be recognized by provider source (UI/provider drift guard).
+if scripts/check_settings_keys.sh >/tmp/vrmc-settings-keys.log 2>&1; then
+  ok "launcher settings keys recognized ($(grep -o 'checked=[0-9]*' /tmp/vrmc-settings-keys.log || true))"
+else
+  cat /tmp/vrmc-settings-keys.log; bad "launcher/provider settings key drift"
+fi
+
 # 5. Release manifest can be generated (dirty tree is reported, not a release-blocker for this check).
 manifest=$(mktemp -t vrmc-manifest).txt
 if scripts/m6_release_manifest.sh "$manifest" >/dev/null 2>&1 || [ -s "$manifest" ]; then
