@@ -88,6 +88,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   package verifier/freshness and device integrity: all PASS.
 - Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
 
+## Checklist importer (EV-0203)
+
+- `scripts/m6_import_device_checklist.sh [--input PATH] [--require-no-fail]` imports the in-headset
+  checklist JSON into `export/device-acceptance-report.md` and machine status lines; validates statuses
+  and can fail on FAIL. Device pull is read-only; host fixtures cover normal/FAIL/bogus/missing.
+- An argument-loop hang (missing shift) was found and fixed during host testing. Actual device pull NOT RUN.
+
 ## Refreshed package for checklist-summary build (EV-0201)
 
 - Package refreshed to app `a4663e16…` + provider `4587b5d2…`: bytes=206,538,366 sha256

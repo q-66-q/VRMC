@@ -42,6 +42,15 @@ DEVICE_UDID=<udid> SOAK_SECONDS=3600 scripts/m6_soak_harness.sh --device
 scripts/m6_acceptance_report.sh --require-pass
 ```
 
+## After the operator checklist
+
+```
+scripts/m6_import_device_checklist.sh                 # pulls checklist JSON from the app container
+scripts/m6_import_device_checklist.sh --require-no-fail
+```
+
+Writes `export/device-acceptance-report.md` and `export/device-acceptance-status.txt` for VERIFY.
+
 ## Evidence rules
 
 - One current build identity for all runs; record app tree sha256 + provider jar sha256.
