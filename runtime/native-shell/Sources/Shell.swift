@@ -1126,6 +1126,10 @@ struct VRControlOverlay: View {
     @State private var vignetteEnabled = false
     @State private var vignetteStrength = 0.5
     // Advanced gesture tuning (metres for distance thresholds; hotbar range in metres).
+    @State private var pinchOnMm = 30.0
+    @State private var pinchOffMm = 45.0
+    @State private var fistOn = 1.25
+    @State private var fistOff = 1.55
     @State private var middleOnMm = 35.0
     @State private var middleOffMm = 50.0
     @State private var ringOnMm = 32.0
@@ -1236,6 +1240,16 @@ struct VRControlOverlay: View {
                     Stepper("Render distance: \(renderDistance)", value: $renderDistance, in: 6...24)
                     DisclosureGroup("Input tuning (advanced)") {
                         VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Pinch on/off: \(Int(pinchOnMm))/\(Int(pinchOffMm)) mm").font(.caption2)
+                                Slider(value: $pinchOnMm, in: 15...45, step: 1)
+                                Slider(value: $pinchOffMm, in: 25...70, step: 1)
+                            }
+                            HStack {
+                                Text("Fist on/off: \(String(format: "%.2f", fistOn))/\(String(format: "%.2f", fistOff))").font(.caption2)
+                                Slider(value: $fistOn, in: 0.9...1.5, step: 0.01)
+                                Slider(value: $fistOff, in: 1.2...2.0, step: 0.01)
+                            }
                             HStack {
                                 Text("Middle pinch on/off: \(Int(middleOnMm))/\(Int(middleOffMm)) mm").font(.caption2)
                                 Slider(value: $middleOnMm, in: 20...50, step: 1)
@@ -1450,6 +1464,10 @@ struct VRControlOverlay: View {
         let vignette = shellReadVignette()
         vignetteEnabled = vignette.enabled
         vignetteStrength = vignette.strength
+        pinchOnMm = (Double(input["pinch.on"] ?? "") ?? 0.030) * 1000.0
+        pinchOffMm = (Double(input["pinch.off"] ?? "") ?? 0.045) * 1000.0
+        fistOn = Double(input["fist.on"] ?? "") ?? 1.25
+        fistOff = Double(input["fist.off"] ?? "") ?? 1.55
         middleOnMm = (Double(input["middle.on"] ?? "") ?? 0.035) * 1000.0
         middleOffMm = (Double(input["middle.off"] ?? "") ?? 0.050) * 1000.0
         ringOnMm = (Double(input["ring.on"] ?? "") ?? 0.032) * 1000.0
@@ -1473,6 +1491,14 @@ struct VRControlOverlay: View {
         var input = shellReadInputTune()
         input["middle.enabled"] = middleGestures ? "true" : "false"
         input["swipe.enabled"] = swipeGestures ? "true" : "false"
+        let pOn = min(pinchOnMm, pinchOffMm - 1.0) / 1000.0
+        let pOff = max(pinchOffMm, pinchOnMm + 1.0) / 1000.0
+        let fOn = min(fistOn, fistOff - 0.01)
+        let fOff = max(fistOff, fistOn + 0.01)
+        input["pinch.on"] = String(format: "%.3f", pOn)
+        input["pinch.off"] = String(format: "%.3f", pOff)
+        input["fist.on"] = String(format: "%.2f", fOn)
+        input["fist.off"] = String(format: "%.2f", fOff)
         let mOn = min(middleOnMm, middleOffMm - 1.0) / 1000.0
         let mOff = max(middleOffMm, middleOnMm + 1.0) / 1000.0
         let rOn = min(ringOnMm, ringOffMm - 1.0) / 1000.0

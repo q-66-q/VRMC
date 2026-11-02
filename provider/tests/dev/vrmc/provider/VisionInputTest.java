@@ -51,6 +51,7 @@ public final class VisionInputTest {
             actionSetGating();
             bindingTableCoverage();
             tuningOverrides();
+            tuningSummary();
         } catch (Throwable t) {
             t.printStackTrace();
             failures++;
@@ -655,6 +656,18 @@ public final class VisionInputTest {
     // ------------------------------------------------------------------------------------------
     // 12. tuning overrides (file Map + -D system properties, read once)
     // ------------------------------------------------------------------------------------------
+    private static void tuningSummary() {
+        section("tuning summary for status diagnostics");
+        VisionInput in = new VisionInput(Map.of(
+            VisionInput.TUNE_MIDDLE_ON, "0.04",
+            VisionInput.TUNE_SWIPE_ENABLED, "true"));
+        String summary = in.tuningSummary();
+        check("summary contains pinch thresholds", summary.contains("pinch=0.030/0.045"));
+        check("summary contains middle override", summary.contains("middle=true 0.040/0.050"));
+        check("summary contains swipe enabled", summary.contains("swipe=true"));
+        check("summary contains arm/stale", summary.contains("armMs=100") && summary.contains("staleMs=250"));
+    }
+
     private static void tuningOverrides() {
         section("tuning overrides (Map + system properties)");
         VisionInput defaults = new VisionInput();

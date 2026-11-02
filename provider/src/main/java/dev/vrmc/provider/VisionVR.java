@@ -300,7 +300,10 @@ public class VisionVR extends MCVR {
             json.append("  \"handRightTracked\": ").append(this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT)).append(",\n");
             json.append("  \"playerPresent\": ").append(this.mc.player != null).append(",\n");
             json.append("  \"runningOnVisionOS\": ").append(System.getProperty("os.name", "")).append(",\n");
-            json.append("  \"runtimeSettings\": \"").append(this.runtimeSettings.summary().replace("\"", "'")).append("\"\n");
+            json.append("  \"runtimeSettings\": \"").append(this.runtimeSettings.summary().replace("\"", "'")).append("\",\n");
+            json.append("  \"hotbarRange\": ").append(this.hotbarRange).append(",\n");
+            json.append("  \"inputTuning\": \"").append(this.visionInput == null ? ""
+                : this.visionInput.tuningSummary().replace("\"", "'")).append("\"\n");
             json.append("}\n");
             Files.writeString(dir.toPath().resolve("vrmc-status.json"), json.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);

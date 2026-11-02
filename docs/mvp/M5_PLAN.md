@@ -160,6 +160,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - m5-settings 23 checks, full provider suite PASS; app installed/provider pushed. Device seated
   behavior NOT RUN.
 
+## W1 tuning sliders + input status (EV-0130)
+
+- Launcher Input tuning adds **pinch on/off (mm)** and **fist on/off** sliders next to middle/ring/swipe/
+  hotbar; saved to `vrmc-input-tune.properties` with off>on enforced and unrelated keys preserved;
+  applies via Reload input or next launch.
+- `VisionInput.tuningSummary()` is written into `vrmc-status.json` with `hotbarRange` for diagnostics.
+- m4-input 172 checks, full provider suite PASS; app installed/provider pushed. Device tuning NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

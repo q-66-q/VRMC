@@ -441,6 +441,20 @@ public final class VisionInput {
     public float pinchOff() { return this.pinchOff; }
     public float fistOn() { return this.fistOn; }
     public float fistOff() { return this.fistOff; }
+    /** One-line current input-tuning summary for status files/diagnostics (no per-frame allocation). */
+    public String tuningSummary() {
+        return String.format(java.util.Locale.ROOT,
+            "pinch=%.3f/%.3f fist=%.2f/%.2f middle=%s %.3f/%.3f tapMs=%d doubleMs=%d "
+                + "ring=%s %.3f/%.3f swipe=%s speed=%.2f openRatio=%.2f cooldownMs=%d armMs=%d staleMs=%d",
+            this.pinchOn, this.pinchOff, this.fistOn, this.fistOff,
+            this.middleEnabled, this.middleOn, this.middleOff,
+            this.middleTapNanos / 1_000_000L, this.middleDoubleNanos / 1_000_000L,
+            this.ringEnabled, this.ringOn, this.ringOff,
+            this.swipeEnabled, this.swipeSpeed, this.swipeOpenRatio,
+            this.swipeCooldownNanos / 1_000_000L, this.armNanos / 1_000_000L,
+            this.staleNanos / 1_000_000L);
+    }
+
     public boolean middleEnabled() { return this.middleEnabled; }
     public boolean ringEnabled() { return this.ringEnabled; }
     public boolean swipeEnabled() { return this.swipeEnabled; }
