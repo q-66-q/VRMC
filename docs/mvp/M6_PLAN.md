@@ -32,6 +32,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
   rebuilt from the release commit with device evidence.
 
+## Install metrics + device runbook (EV-0150)
+
+- `scripts/m6_install_metrics.sh` reports host app-bundle bytes/files/Mach-O count, provider bytes/hash,
+  package bytes/hash (K6 groundwork); snapshot in `export/install-metrics-dev.txt`.
+- `docs/mvp/M6_DEVICE_RUN.md` is the AC-1…AC-6/K1…K6 execution procedure, evidence rules, and command
+  list; device install size remains a device gate.
+- `scripts/m6_acceptance_report.sh --require-pass` remains the release gate; it is currently NOT READY.
+
 ## Soak harness hardening (EV-0149)
 
 - Pulls the real Minecraft log (`Documents/instances/default/logs/latest.log`) in addition to the legacy

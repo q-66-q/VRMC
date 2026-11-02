@@ -1,0 +1,11 @@
+VRMC install metrics (host measurement; device install size still a K6 acceptance step)
+generated: 2026-11-02T00:17:29-1000
+app_path=/tmp/VRMC-native-pacingjson.app
+app_bytes=583553024
+app_files=485
+app_macho_files=169
+provider_bytes=89469
+provider_sha256=57ddc366e83f0d3d3747c373087ab2dd63f16b58101f21543538f5868444aecd
+package_path=/tmp/VRMC-dev-release.zip
+package_bytes=206440226
+package_sha256=7cfc1433f4378816984d4ae1cb677493ddd1641d06bdf8414ffecc831fffca45
