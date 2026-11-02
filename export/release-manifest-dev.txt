@@ -1,6 +1,6 @@
 # VRMC release manifest
-# generated: 2026-11-02T01:03:13-1000
-source_commit=7f88a0e2fe2d2bc804262ec9f292904ff3f11dce
+# generated: 2026-11-02T01:06:17-1000
+source_commit=88d2fcd67cf0bb23e0e75facdbb233c2cb1feeb1
 source_branch=main
 dirty_tree=no
 product=VRMC
@@ -18,12 +18,12 @@ moltenvk=1.4.3 (source-built-app-bundled)
 xcode=27.2 (27B52)
 visionos_sdk=27.2
 visionos_sim_runtime=27.0
-app_bundle=/tmp/VRMC-native-handcalib.app
-app_bundle_sha256=b0680cac1e25fdbc8e59689528b6e893b4b0635c1777accb91b84d2cb449474b
+app_bundle=/tmp/VRMC-native-calibapply.app
+app_bundle_sha256=595982a25f9b5776a21d143fb33aa65b811f08302ac3f6d60548ee204591181b
 bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
 provider_jar=/tmp/vrmc-current/vrmc-provider.jar
-provider_jar_sha256=180290456350ef014967e4761f300158ddf7ff559355e8d37e2698b2fc92b5a0
+provider_jar_sha256=50cd776b2f7ab882171ebddd735e406e504eafb77fc3cf3d961e68dc4667a803
 license_app=LICENSE:present
 license_provider=provider/LICENSE:present
 third_party_notices=THIRD_PARTY_NOTICES.md:present

@@ -88,6 +88,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   package verifier/freshness and device integrity: all PASS.
 - Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
 
+## Refreshed package for calibration-apply build (EV-0192)
+
+- Package refreshed to app `595982a2…` + provider `50cd776b…`: bytes=206,483,529 sha256
+  `4e1d99823e79c3aa813b0cf3aad1ff0a3aade1f811f6d662b85643e0c87c9ef5`; freshness/verifier/release-ready
+  host gates PASS; acceptance NOT READY; metrics + STATUS.md refreshed.
+
 ## Refreshed package for calibration build (EV-0191)
 
 - Package refreshed to app `b0680cac…` + provider `18029045…`: bytes=206,479,055 sha256

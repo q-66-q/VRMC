@@ -331,7 +331,8 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 ## Guided hand calibration (EV-0190)
 
 - Launcher **Calibrate hands** button runs the 9-second open/fist/pinch protocol and saves an advisory
-  report; diagnostics bundle includes `vrmc-hand-calibration.txt`.
+  report; **Apply hand calibration** applies the suggested pinch/fist thresholds to the input-tune file and
+  live-reloads; diagnostics bundle includes `vrmc-hand-calibration.txt`.
 - Host tests/guards PASS; app installed/provider pushed + integrity PASS. Device calibration NOT RUN.
 
 ## Still to implement (M5 completion)

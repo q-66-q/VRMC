@@ -297,6 +297,8 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - `calibrate-hands` command prompts via the action bar, samples tracked hands, writes game-dir
   `vrmc-hand-calibration.txt`; launcher button and diagnostics bundle entry added.
 - Completion also writes the one-line suggestion to the command-result journal (launcher Last result).
+- `apply-hand-calibration` parses the report, validates it and atomically updates only pinch/fist keys in
+  `vrmc-input-tune.properties` (other keys preserved), then reloads the input engine; launcher button.
 - Host tests 15 checks (+command 16); app installed/provider pushed + integrity PASS. Device protocol NOT RUN.
 
 ## 7. W2+ backlog (unchanged milestone content)
