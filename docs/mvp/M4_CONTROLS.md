@@ -39,7 +39,7 @@ Left hand: swipe up/down = keyboard / chat; swipe left/right = swap offhand / dr
 ## Safety/release invariants
 
 - tracking loss/stale input releases every gesture source and both-hand chords immediately;
-- a bow/use hold suppresses teleport until the fist opens;
+- a bow/use hold suppresses teleport **and attack** until the fist opens;
 - ring/trackpad/middle chords cannot trigger their single-hand actions simultaneously;
 - no action is latched: releasing the source releases the action (except action-bar feedback).
 

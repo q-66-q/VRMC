@@ -43,6 +43,7 @@ public final class VisionInputTest {
             fistHoldUseBinding();
             bowTeleportSuppression();
             bothFistChordSuppressesContinuousUse();
+            useHoldSuppressesAttack();
             bothFistInventoryTap();
             bothFistChordPriority();
             trackingLossReleasesSameFrame();
@@ -256,6 +257,25 @@ public final class VisionInputTest {
         rig.lFist = OPEN_FIST;
         rig.pollMs(16);
         check("use returns when the other fist opens", rig.in.actionPressed(VisionInput.KEY_USE));
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 4e. W4 use/attack priority: right fist (use/bow draw) suppresses attack from a transitioning pinch.
+    // ------------------------------------------------------------------------------------------
+    private static void useHoldSuppressesAttack() {
+        section("W4 use/attack priority: fist use suppresses attack");
+        Rig rig = new Rig();
+        rig.poll(); rig.pollMs(150);
+        rig.in.setEnvironment(false, false, false);
+        rig.rFist = FIST;
+        rig.rPinch = PINCHED;
+        rig.pollMs(150);
+        check("pinch remains physically pressed", rig.in.pinchPressed(RIGHT));
+        check("attack suppressed while right fist holds use", !rig.in.actionPressed(VisionInput.KEY_ATTACK));
+        check("use still held", rig.in.actionPressed(VisionInput.KEY_USE));
+        rig.rFist = OPEN_FIST;
+        rig.pollMs(16);
+        check("attack returns after releasing the fist", rig.in.actionPressed(VisionInput.KEY_ATTACK));
     }
 
     // ------------------------------------------------------------------------------------------

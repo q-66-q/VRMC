@@ -230,6 +230,13 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Shell/app build/install PASS; simulator input scenario is currently unusable (the app backgrounds
   immediately before any compositor log), so no simulator evidence for gaze; device NOT RUN.
 
+## 6n. Use/attack priority (2026-11-02, EV-0141)
+
+- While the right fist holds continuous use/bow draw, `key.attack` is suppressed even if the pinch reads
+  pressed during a finger transition; use stays held and attack returns when the fist opens (host test,
+  m4-input 176 checks).
+- Provider pushed/verified on device; device feel NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
