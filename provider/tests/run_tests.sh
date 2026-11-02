@@ -155,6 +155,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputLayoutTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionHandPoseTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionPoseSmootherTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -175,6 +176,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-pose-test\] [0-9]+ checks" "$T/m4-pose.log"
   else
     cat "$T/m4-pose.log"; fail "m4-pose"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionPoseSmootherTest > "$T/m4-smoother.log" 2>&1 \
+     && grep -q "\[m4-smoother-test\] PASS" "$T/m4-smoother.log"; then
+    echo "[provider-tests] m4-smoother: PASS (One-Euro damping/convergence, angle slerp, reset, passthrough)"
+    grep -E "\[m4-smoother-test\] [0-9]+ checks" "$T/m4-smoother.log"
+  else
+    cat "$T/m4-smoother.log"; fail "m4-smoother"
   fi
   # Cross-language fixture: set-but-missing must FAIL; unset is an explicit SKIP (never silent).
   FIXTURE="${VRMC_INPUT_FIXTURE:-}"

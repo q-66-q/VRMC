@@ -73,6 +73,9 @@ public class VisionVR extends MCVR {
 
     /** M4-W1 gesture engine (pure Java, host-tested) and its resolved Vivecraft action table. */
     private VisionInput visionInput;
+    /** M4-W2 One-Euro hand-pose smoothers, indexed by controller (0 = right, 1 = left). */
+    private VisionPoseSmoother[] poseSmoothers;
+    private VisionPoseSmoother.Config smoothingConfig;
     private VRInputAction[] bindingActions;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
@@ -153,8 +156,15 @@ public class VisionVR extends MCVR {
         this.hmdPoseRightEye.identity().m30(ipdHalf);
 
         this.populateInputActions();
-        this.visionInput = new VisionInput(loadInputTuning());
+        Map<String, String> tuning = loadInputTuning();
+        this.visionInput = new VisionInput(tuning);
+        this.smoothingConfig = loadSmoothingConfig(tuning);
+        this.poseSmoothers = new VisionPoseSmoother[] {
+            new VisionPoseSmoother(this.smoothingConfig),
+            new VisionPoseSmoother(this.smoothingConfig)
+        };
         logInputTuning(this.visionInput);
+        logSmoothingConfig(this.smoothingConfig);
 
         this.initialized = true;
         this.initSuccess = true;
@@ -164,8 +174,20 @@ public class VisionVR extends MCVR {
 
     @Override
     public void destroy() {
+        // Shutdown ordering (M4 follow-up, EV-0096 defect): drop the eye-texture handles BEFORE the
+        // renderer/VkImages are destroyed so the compositor cannot sample a freed MTLTexture.
+        try {
+            VrmcBridge.clearEyeTextures();
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M4][WARN] clearEyeTextures at shutdown failed: " + t);
+        }
         // Leaving VR while a gesture is held must not leave a pressed key behind.
         this.releaseAllImmediately();
+        if (this.poseSmoothers != null) {
+            for (VisionPoseSmoother smoother : this.poseSmoothers) {
+                smoother.reset();
+            }
+        }
         this.initialized = false;
         super.destroy();
     }
@@ -194,6 +216,44 @@ public class VisionVR extends MCVR {
             System.out.println("[VRMC-M4][WARN] could not read " + VisionInput.TUNE_FILE + ": " + t);
         }
         return tune;
+    }
+
+    /** M4-W2 smoothing tuning: game-dir properties first, then -D system properties, then defaults. */
+    private static VisionPoseSmoother.Config loadSmoothingConfig(Map<String, String> tune) {
+        VisionPoseSmoother.Config c = new VisionPoseSmoother.Config();
+        c.enabled = boolValue(tune, "input.smooth", "vrmc.input.smooth", c.enabled);
+        c.posMinCutoff = floatValue(tune, "input.smooth.posMinCutoff", "vrmc.input.smooth.posMinCutoff", c.posMinCutoff);
+        c.posBeta = floatValue(tune, "input.smooth.posBeta", "vrmc.input.smooth.posBeta", c.posBeta);
+        c.derivativeCutoff = floatValue(tune, "input.smooth.derivativeCutoff", "vrmc.input.smooth.derivativeCutoff", c.derivativeCutoff);
+        c.rotMinCutoff = floatValue(tune, "input.smooth.rotMinCutoff", "vrmc.input.smooth.rotMinCutoff", c.rotMinCutoff);
+        c.rotBeta = floatValue(tune, "input.smooth.rotBeta", "vrmc.input.smooth.rotBeta", c.rotBeta);
+        return c;
+    }
+
+    private static boolean boolValue(Map<String, String> tune, String tuneKey, String propKey, boolean def) {
+        String v = tune.get(tuneKey);
+        if (v == null) v = System.getProperty(propKey);
+        if (v == null) return def;
+        return "true".equalsIgnoreCase(v.trim()) || "1".equals(v.trim());
+    }
+
+    private static float floatValue(Map<String, String> tune, String tuneKey, String propKey, float def) {
+        String v = tune.get(tuneKey);
+        if (v == null) v = System.getProperty(propKey);
+        if (v == null) return def;
+        try {
+            float f = Float.parseFloat(v.trim());
+            return Float.isFinite(f) ? f : def;
+        } catch (NumberFormatException e) {
+            System.out.println("[VRMC-M4][WARN] invalid smoothing value " + v + " for " + tuneKey + "; using " + def);
+            return def;
+        }
+    }
+
+    private static void logSmoothingConfig(VisionPoseSmoother.Config c) {
+        System.out.printf("[VRMC-M4] hand smoothing: enabled=%s posMinCutoff=%.2f posBeta=%.2f dCutoff=%.2f "
+                + "rotMinCutoff=%.2f rotBeta=%.2f%n",
+            c.enabled, c.posMinCutoff, c.posBeta, c.derivativeCutoff, c.rotMinCutoff, c.rotBeta);
     }
 
     private static void logInputTuning(VisionInput in) {
@@ -378,7 +438,16 @@ public class VisionVR extends MCVR {
                     this.visionInput.wristQz(hand), this.visionInput.wristQw(hand),
                     this.visionInput.wristX(hand), this.visionInput.wristY(hand),
                     this.visionInput.wristZ(hand), this.controllerPose[c]);
+                // M4-W2: smooth the raw joint-derived pose (One-Euro translation + angle-adaptive
+                // slerp orientation). Reset history whenever the hand was untracked, so reacquisition
+                // never lags behind a teleporting wrist.
+                if (this.poseSmoothers != null) {
+                    this.poseSmoothers[c].apply(this.controllerPose[c], System.nanoTime());
+                }
             } else {
+                if (this.poseSmoothers != null) {
+                    this.poseSmoothers[c].reset();
+                }
                 VisionHandPose.gazeFallback(this.hmdPose, hand == VisionInput.HAND_RIGHT,
                     this.controllerPose[c]);
             }

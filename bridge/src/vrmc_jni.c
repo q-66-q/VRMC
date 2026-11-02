@@ -114,6 +114,11 @@ JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTL
     return rc == 0 ? (jlong)out : 0;
 }
 
+JNIEXPORT void JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeClearEyeTextures(
+    JNIEnv *env, jclass clazz) {
+    vrmc_shared_clear_eye_textures();
+}
+
 JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeGetDisplayViews(
     JNIEnv *env, jclass clazz, jobject out) {
     if (out == NULL) return 0;

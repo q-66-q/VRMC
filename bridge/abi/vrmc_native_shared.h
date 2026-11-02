@@ -100,6 +100,10 @@ int32_t vrmc_shared_get_frame_sync(vrmc_shared_frame_sync *out);
 /* Tracking                                                                                      */
 /* ------------------------------------------------------------------------------------------- */
 
+/* Drop the stored provider eye textures (called from the provider on VR/game teardown so the
+ * compositor stops sampling handles whose VkImage/MTLTexture is about to be destroyed). */
+void vrmc_shared_clear_eye_textures(void);
+
 /* Push a tracking state (ARKit device anchor + predicted time) into the bridge. Subsequent
  * vrmc_get_tracking calls return this state until cleared. Returns 0 on success.
  * Allowed before vrmc_init (the compositor can start before the JVM provider initializes). */

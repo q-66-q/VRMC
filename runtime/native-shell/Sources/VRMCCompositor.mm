@@ -1765,6 +1765,22 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             }
 
             id<MTLCommandBuffer> cb = [queue commandBuffer];
+            // M4 shutdown-safety: keep the provider's MTLTextures alive until this command buffer
+            // completes. The provider clears the shared handles on VR teardown, but a frame already in
+            // flight must not sample (or release) a freed texture (EV-0096 shutdown SIGSEGV, objc_retain
+            // on an eye-texture handle). Retain before encoding, release in the completion handler.
+            uint64_t retainedLeft = 0;
+            uint64_t retainedRight = 0;
+            if (haveEyes) {
+                retainedLeft = eyesPtr->left_texture;
+                retainedRight = eyesPtr->right_texture;
+                if (retainedLeft != 0) CFRetain((CFTypeRef)(uintptr_t)retainedLeft);
+                if (retainedRight != 0) CFRetain((CFTypeRef)(uintptr_t)retainedRight);
+            }
+            [cb addCompletedHandler:^(id<MTLCommandBuffer> completed) {
+                if (retainedLeft != 0) CFRelease((CFTypeRef)(uintptr_t)retainedLeft);
+                if (retainedRight != 0) CFRelease((CFTypeRef)(uintptr_t)retainedRight);
+            }];
             // Order this frame's sampling after the provider's Vulkan submission: one wait per command
             // buffer, before the first render pass that samples an eye texture. No-op until the
             // provider publishes an exportable timeline (sync.valid == 0).

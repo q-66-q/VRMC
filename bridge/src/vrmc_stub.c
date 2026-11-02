@@ -239,6 +239,15 @@ void vrmc_shared_clear_tracking(void) {
     pthread_mutex_unlock(&g_tracking_mutex);
 }
 
+void vrmc_shared_clear_eye_textures(void) {
+    pthread_mutex_lock(&g_frame_mutex);
+    memset(&g_latest_frame, 0, sizeof(g_latest_frame));
+    g_has_frame = 0;
+    g_publish_sequence = 0;
+    g_texture_generation = 0;
+    pthread_mutex_unlock(&g_frame_mutex);
+}
+
 int32_t vrmc_shared_set_display_views(const vrmc_display_views *views) {
     if (views == NULL) return set_error("bad display views");
     vrmc_display_views copy = *views;
@@ -406,6 +415,10 @@ int main(void) {
     if (vrmc_submit_eyes(&e) != 0) { printf("submit fail: %s\n", vrmc_last_error()); return 3; }
     if (vrmc_get_tracking(&t, 123) != 0) return 4;
     if (vrmc_frame_timing(&ft) != 0) return 5;
+    vrmc_shared_clear_eye_textures();
+    if (vrmc_shared_eye_textures(&shared) == 0) { printf("shared eyes not cleared\n"); return 14; }
+    e.frame_index = 2; e.left_texture = 0xAAA; e.right_texture = 0xBBB;
+    if (vrmc_submit_eyes(&e) != 0) { printf("resubmit fail: %s\n", vrmc_last_error()); return 3; }
     if (vrmc_shared_eye_textures(&shared) != 0 || shared.left_texture != 0xAAA || shared.right_texture != 0xBBB) {
         printf("shared eyes after submit failed\n"); return 8;
     }

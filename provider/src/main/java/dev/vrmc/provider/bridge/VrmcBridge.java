@@ -94,6 +94,7 @@ public final class VrmcBridge {
     public static native int nativeFrameTiming(ByteBuffer out);
     public static native long nativeExportMTLTexture(long vkImage);
     public static native long nativeGetDisplayViews(ByteBuffer out);
+    public static native void nativeClearEyeTextures();
 
     /**
      * ABI v3: copy the latest {@code vrmc_input_state} into the direct buffer (capacity must be at
@@ -128,6 +129,8 @@ public final class VrmcBridge {
     public static long exportMTLTexture(long vkImage) { return nativeExportMTLTexture(vkImage); }
     /** Latest headset display views (CompositorServices projection + eye transforms) generation. */
     public static long getDisplayViews(ByteBuffer out) { return nativeGetDisplayViews(out); }
+    /** Provider/game teardown: drop stored eye textures so the compositor stops sampling stale handles. */
+    public static void clearEyeTextures() { nativeClearEyeTextures(); }
     /** ABI v3: poll the latest published hand/input snapshot (see {@link #nativePollInput(ByteBuffer)}). */
     public static int pollInput(ByteBuffer out) { return nativePollInput(out); }
 }
