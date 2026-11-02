@@ -86,6 +86,13 @@ public final class VisionInput {
     public static final String KEY_JUMP = "key.jump";
     public static final String KEY_SNEAK = "key.sneak";
     public static final String KEY_RADIAL_MENU = "vivecraft.key.radialMenu";
+    // M4-W4 opt-in swipe actions (only reachable while swipe.enabled=true).
+    public static final String KEY_HOTBAR_NEXT = "vivecraft.key.hotbarNext";
+    public static final String KEY_HOTBAR_PREV = "vivecraft.key.hotbarPrev";
+    public static final String KEY_TOGGLE_KEYBOARD = "vivecraft.key.toggleKeyboard";
+    public static final String KEY_CHAT = "key.chat";
+    public static final String KEY_SWAP_OFFHAND = "key.swapOffhand";
+    public static final String KEY_DROP = "key.drop";
     public static final String KEY_TELEPORT = "vivecraft.key.teleport";
     public static final String KEY_VR_INTERACT = "vivecraft.key.vrInteract";
     public static final String KEY_CLIMBEY_GRAB = "vivecraft.key.climbeyGrab";
@@ -153,6 +160,10 @@ public final class VisionInput {
     private static final int SRC_MIDDLE_PINCH = 3;
     private static final int SRC_MIDDLE_TAP = 4;
     private static final int SRC_MIDDLE_DOUBLE_TAP = 5;
+    private static final int SRC_SWIPE_LEFT = 6;
+    private static final int SRC_SWIPE_RIGHT = 7;
+    private static final int SRC_SWIPE_UP = 8;
+    private static final int SRC_SWIPE_DOWN = 9;
 
     /** One row of the design §5.4 binding table. */
     private static final class BindingDef {
@@ -187,6 +198,13 @@ public final class VisionInput {
         new BindingDef(KEY_JUMP, HAND_RIGHT, SRC_MIDDLE_TAP, ActionSet.INGAME),
         new BindingDef(KEY_SNEAK, HAND_RIGHT, SRC_MIDDLE_PINCH, ActionSet.INGAME),
         new BindingDef(KEY_RADIAL_MENU, HAND_RIGHT, SRC_MIDDLE_DOUBLE_TAP, ActionSet.INGAME),
+        // M4-W4 opt-in swipe table (swipe.enabled=false by default; no effect unless the user enables it).
+        new BindingDef(KEY_HOTBAR_NEXT, HAND_RIGHT, SRC_SWIPE_RIGHT, ActionSet.INGAME),
+        new BindingDef(KEY_HOTBAR_PREV, HAND_RIGHT, SRC_SWIPE_LEFT, ActionSet.INGAME),
+        new BindingDef(KEY_TOGGLE_KEYBOARD, HAND_LEFT, SRC_SWIPE_UP, ActionSet.GLOBAL),
+        new BindingDef(KEY_CHAT, HAND_LEFT, SRC_SWIPE_DOWN, ActionSet.GLOBAL),
+        new BindingDef(KEY_SWAP_OFFHAND, HAND_LEFT, SRC_SWIPE_LEFT, ActionSet.INGAME),
+        new BindingDef(KEY_DROP, HAND_LEFT, SRC_SWIPE_RIGHT, ActionSet.INGAME),
     };
 
     /** Unique action names in binding-table order (used to resolve VRInputActions once). */
@@ -982,6 +1000,10 @@ public final class VisionInput {
             case SRC_MIDDLE_PINCH -> hand != HAND_NONE && this.hands[hand].middlePressed;
             case SRC_MIDDLE_TAP -> hand != HAND_NONE && this.hands[hand].middleTapPressed;
             case SRC_MIDDLE_DOUBLE_TAP -> hand != HAND_NONE && this.hands[hand].middleDoubleTapPressed;
+            case SRC_SWIPE_LEFT -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_LEFT;
+            case SRC_SWIPE_RIGHT -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_RIGHT;
+            case SRC_SWIPE_UP -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_UP;
+            case SRC_SWIPE_DOWN -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_DOWN;
             default -> false;
         };
     }

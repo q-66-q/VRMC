@@ -549,15 +549,21 @@ public final class VisionInputTest {
             "vivecraft.key.ingameMenuButton|0|GLOBAL|1",
             "key.jump|1|INGAME|2",
             "key.sneak|1|INGAME|2",
-            "vivecraft.key.radialMenu|1|INGAME|2"));
+            "vivecraft.key.radialMenu|1|INGAME|2",
+            "vivecraft.key.hotbarNext|1|INGAME|2",
+            "vivecraft.key.hotbarPrev|1|INGAME|2",
+            "vivecraft.key.toggleKeyboard|0|GLOBAL|1",
+            "key.chat|0|GLOBAL|1",
+            "key.swapOffhand|0|INGAME|1",
+            "key.drop|0|INGAME|1"));
         Collections.sort(expected);
-        check("exactly 15 binding rows (W1 + W3/W4 middle jump/sneak/radial)", in.bindingCount() == expected.size());
+        check("exactly 21 binding rows (W1 + W3/W4 middle + opt-in swipe actions)", in.bindingCount() == expected.size());
         check("binding table matches design §5.4 exactly", actual.equals(expected));
         if (!actual.equals(expected)) {
             System.out.println("  actual  =" + actual);
             System.out.println("  expected=" + expected);
         }
-        check("13 unique bound actions", VisionInput.ACTION_NAMES.length == 13);
+        check("19 unique bound actions", VisionInput.ACTION_NAMES.length == 19);
         checkEquals("key.attack origins", VisionInput.origins(VisionInput.KEY_ATTACK), 2L);
         checkEquals("teleport origins", VisionInput.origins(VisionInput.KEY_TELEPORT), 1L);
         checkEquals("guiShift origins", VisionInput.origins(VisionInput.KEY_GUI_SHIFT), 1L);
@@ -565,15 +571,18 @@ public final class VisionInputTest {
         checkList("vrInteract origins L+R", VisionInput.origins(VisionInput.KEY_VR_INTERACT), 1L, 2L);
         checkList("climbeyGrab origins L+R", VisionInput.origins(VisionInput.KEY_CLIMBEY_GRAB), 1L, 2L);
         checkList("inventory origins (both fists)", VisionInput.origins(VisionInput.KEY_INVENTORY), 1L, 2L);
-        checkList("unbound action has no origins", VisionInput.origins("key.chat"), new Long[0]);
-        check("all 13 design names are bound (W1 + jump/sneak/radial)",
+        checkList("unbound action has no origins", VisionInput.origins("key.command"), new Long[0]);
+        check("all 19 design names are bound (W1 + W3/W4)",
             in.isBound(VisionInput.KEY_ATTACK) && in.isBound(VisionInput.KEY_USE)
                 && in.isBound(VisionInput.KEY_INVENTORY) && in.isBound(VisionInput.KEY_TELEPORT)
                 && in.isBound(VisionInput.KEY_VR_INTERACT) && in.isBound(VisionInput.KEY_CLIMBEY_GRAB)
                 && in.isBound(VisionInput.KEY_GUI_LEFT_CLICK) && in.isBound(VisionInput.KEY_GUI_RIGHT_CLICK)
                 && in.isBound(VisionInput.KEY_GUI_SHIFT) && in.isBound(VisionInput.KEY_INGAME_MENU)
                 && in.isBound(VisionInput.KEY_JUMP) && in.isBound(VisionInput.KEY_SNEAK)
-                && in.isBound(VisionInput.KEY_RADIAL_MENU));
+                && in.isBound(VisionInput.KEY_RADIAL_MENU)
+                && in.isBound(VisionInput.KEY_HOTBAR_NEXT) && in.isBound(VisionInput.KEY_HOTBAR_PREV)
+                && in.isBound(VisionInput.KEY_TOGGLE_KEYBOARD) && in.isBound(VisionInput.KEY_CHAT)
+                && in.isBound(VisionInput.KEY_SWAP_OFFHAND) && in.isBound(VisionInput.KEY_DROP));
     }
 
     // ------------------------------------------------------------------------------------------

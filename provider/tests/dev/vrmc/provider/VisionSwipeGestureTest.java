@@ -40,6 +40,20 @@ public final class VisionSwipeGestureTest {
         rig.moveWrist(0.0F, 0.30F, 16);
         check("fast up swipe detected", rig.in.swipeDirection(RIGHT) == VisionInput.SWIPE_UP);
 
+        // W4 bindings: right swipe right -> hotbar next; swipe left -> previous (INGAME only).
+        Rig bound = new Rig(new VisionInput(Map.of(VisionInput.TUNE_SWIPE_ENABLED, "true")));
+        bound.poll(); bound.pollMs(150);
+        bound.in.setEnvironment(false, false, false);
+        bound.moveWrist(0.30F, 0.0F, 16);
+        boolean next = bound.in.actionPressed(VisionInput.KEY_HOTBAR_NEXT);
+        for (int i = 0; i < 2; i++) { bound.pollMs(16); next |= bound.in.actionPressed(VisionInput.KEY_HOTBAR_NEXT); }
+        check("right swipe binds hotbarNext", next);
+        bound.pollMs(400);
+        bound.in.setEnvironment(true, false, false);
+        bound.moveWrist(-0.30F, 0.0F, 16);
+        check("GUI suppresses swipe hotbar action", !bound.in.actionActive(VisionInput.KEY_HOTBAR_NEXT));
+        check("right swipe raw direction still detected", bound.in.swipeDirection(RIGHT) == VisionInput.SWIPE_LEFT);
+
         // Closed fist never swipes.
         Rig fist = new Rig(new VisionInput(Map.of(VisionInput.TUNE_SWIPE_ENABLED, "true")));
         fist.poll(); fist.pollMs(150);

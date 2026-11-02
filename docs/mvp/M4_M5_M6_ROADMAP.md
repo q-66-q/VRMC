@@ -19,7 +19,7 @@ host), gaze tracking areas (EV-0098 host build/tests; runtime/device NOT RUN).
    - hotbar next/previous via right/left middle-pinch double-taps (`vivecraft.key.hotbarNext/Prev`);
    - all thresholds/deadzones configurable in `vrmc-input-tune.properties`; host tests cover gesture
      edges, movement axis math, no-stuck-input on loss, and action-set gating.
-2. **W4 full P0 coverage (PARTIAL host PASS, EV-0100):** hotbar slots, scroll, radial menu, on-screen keyboard/chat, swap/drop,
+2. **W4 full P0 coverage (PARTIAL host PASS, EV-0100 + EV-0106):** hotbar slots, scroll, radial menu, on-screen keyboard/chat, swap/drop,
    two-hand bow/climb chord semantics, visible hands/held item (visual polish).
 3. **W5 device acceptance:** ARKit real-hands P0 checklist (AC-4), tracking-loss/occlusion matrix,
    seated/standing parity, gesture tuning from device logs. Device-only.

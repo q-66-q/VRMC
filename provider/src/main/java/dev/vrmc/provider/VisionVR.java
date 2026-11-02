@@ -1147,14 +1147,6 @@ public class VisionVR extends MCVR {
             return;
         }
         switch (direction) {
-            case VisionInput.SWIPE_LEFT -> {
-                if (this.mc.gui.screen() == null) this.changeHotbar(-1);
-                System.out.println("[VRMC-M4] swipe right-hand LEFT -> hotbar previous");
-            }
-            case VisionInput.SWIPE_RIGHT -> {
-                if (this.mc.gui.screen() == null) this.changeHotbar(1);
-                System.out.println("[VRMC-M4] swipe right-hand RIGHT -> hotbar next");
-            }
             case VisionInput.SWIPE_UP -> {
                 InputSimulator.scrollMouse(0.0D, 1.0D);
                 System.out.println("[VRMC-M4] swipe right-hand UP -> scroll up");
