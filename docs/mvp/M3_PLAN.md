@@ -391,3 +391,27 @@ device run decisive and non-silent, and fixed the architectural cause of the win
    foreground re-entry works? If black but a test pattern is visible → provider image black (provider-side
    sync/render); if black with no pattern → device presentation/compositor. If content is visible but
    misaligned → compare the diag tangents/coverage with the expected values above.
+
+
+## 17. Alignment fix — macstream Phase 8 root causes 3+4 (EV-0088)
+
+The macstream `VERIFY.md` Phase 8 analysis (runs 27–31) identified the exact exotropia causes:
+(3) eye matrices holding the full head pose (applied twice by MCVR) and (4) the NullVR 110° symmetric
+stub FOV instead of the client's asymmetric per-eye FOV, plus missing projection-cache invalidation.
+VRMC now ports the same fixes in CompositorServices form:
+
+- Compositor → bridge: `vrmc_shared_set_display_views()` publishes per-eye
+  `cp_view_get_tangents` (signed left/right/up/down), `cp_view_get_transform` (eye→head, head-relative)
+  and the measured IPD on every frame.
+- Provider: `VrmcBridge.getDisplayViews()` + `VisionVR.pollDisplayViews()` set
+  `hmdPoseLeftEye`/`hmdPoseRightEye` from the eye transforms and call
+  `VisionRenderer.setEyeFov()`; `getProjectionMatrix()` renders
+  `frustum(left·near, right·near, down·near, up·near)`; `lastFarClip`/`lastReverseFarClip = NaN`
+  invalidates both cached projections (macstream's 43981c8).
+- Compositor: once display views are published, use **flat 1:1** eye-texture mapping (provider
+  projection now equals the drawable), so the EV-0086 black reprojection branch is bypassed.
+
+Offline verification: `scripts/test_display_views.sh` PASS (lopsided device tangents + symmetric
+fallback: near corners exact; straight-ahead NDC offset matches `-(r+l)/(r-l)` etc.), bridge stub
+display-view roundtrip PASS, provider compiles against MC/Vivecraft jars. Native app, bridge and provider
+jar were rebuilt/installed/pushed together. Device run is EV-0089.

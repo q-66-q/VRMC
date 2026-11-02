@@ -37,8 +37,10 @@ static std::mutex gLogMutex;
 static void *gBridge;
 typedef int32_t (*eye_targets_fn)(vrmc_eye_targets *);
 typedef int32_t (*set_tracking_fn)(const vrmc_tracking_state *);
+typedef int32_t (*set_display_views_fn)(const vrmc_display_views *);
 static eye_targets_fn gEyeFn;
 static set_tracking_fn gTrackFn;
+static set_display_views_fn gDisplayViewsFn;
 // Each immersive session (CompositorLayer callback) gets a generation. A stop request applies to the
 // generation that is current when it is made, so a late stop cannot kill the next session and a stale
 // session's VRMCImmersiveEnded can be told apart from the current one by the shell.
@@ -90,7 +92,9 @@ static void resolveBridge(void) {
         gBridge = h;
         gEyeFn = (eye_targets_fn)dlsym(h, "vrmc_shared_eye_textures");
         gTrackFn = (set_tracking_fn)dlsym(h, "vrmc_shared_set_tracking");
-        compLog("bridge resolved handle=%p eye=%p tracking=%p", h, gEyeFn, gTrackFn);
+        gDisplayViewsFn = (set_display_views_fn)dlsym(h, "vrmc_shared_set_display_views");
+        compLog("bridge resolved handle=%p eye=%p tracking=%p displayViews=%p", h, gEyeFn, gTrackFn,
+                gDisplayViewsFn);
     }
 }
 
@@ -453,6 +457,34 @@ static void scheduleProviderTextureStats(id<MTLCommandQueue> queue, id<MTLTextur
                 if (measured > 0.04f && measured < 0.09f) ipd = measured;
             }
 
+            // Publish the headset's real per-eye frustum + eye-to-head transforms for the provider
+            // (macstream's ViewsConfig equivalent). The provider renders exactly this projection, so
+            // the eye texture can then be mapped 1:1 to the drawable (flat path).
+            BOOL displayViewsPublished = NO;
+            if (views >= 2 && gDisplayViewsFn != NULL) {
+                vrmc_display_views dv;
+                memset(&dv, 0, sizeof(dv));
+                dv.ipd_m = ipd;
+                for (int i = 0; i < 2; i++) {
+                    cp_view_t view = cp_drawable_get_view(drawable, i);
+                    simd_float4 t = cp_view_get_tangents(view); // left, right, top, bottom (positive)
+                    simd_float4x4 vt = cp_view_get_transform(view);
+                    float *tangents = (i == leftView) ? dv.left_tangents : dv.right_tangents;
+                    float *matrix = (i == leftView) ? dv.left_eye_to_head : dv.right_eye_to_head;
+                    tangents[0] = -t.x;  // left
+                    tangents[1] =  t.y;  // right
+                    tangents[2] =  t.z;  // up
+                    tangents[3] = -t.w;  // down
+                    memcpy(matrix, &vt, sizeof(float) * 16);
+                }
+                if (gDisplayViewsFn(&dv) == 0) {
+                    displayViewsPublished = YES;
+                    // Provider now renders the display frustum: flat sampling is the aligned path and
+                    // avoids the EV-0086 black reprojection branch entirely.
+                    useFlat = YES;
+                }
+            }
+
             if (!loggedViewInfo && views > 0) {
                 loggedViewInfo = YES;
                 if (views >= 2) {
@@ -483,12 +515,14 @@ static void scheduleProviderTextureStats(id<MTLCommandQueue> queue, id<MTLTextur
                                           eyesProbe.left_texture != 0 && eyesProbe.right_texture != 0);
                     simd_float4 ls = sourceTangentsFromFov(eyesProbe.left_fov);
                     simd_float4 rs = sourceTangentsFromFov(eyesProbe.right_fov);
-                    compLog("provider eye tangents L=(%.3f,%.3f,%.3f,%.3f) R=(%.3f,%.3f,%.3f,%.3f) ipd=%.4f haveEyes=%d",
-                            ls.x, ls.y, ls.z, ls.w, rs.x, rs.y, rs.z, rs.w, ipd, (int)haveEyesProbe);
+                    compLog("provider eye tangents L=(%.3f,%.3f,%.3f,%.3f) R=(%.3f,%.3f,%.3f,%.3f) ipd=%.4f haveEyes=%d displayViewsPublished=%d",
+                            ls.x, ls.y, ls.z, ls.w, rs.x, rs.y, rs.z, rs.w, ipd, (int)haveEyesProbe,
+                            (int)displayViewsPublished);
 
                     // CPU-side ray->UV diagnostics: exactly the shader math, so a device log proves
                     // whether the drawable rays land inside the provider frustum (EV-0086 hypothesis).
-                    useFlat = (reprojMode == VRMCReprojFlat);
+                    // Do NOT reset useFlat here: when display views are published the provider renders
+                    // the display frustum and flat mapping is the aligned path.
                     for (int i = 0; i < views; i++) {
                         cp_view_t view = cp_drawable_get_view(drawable, i);
                         simd_float4x4 vt = cp_view_get_transform(view);

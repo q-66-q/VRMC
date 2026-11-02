@@ -6,6 +6,7 @@
 #include <jni.h>
 #include <string.h>
 #include "vrmc_abi.h"
+#include "vrmc_native_shared.h"
 
 JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeAbiVersion(JNIEnv *env, jclass clazz) {
     return (jint)vrmc_abi_version();
@@ -56,6 +57,24 @@ JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTL
     uint64_t out = 0;
     int32_t rc = vrmc_export_mtl_texture((uint64_t)vkImage, &out);
     return rc == 0 ? (jlong)out : 0;
+}
+
+JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeGetDisplayViews(
+    JNIEnv *env, jclass clazz, jobject out) {
+    if (out == NULL) return 0;
+    jbyte *base = (*env)->GetDirectBufferAddress(env, out);
+    jlong capacity = (*env)->GetDirectBufferCapacity(env, out);
+    if (base == NULL || capacity < (jlong)(sizeof(vrmc_display_views) - sizeof(uint32_t))) return 0;
+    vrmc_display_views views;
+    uint32_t gen = vrmc_shared_get_display_views(&views);
+    if (gen == 0) return 0;
+    /* Floats only (no generation), layout: L tangents 4, R tangents 4, L matrix 16, R matrix 16, ipd 1. */
+    memcpy(base, views.left_tangents, 4 * sizeof(float));
+    memcpy(base + 4 * sizeof(float), views.right_tangents, 4 * sizeof(float));
+    memcpy(base + 8 * sizeof(float), views.left_eye_to_head, 16 * sizeof(float));
+    memcpy(base + 24 * sizeof(float), views.right_eye_to_head, 16 * sizeof(float));
+    memcpy(base + 40 * sizeof(float), &views.ipd_m, sizeof(float));
+    return (jlong)gen;
 }
 
 JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeFrameTiming(JNIEnv *env, jclass clazz, jobject buf) {

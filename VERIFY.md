@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0088`.
+**Next evidence ID:** `EV-0089`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -2310,7 +2310,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Procedure:**
 
 1. Integrate M3b fixes: VRMCCompositor diagnostics/no-black fallbacks/black-texture detection; Shell.swift epoch-guarded reopen + scene-activity gating + chrome mode; Amethyst modal game-surface patch (vrmc-m3w3) keeping the SwiftUI scene alive; build/stage scripts; provider/bridge built reproducibly.
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS. **M3-W3/W4 PARTIAL (EV-0083/84/86)**: the EV-0086 fixes run showed the re-entry lifecycle works, but the immersive is completely black and the window chrome remains. **M3b (EV-0087, build/static validation, PARTIAL):** the compositor's ray->UV math, uniforms and pass setup were validated on macOS Metal and in the visionOS simulator, including reconstructed EV-0086 device views (87.9% of pixels inside the provider frustum, 0 behind-camera, 0 NaN; a black provider texture reproduces the EV-0086 symptom exactly). The remaining black cause is provider-texture content or device presentation, so the compositor now logs CPU ray->UV/per-eye coverage, reads back the provider eye textures (luma/alpha, auto test-pattern when black), colour-codes debug branches, forces opaque alpha, uses the view texture map, logs command-buffer health and supports Documents flag switches. Shell re-entry is epoch-guarded, foreground-active-gated, dismiss-confirmed and auto-retries a layer that dies right after opening. Amethyst now presents the game surface modally over the live SwiftUI host (legacy root swap behind a flag) so the scene's persistentSystemOverlays(.hidden) chrome preference survives the game launch. Signed app installed on D1; **device run NOT RUN**. Next: EV-0088 device run of the three issues with the new diagnostics. |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL (EV-0083/84/86). **M3b/alignment fix staged (EV-0087 static, EV-0088 host PASS):** macstream Phase 8 root causes 3+4 ported — compositor publishes display views (per-eye tangents + eye-to-head transforms + measured IPD) to the provider; provider renders the headset's asymmetric frustum with head-relative eye matrices and invalidates cached projections; compositor flat-maps the eye textures. Offline frustum/bridge/provider checks pass; app+bridge+provider built/installed. **Device run of the three issues is the remaining verification (EV-0089).** |
 3. Build Amethyst native executable from vendor/amethyst-build + patches 1-4 via cmake (Debug, iphoneos sysroot) then vtool -set-build-version 11 1.0 1.0; stage into the EV-0086 app bundle with new framework + rebuilt bridge, re-sign 169 Mach-O, codesign --verify --deep --strict.
 4. Install the staged app on D1 with devicectl (update install, data container preserved).
 5. Code/convention validation: macOS Metal shader unit test (runtime/probes/m3b-shader-test) and visionOS simulator reprojection probe (runtime/probes/m3b-reproj) incl. reconstructed EV-0086 device views.
@@ -2322,6 +2322,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Artifacts:** evidence/EV-0087/shader-test.log (d37f556e5b67); evidence/EV-0087/m3b-reproj-report.md (dca79dcfe491); evidence/EV-0087/m3b-reproj-summary.txt (2cd534a6e372); evidence/EV-0087/m3b-reproj-run.log (ed30384780e9); evidence/EV-0087/framework-build.log (29ba40e594b3); evidence/EV-0087/stage-app.log (fd66ee6af674); evidence/EV-0087/build-artifacts.txt (2a0d22d839d2); evidence/EV-0087/device-apps.txt (fcb4dc140b7b); evidence/EV-0087/git-diff-stat.txt (fb4b1600bb42)
 
 **Limitations:** NOT device evidence: black-screen root cause narrowed to provider eye-texture content or device presentation (compositor math refuted); window-chrome fix depends on the new modal presentation actually preserving the chrome preference on device; re-entry hardening unverified. Next run must use the new diagnostics (cpu diag / provider tex / cmd buffer / mode badge) and record EV-0088. Simulator is not evidence for stereo optics/tracking (VERIFY 0.7).
+
+### EV-0088 — M3-W3/W4 host PASS: macstream-style display-view channel (per-eye tangents + eye transforms -> provider projection) and flat mapping; device run pending
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:08:52-10:00 |
+| Commit | `1b3b73c8312549fa73ddb93057c843411d92e737` |
+| Dirty state | ridge/abi/vrmc_native_shared.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/VRMCShell, scripts/test_display_views.sh, scripts/tests/ |
+| Device | host validation only (device run NOT RUN) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. port macstream Phase 8 root causes 3+4: publish CompositorServices display views to provider, provider renders display frustum/eye transforms, compositor flat mapping; offline frustum test
+
+**Expected:** provider frustum from display tangents maps near-plane corners to NDC corners; display-view bridge roundtrip; provider compiles
+
+**Actual:** PASS: DisplayViewsTest PASS (both lopsided device views and symmetric fallback: corners exact; straight-ahead NDC offset matches -(r+l)/(r-l), -(top+bottom)/(top-bottom)); bridge stub test PASS incl. display views generation; provider javac PASS; jar rebuilt; app+shell+bridge rebuilt/signed/installed and provider jar hash-verified. Device validation pending.
+
+**Artifacts:** evidence/EV-0088/display-views-test.log (c4c86568d9cb); evidence/EV-0088/summary.log (6082d71f7565)
+
+**Limitations:** Device run is the remaining verification (EV-0088). Next: run the three-issue procedure and check aligned stereo/no black.
 
 ---
 
@@ -2337,7 +2360,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
 | **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS. **M3-W3/W4 PARTIAL (EV-0083/84/86)**: data path works; all three operator issues had fixes integrated and device-tested (EV-0086). **Re-entry lifecycle now works** (background → clean stop/dismiss → foreground reopen generation 2). **Still broken:** immersive is **completely black** (reprojection shader/UV, exotropia fix unverified) and **window chrome/windows still visible** (`persistentSystemOverlays` did not remove them). Next: ray→UV diagnostics/convention fix, chrome alternative, generation-2 invalidation. `export/` updated. |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL (EV-0083/84/86). **M3b/alignment fix staged (EV-0087 static, EV-0088 host PASS):** macstream Phase 8 root causes 3+4 ported — compositor publishes display views (per-eye tangents + eye-to-head transforms + measured IPD) to the provider; provider renders the headset's asymmetric frustum with head-relative eye matrices and invalidates cached projections; compositor flat-maps the eye textures. Offline frustum/bridge/provider checks pass; app+bridge+provider built/installed. **Device run of the three issues is the remaining verification (EV-0089).** |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -2448,4 +2471,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 |---|---|---|---|
 | Verification owner | — | pending | — |
 | Lead | — | pending | — |
-
+| 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported: compositor `vrmc_shared_set_display_views` (per-eye `cp_view_get_tangents` + `cp_view_get_transform` + measured IPD); provider `getDisplayViews` renders `frustum(l·n,r·n,d·n,u·n)` with head-relative eye matrices and NaN cache invalidation; compositor switches to flat 1:1 mapping (reprojection/black branch bypassed). Host checks all PASS: DisplayViewsTest (both device display views + symmetric fallback, corners exact, straight-ahead NDC offset formula), bridge stub display-view roundtrip, provider javac. App+shell+bridge rebuilt/signed/installed; provider jar rebuilt/pushed/hash-verified. **Device run NOT RUN → next EV-0089.** |

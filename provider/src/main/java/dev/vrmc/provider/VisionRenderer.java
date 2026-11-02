@@ -27,6 +27,9 @@ public class VisionRenderer extends VRRenderer {
     private long frameIndex;
     private boolean polled;
     private boolean loggedNoHandle;
+    /** Latest headset per-eye frustum tangents {left,right,up,down} (signed; left/down negative). */
+    private final float[][] eyeFovTan = new float[2][4];
+    private volatile boolean hasDisplayViews;
 
     public VisionRenderer(MCVR vr) {
         super(vr);
@@ -44,9 +47,31 @@ public class VisionRenderer extends VRRenderer {
      * compositor reprojects the image into the real CompositorServices view frustums using the half-angle
      * reported in {@link #endFrame()}, so this FOV only has to cover the display FOV.
      */
+    /** Adopt the headset's per-eye frustum (signed tangents) and rebuild the cached projections. */
+    public void setEyeFov(int eye, float left, float right, float up, float down) {
+        float[] t = this.eyeFovTan[eye];
+        t[0] = left;
+        t[1] = right;
+        t[2] = up;
+        t[3] = down;
+        // NaN != anything: forces getCachedProjectionMatrix/getCachedReverseProjectionMatrix to rebuild.
+        this.lastFarClip = Float.NaN;
+        this.lastReverseFarClip = Float.NaN;
+        this.hasDisplayViews = true;
+    }
+
+    public boolean hasDisplayViews() { return this.hasDisplayViews; }
+
     @Override
     protected Matrix4f getProjectionMatrix(int eyeType, float nearClip, float farClip) {
         boolean zZeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
+        if (this.hasDisplayViews) {
+            // Render exactly the headset's asymmetric per-eye frustum; the compositor can then map the
+            // eye texture 1:1 to the drawable (macstream Phase 8 root cause 4: client FOV, not NullVR).
+            float[] t = this.eyeFovTan[eyeType];
+            return new Matrix4f().frustum(t[0] * nearClip, t[1] * nearClip, t[3] * nearClip,
+                t[2] * nearClip, nearClip, farClip, zZeroToOne);
+        }
         return new Matrix4f().setPerspective(2.0F * EYE_HALF_FOV_RAD, 1.0F, nearClip, farClip, zZeroToOne);
     }
 

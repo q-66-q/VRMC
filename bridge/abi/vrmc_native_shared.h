@@ -32,6 +32,27 @@ int32_t vrmc_shared_set_tracking(const vrmc_tracking_state *state);
 /* Drop the native tracking override; vrmc_get_tracking reverts to the stub identity. */
 void vrmc_shared_clear_tracking(void);
 
+/* Display views: the headset's real per-eye frustum and eye-to-head transform, published by the
+ * CompositorServices renderer and consumed by the provider so Minecraft renders the display's
+ * projection directly (macstream's ViewsConfig/local_view_transform equivalent). Tangents are signed
+ * left/right/up/down (left and down negative); matrices are 16 floats, column-major view->device. */
+typedef struct {
+    uint32_t generation;         /* written by the bridge */
+    float left_tangents[4];      /* left, right, up, down (signed tangents) */
+    float right_tangents[4];
+    float left_eye_to_head[16];  /* view->device, column-major */
+    float right_eye_to_head[16];
+    float ipd_m;
+} vrmc_display_views;
+
+/* Publish the latest display views. The bridge bumps generation only when the payload changes.
+ * Returns 0 on success. */
+int32_t vrmc_shared_set_display_views(const vrmc_display_views *views);
+
+/* Read the latest display views. Fills *out (generation included) and returns the generation
+ * (0 = none yet). */
+uint32_t vrmc_shared_get_display_views(vrmc_display_views *out);
+
 #ifdef __cplusplus
 }
 #endif

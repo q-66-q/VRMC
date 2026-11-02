@@ -63,3 +63,28 @@ published artifact (ADR-0004/ADR-0006, ADR-0009).
 2. Port `VisionRenderer` create/endFrame structure; log eye targets; handoff stub until S4a.
 3. Add `SyntheticPoseSource`-style harness to drive M2 without a headset.
 4. Host harness acceptance: provider init success (`VR provider: VRMC`) and two eye targets rendering.
+
+## 6. Phase 8 root causes reused for VRMC M3-W3/W4 alignment (2026-11-01)
+
+macstream's Phase 8 (VERIFY.md, runs 27–31) found five root causes. Two of them map directly onto the
+visionOS immersive alignment work; we ported the same fixes in a CompositorServices form:
+
+| macstream Phase 8 root cause | VRMC implementation |
+|---|---|
+| **3. Eye matrices contained the full head pose** — MCVR multiplies them onto `hmdPose`, so head motion was applied twice per eye; now head-relative, from ALVR `ViewsConfig local_view_transform` (IPD 67.4 mm) | Compositor publishes `cp_view_get_transform` (view→device = eye-to-head) in `vrmc_display_views`; `VisionVR.pollDisplayViews()` sets `hmdPoseLeftEye`/`hmdPoseRightEye` from those matrices (head-relative). |
+| **4. Projection used the NullVR stub (110° symmetric, aspect 1.0)** instead of the client's asymmetric per-eye FOV; missing cache invalidation kept the stub FOV = exotropia | Compositor publishes the headset's per-eye `cp_view_get_tangents`; `VisionRenderer.setEyeFov()` stores signed tangents and `getProjectionMatrix()` builds `frustum(left·near, right·near, down·near, up·near, …)`; `lastFarClip`/`lastReverseFarClip` set to `NaN` to rebuild both cached projections (macstream's 43981c8 fix). |
+| **5. Foveation mismatched** (not applicable to our direct display) | N/A — we render straight to CompositorServices, no foveated encode. |
+| (also) client FOV consumes display projection, client does its own compositing | Compositor switches to **flat 1:1 eye-texture mapping** once display views are published, instead of reprojecting with a guessed FOV (EV-0086 black branch). |
+
+Related macstream lesson kept as a separate item: **pose-to-display-time alignment** (their
+`pose-to-display-time alignment` fix) is still pending for VRMC; our compositor labels the frame with
+the newest ARKit pose rather than the pose Minecraft rendered with, so motion lag remains.
+
+Offline verification: `scripts/test_display_views.sh` (JOML frustum test, PASS) + bridge stub
+display-view roundtrip + provider compile against MC/Vivecraft jars (host PASS, EV-0088). Device run is
+the remaining evidence.
+
+## 7. Batch/one-shot pipeline reuse
+
+macstream's batch rendering guidance (pre-recorded pose/camera frames, one pass) is directly applicable
+to our eventual M3-W5 frame-pacing work; not used yet because interactive VR needs live ARKit poses.

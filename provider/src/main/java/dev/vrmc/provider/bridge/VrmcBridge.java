@@ -12,6 +12,8 @@ public final class VrmcBridge {
     public static final int TRACKING_BYTES = 8 + 28 + 28 + 28 + 4;
     /** sizeof(vrmc_frame_timing_t): u64 + i64*4 + u32 (+ padding kept explicit below). */
     public static final int FRAME_TIMING_BYTES = 8 + 32 + 4 + 4;
+    /** Per-eye tangents(4) + eye-to-head matrix(16) for both eyes + ipd. */
+    public static final int DISPLAY_VIEWS_BYTES = (4 + 16 + 4 + 16 + 1) * 4;
 
     private static boolean loaded;
 
@@ -36,6 +38,7 @@ public final class VrmcBridge {
                                               float halfFovRad);
     public static native int nativeFrameTiming(ByteBuffer out);
     public static native long nativeExportMTLTexture(long vkImage);
+    public static native long nativeGetDisplayViews(ByteBuffer out);
 
     public static int abiVersion() { return nativeAbiVersion(); }
     public static int init(String capsJson) { return nativeInit(capsJson); }
@@ -48,4 +51,6 @@ public final class VrmcBridge {
     public static int frameTiming(ByteBuffer out) { return nativeFrameTiming(out); }
     /** Export a Metal texture handle from a VkImage owned by the game's MoltenVK device (0 = failure). */
     public static long exportMTLTexture(long vkImage) { return nativeExportMTLTexture(vkImage); }
+    /** Latest headset display views (CompositorServices projection + eye transforms) generation. */
+    public static long getDisplayViews(ByteBuffer out) { return nativeGetDisplayViews(out); }
 }

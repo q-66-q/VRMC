@@ -34,6 +34,8 @@ public class VisionVR extends MCVR {
     private static final Matrix4f IDENTITY = new Matrix4f();
     private static final boolean HOST_HARNESS = Boolean.getBoolean("vrmc.hostHarness");
     private final ByteBuffer tracking = ByteBuffer.allocateDirect(TRACKING_BYTES).order(ByteOrder.nativeOrder());
+    private final ByteBuffer displayViews = ByteBuffer.allocateDirect(VrmcBridge.DISPLAY_VIEWS_BYTES).order(ByteOrder.nativeOrder());
+    private long displayViewsGen = -1;
     private final Quaternionf rot = new Quaternionf();
     private boolean bridgeReady;
     /** Default until the compositor reports the measured eye distance (NullVR's 0.1 m is far too wide). */
@@ -96,6 +98,38 @@ public class VisionVR extends MCVR {
         super.destroy();
     }
 
+    /** Adopt the headset's display views (eye transforms + per-eye frustum) from the compositor. */
+    private void pollDisplayViews() {
+        long gen = VrmcBridge.getDisplayViews(this.displayViews);
+        if (gen <= 0 || gen == this.displayViewsGen) {
+            return;
+        }
+        this.displayViewsGen = gen;
+        VisionRenderer renderer = (this.dh.vrRenderer instanceof VisionRenderer r) ? r : null;
+        for (int eye = 0; eye < 2; eye++) {
+            int o = eye * (4 + 16) * 4;
+            float l = this.displayViews.getFloat(o);
+            float r = this.displayViews.getFloat(o + 4);
+            float u = this.displayViews.getFloat(o + 8);
+            float d = this.displayViews.getFloat(o + 12);
+            if (renderer != null) {
+                renderer.setEyeFov(eye, l, r, u, d);
+            }
+            Matrix4f eyeToHead = eye == 0 ? this.hmdPoseLeftEye : this.hmdPoseRightEye;
+            float[] m = new float[16];
+            for (int k = 0; k < 16; k++) {
+                m[k] = this.displayViews.getFloat(o + 16 + k * 4);
+            }
+            eyeToHead.set(m); // JOML column-major, same layout as the C matrix
+        }
+        float displayIpd = this.displayViews.getFloat(40 * 4);
+        if (displayIpd > 0.0F) {
+            this.ipd = displayIpd;
+        }
+        System.out.printf("[VRMC-M2] display views gen=%d applied (per-eye frustum + eye transforms, ipd=%.4f)%n",
+            gen, this.ipd);
+    }
+
     @Override
     public void poll(long frameIndex) {
         if (!this.initialized) {
@@ -139,6 +173,7 @@ public class VisionVR extends MCVR {
                 }
             }
         }
+        this.pollDisplayViews();
         this.updateAim();
         this.hmdSampling();
         if (this.dh.vrRenderer instanceof VisionRenderer r) {
