@@ -37,10 +37,17 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   left-hand snap-turn. `VisionVR` performs `snapRoomOriginToPlayerEntity(player,false,true)` and logs
   the action. Host tests PASS; device feel/comfort NOT RUN.
 
+## Launcher settings panel (EV-0104)
+
+- `VRControlOverlay` (launcher window) gains a collapsible **VRMC settings** panel: seated mode,
+  seated free move, snap turn 45°/smooth, performance preset, render distance, frame limit.
+- Loads/saves `Documents/instances/default/vrmc-runtime.properties`; preserves unrelated user keys,
+  atomic write, shell log line on success/failure. Applied at the next game launch by the provider
+  parser (EV-0101). Shell build PASS; device UI interaction NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
-- Launcher-facing settings UI for the same values (file editing is the interim path).
 - Quality preset application review on device (render distance vs. 90 Hz floor), thermal soak.
 - H1–H10 gameplay acceptance matrix (device).
 

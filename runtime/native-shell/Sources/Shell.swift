@@ -35,6 +35,45 @@ private func shellDocumentString(_ name: String) -> String? {
     return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+// M5 launcher settings: the provider reads vrmc-runtime.properties from the default game directory at
+// the next launch. The shell panel edits only the keys it owns and preserves any other user keys.
+private func shellRuntimeSettingsURL() -> URL {
+    return shellDocumentsURL()
+        .appendingPathComponent("instances/default")
+        .appendingPathComponent("vrmc-runtime.properties")
+}
+
+private func shellReadRuntimeSettings() -> [String: String] {
+    var values: [String: String] = [:]
+    guard let text = try? String(contentsOf: shellRuntimeSettingsURL(), encoding: .utf8) else { return values }
+    for line in text.split(whereSeparator: \.isNewline) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty || trimmed.hasPrefix("#") || trimmed.hasPrefix("!") { continue }
+        guard let eq = trimmed.firstIndex(of: "=") else { continue }
+        let key = String(trimmed[..<eq]).trimmingCharacters(in: .whitespaces)
+        let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+        if !key.isEmpty { values[key] = value }
+    }
+    return values
+}
+
+@discardableResult
+private func shellWriteRuntimeSettings(_ values: [String: String]) -> Bool {
+    let url = shellRuntimeSettingsURL()
+    do {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        let header = "# VRMC runtime settings edited by the launcher (M5). Applied at the next game launch.\n"
+        let body = values.keys.sorted().map { "\($0)=\(values[$0] ?? "")\n" }.joined()
+        try (header + body).write(to: url, atomically: true, encoding: .utf8)
+        shellLog("VRMC settings saved: \(url.path) keys=\(values.keys.sorted().joined(separator: ","))")
+        return true
+    } catch {
+        shellLog("VRMC settings save FAILED: \(error)")
+        return false
+    }
+}
+
 // M3c: the app data container cannot be cleaned with devicectl (copy/list only), so a leftover
 // diagnostic flag (e.g. a forced test pattern) can poison every later run. Pushing
 // Documents/vrmc-clear-diagnostics.flag makes the shell delete the list below at startup, before
@@ -853,36 +892,112 @@ final class ShellCoordinator {
 /// any actionable error. It lets the CompositorServices path be validated manually, independently of
 /// the JIT/game timing; the automatic open after the game starts stays enabled.
 struct VRControlOverlay: View {
-    let shell: ShellCoordinator
+    @Bindable var shell: ShellCoordinator
+    @State private var showSettings = false
+    @State private var seated = false
+    @State private var seatedFreeMove = false
+    @State private var snapTurn = true
+    @State private var preset = "none"
+    @State private var renderDistance = 12
+    @State private var frameLimit = 90
+    @State private var settingsStatus = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button(action: { shell.enterVRManually() }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "visionpro")
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Button {
+                    shell.enterVRManually()
+                } label: {
                     Text(shell.immersiveOpen ? "VR active" : "Enter VR")
                         .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 16)
+                        .background(shell.immersiveOpen ? Color.green.opacity(0.25) : Color.accentColor.opacity(0.30))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .padding(.horizontal, 16)
-                .background(shell.immersiveOpen ? Color.green.opacity(0.25) : Color.accentColor.opacity(0.30))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .buttonStyle(.plain)
+                .disabled(shell.immersiveOpen)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(shell.immersiveOpen ? "Immersive active" : "Immersive off")
+                        .font(.caption).bold()
+                    Text(shell.presenting ? "presenting" : (shell.immersiveOpen ? "waiting for frame" : "not presenting"))
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(shell.immersiveOpen)
 
             Text(shell.statusMessage).font(.caption).foregroundStyle(.secondary)
             if let error = shell.lastOpenError {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
-            Text("Automatic VR opens ~15 s after the game starts; this button is the manual path.")
-                .font(.caption2).foregroundStyle(.tertiary)
+
+            DisclosureGroup("VRMC settings (next game launch)", isExpanded: $showSettings) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Seated mode", isOn: $seated)
+                    Toggle("Seated free move", isOn: $seatedFreeMove)
+                    Toggle("Snap turn (45°)", isOn: $snapTurn)
+                    HStack {
+                        Text("Performance").font(.caption)
+                        Spacer()
+                        Picker("Performance", selection: $preset) {
+                            Text("None").tag("none")
+                            Text("Performance").tag("performance")
+                            Text("Balanced").tag("balanced")
+                            Text("Quality").tag("quality")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    Stepper("Render distance: \(renderDistance)", value: $renderDistance, in: 6...24)
+                    Stepper("Frame limit: \(frameLimit)", value: $frameLimit, in: 60...120, step: 30)
+                    Button {
+                        applySettings()
+                    } label: {
+                        Text("Save for next launch")
+                            .font(.caption).bold()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    if !settingsStatus.isEmpty {
+                        Text(settingsStatus).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Text("Provider reads these at game start; invalid values are ignored/logged. Diagnostics: vrmc-shell.log, vrmc-thermal.log.")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+                .padding(.top, 4)
+            }
+            .font(.caption)
         }
         .padding(12)
-        .frame(width: 320)
+        .frame(width: 340)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .padding(20)
+        .onAppear { loadSettings() }
+    }
+
+    private func loadSettings() {
+        let values = shellReadRuntimeSettings()
+        seated = values["comfort.seated"] == "true"
+        seatedFreeMove = values["comfort.seatedFreeMove"] == "true"
+        if let raw = values["comfort.worldRotationIncrement"], let angle = Float(raw) {
+            snapTurn = angle > 0.0
+        }
+        preset = values["performance.preset"] ?? "none"
+        if let raw = values["performance.renderDistance"], let n = Int(raw) { renderDistance = min(24, max(6, n)) }
+        if let raw = values["performance.framerateLimit"], let n = Int(raw) { frameLimit = min(120, max(60, (n / 30) * 30)) }
+    }
+
+    private func applySettings() {
+        var values = shellReadRuntimeSettings()
+        values["comfort.seated"] = seated ? "true" : "false"
+        values["comfort.seatedFreeMove"] = seatedFreeMove ? "true" : "false"
+        values["comfort.worldRotationIncrement"] = snapTurn ? "45" : "0"
+        values["performance.preset"] = preset
+        values["performance.renderDistance"] = String(renderDistance)
+        values["performance.framerateLimit"] = String(frameLimit)
+        settingsStatus = shellWriteRuntimeSettings(values) ? "Saved — applies at next game start." : "Save failed — see shell log."
     }
 }
 

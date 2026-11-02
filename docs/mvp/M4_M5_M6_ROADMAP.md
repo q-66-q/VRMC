@@ -29,7 +29,7 @@ host), gaze tracking areas (EV-0098 host build/tests; runtime/device NOT RUN).
 ## M5 — gameplay loop + comfort + diagnostics
 
 Status: first slice HOST/BUILD PASS (EV-0101: opt-in runtime/comfort/performance settings, provider
-diagnostics, shell thermal monitor) + recenter safety chord HOST PASS (EV-0103). Details in `docs/mvp/M5_PLAN.md`.
+diagnostics, shell thermal monitor) + recenter safety chord HOST PASS (EV-0103) + launcher settings panel BUILD PASS (EV-0104). Details in `docs/mvp/M5_PLAN.md`.
 
 1. **Comfort settings** applied from a game-dir `vrmc-comfort.properties` (logged at startup):
    seated/seated-free-move/seated-aim, world-rotation increment (snap angle), vignette intensity (where
