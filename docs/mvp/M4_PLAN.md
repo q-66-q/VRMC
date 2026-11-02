@@ -266,6 +266,12 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
   0 non-finite outputs, 0 violations; basis unit/orthogonal/det≈+1, translation preserved,
   tipOffset/gazeFallback finite. Full provider suite PASS. Host only; device NOT RUN.
 
+## 6s. Smoother numerical fuzz (2026-11-02, EV-0167)
+
+- 100,000 random smoothed poses: normalized rotations, translations ±1e4/periodic 1e20, forward/duplicate/
+  zero timestamps, periodic reset → 0 violations; outputs finite and rotations unit-length. Full provider
+  suite PASS. Host only; device NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

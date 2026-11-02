@@ -169,6 +169,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionThermalStateTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionStatusJsonTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionHandPoseFuzzTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionPoseSmootherFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -266,6 +267,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-ring-chord-test\] [0-9]+ checks" "$T/m4-ring.log"
   else
     cat "$T/m4-ring.log"; fail "m4-ring-chord"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionPoseSmootherFuzzTest > "$T/m4-smoother-fuzz.log" 2>&1 \
+     && grep -q "\[m4-smoother-fuzz-test\] PASS" "$T/m4-smoother-fuzz.log"; then
+    echo "[provider-tests] m4-smoother-fuzz: PASS (100k random poses/timestamps finite+orthonormal)"
+    grep -E "\[m4-smoother-fuzz-test\] cases=" "$T/m4-smoother-fuzz.log"
+  else
+    cat "$T/m4-smoother-fuzz.log"; fail "m4-smoother-fuzz"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionHandPoseFuzzTest > "$T/m4-pose-fuzz.log" 2>&1 \
      && grep -q "\[m4-pose-fuzz-test\] PASS" "$T/m4-pose-fuzz.log"; then
