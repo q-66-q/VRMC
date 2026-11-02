@@ -351,6 +351,7 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 
 - Launcher **Acceptance checklist** tracks H1–H10 + AC-1..6 (NOT RUN/PARTIAL/PASS/FAIL), saves
   `Documents/vrmc-acceptance-checklist.json` atomically and includes it in diagnostics exports.
+- Saving also writes a Markdown summary (`vrmc-acceptance-summary.md`) ready for VERIFY; diagnostics include JSON + MD.
 - Shell/app build/install PASS; provider unchanged + integrity PASS. Device interaction/export NOT RUN.
 
 ## Still to implement (M5 completion)

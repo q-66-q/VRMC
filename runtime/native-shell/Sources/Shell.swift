@@ -66,12 +66,27 @@ private func shellLoadAcceptanceChecklist() -> [ShellAcceptanceItem] {
     return items
 }
 
+private func shellChecklistMarkdown(_ items: [ShellAcceptanceItem]) -> String {
+    var text = "# VRMC device acceptance checklist\n\n"
+    text += "generated: \(Date())\n\n"
+    text += "| ID | Check | Status |\n|---|---|---|\n"
+    for item in items {
+        text += "| \(item.id) | \(item.title) | \(item.status) |\n"
+    }
+    text += "\nPaste the completed rows into VERIFY evidence; device-only gates are not satisfied by host runs.\n"
+    return text
+}
+
 @discardableResult
 private func shellSaveAcceptanceChecklist(_ items: [ShellAcceptanceItem]) -> Bool {
-    let url = shellDocumentsURL().appendingPathComponent("vrmc-acceptance-checklist.json")
+    let docs = shellDocumentsURL()
+    let url = docs.appendingPathComponent("vrmc-acceptance-checklist.json")
     do {
         let data = try JSONEncoder().encode(items)
         try data.write(to: url, options: .atomic)
+        try shellChecklistMarkdown(items).write(
+            to: docs.appendingPathComponent("vrmc-acceptance-summary.md"),
+            atomically: true, encoding: .utf8)
         return true
     } catch {
         shellLog("VRMC acceptance checklist save FAILED: \(error)")
@@ -144,6 +159,7 @@ private func shellBuildDiagnosticsBundle() -> URL? {
         ("runtime settings", game.appendingPathComponent("vrmc-runtime.properties"), 32_768),
         ("input tuning", game.appendingPathComponent("vrmc-input-tune.properties"), 32_768),
         ("acceptance checklist", docs.appendingPathComponent("vrmc-acceptance-checklist.json"), 32_768),
+        ("acceptance summary", docs.appendingPathComponent("vrmc-acceptance-summary.md"), 32_768),
         ("thermal state", game.appendingPathComponent("vrmc-thermal-state.txt"), 4_096),
         ("hand calibration", game.appendingPathComponent("vrmc-hand-calibration.txt"), 16_384),
         ("vignette flag", docs.appendingPathComponent("vrmc-vignette.flag"), 1_024),
