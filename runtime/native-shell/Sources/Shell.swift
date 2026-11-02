@@ -79,7 +79,7 @@ private func shellQueueGameCommand(_ command: String) -> Bool {
 private func shellBuildDiagnosticsBundle() -> URL? {
     let docs = shellDocumentsURL()
     let game = docs.appendingPathComponent("instances/default")
-    let entries: [(String, URL, Int)] = [
+    var entries: [(String, URL, Int)] = [
         ("shell log", docs.appendingPathComponent("vrmc-shell.log"), 262_144),
         ("compositor log", docs.appendingPathComponent("vrmc-compositor.log"), 262_144),
         ("thermal log", docs.appendingPathComponent("vrmc-thermal.log"), 65_536),
@@ -89,6 +89,27 @@ private func shellBuildDiagnosticsBundle() -> URL? {
         ("command results", game.appendingPathComponent("vrmc-command-result.txt"), 65_536),
         ("runtime settings", game.appendingPathComponent("vrmc-runtime.properties"), 32_768),
     ]
+    // Include crash/teardown artifacts so a support bundle captures the evidence that matters.
+    var extras: [URL] = [
+        docs.appendingPathComponent("vrmc-compositor.prev.log"),
+        docs.appendingPathComponent("vrmc-shell.prev.log"),
+        game.appendingPathComponent("hs_err_pid.log"),
+    ]
+    if let files = try? FileManager.default.contentsOfDirectory(
+        at: game, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) {
+        for url in files where url.lastPathComponent.hasPrefix("hs_err_pid")
+            && url.pathExtension == "log" {
+            extras.append(url)
+        }
+    }
+    let crashReports = game.appendingPathComponent("crash-reports")
+    if let reports = try? FileManager.default.contentsOfDirectory(at: crashReports,
+                                                                  includingPropertiesForKeys: nil) {
+        for url in reports where url.pathExtension == "txt" { extras.append(url) }
+    }
+    for (index, url) in extras.prefix(6).enumerated() {
+        entries.append(("crash/extra \(index + 1)", url, 131_072))
+    }
     var text = "VRMC diagnostics export\n"
     text += "app=\(Bundle.main.bundleIdentifier ?? "?") version=\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")\n"
     text += "generated=\(Date())\n"

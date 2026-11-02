@@ -204,6 +204,15 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Tests: hotbar-wheel 8 checks + ring-chord 8 checks PASS; fuzz 20k/0; full provider suite PASS.
 - Device latency/feel/commit behavior NOT RUN; visible hands/held-item and bow nuance still open.
 
+## 6k. Bow/use safety + crash export (2026-11-01, EV-0121)
+
+- While the right fist is held (continuous use / bow draw), the left-pinch teleport binding is
+  suppressed; releasing the fist restores teleport. Host test covers pinch-still-pressed but
+  teleport-not-dispatched, then teleport returning (m4-input 164 checks).
+- Diagnostics export includes prior shell/compositor logs, `hs_err_pid*.log` and `crash-reports/*.txt`
+  (capped) for support.
+- Full provider suite PASS; latest app installed/provider pushed; device bow/UI behavior NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

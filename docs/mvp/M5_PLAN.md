@@ -105,6 +105,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Launcher gains a **Reload input** button (queues the local command).
 - Provider suite/shell builds PASS; latest app installed/provider pushed. Device behavior NOT RUN.
 
+## Crash-log export (EV-0121)
+
+- Diagnostics bundle now appends prior shell/compositor logs, `hs_err_pid*.log` and
+  `crash-reports/*.txt` (first 6 extras, capped) to the fixed logs/status/settings sections.
+- Local-only; device share UI NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

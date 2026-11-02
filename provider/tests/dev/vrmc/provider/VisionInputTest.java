@@ -41,6 +41,7 @@ public final class VisionInputTest {
             noPressWhileUnarmedAndRearmAfterLoss();
             fistTapSingleFireAndRearm();
             fistHoldUseBinding();
+            bowTeleportSuppression();
             bothFistInventoryTap();
             bothFistChordPriority();
             trackingLossReleasesSameFrame();
@@ -212,6 +213,26 @@ public final class VisionInputTest {
         check("opening the fist releases key.use", !rig.in.actionPressed(VisionInput.KEY_USE));
         check("GUI right-click binding remains a fist tap (inactive in game set)",
             !rig.in.actionPressed("vivecraft.key.guiRightClick"));
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 4c. W4 two-hand safety: right fist (bow/use hold) suppresses teleport from left pinch.
+    // ------------------------------------------------------------------------------------------
+    private static void bowTeleportSuppression() {
+        section("W4 bow/use safety: right fist suppresses teleport");
+        Rig rig = new Rig();
+        rig.poll();
+        rig.pollMs(150);
+        rig.in.setEnvironment(false, false, false);
+        rig.rFist = FIST;
+        rig.pollMs(16);                 // right fist held (use)
+        rig.lPinch = PINCHED;
+        rig.pollMs(150);                // left pinch armed and pressed
+        check("left pinch is pressed", rig.in.pinchPressed(LEFT));
+        check("teleport suppressed while right fist held", !rig.in.actionPressed(VisionInput.KEY_TELEPORT));
+        rig.rFist = OPEN_FIST;
+        rig.pollMs(16);
+        check("teleport returns after releasing the fist", rig.in.actionPressed(VisionInput.KEY_TELEPORT));
     }
 
     // ------------------------------------------------------------------------------------------

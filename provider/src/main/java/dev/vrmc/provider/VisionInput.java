@@ -1091,7 +1091,13 @@ public final class VisionInput {
 
     public boolean bindingActive(int index) { return isSetActive(BINDINGS[index].set); }
     public boolean bindingPressed(int index) {
-        return bindingActive(index) && sourcePressed(BINDINGS[index].source, BINDINGS[index].hand);
+        if (!bindingActive(index)) return false;
+        // W4 two-hand safety: while the right fist is held (continuous use / bow draw) the left pinch
+        // must not teleport the player mid-use. Release the fist to restore teleport.
+        if (KEY_TELEPORT.equals(BINDINGS[index].action) && this.hands[HAND_RIGHT].fistPressed) {
+            return false;
+        }
+        return sourcePressed(BINDINGS[index].source, BINDINGS[index].hand);
     }
 
     private boolean sourcePressed(int source, int hand) {
