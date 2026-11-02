@@ -185,6 +185,15 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Binding table 22 rows / 20 actions; middle suite 21 checks PASS; full provider suite ALL PASS.
 - Climb grab remains both-hand pinch hold (W1); device climbing/climb-jump feel NOT RUN.
 
+## 6i. Fuzz/safety hardening (2026-11-01, EV-0115)
+
+- Deterministic 20k-frame fuzz test mixes tracking loss, malformed hand masks, NaN/Inf joints, stale
+  publisher gaps and environment flips; asserts release invariants after every frame.
+- It found a real G4-style bug: both-hand tap/fist chord 2-frame pulses could survive one hand losing
+  tracking. Fixed by clearing both-hand chord state immediately when either hand is untracked.
+- 0 violations; full provider suite PASS. Updated provider jar pushed to D1.
+- Real-hands no-stuck behavior and gesture feel remain W5 device work.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

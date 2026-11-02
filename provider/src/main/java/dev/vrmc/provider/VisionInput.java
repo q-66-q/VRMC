@@ -681,6 +681,18 @@ public final class VisionInput {
             updateFistTap(h, nowNs, bothFistChord);
         }
         updateBothFistTap(bothFistChord, nowNs);
+        // Safety: any both-hand chord is released the same frame a hand becomes untracked; never let a
+        // 2-frame pulse outlive the tracking data that produced it.
+        if (!this.hands[HAND_LEFT].tracked || !this.hands[HAND_RIGHT].tracked) {
+            this.bothFistHeld = false;
+            this.bothFistFired = false;
+            this.bothFistTapFrames = 0;
+            this.bothFistTapPressed = false;
+            this.bothMiddleTapFrames = 0;
+            this.bothMiddleTapPressed = false;
+            this.bothMiddleDoubleTapFrames = 0;
+            this.bothMiddleDoubleTapPressed = false;
+        }
     }
 
     /**

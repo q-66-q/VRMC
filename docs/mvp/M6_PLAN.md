@@ -22,6 +22,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - `scripts/m6_release_check.sh`: host readiness gate for licenses/notices/privacy/source dirs/no tracked
   Minecraft binaries/usage strings/manifest fields (PASS).
 
+## Safety fuzzing (EV-0115)
+
+- `VisionInputFuzzTest` (20k deterministic random frames) exercises tracking-loss/malformed/stale
+  invariants and found/fixed a both-hand chord pulse that could outlive a lost hand.
+- Full provider suite PASS; device real-hands no-stuck verification still required.
+
 ## Offline groundwork to add
 
 1. `scripts/soak_harness.sh`: device-only repeat launch/world/quit loop with log capture + crash
