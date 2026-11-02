@@ -1,11 +1,11 @@
 VRMC install metrics (host measurement; device install size still a K6 acceptance step)
-generated: 2026-11-02T00:46:33-1000
-app_path=/tmp/VRMC-native-climbtelem.app
-app_bytes=583630848
+generated: 2026-11-02T00:50:18-1000
+app_path=/tmp/VRMC-native-restoreperf.app
+app_bytes=583634944
 app_files=485
 app_macho_files=169
-provider_bytes=91427
-provider_sha256=1d36487eaead9cf5d53f363aa54ffcb7e4afe09124c1365aa11567a9e0ca7e16
+provider_bytes=92008
+provider_sha256=5379fe2ced32d9cc1ece9bbb6cbf49684d0657584c0f22f06edb8e8df138baf6
 package_path=/tmp/VRMC-dev-release.zip
-package_bytes=206468279
-package_sha256=9720b6527c5276b2ec25aa897ad9171e2799fbbbc5c2a05cf1383c0ce34abc2f
+package_bytes=206470289
+package_sha256=20ffc04d980001124a9585f9511047b3a7f17bedc62b9482003486d6298ce648

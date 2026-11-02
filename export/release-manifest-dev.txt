@@ -1,6 +1,6 @@
 # VRMC release manifest
-# generated: 2026-11-02T00:45:51-1000
-source_commit=c913928f8bee5790c58770f1763ca66f7985be9f
+# generated: 2026-11-02T00:49:35-1000
+source_commit=17f8c87abdffeec0b11e0e12beeb5fb30c192bc3
 source_branch=main
 dirty_tree=no
 product=VRMC
@@ -18,12 +18,12 @@ moltenvk=1.4.3 (source-built-app-bundled)
 xcode=27.2 (27B52)
 visionos_sdk=27.2
 visionos_sim_runtime=27.0
-app_bundle=/tmp/VRMC-native-climbtelem.app
-app_bundle_sha256=90c83c0d6e5d45df04a050a638aeb2ba11c6dad058a94d5f300cf15d5ecfd9f7
+app_bundle=/tmp/VRMC-native-restoreperf.app
+app_bundle_sha256=2939c509d8522c92504c2cc19923336ddf8fa0d3530e7164f9aee0da403ee4d7
 bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
 provider_jar=/tmp/vrmc-current/vrmc-provider.jar
-provider_jar_sha256=1d36487eaead9cf5d53f363aa54ffcb7e4afe09124c1365aa11567a9e0ca7e16
+provider_jar_sha256=5379fe2ced32d9cc1ece9bbb6cbf49684d0657584c0f22f06edb8e8df138baf6
 license_app=LICENSE:present
 license_provider=provider/LICENSE:present
 third_party_notices=THIRD_PARTY_NOTICES.md:present
