@@ -315,6 +315,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - m5-command 15 checks; full provider suite PASS; app installed/provider pushed + integrity PASS.
   Device restore behavior NOT RUN.
 
+## Auto status writes (EV-0182)
+
+- Provider writes `vrmc-status.json` automatically on first update (non-null game directory) and after each
+  completed diagnostic window; launcher/support diagnostics stay current without the explicit `status`
+  command. No per-frame I/O added (~1 KB per 10–120 s window).
+- Full provider suite PASS; provider pushed + integrity PASS. Device behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

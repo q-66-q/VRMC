@@ -142,6 +142,7 @@ public class VisionVR extends MCVR {
     private int preReductionRender = -1;
     private int preReductionSim = -1;
     private int preReductionFps = -1;
+    private boolean statusAutoWritePending = true;
     private boolean thermalReductionApplied;
     private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
@@ -674,6 +675,8 @@ public class VisionVR extends MCVR {
         this.diagWindowFrames = 0;
         this.diagMaxGapNs = 0L;
         this.diagNextLogNs = now + this.runtimeSettings.diagnosticPeriodSeconds * 1_000_000_000L;
+        // Keep the launcher/support status current without requiring a manual status command.
+        writeStatusReport();
     }
 
     private static void logSmoothingConfig(VisionPoseSmoother.Config c) {
@@ -762,6 +765,10 @@ public class VisionVR extends MCVR {
         }
         pollCommandFile();
         pollThermalState();
+        if (this.statusAutoWritePending && this.mc.gameDirectory != null) {
+            writeStatusReport();
+            this.statusAutoWritePending = false;
+        }
         updateDiagnostics();
         if (this.dh.vrRenderer instanceof VisionRenderer r) {
             r.markPolled();
