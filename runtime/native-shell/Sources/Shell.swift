@@ -48,6 +48,7 @@ private let diagnosticFlagsClearedAtStartup = [
     "vrmc-legacy-root-swap.flag",
     "vrmc-immersive-on-launch.flag",
     "vrmc-immersive-selftest.flag",
+    "vrmc-open-on-launch.flag",
     "vrmc-clear-probe.flag",
     "vrmc-legacy-single-drawable.flag",
     "vrmc-depth-near.flag",
@@ -174,6 +175,9 @@ final class ShellCoordinator {
     private(set) var chromeMode = "automatic"
     /// Self-test mode: open the immersive space without the game (see class docs).
     private(set) var selftestMode = false
+    /// Open the immersive space shortly after launch WITHOUT forcing the test pattern (diagnostic; the
+    /// simulator provider-sampling harness uses it to exercise the sampled path with fake provider eyes).
+    private(set) var openOnLaunch = false
     /// Disable window parking entirely (diagnostic).
     private(set) var noParking = false
     /// Restore the old isHidden=true parking for A/B (default: alpha-only, never hide).
@@ -204,6 +208,7 @@ final class ShellCoordinator {
         hideChromeAlways = shellDocumentFlag("vrmc-hide-chrome-always.flag")
         chromeMode = hideChromeAlways ? "hidden-always" : "hidden-when-immersive"
         selftestMode = shellDocumentFlag("vrmc-immersive-selftest.flag")
+        openOnLaunch = shellDocumentFlag("vrmc-open-on-launch.flag")
         noParking = shellDocumentFlag("vrmc-no-parking.flag")
         hideWindowsOptIn = shellDocumentFlag("vrmc-hide-windows.flag")
         observe(Notification.Name("VRMCGameStarted")) { $0.gameDidStart() }
@@ -223,6 +228,9 @@ final class ShellCoordinator {
         shellLog("coordinator ready chromeMode=\(chromeMode) selftest=\(selftestMode) noParking=\(noParking) hideWindowsOptIn=\(hideWindowsOptIn)")
         if selftestMode {
             scheduleSelfTestOpen()
+        }
+        if openOnLaunch {
+            scheduleOpenOnLaunch()
         }
     }
 
@@ -343,6 +351,33 @@ final class ShellCoordinator {
                 if self.immersiveOpen || self.opening { return }
             }
             self.shellLogSafe("SELFTEST: gave up opening the immersive space after 15 s")
+        }
+    }
+
+    /// Open the immersive space shortly after launch (diagnostic). Unlike the self-test this does NOT
+    /// force the procedural test pattern: with a provider publishing eye textures the compositor runs
+    /// the sampled flat path, which is what the simulator provider-sampling harness needs.
+    private func scheduleOpenOnLaunch() {
+        shellLog("OPEN-ON-LAUNCH: vrmc-open-on-launch.flag present; will open the immersive space without forcing the test pattern")
+        Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .seconds(3))
+            for attempt in 1...15 {
+                if self.immersiveOpen || self.opening { return }
+                guard self.openAction != nil, self.appActive, self.windowSceneActive else {
+                    if attempt % 5 == 0 {
+                        self.shellLogSafe("OPEN-ON-LAUNCH: waiting (attempt \(attempt) action=\(self.openAction != nil) appActive=\(self.appActive) windowActive=\(self.windowSceneActive))")
+                    }
+                    try? await Task.sleep(for: .seconds(1))
+                    continue
+                }
+                self.shellLogSafe("OPEN-ON-LAUNCH: opening immersive (attempt \(attempt))")
+                self.openVR(reason: "onlaunch")
+                try? await Task.sleep(for: .seconds(2))
+                if self.immersiveOpen || self.opening { return }
+                try? await Task.sleep(for: .seconds(1))
+            }
+            self.shellLogSafe("OPEN-ON-LAUNCH: gave up after 15 attempts")
         }
     }
 

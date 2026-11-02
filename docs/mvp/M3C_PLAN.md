@@ -88,6 +88,12 @@ layer-state logging, and a no-JIT immersive selftest. Info.plist unchanged.
 
 ## 5. Follow-ups after visual confirmation
 
+Headset-free regression tooling now in-repo: `runtime/probes/m3c-provider-sim/` runs the real shell +
+compositor in the visionOS simulator against a fake provider dylib (real `MTLTexture`s, known pattern)
+and asserts the flat sampled output orientation/layout plus the `MTLSharedEvent` sync wait path
+(`run.sh`, two scenarios, both PASS). Use it after any compositor/shader/bridge change; it is not a
+substitute for device evidence for presentation or stereo.
+
 1. **Stereo/ alignment**: flat 1:1 mapping of the provider display frustum; verify no exotropia; then
    per-eye projection parity check with the compositor diag logs.
 2. **Window chrome**: verify `persistentSystemOverlays(.hidden)` with the modal game surface.
