@@ -3,6 +3,13 @@
 Authority: [`VERIFY.md`](../../VERIFY.md). This matrix is a navigation/checklist layer; every row's
 actual status comes from VERIFY evidence. **Device rows remain `NOT RUN` while D1 is unavailable.**
 
+## Automated readiness report
+
+`scripts/m6_acceptance_report.sh` parses this matrix plus `M5_ACCEPTANCE.md` and prints per-row status +
+counts; `--require-pass` exits non-zero unless every row has an explicit PASS. The current snapshot is
+stored in `export/acceptance-readiness.txt` and is **NOT READY** (device gates NOT RUN). Host/partial
+evidence never counts as a device PASS.
+
 ## MVP acceptance criteria
 
 | ID | Criterion | Status | Evidence / gap |
