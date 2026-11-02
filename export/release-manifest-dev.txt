@@ -1,0 +1,32 @@
+# VRMC release manifest
+# generated: 2026-11-01T23:21:42-1000
+source_commit=086d11c08467b8c65b6491c429cd9efeec8dd2b4
+source_branch=main
+dirty_tree=no
+product=VRMC
+platform=visionOS
+min_visionos=27.0
+mc_version=26.2
+mc_version_type=release
+mc_version_json_sha256=267d4b17134667235223525d3151b8126b066a3347c372d7a0d2474a9f0970f4
+java_major=25 (java-runtime-epsilon)
+lwjgl=3.4.1
+fabric_loader=0.19.3
+vivecraft=26.2-1.3.15 (LGPL-3.0)
+graphics=prefer-vulkan
+moltenvk=1.4.3 (source-built-app-bundled)
+xcode=27.2 (27B52)
+visionos_sdk=27.2
+visionos_sim_runtime=27.0
+app_bundle=/tmp/VRMC-native-ring.app
+app_bundle_sha256=0726af92d1f671a4856fb8d49943b2852a0822fe1ea7110479daedd8e9d47f5b
+bridge_dylib=/tmp/vrmc-bridge-build/libvrmc_bridge.dylib
+bridge_dylib_sha256=679244821cb44cd3e242c6b86feeaf1121c7a1a5bf238256c8fe22fb27e18ddd
+provider_jar=/tmp/vrmc-current/vrmc-provider.jar
+provider_jar_sha256=cc24d16b923210f6f0fe00afc614ade4f3fd6edc0733a4674abc1cb83493b890
+license_app=LICENSE:present
+license_provider=provider/LICENSE:present
+third_party_notices=THIRD_PARTY_NOTICES.md:present
+privacy=PRIVACY.md:present
+no_minecraft_binaries_in_git=yes
+m6_acceptance=docs/mvp/M6_ACCEPTANCE.md:present

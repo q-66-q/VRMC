@@ -22,6 +22,16 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - `scripts/m6_release_check.sh`: host readiness gate for licenses/notices/privacy/source dirs/no tracked
   Minecraft binaries/usage strings/manifest fields (PASS).
 
+## Release workflow (EV-0119)
+
+- `scripts/m6_release_check.sh` PASS on a clean tree.
+- `scripts/m6_release_manifest.sh` generated a clean manifest (`dirty_tree=no`, pins/hashes/licensing).
+- `scripts/m6_package_release.sh` produced a development sideload package
+  (`/tmp/VRMC-dev-release.zip`, sha256 `d583608d…`, 206,308,244 bytes) with app + provider +
+  licenses/notices/privacy/README/versions.env + manifest + INSTALL.txt.
+- **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
+  rebuilt from the release commit with device evidence.
+
 ## Concurrency hardening (EV-0116)
 
 - `bridge/tests/bridge_shared_test.c` stress-tests the additive native-shared channels (display views,
