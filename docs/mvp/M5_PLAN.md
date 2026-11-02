@@ -210,6 +210,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   preserved; reload-input/next launch).
 - Shell/app build/install PASS; provider unchanged; device locomotion feel NOT RUN.
 
+## Command-result feedback + Status button (EV-0140)
+
+- Launcher refreshes the last `vrmc-command-result.txt` line and shows it as "Last result: …" under the
+  command buttons; adds a **Status** button queueing the existing `status` command.
+- Shell/app build/install PASS; provider unchanged; device UI NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

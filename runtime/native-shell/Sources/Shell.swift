@@ -1199,6 +1199,7 @@ struct VRControlOverlay: View {
     @State private var rotatePulseMs = 120.0
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
+    @State private var lastCommandResult = ""
     @State private var exportURL: URL?
     @State private var exportStatus = ""
     @State private var statusLine = ""
@@ -1410,9 +1411,17 @@ struct VRControlOverlay: View {
                             commandStatus = shellQueueGameCommand("controls") ? "Controls help queued." : "Queue failed."
                         }
                         .buttonStyle(.bordered)
+                        Button("Status") {
+                            commandStatus = shellQueueGameCommand("status") ? "Status write queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
                     }
                     if !commandStatus.isEmpty {
                         Text(commandStatus).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    if !lastCommandResult.isEmpty {
+                        Text("Last result: \(lastCommandResult)").font(.caption2).foregroundStyle(.tertiary)
+                            .lineLimit(2)
                     }
                     HStack(spacing: 8) {
                         Button("Export diagnostics") {
@@ -1511,6 +1520,11 @@ struct VRControlOverlay: View {
         parts.append("lowPower=\(ProcessInfo.processInfo.isLowPowerModeEnabled ? "on" : "off")")
         statusLine = parts.joined(separator: " · ")
         if diagnosticTail.isEmpty { refreshDiagnosticTail() }
+        let resultURL = game.appendingPathComponent("vrmc-command-result.txt")
+        if let text = try? String(contentsOf: resultURL, encoding: .utf8) {
+            let lines = text.split(whereSeparator: \.isNewline)
+            if let last = lines.last { lastCommandResult = String(last.suffix(200)) }
+        }
     }
 
     private func refreshDiagnosticTail() {
