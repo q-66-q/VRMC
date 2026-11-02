@@ -1027,6 +1027,10 @@ struct VRControlOverlay: View {
     @State private var preset = "none"
     @State private var renderDistance = 12
     @State private var frameLimit = 90
+    @State private var worldScale = 1.0
+    @State private var autoHeight = true
+    @State private var manualHeight = 1.70
+    @State private var diagPeriod = 30
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var exportURL: URL?
@@ -1091,6 +1095,18 @@ struct VRControlOverlay: View {
                     }
                     Stepper("Render distance: \(renderDistance)", value: $renderDistance, in: 6...24)
                     Stepper("Frame limit: \(frameLimit)", value: $frameLimit, in: 60...120, step: 30)
+                    HStack {
+                        Text("World scale: \(String(format: "%.2f", worldScale))×").font(.caption)
+                        Slider(value: $worldScale, in: 0.8...1.5, step: 0.05)
+                    }
+                    Toggle("Auto height", isOn: $autoHeight)
+                    if !autoHeight {
+                        HStack {
+                            Text("Height: \(String(format: "%.2f", manualHeight)) m").font(.caption)
+                            Slider(value: $manualHeight, in: 1.30...2.10, step: 0.01)
+                        }
+                    }
+                    Stepper("Diagnostics period: \(diagPeriod)s", value: $diagPeriod, in: 10...120, step: 10)
                     Button {
                         applySettings()
                     } label: {
@@ -1170,6 +1186,14 @@ struct VRControlOverlay: View {
         preset = values["performance.preset"] ?? "none"
         if let raw = values["performance.renderDistance"], let n = Int(raw) { renderDistance = min(24, max(6, n)) }
         if let raw = values["performance.framerateLimit"], let n = Int(raw) { frameLimit = min(120, max(60, (n / 30) * 30)) }
+        if let raw = values["comfort.worldScale"], let v = Float(raw), v >= 0.8, v <= 1.5 { worldScale = Double(v) }
+        if let raw = values["comfort.manualHeight"], let v = Float(raw), v != -1.0 {
+            autoHeight = false
+            manualHeight = min(2.10, max(1.30, Double(v)))
+        } else {
+            autoHeight = true
+        }
+        if let raw = values["diagnostics.periodSeconds"], let n = Int(raw) { diagPeriod = min(120, max(10, (n / 10) * 10)) }
     }
 
     private func applySettings() {
@@ -1180,6 +1204,9 @@ struct VRControlOverlay: View {
         values["performance.preset"] = preset
         values["performance.renderDistance"] = String(renderDistance)
         values["performance.framerateLimit"] = String(frameLimit)
+        values["comfort.worldScale"] = String(format: "%.2f", worldScale)
+        values["comfort.manualHeight"] = autoHeight ? "-1" : String(format: "%.2f", manualHeight)
+        values["diagnostics.periodSeconds"] = String(diagPeriod)
         settingsStatus = shellWriteRuntimeSettings(values) ? "Saved — applies at next game start." : "Save failed — see shell log."
     }
 }

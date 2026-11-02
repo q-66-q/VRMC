@@ -73,6 +73,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - `[VRMC-M5] diag:` now includes p50Ms/p95Ms/maxMs/missed90 alongside pollHz/maxGapMs.
 - Device K2/K5 still need real measurements; poll intervals are a Java-side proxy, not GPU timestamps.
 
+## Launcher panel extension (EV-0112)
+
+- Launcher settings panel now also edits `comfort.worldScale` (0.80–1.50×), `comfort.manualHeight`
+  (auto `-1`, manual 1.30–2.10 m) and `diagnostics.periodSeconds` (10–120 s), with the same
+  load/clamp/preserve-other-keys/save behavior as EV-0104. Applied at the next game launch by the
+  provider. Shell build PASS; device UI/comfort feel NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
