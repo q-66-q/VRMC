@@ -18,6 +18,8 @@ DEVICE_UDID="${DEVICE_UDID:-}"
 BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
 SOAK_SECONDS="${SOAK_SECONDS:-60}"
 POLL_SECONDS="${POLL_SECONDS:-15}"
+# AC-5 expects a clean quit at/after the soak window. Set to 0 only for an intentional still-running probe.
+REQUIRE_CLEAN_SHUTDOWN="${REQUIRE_CLEAN_SHUTDOWN:-1}"
 OUT="${OUT:-$ROOT/export/soak-$(date +%Y%m%d-%H%M%S)}"
 if [ "$MODE" = dry ]; then
   echo "[m6-soak] dry-run: device=$([ -n "$DEVICE_UDID" ] && echo yes || echo 'not configured (set DEVICE_UDID)') bundle=$BUNDLE_ID soak=${SOAK_SECONDS}s poll=${POLL_SECONDS}s out=$OUT"
@@ -39,10 +41,13 @@ while :; do
   pull Documents/vrmc-shell.log "$OUT/shell-$stamp.log"
   pull Documents/vrmc-compositor.log "$OUT/compositor-$stamp.log"
   pull Documents/latestlog.txt "$OUT/game-$stamp.log"
+  pull Documents/instances/default/logs/latest.log "$OUT/game-real-$stamp.log"
   pull Documents/instances/default/vrmc-shutdown.log "$OUT/shutdown-$stamp.log"
+  pull Documents/vrmc-heartbeat.txt "$OUT/heartbeat-$stamp.txt"
+  pull Documents/instances/default/vrmc-status.json "$OUT/status-$stamp.json"
   for log in "$OUT"/*-"$stamp".log; do
     [ -f "$log" ] || continue
-    if grep -aqE "SIGSEGV|command buffer FAILED|__BUG_IN_CLIENT__|panic|VRMC_BUG" "$log"; then
+    if grep -aqE "SIGSEGV|command buffer FAILED|__BUG_IN_CLIENT__|panic|VRMC_BUG|OutOfMemoryError|watchdog" "$log"; then
       echo "[m6-soak] FAIL marker in $log"; fail=1
     fi
   done
@@ -54,7 +59,18 @@ latest_shutdown=$(ls -t "$OUT"/shutdown-*.log 2>/dev/null | head -1 || true)
 if [ -n "$latest_shutdown" ] && grep -q "destroy-complete" "$latest_shutdown"; then
   echo "[m6-soak] shutdown journal: destroy-complete present"
 else
-  echo "[m6-soak] WARN: no destroy-complete in shutdown journal (game may still be running or a teardown crash occurred)"
+  if [ "$REQUIRE_CLEAN_SHUTDOWN" = "1" ]; then
+    echo "[m6-soak] FAIL: no destroy-complete in shutdown journal (no session, game still running, or teardown crash)"
+    fail=1
+  else
+    echo "[m6-soak] WARN: no destroy-complete in shutdown journal (REQUIRE_CLEAN_SHUTDOWN=0)"
+  fi
+fi
+latest_status=$(ls -t "$OUT"/status-*.json 2>/dev/null | head -1 || true)
+if [ -n "$latest_status" ] && grep -q '"abi"' "$latest_status"; then
+  echo "[m6-soak] status snapshot captured: $(basename "$latest_status")"
+else
+  echo "[m6-soak] WARN: no vrmc-status.json captured"
 fi
 if [ "$fail" != "0" ]; then echo "[m6-soak] RESULT: FAIL (see $OUT)"; exit 1; fi
 echo "[m6-soak] RESULT: PASS (no crash markers in monitored window; $OUT)"

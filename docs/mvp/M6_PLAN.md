@@ -32,6 +32,15 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - **Not final release:** AC-1..AC-6/K gates and VERIFY sign-off still NOT RUN; final package must be
   rebuilt from the release commit with device evidence.
 
+## Soak harness hardening (EV-0149)
+
+- Pulls the real Minecraft log (`Documents/instances/default/logs/latest.log`) in addition to the legacy
+  path, plus `vrmc-heartbeat.txt` and `vrmc-status.json` each poll.
+- Marker scan adds OOM/watchdog strings; `REQUIRE_CLEAN_SHUTDOWN=1` (default) fails the soak when the
+  shutdown journal lacks `destroy-complete` (AC-5 clean teardown), with an explicit override for probes.
+- `scripts/m6_release_check.sh` now runs `m6_soak_harness.sh --dry-run` and reports it. Host checks PASS;
+  device soak NOT RUN.
+
 ## Source offer + refreshed package (EV-0143)
 
 - `SOURCE_OFFER.md`: GPLv3 app/launcher/compositor + LGPLv3 separately-replaceable provider correspondence,

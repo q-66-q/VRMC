@@ -33,6 +33,13 @@ else
   bad "tracking usage strings missing from scripts/build_launcher.sh"
 fi
 
+# 4b. Soak harness dry-run (tooling/plan present; device soak remains an acceptance gate).
+if scripts/m6_soak_harness.sh --dry-run >/dev/null 2>&1; then
+  ok "soak harness dry-run"
+else
+  bad "soak harness dry-run failed"
+fi
+
 # 5. Release manifest can be generated (dirty tree is reported, not a release-blocker for this check).
 manifest=$(mktemp -t vrmc-manifest).txt
 if scripts/m6_release_manifest.sh "$manifest" >/dev/null 2>&1 || [ -s "$manifest" ]; then
