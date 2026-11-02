@@ -510,12 +510,35 @@ public class VisionVR extends MCVR {
                     Map<String, String> tuned = loadInputTuning();
                     this.inputTuning = tuned;
                     this.hotbarRange = floatValue(tuned, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
+                    this.holdLastPoseNanos = (long) (Math.max(0.0F, Math.min(2000.0F,
+                        floatValue(tuned, "tracking.holdLastPoseMs", "vrmc.input.tracking.holdLastPoseMs",
+                            (float) (this.holdLastPoseNanos / 1_000_000L)))) * 1_000_000L);
+                    String mode = System.getProperty("vrmc.hands.componentMode",
+                        tuned.getOrDefault("hands.componentMode", "identity"));
+                    this.handComponentJoints = "joints".equalsIgnoreCase(mode);
                     this.visionInput = new VisionInput(tuned);
+                    this.smoothingConfig = loadSmoothingConfig(tuned);
+                    this.poseSmoothers = new VisionPoseSmoother[] {
+                        new VisionPoseSmoother(this.smoothingConfig),
+                        new VisionPoseSmoother(this.smoothingConfig)
+                    };
+                    this.moveOriginZ = floatValue(tuned, "move.originZ", "vrmc.input.move.originZ", this.moveOriginZ);
+                    this.moveForwardScale = floatValue(tuned, "move.forwardScale", "vrmc.input.move.forwardScale", this.moveForwardScale);
+                    this.moveStrafeScale = floatValue(tuned, "move.strafeScale", "vrmc.input.move.strafeScale", this.moveStrafeScale);
+                    this.moveDeadzone = floatValue(tuned, "move.deadzone", "vrmc.input.move.deadzone", this.moveDeadzone);
+                    this.rotatePulseNanos = (long) (floatValue(tuned, "move.rotatePulseMs",
+                        "vrmc.input.move.rotatePulseMs", (float) (this.rotatePulseNanos / 1_000_000L)) * 1_000_000L);
                     this.bindingActions = null;
                     this.resolvedActionMap = null;
+                    this.hotbarWheelActive = false;
+                    logInputTuning(this.visionInput);
+                    logSmoothingConfig(this.smoothingConfig);
                     detail = "input tuning reloaded (middle=" + this.visionInput.middleEnabled()
                         + " ring=" + this.visionInput.ringEnabled()
-                        + " swipe=" + this.visionInput.swipeEnabled() + ")";
+                        + " swipe=" + this.visionInput.swipeEnabled()
+                        + " hold=" + (this.holdLastPoseNanos / 1_000_000L) + "ms"
+                        + " move=" + this.moveForwardScale + "/" + this.moveStrafeScale
+                        + " components=" + (this.handComponentJoints ? "joints" : "identity") + ")";
                 }
                 case "controls" -> {
                     showGameChat(controlsHelpLines());

@@ -260,6 +260,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Strict JSON test extended to 15 checks. App installed/provider pushed + integrity PASS; device K2
   pacing NOT RUN.
 
+## reload-input completeness (EV-0151)
+
+- Fixed: `reload-input` previously applied only gesture thresholds + hotbar range. It now also reloads
+  smoothing, move origin/forward/strafe/deadzone/rotate-pulse, `tracking.holdLastPoseMs`,
+  `hands.componentMode`, rebuilds pose smoothers, cancels an in-progress hotbar wheel, and reports the
+  applied categories in the command result.
+- Full provider suite PASS; provider pushed + integrity PASS. Device live-reload behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
