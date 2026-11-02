@@ -109,6 +109,7 @@ public class VisionVR extends MCVR {
     private long diagMaxGapNs;
     private long diagNextLogNs;
     private long nextCommandPollNs;
+    private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
     private long rotatePulseUntilNs;
     private int rotatePulseDirection;
@@ -427,6 +428,7 @@ public class VisionVR extends MCVR {
         if (this.diagLastPollNs != 0L) {
             long gap = now - this.diagLastPollNs;
             if (gap > this.diagMaxGapNs) this.diagMaxGapNs = gap;
+            this.frameStats.record(gap);
         }
         this.diagLastPollNs = now;
         this.diagWindowFrames++;
@@ -435,10 +437,13 @@ public class VisionVR extends MCVR {
         double hz = this.diagWindowFrames / seconds;
         String screen = this.mc.gui.screen() == null ? "none" : this.mc.gui.screen().getClass().getSimpleName();
         boolean hasPlayer = this.mc.player != null;
-        System.out.printf("[VRMC-M5] diag: pollHz=%.1f frames=%d maxGapMs=%.1f screen=%s seated=%s "
-                + "hands=L%d R%d displayViewsGen=%d trackedFrames=%d playerPresent=%d%n",
-            hz, this.diagWindowFrames, this.diagMaxGapNs * 1.0E-6, screen,
-            this.dh.vrSettings.seated, this.visionInput.isHandTracked(VisionInput.HAND_LEFT) ? 1 : 0,
+        VisionFrameStats.Snapshot fs = this.frameStats.snapshotAndReset();
+        System.out.printf("[VRMC-M5] diag: pollHz=%.1f frames=%d maxGapMs=%.1f p50Ms=%.2f p95Ms=%.2f "
+                + "p95MaxMs=%.2f missed90=%d screen=%s seated=%s hands=L%d R%d displayViewsGen=%d "
+                + "trackedFrames=%d playerPresent=%d%n",
+            hz, this.diagWindowFrames, this.diagMaxGapNs * 1.0E-6, fs.p50Ms, fs.p95Ms, fs.maxMs,
+            fs.missed90HzFrames, screen, this.dh.vrSettings.seated,
+            this.visionInput.isHandTracked(VisionInput.HAND_LEFT) ? 1 : 0,
             this.visionInput.isHandTracked(VisionInput.HAND_RIGHT) ? 1 : 0,
             this.displayViewsGen, this.trackedFrames, hasPlayer ? 1 : 0);
         this.diagWindowStartNs = now;

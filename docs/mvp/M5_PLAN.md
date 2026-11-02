@@ -65,6 +65,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   opens the system share sheet for manual save/AirDrop. No automatic upload or telemetry.
 - Device share-sheet behavior NOT RUN.
 
+## Frame-pacing telemetry (EV-0110)
+
+- `VisionFrameStats`: rolling provider-poll interval ring (900 samples); per diagnostic period reports
+  mean/P50/P95/max ms and a documented `missed90` count (interval > 1.5 × 90 Hz = 16.67 ms); one sort
+  per report, no per-frame allocation.
+- `[VRMC-M5] diag:` now includes p50Ms/p95Ms/maxMs/missed90 alongside pollHz/maxGapMs.
+- Device K2/K5 still need real measurements; poll intervals are a Java-side proxy, not GPU timestamps.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
