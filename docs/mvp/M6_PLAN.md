@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Consolidated host regression (EV-0188)
+
+- Shell build, provider suite (all fuzz), bridge suite incl. TSan, M4 selfcheck --fast, release check,
+  package verifier/freshness and device integrity: all PASS.
+- Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
+
 ## Release gate default app freshness (EV-0187)
 
 - `m6_release_ready.sh` defaults `RELEASE_APP_BUNDLE` from `export/latest-build-identity.txt`'s staged app
