@@ -123,6 +123,18 @@ public final class VisionMiddleGestureTest {
         for (int i = 0; i < 3; i++) { dbl.pollMs(16); radial |= dbl.in.actionPressed(VisionInput.KEY_RADIAL_MENU); }
         check("middle double-tap binds radial menu (right)", radial);
 
+        // Both hands double-tap within 120 ms -> recenter chord, individual double-taps suppressed.
+        Rig both = new Rig();
+        both.poll(); both.pollMs(150);
+        both.lMiddle = PINCHED_MIDDLE; both.rMiddle = PINCHED_MIDDLE; both.pollMs(16);
+        both.lMiddle = OPEN_MIDDLE; both.rMiddle = OPEN_MIDDLE; both.pollMs(16);
+        both.lMiddle = PINCHED_MIDDLE; both.rMiddle = PINCHED_MIDDLE; both.pollMs(16);
+        both.lMiddle = OPEN_MIDDLE; both.rMiddle = OPEN_MIDDLE; both.pollMs(16);
+        check("both-hand middle double-tap fires recenter chord", both.in.bothMiddleDoubleTapPressed());
+        both.in.setEnvironment(false, false, false);
+        check("recenter chord suppresses right radial double-tap",
+            !both.in.actionPressed(VisionInput.KEY_RADIAL_MENU));
+
         tap.in.setEnvironment(true, false, false);
         check("GUI screen suppresses INGAME middle bindings",
             !tap.in.actionActive(VisionInput.KEY_SNEAK) && !tap.in.actionActive(VisionInput.KEY_JUMP));

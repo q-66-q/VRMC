@@ -30,6 +30,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Shell `THERMAL` lines every 30 s + on thermal-state change, appended to `vrmc-thermal.log` and the
   shell log: thermal state, low-power mode, uptime, physical memory, immersive/presenting/app state.
 
+## Recenter safety chord (EV-0103)
+
+- Both-hand middle double-tap (120 ms window, 300 ms cooldown) → recenter; the chord cancels the
+  per-hand middle-double-tap pulses so recenter cannot also trigger the right-hand radial or the
+  left-hand snap-turn. `VisionVR` performs `snapRoomOriginToPlayerEntity(player,false,true)` and logs
+  the action. Host tests PASS; device feel/comfort NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

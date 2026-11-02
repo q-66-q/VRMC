@@ -3,6 +3,7 @@ package dev.vrmc.provider;
 import dev.vrmc.provider.bridge.VrmcBridge;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.core.Vec3i;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.client.Minecraft;
 import org.joml.Vector2ic;
 import org.joml.Matrix4f;
@@ -14,6 +15,7 @@ import org.joml.Vector3f;
 import org.vivecraft.client.VivecraftVRMod;
 import org.vivecraft.client_vr.ClientDataHolderVR;
 import org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler;
+import org.vivecraft.client_vr.settings.AutoCalibration;
 import org.vivecraft.client_vr.gameplay.screenhandlers.KeyboardHandler;
 import org.vivecraft.client_vr.gameplay.screenhandlers.RadialHandler;
 import org.vivecraft.client_vr.provider.ControllerType;
@@ -1072,6 +1074,21 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /** M5 safety action: put the VR room origin back at the player (no movement/teleport side effects). */
+    private void performRecenter() {
+        if (this.mc.player == null || this.dh.vrPlayer == null) return;
+        try {
+            // Reflective call keeps the provider build independent of the @Nullable annotation class
+            // that javac needs for a direct call on this MC/Vivecraft signature.
+            java.lang.reflect.Method m = this.dh.vrPlayer.getClass().getMethod(
+                "snapRoomOriginToPlayerEntity", Entity.class, boolean.class, boolean.class);
+            m.invoke(this.dh.vrPlayer, this.mc.player, false, true);
+            System.out.println("[VRMC-M5] recenter: room origin snapped to player (both-middle double-tap)");
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M5][WARN] recenter failed: " + t);
+        }
+    }
+
     /**
      * M4-W4 opt-in open-hand swipes (default OFF via swipe.enabled): right-hand horizontal swipe =
      * hotbar previous/next; right-hand vertical swipe = mouse wheel (hotbar in game / list scroll in GUI).
@@ -1198,6 +1215,10 @@ public class VisionVR extends MCVR {
         this.applyActionData();
         this.applyLocomotion();
         this.applySwipeActions();
+
+        if (this.visionInput.bothMiddleDoubleTapPressed()) {
+            performRecenter();
+        }
 
         for (VRInputAction action : this.inputActions.values()) {
             if (action.isHanded()) {

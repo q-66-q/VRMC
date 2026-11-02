@@ -262,6 +262,7 @@ public final class VisionInput {
         int middleDoubleTapFrames;
         boolean middleTapPressed;
         boolean middleDoubleTapPressed;
+        long lastMiddleDoubleTapNs;
 
         // --- M4-W4 open-hand swipe edge detector (opt-in) ---
         long lastMotionNs;
@@ -304,6 +305,11 @@ public final class VisionInput {
     private boolean inputHealthy;
     private boolean publishEvidence;
     private int invalidHandMask;
+
+    // both-middle double-tap chord (M5 recenter; never a normal action)
+    private int bothMiddleDoubleTapFrames;
+    private boolean bothMiddleDoubleTapPressed;
+    private long lastBothMiddleChordNs;
 
     // both-fist tap (global / key.inventory)
     private boolean bothFistHeld;
@@ -393,6 +399,7 @@ public final class VisionInput {
     public float swipeSpeed() { return this.swipeSpeed; }
     public float swipeOpenRatio() { return this.swipeOpenRatio; }
     public int swipeDirection(int hand) { return this.hands[hand].swipeDirection; }
+    public boolean bothMiddleDoubleTapPressed() { return this.bothMiddleDoubleTapPressed; }
     public long swipeCooldownMillis() { return this.swipeCooldownNanos / 1_000_000L; }
     public float middleOn() { return this.middleOn; }
     public float middleOff() { return this.middleOff; }
@@ -565,6 +572,7 @@ public final class VisionInput {
         h.middleDoubleTapFrames = 0;
         h.middleTapPressed = false;
         h.middleDoubleTapPressed = false;
+        h.lastMiddleDoubleTapNs = 0L;
         h.lastMotionNs = 0L;
         h.lastSwipeNs = 0L;
         h.swipeDirection = SWIPE_NONE;
@@ -593,6 +601,7 @@ public final class VisionInput {
         h.middleDoubleTapFrames = 0;
         h.middleTapPressed = false;
         h.middleDoubleTapPressed = false;
+        h.lastMiddleDoubleTapNs = 0L;
         h.lastMotionNs = 0L;
         h.lastSwipeNs = 0L;
         h.swipeDirection = SWIPE_NONE;
@@ -628,6 +637,7 @@ public final class VisionInput {
             updateMiddleSource(h, nowNs);
             updateSwipe(h, nowNs);
         }
+        updateBothMiddleDoubleTap(nowNs);
         // Both-fist chord priority (M4-W1 follow-up): while BOTH hands present the fist gesture the
         // chord owns the fist-tap gesture, so the per-hand taps are suppressed and a both-fists hold
         // fires ONLY key.inventory instead of simultaneously firing key.use/guiRightClick + Escape.
@@ -732,6 +742,7 @@ public final class VisionInput {
                 long last = h.lastMiddleTapNs;
                 if (last != 0L && nowNs - last <= this.middleDoubleNanos) {
                     h.middleDoubleTapFrames = this.tapFrames;
+                    h.lastMiddleDoubleTapNs = nowNs;
                     h.lastMiddleTapNs = 0L;
                 } else {
                     h.middleTapFrames = this.tapFrames;
@@ -756,6 +767,37 @@ public final class VisionInput {
         if (h.middleTapFrames > 0) h.middleTapFrames--;
         h.middleDoubleTapPressed = h.middleDoubleTapFrames > 0;
         if (h.middleDoubleTapFrames > 0) h.middleDoubleTapFrames--;
+    }
+
+    /**
+     * M5 recenter chord: both hands double-tap the middle pinch within a short window. The chord owns
+     * the gesture (the per-hand double-tap pulses are cancelled) so a recenter can never also fire the
+     * right-hand radial menu or the left-hand snap-turn on the same two taps. Pulses are 2 frames.
+     */
+    private void updateBothMiddleDoubleTap(long nowNs) {
+        if (!this.middleEnabled) {
+            this.bothMiddleDoubleTapPressed = false;
+            this.bothMiddleDoubleTapFrames = 0;
+            return;
+        }
+        Hand left = this.hands[HAND_LEFT];
+        Hand right = this.hands[HAND_RIGHT];
+        boolean overlap = left.tracked && right.tracked
+            && left.lastMiddleDoubleTapNs != 0L && right.lastMiddleDoubleTapNs != 0L
+            && Math.abs(left.lastMiddleDoubleTapNs - right.lastMiddleDoubleTapNs) <= 120_000_000L
+            && (this.lastBothMiddleChordNs == 0L || nowNs - this.lastBothMiddleChordNs > 300_000_000L);
+        if (overlap) {
+            this.bothMiddleDoubleTapFrames = this.tapFrames;
+            this.lastBothMiddleChordNs = nowNs;
+            left.middleDoubleTapFrames = 0;
+            right.middleDoubleTapFrames = 0;
+            left.middleDoubleTapPressed = false;
+            right.middleDoubleTapPressed = false;
+            left.lastMiddleDoubleTapNs = 0L;
+            right.lastMiddleDoubleTapNs = 0L;
+        }
+        this.bothMiddleDoubleTapPressed = this.bothMiddleDoubleTapFrames > 0;
+        if (this.bothMiddleDoubleTapFrames > 0) this.bothMiddleDoubleTapFrames--;
     }
 
     /**
