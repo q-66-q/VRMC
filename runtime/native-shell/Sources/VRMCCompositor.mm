@@ -234,24 +234,41 @@ static NSString *const kShaderSource =
      "  }\n"
      "  return float4(tex.sample(s, uv).rgb, 1.0);\n"
      "}\n"
-     "fragment float4 fmain_test(VOut in [[stage_in]]) {\n"
+     // Eye-distinct stereo / alignment test pattern. viewInfo = (eyeIndex 0=left/1=right, width, height, 0).\n"
+     // - left eye gets a warm/red tint, right eye a green tint (fused correctly if the eyes are aligned;\n"
+     //   a single-eye look also shows which image each eye receives);\n"
+     // - a white centre cross is drawn in EACH eye at its image centre: with correct stereo optics the two\n"
+     //   crosses fuse into one sharp cross; doubled crosses mean a per-eye offset / misalignment;\n"
+     // - a corner marker (red left / green right) lets the operator close one eye and confirm eye order.\n"
+     "fragment float4 fmain_test(VOut in [[stage_in]], constant float4 &viewInfo [[buffer(2)]]) {\n"
      "  float2 uv = in.ndc * 0.5 + 0.5;\n"
-     "  float3 col = float3(uv.x, uv.y, 0.35) + float3(0.05);\n"
+     "  bool isLeft = viewInfo.x < 0.5;\n"
+     "  float2 px = uv * viewInfo.yz;\n"
+     "  float3 col = isLeft ? float3(0.55 + 0.35 * uv.x, 0.20 + 0.15 * uv.y, 0.25)\n"
+     "                     : float3(0.20, 0.45 + 0.35 * uv.y, 0.30 + 0.25 * uv.x);\n"
      "  float2 g = fract(uv * 10.0);\n"
-     "  if (g.x < 0.02 || g.y < 0.02) col = float3(1.0, 1.0, 0.4);\n"
-     "  if (abs(uv.x - 0.5) < 0.003 || abs(uv.y - 0.5) < 0.003) col = float3(1.0, 0.2, 0.2);\n"
+     "  if (g.x < 0.02 || g.y < 0.02) col = float3(0.85, 0.85, 0.35);\n"
+     // fused-alignment cross (white, ~3 px thick at the eye image centre)\n"
+     "  float2 d = abs(px - viewInfo.yz * 0.5);\n"
+     "  if ((d.x < 3.0 && d.y < 60.0) || (d.y < 3.0 && d.x < 60.0)) col = float3(1.0, 1.0, 1.0);\n"
+     // eye marker: 90x90 px square 60 px inset from the top-left, red = left eye, green = right eye\n"
+     "  float2 m = px - float2(60.0, 60.0);\n"
+     "  if (m.x >= 0.0 && m.y >= 0.0 && m.x < 90.0 && m.y < 90.0) {\n"
+     "    bool edge = (m.x < 4.0 || m.y < 4.0 || m.x > 86.0 || m.y > 86.0);\n"
+     "    col = edge ? float3(1.0, 1.0, 1.0) : (isLeft ? float3(1.0, 0.1, 0.1) : float3(0.1, 1.0, 0.1));\n"
+     "  }\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.3,1.0), 1.0);\n"
      "  return float4(col, 1.0);\n"
      "}\n"
      // Present-proof overlay (vrmc-present-proof.flag / vrmc-immersive-selftest.flag): an 8 px
      // white/cyan checker border plus a magenta centre cross. Drawn after the main draw, interior
      // fragments discarded, so it cannot change what the sampled path shows.
+     // Present-proof overlay: only the 8 px border (the test pattern owns the centre cross so the\n"
+     // operator can judge stereo fusion of two white crosses; an overlay cross would hide it).\n"
      "fragment float4 fmain_proof(VOut in [[stage_in]], constant float2 &vpSize [[buffer(2)]]) {\n"
      "  float2 px = (in.ndc * 0.5 + 0.5) * vpSize;\n"
      "  bool inBorder = (px.x < 8.0) || (px.y < 8.0) || (px.x > vpSize.x - 8.0) || (px.y > vpSize.y - 8.0);\n"
-     "  bool inCross = (fabs(px.x - vpSize.x * 0.5) < 3.0) || (fabs(px.y - vpSize.y * 0.5) < 3.0);\n"
-     "  if (!inBorder && !inCross) discard_fragment();\n"
-     "  if (inCross) return float4(1.0, 0.0, 1.0, 1.0);\n"
+     "  if (!inBorder) discard_fragment();\n"
      "  float checker = fmod(floor(px.x / 8.0) + floor(px.y / 8.0), 2.0);\n"
      "  return checker > 0.5 ? float4(1.0, 1.0, 1.0, 1.0) : float4(0.0, 1.0, 1.0, 1.0);\n"
      "}\n";
@@ -1313,6 +1330,10 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                     [enc drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
                                 }
                             } else {
+                                // Test pattern: eye index + viewport size for the stereo/alignment markers.
+                                float viewInfo[4] = { isLeftEye ? 0.0f : 1.0f,
+                                                      (float)viewport.width, (float)viewport.height, 0.0f };
+                                [enc setFragmentBytes:viewInfo length:sizeof(viewInfo) atIndex:2];
                                 [enc drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
                             }
                         }

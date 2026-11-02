@@ -196,8 +196,11 @@ Installed build for the next session: `/tmp/VRMC-native-v11-depthfix.app` (shell
 
 1. Unlock/wear D1; launch **VRMC** (Home or `devicectl device process launch --activate dev.vrmc.vrmc`).
 2. Launcher window appears with the **Enter VR** overlay button. Tap it.
-   Expected: beep on the first presented frame, window fades, bright procedural test pattern fills the
-   immersive field of view.
+   Expected: beep on the first presented frame, window fades, and the eye-distinct stereo/alignment
+   test pattern fills the immersive field of view:
+   left eye warm/red, right eye green; one white centre cross per eye that must fuse into a single sharp
+   cross (doubled cross = misalignment); red corner marker = left eye, green = right eye; checker border.
+   This build (`v12-stereo`) also carries the depth-clear fix from v11.
 3. Game run: StikDebug -> Assign amethyst.js -> Enable JIT -> launch VRMC -> Play.
    Expected: game starts; auto-immersive opens ~15 s later; Vivecraft menu world + GUI fills the field
    of view; head tracking works (move your head).

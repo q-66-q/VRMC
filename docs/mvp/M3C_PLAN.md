@@ -73,7 +73,13 @@ layer-state logging, and a no-JIT immersive selftest. Info.plist unchanged.
 2. Launch **VRMC** from Home (or `devicectl device process launch --activate dev.vrmc.vrmc`).
    Expected: launcher window with the **Enter VR** overlay button.
 3. Tap **Enter VR**. Expected: first-presented-frame beep; the window fades; the immersive shows the
-   bright test pattern (no game => procedural pattern + proof overlay). Pull
+   eye-distinct stereo/alignment test pattern (v12 build; v11 has the plain gradient):
+   - left eye = warm/red tint, right eye = green tint (close one eye to confirm eye order);
+   - a white centre cross per eye that must **fuse into one sharp cross** when the eyes are aligned;
+   - a corner marker (red = left eye, green = right eye) with a white outline;
+   - a cyan/white checker border (present-proof) around each eye image.
+   If the crosses appear doubled / horizontally offset, stereo alignment is off (report which way).
+   Pull
    `Documents/vrmc-shell.log` (`STATE ... scenes=[CPSceneSessionRoleImmersiveSpaceApplication:fgActive]`)
    and `Documents/vrmc-compositor.log` (`layerState=2`, bright `drawable proof`).
 4. Game run: StikDebug -> Assign amethyst.js -> Enable JIT -> VRMC -> Play. Expected: game starts, auto
