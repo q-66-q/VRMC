@@ -82,6 +82,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Status/handoff document (EV-0181)
+
+- `docs/mvp/STATUS.md` summarizes the current installed build identity, milestone states, feature
+  inventory, host verification commands/results, remaining device-only procedures and known risks;
+  linked from README.
+- Documentation only; device AC/K/H gates remain NOT RUN.
+
 ## Stale-package guard (EV-0180)
 
 - `scripts/m6_check_release_current.sh` compares a package's embedded manifest app/provider hashes with
