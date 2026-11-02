@@ -82,6 +82,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Refreshed package/metrics for bow build (EV-0175)
+
+- Package refreshed to app `6e4b7c5e…` + provider `47713964…`: bytes=206,462,210 sha256
+  `8a82159e54eb5bf0abafc507301b2575cc5738c96efae98aa52280e970f4efcd`; verifier/release-ready host
+  gates PASS; acceptance NOT READY.
+- Install metrics refreshed: app 583,630,848 bytes / 485 files / 169 Mach-O; provider 91,130 bytes.
+
 ## Status-field parity guard (EV-0173)
 
 - `scripts/check_status_fields.sh` extracts the 11 `obj["..."]` fields the launcher reads and requires
