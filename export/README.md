@@ -175,3 +175,36 @@ A recovered M3b device session log (14:41 local) shows the provider eye textures
 content** (L mean RGB 83/108/51, R 78/100/48; 1024/1024 non-black, alpha 255), the first command buffer
 completed, and chrome/windows were parked/hidden; the session backgrounded before a visual alignment
 check. So EV-0086's black screen was compositor reprojection/presentation, not provider content.
+
+## ROOT CAUSE FOUND — M3c depth-clear fix (2026-11-01 evening)
+
+The black immersive was **not** the provider content, the drawable API, the compositor math, or the
+Amethyst shell. It was the **CompositorServices drawable depth clear value**:
+
+- M3b (`1b3b73c`) changed `rp.depthAttachment.clearDepth` from 1.0 to 0.0 (reverse-Z "infinity").
+- The known-good M3A probe (EV-0074, which displays on D1) clears to 1.0.
+- Device A/B: depth clear 0.0 -> black immersive (bright drawable readback, completed command buffer);
+  depth clear 1.0 -> solid magenta/cyan visible immediately, operator-confirmed, same build/app.
+- Fix in this build: default depth clear 1.0; `vrmc-depth-zero.flag` only for A/B.
+  Regression test: `scripts/tests/DepthClearRegressionTest.sh`.
+
+Installed build for the next session: `/tmp/VRMC-native-v11-depthfix.app` (shell framework + bridge
+`38624e12…`, provider jar `8e707022…`, signed `dev.vrmc.vrmc`). A pending
+`Documents/vrmc-clear-diagnostics.flag` removes stale diagnostic flags on the next launch.
+
+### Next session (short, decisive)
+
+1. Unlock/wear D1; launch **VRMC** (Home or `devicectl device process launch --activate dev.vrmc.vrmc`).
+2. Launcher window appears with the **Enter VR** overlay button. Tap it.
+   Expected: beep on the first presented frame, window fades, bright procedural test pattern fills the
+   immersive field of view.
+3. Game run: StikDebug -> Assign amethyst.js -> Enable JIT -> launch VRMC -> Play.
+   Expected: game starts; auto-immersive opens ~15 s later; Vivecraft menu world + GUI fills the field
+   of view; head tracking works (move your head).
+4. Pull `Documents/vrmc-shell.log`, `Documents/vrmc-compositor.log`, `latestlog.txt` and record the
+   result (expected lines: `STATE ... CPSceneSessionRoleImmersiveSpaceApplication:fgActive`,
+   `layerState=2`, bright `drawable proof`, `depthZero=0`).
+5. Report anything that is still black/misaligned before judging stereo alignment.
+
+Known remaining items after the visual confirmation: stereo alignment check (flat 1:1 display frustum),
+window chrome hiding, background/foreground re-entry, provider GPU sync (deferred; bridge API ready).

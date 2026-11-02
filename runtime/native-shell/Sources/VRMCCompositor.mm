@@ -658,6 +658,17 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     // Diagnostic A/B: skip cp_drawable_set_device_anchor entirely (EV-0073 saw passthrough without an
     // anchor; this isolates whether the anchor/reprojection path is what keeps the content off-screen).
     const BOOL noDeviceAnchor = documentFlag(@"vrmc-no-anchor.flag");
+    // A/B: use the visionOS-26-deprecated singular cp_frame_query_drawable instead of the array API.
+    // The known-good M3A probe (EV-0074, displays on D1) uses the deprecated call; this isolates
+    // whether the array-API drawable handling is what keeps our layer off-screen.
+    const BOOL legacySingleDrawable = documentFlag(@"vrmc-legacy-single-drawable.flag");
+    // ROOT CAUSE (EV-0093): clearing the drawable depth attachment to 0.0 (reverse-Z "infinitely
+    // far") makes visionOS 27.2 present the whole layer BLACK even though the colour texture is
+    // provably bright and the command buffer completes. The known-good M3A probe (EV-0074) clears to
+    // 1.0 (near) and displays. The flat sampled image carries no meaningful per-pixel depth, so 1.0 is
+    // both safe and the empirically required value on D1. vrmc-depth-zero.flag restores the old 0.0
+    // value for A/B only.
+    const BOOL depthZero = documentFlag(@"vrmc-depth-zero.flag");
     const BOOL presentProof = documentFlag(@"vrmc-present-proof.flag");
     const BOOL clearProbe = documentFlag(@"vrmc-clear-probe.flag");
     const BOOL dumpRawAlways = documentFlag(@"vrmc-drawable-dump.flag");
@@ -668,10 +679,11 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
         samplingDisabled = documentFlag(@"vrmc-no-sampling.flag") ? 1 : 0;
     }
     compLog("diagnostics: reprojMode=%d debugShading=%d samplingDisabled=%d forceTestPattern=%d "
-            "presentProof=%d clearProbe=%d dumpRaw=%d presentWait=%d selfTest=%d noDeviceAnchor=%d",
+            "presentProof=%d clearProbe=%d dumpRaw=%d presentWait=%d selfTest=%d noDeviceAnchor=%d "
+            "legacySingleDrawable=%d depthZero=%d",
             reprojMode, (int)debugShading, samplingDisabled, (int)forceTestPattern,
             (int)presentProof, (int)clearProbe, (int)dumpRawAlways, (int)presentWait, (int)selfTest,
-            (int)noDeviceAnchor);
+            (int)noDeviceAnchor, (int)legacySingleDrawable, (int)depthZero);
 
     // Query the layer's real configuration instead of hardcoding the colour format: the pipeline
     // must match what the drawable actually hands out.
@@ -761,12 +773,20 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             // completes. Query the array, and never open a submission that will not present.
             size_t drawableCount = 0;
             cp_drawable_t drawables[4] = {nullptr, nullptr, nullptr, nullptr};
-            cp_drawable_array_t drawableArray = cp_frame_query_drawables(frame);
-            if (drawableArray != nullptr) {
-                size_t arrayCount = cp_drawable_array_get_count(drawableArray);
-                drawableCount = arrayCount < 4 ? arrayCount : 4;
-                for (size_t d = 0; d < drawableCount; d++) {
-                    drawables[d] = cp_drawable_array_get_drawable(drawableArray, d);
+            if (legacySingleDrawable) {
+                cp_drawable_t single = cp_frame_query_drawable(frame);
+                if (single != nullptr) {
+                    drawables[0] = single;
+                    drawableCount = 1;
+                }
+            } else {
+                cp_drawable_array_t drawableArray = cp_frame_query_drawables(frame);
+                if (drawableArray != nullptr) {
+                    size_t arrayCount = cp_drawable_array_get_count(drawableArray);
+                    drawableCount = arrayCount < 4 ? arrayCount : 4;
+                    for (size_t d = 0; d < drawableCount; d++) {
+                        drawables[d] = cp_drawable_array_get_drawable(drawableArray, d);
+                    }
                 }
             }
             if (drawableCount == 0) {
@@ -1221,7 +1241,9 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         rp.depthAttachment.storeAction = MTLStoreActionStore;
                         // CompositorServices uses reverse-Z: 0 = infinitely far. The reprojected game
                         // image has no per-pixel depth, so report it at infinity rather than near.
-                        rp.depthAttachment.clearDepth = 0.0;
+                        // EV-0093: 1.0 (near) is required on D1; 0.0 blacks the presented layer out
+                        // (vrmc-depth-zero.flag restores the old behaviour for A/B only).
+                        rp.depthAttachment.clearDepth = depthZero ? 0.0 : 1.0;
                         if (depthTexture.textureType == MTLTextureType2DArray) {
                             rp.depthAttachment.slice = sliceIndex;
                         }

@@ -321,3 +321,24 @@ Flag read at startup only: pushing/removing these flags requires an app relaunch
 5. The bridge eye-frame API requires the rebuilt `libvrmc_bridge.dylib` (bridge-sync) to be staged
    together with this framework; without it the compositor falls back to `vrmc_shared_eye_textures`
    (no GPU timeline wait).
+
+---
+
+## 6. RESOLVED (2026-11-01 late): the black immersive was the drawable depth clear value
+
+The hypotheses in §4/§5 were superseded by a device A/B (EV-0093):
+
+- The M3b commit `1b3b73c` changed the drawable depth clear from **1.0** to **0.0**
+  (`rp.depthAttachment.clearDepth = 0.0`, "flat image at infinity"). The known-good M3A probe
+  (EV-0074) clears to 1.0.
+- On D1, depth clear **0.0 -> black layer** (even with a bright drawable readback, valid encoder and a
+  completed command buffer), depth clear **1.0 -> magenta/cyan visible** immediately (operator
+  confirmed), same shell/compositor/app.
+- Fix: default is 1.0 again; `vrmc-depth-zero.flag` keeps the old value for A/B. Regression guard:
+  `scripts/tests/DepthClearRegressionTest.sh`.
+- Consequence for verification: the **simulator does not reproduce** this failure (it displayed fine
+  with 0.0), so simulator output is not evidence for the CompositorServices presentation path. The
+  active controls are (a) the known-good M3A probe and (b) the drawable readback + scene-activation
+  logs, with the operator's observation as the decisive report.
+- The F1/F2 candidates in §4 (multi-drawable handling, nil encoder) were ruled out for this bug: the
+  deprecated/array API and the clear/pattern paths all behaved identically under the depth A/B.

@@ -49,6 +49,11 @@ private let diagnosticFlagsClearedAtStartup = [
     "vrmc-immersive-on-launch.flag",
     "vrmc-immersive-selftest.flag",
     "vrmc-clear-probe.flag",
+    "vrmc-legacy-single-drawable.flag",
+    "vrmc-depth-near.flag",
+    "vrmc-depth-zero.flag",
+    "vrmc-present-wait.flag",
+    "vrmc-no-anchor.flag",
     "autolaunch.flag",
 ]
 
@@ -356,6 +361,10 @@ final class ShellCoordinator {
         AudioServicesPlaySystemSound(1057)
         noFrameTask?.cancel()
         noFrameTask = nil
+        // Objective scene/immersion state logging must run in EVERY presenting mode (also selftest and
+        // no-parking): this is the evidence that the immersive scene is foreground-active while the
+        // compositor presents, and it must survive the early returns below.
+        startSceneStateLoop()
         guard immersiveOpen else {
             shellLog("VRMCCompositorRunning ignored for parking: immersive space not open")
             return
@@ -370,7 +379,6 @@ final class ShellCoordinator {
         }
         setGameWindowsVisible(false, log: "window parked after first presented frame")
         startParkingLoop()
-        startSceneStateLoop()
     }
 
     private func compositorDidEnd(generation: Int32?) {

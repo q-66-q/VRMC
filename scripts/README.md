@@ -15,5 +15,7 @@ One usage line: set the environment (`DEVICE=<udid>`, and where relevant `BUNDLE
 | `stage_native_app.sh` | `scripts/stage_native_app.sh <VRMCShell.framework> [libvrmc_bridge.dylib]` — copy the EV-0086 app bundle, swap framework/dylib, embed profile, re-sign 169 Mach-O, `codesign --verify --deep --strict`; never installs (`DRY_RUN=1` preview) |
 | `push_provider_jar.sh` | `scripts/push_provider_jar.sh [jar]` — `devicectl device copy to` the app data container `Documents/instances/default/mods/vrmc-provider.jar` + sha256 round-trip |
 
+| `tests/DepthClearRegressionTest.sh` | `scripts/tests/DepthClearRegressionTest.sh` — regression guard for the M3c black-immersive root cause (EV-0093): default drawn-drawable depth clear must be 1.0, `vrmc-depth-zero.flag` A/B present, M3A probe reference 1.0 |
+
 All are re-runnable. `sign_ipa.sh` re-signs every Mach-O in the bundle and embeds the profile;
 `install_device.sh` retries installs and can uninstall a bundle id first.

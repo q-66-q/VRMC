@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0093`.
+**Next evidence ID:** `EV-0094`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -2310,7 +2310,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Procedure:**
 
 1. Integrate M3b fixes: VRMCCompositor diagnostics/no-black fallbacks/black-texture detection; Shell.swift epoch-guarded reopen + scene-activity gating + chrome mode; Amethyst modal game-surface patch (vrmc-m3w3) keeping the SwiftUI scene alive; build/stage scripts; provider/bridge built reproducibly.
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Provider/display-view path is now device-proven correct** (EV-0091: correct display views applied, bright per-eye textures, no command-buffer failures; EV-0092: drawable readback proves a bright image is written into the presented built_in drawable). The remaining blocker is **device presentation**: the headset shows a black immersive (or only the floating 2D game window in full immersion) while the same shell/compositor displays correctly in the simulator (EV-0092). Manual "Enter VR" entry, scene-activation + layer-state logging, alpha-only first-frame-gated parking and selftest mode are implemented; probe/bisect device runs are the next step. |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Black-immersive root cause found and fixed (EV-0093)**: M3b changed the CompositorServices drawable depth clear from 1.0 to 0.0, which makes visionOS 27.2 present the layer black even though the colour drawable is bright; device A/B (known-good probe / deprecated-API / minimal-window builds) shows 0.0 -> black, 1.0 -> visible, operator-confirmed. Default is 1.0 again, with `vrmc-depth-zero.flag` for A/B and a regression test. Provider/display-view path was already device-proven correct (EV-0091/EV-0092). Manual "Enter VR" entry, scene-activation/layer-state logging, alpha-only first-frame-gated parking and the no-JIT selftest are in the installed build; final visual + game-in-immersive acceptance run is EV-0094 (operator). |
 3. Build Amethyst native executable from vendor/amethyst-build + patches 1-4 via cmake (Debug, iphoneos sysroot) then vtool -set-build-version 11 1.0 1.0; stage into the EV-0086 app bundle with new framework + rebuilt bridge, re-sign 169 Mach-O, codesign --verify --deep --strict.
 4. Install the staged app on D1 with devicectl (update install, data container preserved).
 5. Code/convention validation: macOS Metal shader unit test (runtime/probes/m3b-shader-test) and visionOS simulator reprojection probe (runtime/probes/m3b-reproj) incl. reconstructed EV-0086 device views.
@@ -2465,6 +2465,36 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** the operator's report is informal (single observer, no recording); the presentation failure is reproducible on D1 but the cause is not yet isolated (candidate diffs: two-view dedicated layout vs simulator one-view, Amethyst hybrid window/scene environment vs pure-SwiftUI simulator host, device anchor/reprojection path). Manual "Enter VR" button and objective scene-activation/layer-state logging are implemented but the device re-test had not run when this entry was written. No PASS is claimed.
 
+### EV-0093 — M3c ROOT CAUSE PASS (device A/B): the M3b drawable depth-clear change (1.0 -> 0.0) blacks out the CompositorServices immersive on visionOS 27.2; probe-parity 1.0 displays
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T18:10:00-10:00 |
+| Commit | `4e3220a` (diagnostics builds; depth fix committed with this evidence) |
+| Dirty state | working tree carried the depth-clear fix; staged app/framework/bridge/provider hashes recorded |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` (root cause + fix, device A/B operator-confirmed) |
+
+**Procedure:**
+
+1. control: install the known-good M3A probe app (re-signed as `dev.vrmc.vrmc`, EV-0074 code) on D1, operator taps "Open immersive space"
+2. bisect A: install staged VRMC builds that differ only in one variable (minimal SwiftUI window; deprecated single-drawable API; clear-only colours) with drawable depth clear 0.0; operator observes; pull shell/compositor logs
+3. bisect B: same build with probe-parity depth clear 1.0 (`vrmc-depth-near.flag`), operator observes
+4. trace the depth-clear value across the compositor history (487cc59 .. f4d0617) and the M3A probe source
+
+**Expected:** the variant(s) that differ in the causal variable separate black from visible content
+
+**Actual:** PASS (root cause isolated, operator-confirmed):
+- `486cc59/2863aa4/5493626/335a65f` compositor revisions clear the drawable depth to **1.0**; M3b commit `1b3b73c` changed it to **0.0** ("flat image at infinity"), and every device run from EV-0087 onward was black. The known-good M3A probe clears to 1.0.
+- D1 A/B: depth 0.0 -> **black** (minimal-window build, deprecated-API build, pure-SwiftUI host build: operator "window and black"/"black immersive", while logs show `layerState=2`, frames presented, encNil=0 and a bright drawn-drawable readback); depth 1.0 -> **solid magenta/cyan immersive visible immediately** ("magenta/cyan visible now!"), same shell/compositor/app, only the depth clear value differs.
+- Fix: default `rp.depthAttachment.clearDepth = 1.0`; `vrmc-depth-zero.flag` retains 0.0 for A/B. Regression guard `scripts/tests/DepthClearRegressionTest.sh` PASS.
+- Verification lesson: the same depth-0.0 framework displays correctly in the visionOS simulator, so simulator output is not evidence for this presentation path (VERIFY §0.7); only D1 reproduces it.
+
+**Artifacts:** evidence/EV-0093/probe-control-m3a-probe.log (8dc8ae00d41a); evidence/EV-0093/deprecated-api-depth0-compositor.log (2161a88ea084); evidence/EV-0093/minwin-depth0-compositor.log (5245b708fc19); evidence/EV-0093/minwin-depth0-shell.log (22836a827b20); evidence/EV-0093/pure-swiftui-host-depth0-shell.log (81878e2ebfd1); evidence/EV-0093/host-selftest-depth0-shell.log (3ca35f2b7b8c)
+
+**Limitations:** the operator report is informal (single observer, no recording); the final default build (array-API path + depth 1.0, no diagnostic flags) is staged and installed but its visual confirmation and the first game-in-immersive run (JIT) are the remaining M3-W3/W4 acceptance steps (recorded as EV-0094 when run). Stereo alignment, window chrome, re-entry and provider GPU sync are still open.
+
 ---
 
 ## 7. Status dashboard
@@ -2479,7 +2509,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Graphics (Vulkan/MoltenVK) | `PASS (M0 gate)` | Host boot EV-0005 + 21-min world EV-0014; D1 capability EV-0016, render EV-0025, natives EV-0026, surface EV-0027, swapchain EV-0028, **MC 26.2 Vulkan world EV-0034**; 30-min soak is an M1 gate (Decision 45=A) |
 | **M1 milestone** | **CLOSED** | EV-0057: fresh install→world (EV-0043), 30-min soak (EV-0044), save/relaunch (EV-0052); matrix `docs/mvp/M1_ACCEPTANCE.md` |
 | **M2 milestone** | **CLOSED** | EV-0070: provider init + stereo targets + ABI v2 eye handoff (EV-0069) + no VR runtime; matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** — device view still raw/low and not clickable |
-| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Provider/display-view path is now device-proven correct** (EV-0091: correct display views applied, bright per-eye textures, no command-buffer failures; EV-0092: drawable readback proves a bright image is written into the presented built_in drawable). The remaining blocker is **device presentation**: the headset shows a black immersive (or only the floating 2D game window in full immersion) while the same shell/compositor displays correctly in the simulator (EV-0092). Manual "Enter VR" entry, scene-activation + layer-state logging, alpha-only first-frame-gated parking and selftest mode are implemented; probe/bisect device runs are the next step. |
+| **M3 milestone** | **IN PROGRESS** | M3a COMPLETE; M3-W1/W2 PASS; M3-W3/W4 PARTIAL. **Black-immersive root cause found and fixed (EV-0093)**: M3b changed the CompositorServices drawable depth clear from 1.0 to 0.0, which makes visionOS 27.2 present the layer black even though the colour drawable is bright; device A/B (known-good probe / deprecated-API / minimal-window builds) shows 0.0 -> black, 1.0 -> visible, operator-confirmed. Default is 1.0 again, with `vrmc-depth-zero.flag` for A/B and a regression test. Provider/display-view path was already device-proven correct (EV-0091/EV-0092). Manual "Enter VR" entry, scene-activation/layer-state logging, alpha-only first-frame-gated parking and the no-JIT selftest are in the installed build; final visual + game-in-immersive acceptance run is EV-0094 (operator). |
 | **M0 milestone** | **CLOSED** | S1 PASS (EV-0021/EV-0024), S3 CLOSED (EV-0006/EV-0009), S2 device world render PASS (EV-0034); 30-min soak deferred to M1 (Decision 45=A) |
 | M1 T3 — own source build | `PASS` | Source-built Amethyst v1.2.0 boots MC 26.2 Vulkan world on D1 (EV-0036); app-side defaults (EV-0037); route ADR-0008 + EV-0041; **branded VRMC app (dev.vrmc.vrmc) installed (EV-0042)** |
 | M1 T1 — stack pins/hashes | `PASS` | versions.env + sha256 for all stack components; check_versions 8/8 (EV-0038) |
@@ -2519,7 +2549,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | M1 T4: fresh-install acceptance | **DONE** | Fresh branded VRMC container reached the world with app-side provisioning (EV-0043); no Mac-side pushes |
 | ST-S2 MC Vulkan not yet attempted | Lead | MoltenVK xros build + MC 26.2 boot harness |
 | All device tests | Lead | Product build exists |
-| M3c black immersive on device (CompositorServices layer not displayed) | Open | Device-proven: compositor writes bright images into the presented built_in drawable and command buffers complete (EV-0092), yet D1 shows a black immersive; the same framework displays in the simulator. Next: run the staged bisect matrix on D1 — (1) known-good M3A probe app ("Open immersive space"), (2) M3c manual "Enter VR" with scene-activation logging, (3) minimal-SwiftUI-window variant, (4) layered-layout variant, (5) no-device-anchor A/B — then record the winning configuration and an EV. Operator must unlock/wear D1. |
+| M3c final visual confirmation of the depth-clear fix (EV-0093) | Open | The fixed build (`VRMC-native-v11-depthfix.app`, depth clear 1.0 default + scene-activation logging) is signed/installed on D1. Operator must unlock/wear D1, launch VRMC, tap **Enter VR** (expect the bright test pattern / beep), then run the JIT game (StikDebug -> Enable JIT -> Play) and confirm the game fills the field of view; pull `Documents/{vrmc-shell.log,vrmc-compositor.log,latestlog.txt}` and record EV-0094. |
 
 ---
 
@@ -2585,6 +2615,9 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-01 | **EV-0091 (`PARTIAL`)**: fresh post-JNI-fix device logs recovered — provider eye-render + display-view channel correct, textures bright (luma 103-154), first command buffer completed; `vrmc-test-pattern.flag` present since 16:13 (not logged by that build). Next ID `EV-0092`. |
 | 2026-11-01 | **EV-0092 (`PARTIAL`)**: M3c presentation diagnostics on D1 — no-JIT selftest and a JIT game run prove the compositor writes a bright image into the presented built_in drawable (raw readbacks + meta, encNil=0) yet the operator sees a black immersive; full immersion is active and the game remains in a floating 2D window. The same VRMCShell.framework displays the test pattern correctly in a simulator host app. Manual "Enter VR" button, scene-activation/layer-state logging, alpha-only first-frame parking + periodic re-park and willResignActive grace are implemented; presentation root cause not yet isolated. Next ID `EV-0093`. |
 | 2026-11-01 | M3c operator directive (Option 2): keep the startup window, add a manual "Enter VR" trigger first, then make the automatic post-JIT entry the default; do not change the Info.plist preferred scene role until the manual path is verified. Implemented (manual overlay button + auto path + error surface); device validation pending. |
+
+| 2026-11-01 | **EV-0093 (`PASS`, device A/B): black-immersive ROOT CAUSE** — M3b (`1b3b73c`) changed the CompositorServices drawable depth clear from 1.0 to 0.0; visionOS 27.2 then presents the whole immersive layer black even though the colour drawable is bright and the command buffer completes. Controls: known-good M3A probe displays (depth 1.0); minimal-window, deprecated-API and pure-SwiftUI-host builds with depth 0.0 are black; the same build with depth 1.0 shows solid magenta/cyan (operator-confirmed). Fix: default depth clear 1.0, `vrmc-depth-zero.flag` A/B, `scripts/tests/DepthClearRegressionTest.sh` PASS. Simulator did not reproduce (not evidence for this path). Next: EV-0094 final visual/game run. |
+| 2026-11-01 | Propagation: M3C_PLAN (root cause, bisect results, next session), compositor-presentation.md §6 resolution, export/README root-cause + next-run dossier, scripts/README regression test. |
 
 ---
 
