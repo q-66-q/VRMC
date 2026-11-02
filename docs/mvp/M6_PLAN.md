@@ -88,6 +88,11 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   package verifier/freshness and device integrity: all PASS.
 - Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
 
+## Acceptance checklist UI (EV-0198)
+
+- Launcher checklist (+ diagnostics export) captures H1–H10/AC-1..6 outcomes on device without typing;
+  persisted to `Documents/vrmc-acceptance-checklist.json`. Build/install PASS; device interaction NOT RUN.
+
 ## Round-100 package refresh (EV-0197)
 
 - Package refreshed to app `cf231fc7…` + provider `4587b5d2…`: bytes=206,493,046 sha256

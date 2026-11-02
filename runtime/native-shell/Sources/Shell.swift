@@ -26,6 +26,59 @@ private func shellDocumentsURL() -> URL {
     return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
 }
 
+/// M6/M5 in-headset acceptance checklist persisted to Documents and included in diagnostics exports.
+private struct ShellAcceptanceItem: Identifiable, Codable {
+    var id: String
+    var title: String
+    var status: String
+}
+
+private let shellAcceptanceStatuses = ["NOT RUN", "PARTIAL", "PASS", "FAIL"]
+
+private func shellAcceptanceDefaults() -> [ShellAcceptanceItem] {
+    [
+        .init(id: "H1", title: "Menu/continue/new world", status: "NOT RUN"),
+        .init(id: "H2", title: "Move/turn/teleport/jump/sneak", status: "NOT RUN"),
+        .init(id: "H3", title: "Seated + standing modes", status: "NOT RUN"),
+        .init(id: "H4", title: "Break/place/use/eat/interact", status: "NOT RUN"),
+        .init(id: "H5", title: "Inventory + hotbar (wheel 1-9)", status: "NOT RUN"),
+        .init(id: "H6", title: "Pause/options/death/respawn", status: "NOT RUN"),
+        .init(id: "H7", title: "Visible hands/held item", status: "NOT RUN"),
+        .init(id: "H8", title: "Bow draw/fire (two hands)", status: "NOT RUN"),
+        .init(id: "H9", title: "Climbing + climb jump", status: "NOT RUN"),
+        .init(id: "H10", title: "Save/reload/settings persistence", status: "NOT RUN"),
+        .init(id: "AC-1", title: "Fresh install -> world, native", status: "NOT RUN"),
+        .init(id: "AC-2", title: "Stereo/eye/head alignment", status: "NOT RUN"),
+        .init(id: "AC-3", title: "Hands-only control", status: "NOT RUN"),
+        .init(id: "AC-4", title: "All P0 actions, no stuck input", status: "NOT RUN"),
+        .init(id: "AC-5", title: "Soak/launch/world-load clean", status: "NOT RUN"),
+        .init(id: "AC-6", title: "Legal/source/no MC binaries", status: "NOT RUN"),
+    ]
+}
+
+private func shellLoadAcceptanceChecklist() -> [ShellAcceptanceItem] {
+    let url = shellDocumentsURL().appendingPathComponent("vrmc-acceptance-checklist.json")
+    guard let data = try? Data(contentsOf: url),
+          let items = try? JSONDecoder().decode([ShellAcceptanceItem].self, from: data),
+          !items.isEmpty else {
+        return shellAcceptanceDefaults()
+    }
+    return items
+}
+
+@discardableResult
+private func shellSaveAcceptanceChecklist(_ items: [ShellAcceptanceItem]) -> Bool {
+    let url = shellDocumentsURL().appendingPathComponent("vrmc-acceptance-checklist.json")
+    do {
+        let data = try JSONEncoder().encode(items)
+        try data.write(to: url, options: .atomic)
+        return true
+    } catch {
+        shellLog("VRMC acceptance checklist save FAILED: \(error)")
+        return false
+    }
+}
+
 private func shellDocumentFlag(_ name: String) -> Bool {
     return FileManager.default.fileExists(atPath: shellDocumentsURL().appendingPathComponent(name).path)
 }
@@ -90,6 +143,7 @@ private func shellBuildDiagnosticsBundle() -> URL? {
         ("command results", game.appendingPathComponent("vrmc-command-result.txt"), 65_536),
         ("runtime settings", game.appendingPathComponent("vrmc-runtime.properties"), 32_768),
         ("input tuning", game.appendingPathComponent("vrmc-input-tune.properties"), 32_768),
+        ("acceptance checklist", docs.appendingPathComponent("vrmc-acceptance-checklist.json"), 32_768),
         ("thermal state", game.appendingPathComponent("vrmc-thermal-state.txt"), 4_096),
         ("hand calibration", game.appendingPathComponent("vrmc-hand-calibration.txt"), 16_384),
         ("vignette flag", docs.appendingPathComponent("vrmc-vignette.flag"), 1_024),
@@ -1212,6 +1266,7 @@ struct VRControlOverlay: View {
     @State private var providerStatusLine = ""
     @State private var confirmResetSettings = false
     @State private var confirmResetInput = false
+    @State private var acceptanceItems = shellLoadAcceptanceChecklist()
     @State private var exportURL: URL?
     @State private var exportStatus = ""
     @State private var statusLine = ""
@@ -1264,6 +1319,44 @@ struct VRControlOverlay: View {
                 }
                 .font(.caption)
             }
+            DisclosureGroup("Acceptance checklist") {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach($acceptanceItems) { $item in
+                        HStack(spacing: 6) {
+                            Text(item.id).font(.system(size: 9, design: .monospaced))
+                                .frame(width: 34, alignment: .leading)
+                            Text(item.title).font(.system(size: 10)).lineLimit(1)
+                            Spacer(minLength: 4)
+                            Picker("", selection: $item.status) {
+                                ForEach(shellAcceptanceStatuses, id: \.self) { status in
+                                    Text(status).tag(status)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .font(.system(size: 10))
+                        }
+                    }
+                    HStack {
+                        Button("Save checklist") {
+                            settingsStatus = shellSaveAcceptanceChecklist(acceptanceItems)
+                                ? "Acceptance checklist saved." : "Checklist save failed."
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        Button("Reset checklist") {
+                            acceptanceItems = shellAcceptanceDefaults()
+                            _ = shellSaveAcceptanceChecklist(acceptanceItems)
+                            settingsStatus = "Acceptance checklist reset."
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .font(.caption)
+
             if !shell.crashGuardMessage.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(shell.crashGuardMessage).font(.caption2).foregroundStyle(.orange)
