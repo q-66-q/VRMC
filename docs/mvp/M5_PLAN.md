@@ -322,6 +322,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   command. No per-frame I/O added (~1 KB per 10–120 s window).
 - Full provider suite PASS; provider pushed + integrity PASS. Device behavior NOT RUN.
 
+## Auto-sprint settings (EV-0184)
+
+- `comfort.autoSprint` (bool) and `comfort.autoSprintThreshold` (0.5–1.0, default 0.9) parsed/applied to
+  Vivecraft's `autoSprint`/`autoSprintThreshold`; launcher toggle+slider. Parser 29 checks; key guard
+  checked=33; app installed/provider pushed + integrity PASS. Device sprint feel NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

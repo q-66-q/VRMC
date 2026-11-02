@@ -32,6 +32,8 @@ public final class VisionRuntimeSettingsTest {
         explicit.put("diagnostics.periodSeconds", "15");
         explicit.put("performance.thermalResponse", "reduce");
         explicit.put("performance.adaptiveFramerate", "true");
+        explicit.put("comfort.autoSprint", "false");
+        explicit.put("comfort.autoSprintThreshold", "0.75");
         explicit.put("comfort.seatedHmdPointer", "true");
         explicit.put("comfort.worldScale", "1.25");
         explicit.put("comfort.manualHeight", "1.70");
@@ -46,6 +48,9 @@ public final class VisionRuntimeSettingsTest {
         check("diagnostics period", v.diagnosticPeriodSeconds == 15);
         check("thermal response reduce", "reduce".equals(v.thermalResponse));
         check("adaptive framerate true", v.adaptiveFramerate);
+        check("auto sprint false", v.hasAutoSprint && !v.autoSprint);
+        check("auto sprint threshold", v.hasAutoSprintThreshold
+            && Math.abs(v.autoSprintThreshold - 0.75F) < 1e-5F);
         check("explicit seated hmd pointer", v.hasSeatedHmdPointer && v.seatedHmdPointer);
         check("explicit world scale", v.hasWorldScale && Math.abs(v.worldScale - 1.25F) < 1.0E-4F);
         check("explicit manual height", v.hasManualHeight && Math.abs(v.manualHeight - 1.70F) < 1.0E-4F);

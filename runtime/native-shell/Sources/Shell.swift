@@ -1172,6 +1172,8 @@ struct VRControlOverlay: View {
     @State private var seatedFreeMove = false
     @State private var snapAngle = 45
     @State private var seatedHmdPointer = false
+    @State private var autoSprint = true
+    @State private var autoSprintThreshold = 0.9
     @State private var preset = "none"
     @State private var renderDistance = 12
     @State private var frameLimit = 90
@@ -1276,6 +1278,13 @@ struct VRControlOverlay: View {
                     Toggle("Seated mode", isOn: $seated)
                     Toggle("Seated free move", isOn: $seatedFreeMove)
                     Toggle("Seated HMD pointer (head-aim GUI cursor)", isOn: $seatedHmdPointer)
+                    Toggle("Auto-sprint at full stick", isOn: $autoSprint)
+                    if autoSprint {
+                        HStack {
+                            Text("Auto-sprint threshold: \(String(format: "%.2f", autoSprintThreshold))").font(.caption2)
+                            Slider(value: $autoSprintThreshold, in: 0.5...1.0, step: 0.01)
+                        }
+                    }
                     HStack {
                         Text("Turn").font(.caption)
                         Spacer()
@@ -1613,6 +1622,10 @@ struct VRControlOverlay: View {
         seated = values["comfort.seated"] == "true"
         seatedFreeMove = values["comfort.seatedFreeMove"] == "true"
         seatedHmdPointer = values["comfort.seatedHmdPointer"] == "true"
+        autoSprint = values["comfort.autoSprint"] != "false"
+        if let raw = values["comfort.autoSprintThreshold"], let v = Double(raw) {
+            autoSprintThreshold = min(1.0, max(0.5, v))
+        }
         if let raw = values["comfort.worldRotationIncrement"], let angle = Float(raw) {
             let allowed = [0, 15, 30, 45, 90]
             snapAngle = allowed.min(by: { abs(Double($0) - Double(angle)) < abs(Double($1) - Double(angle)) }) ?? 0
@@ -1660,6 +1673,8 @@ struct VRControlOverlay: View {
         values["comfort.seated"] = seated ? "true" : "false"
         values["comfort.seatedFreeMove"] = seatedFreeMove ? "true" : "false"
         values["comfort.seatedHmdPointer"] = seatedHmdPointer ? "true" : "false"
+        values["comfort.autoSprint"] = autoSprint ? "true" : "false"
+        values["comfort.autoSprintThreshold"] = String(format: "%.2f", autoSprintThreshold)
         values["comfort.worldRotationIncrement"] = String(snapAngle)
         values["performance.preset"] = preset
         values["performance.renderDistance"] = String(renderDistance)

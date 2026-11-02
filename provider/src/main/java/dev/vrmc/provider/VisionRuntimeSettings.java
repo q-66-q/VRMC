@@ -22,6 +22,8 @@ import java.util.Properties;
  * comfort.seated=true|false
  * comfort.seatedFreeMove=true|false
  * comfort.seatedUseHMD=true|false
+ * comfort.autoSprint=true|false
+ * comfort.autoSprintThreshold=0.5..1.0
  * comfort.seatedHmdPointer=true|false  (use HMD aim for the GUI/controller pointer when seated and no hand tracked)
  * comfort.worldRotationIncrement=0|45|...   (0 = smooth rotation, &gt;0 = snap angle degrees)
  * comfort.worldScale=0.1..5
@@ -64,6 +66,10 @@ public final class VisionRuntimeSettings {
     public final int diagnosticPeriodSeconds;
     public final String thermalResponse;
     public final boolean adaptiveFramerate;
+    public final boolean hasAutoSprint;
+    public final boolean autoSprint;
+    public final boolean hasAutoSprintThreshold;
+    public final float autoSprintThreshold;
     public final String preset;
     public final List<String> warnings;
 
@@ -78,6 +84,8 @@ public final class VisionRuntimeSettings {
                                   boolean hasFramerateLimit, int framerateLimit,
                                   boolean hasVsync, boolean vsync, int diagnosticPeriodSeconds,
                                   String thermalResponse, boolean adaptiveFramerate,
+                                  boolean hasAutoSprint, boolean autoSprint,
+                                  boolean hasAutoSprintThreshold, float autoSprintThreshold,
                                   String preset, List<String> warnings) {
         this.hasSeated = hasSeated;
         this.seated = seated;
@@ -104,6 +112,10 @@ public final class VisionRuntimeSettings {
         this.diagnosticPeriodSeconds = diagnosticPeriodSeconds;
         this.thermalResponse = thermalResponse;
         this.adaptiveFramerate = adaptiveFramerate;
+        this.hasAutoSprint = hasAutoSprint;
+        this.autoSprint = autoSprint;
+        this.hasAutoSprintThreshold = hasAutoSprintThreshold;
+        this.autoSprintThreshold = autoSprintThreshold;
         this.preset = preset;
         this.warnings = List.copyOf(warnings);
     }
@@ -237,6 +249,21 @@ public final class VisionRuntimeSettings {
             warnings.add("unknown performance.thermalResponse='" + thermalResponse + "' ignored (using notify)");
             thermalResponse = "notify";
         }
+        Boolean autoSprintValue = boolOrNull(props, "comfort.autoSprint", warnings);
+        boolean hasAutoSprint = autoSprintValue != null;
+        boolean autoSprint = Boolean.TRUE.equals(autoSprintValue);
+        boolean hasAutoSprintThreshold = props.containsKey("comfort.autoSprintThreshold");
+        float autoSprintThreshold = 0.9F;
+        if (props.containsKey("comfort.autoSprintThreshold")) {
+            Float v = parseFloat(props.get("comfort.autoSprintThreshold"), warnings,
+                "comfort.autoSprintThreshold");
+            if (v == null || v < 0.5F || v > 1.0F) {
+                if (v != null) warnings.add("comfort.autoSprintThreshold=" + v + " out of range 0.5..1.0; ignored");
+            } else {
+                hasAutoSprintThreshold = true;
+                autoSprintThreshold = v;
+            }
+        }
         Boolean adaptiveValue = boolOrNull(props, "performance.adaptiveFramerate", warnings);
         boolean adaptiveFramerate = Boolean.TRUE.equals(adaptiveValue);
         int diagnosticPeriod = 30;
@@ -250,7 +277,7 @@ public final class VisionRuntimeSettings {
             hasSeatedHmdPointer, seatedHmdPointer, hasWorldScale, worldScale,
             hasManualHeight, manualHeight, hasRender, render, hasSim, sim,
             hasFps, fps, hasVsync, vsync, diagnosticPeriod, thermalResponse, adaptiveFramerate,
-            preset, warnings);
+            hasAutoSprint, autoSprint, hasAutoSprintThreshold, autoSprintThreshold, preset, warnings);
     }
 
     private static Boolean boolOrNull(Map<String, String> p, String key, List<String> warnings) {
@@ -310,6 +337,8 @@ public final class VisionRuntimeSettings {
             + " vsync=" + (hasVsync ? vsync : "unchanged")
             + " diagnosticsPeriodSec=" + diagnosticPeriodSeconds
             + " thermalResponse=" + thermalResponse
-            + " adaptiveFramerate=" + adaptiveFramerate;
+            + " adaptiveFramerate=" + adaptiveFramerate
+            + " autoSprint=" + (hasAutoSprint ? autoSprint : "unchanged")
+            + " autoSprintThreshold=" + (hasAutoSprintThreshold ? autoSprintThreshold : "unchanged");
     }
 }

@@ -445,6 +445,8 @@ public class VisionVR extends MCVR {
         if (settings.hasVsync) this.mc.options.enableVsync().set(settings.vsync);
         this.thermalResponse = settings.thermalResponse;
         this.adaptiveFramerate = settings.adaptiveFramerate;
+        if (settings.hasAutoSprint) this.dh.vrSettings.autoSprint = settings.autoSprint;
+        if (settings.hasAutoSprintThreshold) this.dh.vrSettings.autoSprintThreshold = settings.autoSprintThreshold;
         System.out.println("[VRMC-M5] runtime settings: " + settings.summary());
         System.out.println("[VRMC-M5] diagnostics: periodSeconds=" + settings.diagnosticPeriodSeconds);
     }
