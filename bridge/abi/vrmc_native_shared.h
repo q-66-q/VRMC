@@ -133,6 +133,26 @@ int32_t vrmc_shared_set_display_views(const vrmc_display_views *views);
  * (0 = none yet). */
 uint32_t vrmc_shared_get_display_views(vrmc_display_views *out);
 
+/* ------------------------------------------------------------------------------------------- */
+/* Input (M4-W1 immersive input: ARKit hand tracking -> JVM provider gestures)                   */
+/* ------------------------------------------------------------------------------------------- */
+/*
+ * The compositor thread publishes the per-frame hand input snapshot; the JVM render thread polls
+ * it through vrmc_poll_input (JNI nativePollInput). State is copied under one bridge-internal
+ * mutex, so a reader never observes a torn snapshot (e.g. left hand from frame N with the right
+ * hand from frame N+1).
+ *
+ * Release contract: when the compositor stops (immersive session ends / layer invalidated), it must
+ * publish one zeroed snapshot with valid_mask = 0 before exiting, so a consumer releases every held
+ * action instead of acting on a stale press. Consumers additionally treat a snapshot older than
+ * 250 ms (or a frozen vrmc_shared_input_sequence) as tracking loss.
+ */
+int32_t vrmc_shared_publish_input(const vrmc_input_state *state);
+int32_t vrmc_shared_acquire_input(vrmc_input_state *out);
+/* Monotonic publish counter: 0 before the first publish, incremented by every successful publish.
+ * Consumers use it only for change/staleness detection (never as a clock). */
+uint64_t vrmc_shared_input_sequence(void);
+
 #ifdef __cplusplus
 }
 #endif

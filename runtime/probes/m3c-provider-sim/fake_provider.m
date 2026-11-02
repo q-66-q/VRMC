@@ -16,6 +16,9 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #include <dispatch/dispatch.h>
+#include <math.h>
+#include <pthread.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "vrmc_abi.h"
@@ -35,6 +38,27 @@ static uint32_t gDisplayViewsGen = 0;
 static id<MTLSharedEvent> gSharedEvent;
 static uint64_t gSignalValue = 0;
 static int gSyncMode = -1;
+
+// -------------------------------------------------------------------------------------------
+// M4-W1 immersive input surface (docs/analysis/immersive-input.md §3.3 / §4).
+//
+// The REAL compositor publishes one vrmc_input_state per frame through vrmc_shared_publish_input
+// (dlsym'd from this dylib). This fake provider records every published snapshot to
+// Documents/vrmc-input-capture.txt so check.py --require-input can assert the real publication path
+// (rate, valid_mask framing, pinch/fist threshold crossings, final release snapshot) without a JVM.
+//
+// CSV shape (one line per successful publish; '#' header lines are comments):
+//   seq, frame_index, valid_mask, timestamp_ns,
+//   right_pinch_m, left_pinch_m, right_fist_ratio, left_fist_ratio
+// Distances/ratios are computed from the published joints with the SAME formulas the provider uses
+// (design §5.3), so the capture proves the wire bytes carry the expected gesture geometry.
+// -------------------------------------------------------------------------------------------
+static pthread_mutex_t gInputMutex = PTHREAD_MUTEX_INITIALIZER;
+static vrmc_input_state gInputState;
+static uint64_t gInputSequence = 0;
+static int gInputPublished = 0;
+static FILE *gInputCapture = NULL;
+static uint64_t gInputCaptureLines = 0;
 
 static BOOL fakeSyncEnabled(void) {
     if (gSyncMode >= 0) return gSyncMode != 0;
@@ -169,4 +193,98 @@ int32_t vrmc_shared_get_frame_sync(vrmc_shared_frame_sync *out) {
     if (out == NULL) return -1;
     memset(out, 0, sizeof(*out));
     return 0;
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* M4-W1 immersive input surface: publish / acquire / sequence (real compositor -> capture file) */
+/* ------------------------------------------------------------------------------------------- */
+
+static double fakeJointDistance(const vrmc_vec3 *a, const vrmc_vec3 *b) {
+    const double dx = (double)a->x - (double)b->x;
+    const double dy = (double)a->y - (double)b->y;
+    const double dz = (double)a->z - (double)b->z;
+    return sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+// Provider pinch metric (design §5.3): d = |joint4 (thumb tip) - joint9 (index tip)|.
+static double fakePinchDistance(const vrmc_hand_state *hand) {
+    return fakeJointDistance(&hand->joints[4], &hand->joints[9]);
+}
+
+// Provider fist metric (design §5.3): avg(|joints 9,14,19,24 - joint0|) / |joint11 - joint0|.
+static double fakeFistRatio(const vrmc_hand_state *hand) {
+    const double palm = fakeJointDistance(&hand->joints[11], &hand->joints[0]);
+    if (!(palm > 1e-9)) return 0.0;
+    const double tips = fakeJointDistance(&hand->joints[9], &hand->joints[0]) +
+                        fakeJointDistance(&hand->joints[14], &hand->joints[0]) +
+                        fakeJointDistance(&hand->joints[19], &hand->joints[0]) +
+                        fakeJointDistance(&hand->joints[24], &hand->joints[0]);
+    return (tips / 4.0) / palm;
+}
+
+static FILE *fakeInputCaptureFile(void) {
+    if (gInputCapture != NULL) return gInputCapture;
+    NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *path = [docs.firstObject stringByAppendingPathComponent:@"vrmc-input-capture.txt"];
+    gInputCapture = fopen(path.UTF8String, "w");
+    if (gInputCapture == NULL) {
+        NSLog(@"[fake-provider] input capture: cannot open %@", path);
+        return NULL;
+    }
+    fprintf(gInputCapture, "# vrmc-input-capture v1 (fake provider, visionOS simulator): "
+                           "seq,frame_index,valid_mask,timestamp_ns,"
+                           "right_pinch_m,left_pinch_m,right_fist_ratio,left_fist_ratio\n");
+    fprintf(gInputCapture, "# Published by the real VRMC compositor from synthetic input "
+                           "(Documents/vrmc-input-sim.flag). Plumbing evidence only - NOT hands evidence.\n");
+    fflush(gInputCapture);
+    NSLog(@"[fake-provider] input capture: %@", path);
+    return gInputCapture;
+}
+
+int32_t vrmc_shared_publish_input(const vrmc_input_state *state) {
+    if (state == NULL) return -1;
+    if (state->valid_mask > 3u) {
+        NSLog(@"[fake-provider] input publish rejected: invalid valid_mask=%u", state->valid_mask);
+        return -1;
+    }
+    pthread_mutex_lock(&gInputMutex);
+    gInputState = *state;
+    gInputPublished = 1;
+    gInputSequence++;
+    const uint64_t sequence = gInputSequence;
+    FILE *capture = fakeInputCaptureFile();
+    if (capture != NULL) {
+        const vrmc_hand_state *left = &state->hands[VRMC_INPUT_LEFT_HAND];
+        const vrmc_hand_state *right = &state->hands[VRMC_INPUT_RIGHT_HAND];
+        fprintf(capture, "%llu,%u,%u,%llu,%.6f,%.6f,%.6f,%.6f\n",
+                (unsigned long long)sequence, state->frame_index, state->valid_mask,
+                (unsigned long long)state->timestamp_ns,
+                fakePinchDistance(right), fakePinchDistance(left),
+                fakeFistRatio(right), fakeFistRatio(left));
+        fflush(capture);
+        gInputCaptureLines++;
+        if (gInputCaptureLines == 1 || (gInputCaptureLines % 300) == 0 || state->valid_mask == 0) {
+            NSLog(@"[fake-provider] input capture line=%llu seq=%llu frame=%u valid_mask=%u",
+                  (unsigned long long)gInputCaptureLines, (unsigned long long)sequence,
+                  state->frame_index, state->valid_mask);
+        }
+    }
+    pthread_mutex_unlock(&gInputMutex);
+    return 0;
+}
+
+int32_t vrmc_shared_acquire_input(vrmc_input_state *out) {
+    if (out == NULL) return -1;
+    pthread_mutex_lock(&gInputMutex);
+    *out = gInputState;
+    const int published = gInputPublished;
+    pthread_mutex_unlock(&gInputMutex);
+    return published ? 0 : -1;
+}
+
+uint64_t vrmc_shared_input_sequence(void) {
+    pthread_mutex_lock(&gInputMutex);
+    const uint64_t sequence = gInputSequence;
+    pthread_mutex_unlock(&gInputMutex);
+    return sequence;
 }

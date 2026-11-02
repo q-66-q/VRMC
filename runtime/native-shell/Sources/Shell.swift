@@ -58,6 +58,7 @@ private let diagnosticFlagsClearedAtStartup = [
     "vrmc-depth-near.flag",
     "vrmc-depth-zero.flag",
     "vrmc-present-wait.flag",
+    "vrmc-input-sim.flag",
     "vrmc-no-anchor.flag",
     "autolaunch.flag",
 ]

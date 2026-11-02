@@ -3,6 +3,9 @@
  * The Java side is dev.vrmc.provider.bridge.VrmcBridge; only scalars and preallocated direct buffers
  * cross the boundary (no per-frame allocation).
  *
+ * ABI v3 adds nativePollInput: copies the latest vrmc_input_state (752 B) into a preallocated direct
+ * ByteBuffer (VrmcBridge.INPUT_BYTES); a nonzero return is "no hands" for the provider (fail safe).
+ *
  * Two eye-submission entry points:
  *   nativeSubmitEyes       - legacy ABI v2 path, publishes the eye targets without a GPU sync pair.
  *   nativeSubmitEyesSynced - additive native-shared path: publishes the eye targets together with the
@@ -129,6 +132,19 @@ JNIEXPORT jlong JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeGetDispla
     memcpy(base + 96, views.right_eye_to_head, 16 * sizeof(float));
     memcpy(base + 160, &views.ipd_m, sizeof(float));
     return (jlong)gen;
+}
+
+/* ABI v3: poll the latest hand-input snapshot into a direct ByteBuffer. Validates that the buffer is
+ * direct and has capacity >= sizeof(vrmc_input_state) (the Java side preallocates exactly
+ * VrmcBridge.INPUT_BYTES = 752 and reuses it every frame; no per-frame allocation). Return codes:
+ * -4 null buffer, -5 not a direct buffer, -6 short buffer; otherwise the vrmc_poll_input result. */
+JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativePollInput(JNIEnv *env, jclass clazz, jobject buf) {
+    if (buf == NULL) return -4;
+    void *dst = (*env)->GetDirectBufferAddress(env, buf);
+    if (dst == NULL) return -5;
+    jlong capacity = (*env)->GetDirectBufferCapacity(env, buf);
+    if (capacity < (jlong)sizeof(vrmc_input_state)) return -6;
+    return (jint)vrmc_poll_input(dst, (size_t)capacity);
 }
 
 JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeFrameTiming(JNIEnv *env, jclass clazz, jobject buf) {

@@ -23,6 +23,11 @@ provider is license-compatible.
 2. **Design + partial port into the LGPL provider:** `VisionVR`, `VisionRenderer` and the bridge wiring
    contain code/design derived from macstream's `RemoteVR`/`RemoteVRStereoRenderer` (LGPL-3.0, upstream
    commit `ec5a851c…`). This is recorded in `docs/mvp/MACSTREAM_REFERENCE.md` §4 and M2_PLAN §1b.
+   **M4-W1 update (2026-11-01):** the input dispatch/action-set shape (`VisionVR.processInputs`
+   /`dispatchAction`) and the binding-table/origin conventions (`VisionInput`) likewise derive from
+   macstream's `RemoteVR.processInputs`/`dispatchAction` and `TouchPlusInput`; recorded in
+   `docs/mvp/MACSTREAM_REFERENCE.md` §6b and AGENT §10.4. Platform difference: sources are ARKit
+   hand joints (not ALVR button paths) and Vivecraft is extended via a Mixin instead of a fork.
 3. **No macstream-derived code in the GPL launcher.** The provider remains a separate replaceable
    artifact with LGPL-3.0 notices.
 4. **Update rule:** when we refresh the reference (or port more code), update the recorded upstream

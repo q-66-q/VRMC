@@ -8,12 +8,44 @@ Scenarios:
   --require-sync     : additionally require the compositor log to show the MTLSharedEvent wait path.
   --pattern          : eye-distinct stereo/alignment test pattern (manual Enter VR path):
       white/cyan proof border, warm left-eye tint, white centre fusion cross, red left-eye marker.
+  --require-input    : M4-W1 input scenario. The real compositor published synthetic 27-joint hand
+      snapshots through the fake bridge; input-capture.txt must show >=30 snapshots with valid_mask
+      framing, right-pinch threshold crossings (below pinchOn / above pinchOff), left-fist ratio
+      crossings (below fistOn / above fistOff), and a final zeroed release frame (valid_mask=0), with
+      no compositor input errors. Plumbing evidence only - NOT hands evidence.
 
 Every scenario also requires the shell log to show the immersive scene foreground-active.
 
 Exit 0 = PASS, 1 = FAIL.
 """
 import os, sys
+
+# M4-W1 gesture thresholds (docs/analysis/immersive-input.md §5.3 provider defaults). The capture
+# records the provider's metrics computed from the published joints; the synthetic cycle must cross
+# both sides of each hysteresis band.
+PINCH_ON = 0.030      # press when pinch distance < pinchOn
+PINCH_OFF = 0.045     # release when pinch distance > pinchOff
+FIST_ON = 1.25        # press when fist ratio < fistOn
+FIST_OFF = 1.55       # release when fist ratio > fistOff
+INPUT_MIN_SNAPSHOTS = 30
+
+def parse_input_capture(path):
+    """Return the capture records as tuples; '#' header/comment lines are skipped."""
+    records = []
+    with open(path, "r", errors="replace") as handle:
+        for line_no, line in enumerate(handle, 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(",")
+            if len(parts) != 8:
+                raise SystemExit(f"malformed input capture line {line_no} ({len(parts)} fields): {line}")
+            try:
+                records.append((int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3]),
+                                float(parts[4]), float(parts[5]), float(parts[6]), float(parts[7])))
+            except ValueError:
+                raise SystemExit(f"malformed input capture line {line_no}: {line}")
+    return records
 
 def load_rgba64(path):
     data = open(path, "rb").read()
@@ -38,6 +70,7 @@ def main():
     require_noparking = "--require-noparking" in args
     reentry = "--reentry" in args
     pattern = "--pattern" in args
+    require_input = "--require-input" in args
 
     raw = os.path.join(out, "drawable-L.raw")
     if not os.path.exists(raw):
@@ -101,6 +134,63 @@ def main():
         reentry_ok = bg_ok and fg_ok and runs >= 2
         print(f"{'re-entry (bg->fg reopen)':32s} {(f'bg={bg_ok} fg={fg_ok} runs={runs}'):24s} {'>=2':8s} {'PASS' if reentry_ok else 'FAIL'}")
         if not reentry_ok: failures += 1
+    if require_input:
+        # M4-W1: every snapshot the REAL compositor published through the fake bridge. The cycle must
+        # exercise both sides of the pinch/fist hysteresis bands, then a zeroed release on stop.
+        capture_path = os.path.join(out, "input-capture.txt")
+        records = parse_input_capture(capture_path) if os.path.exists(capture_path) else []
+        if not records:
+            print(f"{'input capture present':32s} {'missing/empty':24s} {'>=1':8s} FAIL")
+            failures += 1
+        else:
+            tracked = [r for r in records if r[2] == 3]
+            count_ok = len(records) >= INPUT_MIN_SNAPSHOTS
+            print(f"{'input published snapshots':32s} {str(len(records)):24s} {f'>={INPUT_MIN_SNAPSHOTS}':8s} {'PASS' if count_ok else 'FAIL'}")
+            if not count_ok: failures += 1
+
+            # valid_mask framing: both hands tracked (3) for every scripted frame, then exactly the
+            # final stop/release snapshot has no valid hands (0).
+            framing_ok = (records[0][2] == 3 and records[-1][2] == 0 and
+                          all(r[2] == 3 for r in records[:-1]) and
+                          len(tracked) >= INPUT_MIN_SNAPSHOTS)
+            print(f"{'valid_mask framing (3..3,0)':32s} {f'tracked={len(tracked)} last={records[-1][2]}':24s} {'3..,0':8s} {'PASS' if framing_ok else 'FAIL'}")
+            if not framing_ok: failures += 1
+
+            seq_ok = all(r[0] == i + 1 for i, r in enumerate(records))
+            frames_ok = all(records[i][1] <= records[i + 1][1] for i in range(len(records) - 1))
+            ts_ok = all(r[3] > 0 for r in tracked)
+            meta_ok = seq_ok and frames_ok and ts_ok
+            print(f"{'seq/frame/timestamp framing':32s} {(f'seq={seq_ok} frame={frames_ok} ts={ts_ok}'):24s} {'all':8s} {'PASS' if meta_ok else 'FAIL'}")
+            if not meta_ok: failures += 1
+
+            # Right pinch: the cycle must cross below pinchOn (press) and above pinchOff (release).
+            right_pinches = [r[4] for r in tracked]
+            pinch_low = min(right_pinches) if right_pinches else 1.0
+            pinch_high = max(right_pinches) if right_pinches else 0.0
+            pinch_ok = pinch_low < PINCH_ON and pinch_high > PINCH_OFF
+            print(f"{'right pinch hysteresis crossings':32s} {(f'min={pinch_low:.4f} max={pinch_high:.4f}'):24s} {'<' + str(PINCH_ON) + ' & >' + str(PINCH_OFF):8s} {'PASS' if pinch_ok else 'FAIL'}")
+            if not pinch_ok: failures += 1
+
+            # Left fist: the cycle must cross below fistOn (press) and above fistOff (release).
+            left_fists = [r[7] for r in tracked]
+            fist_low = min(left_fists) if left_fists else 9.0
+            fist_high = max(left_fists) if left_fists else 0.0
+            fist_ok = fist_low < FIST_ON and fist_high > FIST_OFF
+            print(f"{'left fist ratio crossings':32s} {(f'min={fist_low:.3f} max={fist_high:.3f}'):24s} {'<' + str(FIST_ON) + ' & >' + str(FIST_OFF):8s} {'PASS' if fist_ok else 'FAIL'}")
+            if not fist_ok: failures += 1
+
+            # Compositor evidence: synthetic lines are labelled; one publication + one release logged;
+            # no input errors at all.
+            log_ok = ("INPUT-SIM SYNTHETIC" in text and "input publish seq=" in text and
+                      "input release" in text and "input script=cycle" in text)
+            print(f"{'compositor input log lines':32s} {('seen' if log_ok else 'missing'):24s} {'seen':8s} {'PASS' if log_ok else 'FAIL'}")
+            if not log_ok: failures += 1
+            error_markers = ("input publish error", "input publication disabled",
+                             "input hand query failed", "input: bridge dylib has no")
+            errors_seen = [marker for marker in error_markers if marker in text]
+            err_ok = not errors_seen
+            print(f"{'no compositor input errors':32s} {(str(errors_seen) if errors_seen else 'none'):24s} {'none':8s} {'PASS' if err_ok else 'FAIL'}")
+            if not err_ok: failures += 1
     active_ok = "CPSceneSessionRoleImmersiveSpaceApplication:fgActive" in stext
     print(f"{'immersive scene fgActive':32s} {('seen' if active_ok else 'missing'):24s} {'seen':8s} {'PASS' if active_ok else 'FAIL'}")
     if not active_ok: failures += 1
@@ -111,6 +201,7 @@ def main():
     if require_sync: detail += " + GPU timeline sync wait exercised"
     if require_parking: detail += " + window parking"
     if reentry: detail += " + background/foreground re-entry"
+    if require_input: detail += " + synthetic-hand input publication/release (plumbing only, NOT hands evidence)"
     print("[provider-sim] PASS: " + detail)
     return 0
 

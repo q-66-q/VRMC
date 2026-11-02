@@ -111,6 +111,20 @@ in the GPL launcher**; upstream commit `ec5a851c066856b0a3ca3eadc530d5ea18e88930
 - Evidence baseline: `VERIFY.md` EV-0001…EV-0009: toolchain/reference baseline, external JIT26,
   tooling self-test, host S1/S2 pre-tests, S3 static + desktop runtime, S1a scaffold, and the
   device-build blocker. Only evidence IDs recorded in `VERIFY.md` §6 are valid.
+- **M4-W1 immersive input (2026-11-01, EV-0095, host + simulator PASS; device/hands NOT RUN)**: the
+  "only the window accepts input" defect is fixed in code. ABI v3 adds the hand-input channel
+  (`vrmc_hand_state`/`vrmc_input_state`, `vrmc_poll_input`, native-shared publish/acquire); the
+  compositor runs ARKit hand tracking (authorization requested explicitly, denied/unsupported ->
+  world-only + untracked publication) and publishes one snapshot per frame plus a zeroed release
+  snapshot on exit; the provider gesture engine (pinch/fist, hysteresis, 100 ms arming, 250 ms stale
+  release, both-fist chord priority) drives the W1 action table (right pinch = attack/GUI left click,
+  right fist tap = use/GUI right click, left pinch = teleport/GUI shift, left fist tap = menu/Escape,
+  both fists = inventory), with a controller pose derived from the 27 joints (R*(0,0,-1)=aim) and a
+  shoulder/gaze fallback while untracked; `VRInputAction.isEnabled` gets a Mixin-provided generic
+  backend path only while `VisionVR` is active. Host tests + cross-language fixture + simulator input
+  scenario PASS; the device synthetic and real-hands runs are the next evidence step
+  (`docs/mvp/M4_DEVICE_RUN.md`). Locomotion beyond teleport, jump/sneak/hotbar/scroll and the full
+  gesture set remain M4-W2+; AC-4/ST-S5-hands stay `NOT RUN`.
 
 ---
 
@@ -275,6 +289,12 @@ PSVR2 Sense support is **out of MVP scope** (scope decision 2026-11-01). F1–F3
 register; **no F-group code is written until P1** (unverifiable code is a liability and would consume
 M2–M4 time). The G-group is the sole P0 input path and has no fallback.
 
+M4-W1 status (2026-11-01, EV-0095, host+simulator PASS): the immersive-scene input channel and the
+first gesture slice exist — G1 joint ingestion, G2 partial (pinch/fist/chord with hysteresis, arming,
+and no-stuck-input invariants unit-tested), G3 NOT implemented beyond look/pinch teleport, G4
+mitigations implemented and unit-tested but device NOT RUN, G5 defaults only. Device and real-hands
+behavior remains the S5-hands gate.
+
 #### G. Hand input
 
 | ID | Feature | Hardness | Note |
@@ -363,7 +383,7 @@ M2–M4 time). The G-group is the sole P0 input path and has no fallback.
 | S4a-host | Eye-texture handoff, **host stage** (macOS MoltenVK: `vkGetMTLTextureMVK` + `MTLSharedEvent` works) | **HIGH** | **PASS (EV-0063)** — VkImage→MTLTexture export + Metal readback + timeline-semaphore MTLSharedEvent sync verified on host | GPU blit, then readback as last resort |
 | S4a-device | Eye-texture handoff, **device stage** (visionOS MoltenVK/Metal; host PASS does not imply device PASS) | **HIGH** | **PASS (EV-0065)** — bundled MoltenVK 1.4.3 on D1: MTLDevice/MTLTexture export, Metal readback correct, timeline MTLSharedEvent sync | GPU blit fallback |
 | S4 | Compositor stereo (both eyes presented, 90 Hz, no tearing) | **HIGH** | `NOT RUN` | GPU blit, then readback as last resort |
-| S5-hands | Hands drive all P0 actions (sole P0 input path) | **HIGH** | `NOT RUN` | None — hands-only has no controller fallback; G2–G4 are HIGH |
+| S5-hands | Hands drive all P0 actions (sole P0 input path) | **HIGH** | `NOT RUN` (M4-W1 input path host+simulator PASS, EV-0095; no device/real-hands run yet) | None — hands-only has no controller fallback; G2–G4 are HIGH |
 | S5-controllers | PSVR2 controllers | MEDIUM | `DEFERRED (out of MVP scope)` | P1 register |
 | S6 | Frame pacing / thermals on device | **HIGH** | `NOT RUN` | Lower preset, 45 Hz lock, render-distance cap |
 
@@ -386,7 +406,7 @@ spike changes status, apply §4.7 in the same commit.
 | Stereo compositor | **HIGH** | Foreign-texture handoff + deadline discipline |
 | Performance/thermal | **HIGH** | Watchdog kills on missed frames |
 | VR provider | **MEDIUM (host) / HIGH (device)** | Host: Mixin injection + bridge handshake + stereo eye targets + submit loop PASS (EV-0059/EV-0060). Device: provider init, Vulkan eye handoff, no-runtime check **NOT RUN** (M2-W6) |
-| Input & gestures | **HIGH** | **Hands-only P0 path with no controller fallback** (G2/G3/G4 HIGH); PSVR2 is P1/DEFERRED |
+| Input & gestures | **HIGH** | **Hands-only P0 path with no controller fallback** (G2/G3/G4 HIGH); PSVR2 is P1/DEFERRED. M4-W1 (EV-0095) implements the immersive input channel + pinch/fist slice with host+simulator PASS; device/hands NOT RUN |
 | Launcher shell | MEDIUM | visionOS UI port |
 | Accounts/downloads | LOW | Amethyst-proven logic |
 | Compliance | MEDIUM | GPL/LGPL/EULA boundaries |
@@ -444,7 +464,7 @@ All pins move to `versions.env` in M0; changes require an ADR.
 | S4a-host | Host eye-texture handoff | On macOS host, `vkGetMTLTextureMVK` export + `MTLSharedEvent` sync works and pixels are correct | **`PASS` (EV-0063)** | DONE |
 | S4a-device | Device eye-texture handoff | Same path works on visionOS (separate gate; host PASS ≠ device PASS) | `NOT RUN` | 3–5 days |
 | S4 | Compositor stereo | Both eyes correct; shared-event sync; 90 Hz; no tearing over 10 min | `NOT RUN` | 2–3 wk |
-| S5-hands | Hands-only input coverage | Full P0 action checklist from hands (sole P0 input path) | `NOT RUN` | 2–3 wk |
+| S5-hands | Hands-only input coverage | Full P0 action checklist from hands (sole P0 input path) | `NOT RUN` (M4-W1 input path host+simulator PASS, EV-0095; no device/real-hands run yet) | 2–3 wk |
 | S5-controllers | PSVR2 controllers | `DEFERRED (out of MVP scope)` — P1 register, not counted at MVP exit | `DEFERRED` | P1 |
 | S6 | Perf/thermal | K2/K5 met or a documented waiver with mitigation | pending | 2–3 wk |
 
@@ -467,8 +487,8 @@ ADR; it is never quietly downgraded.
 | **M0** | Docs, skeleton, versions.env, S1/S2, S3 decision | **CLOSED 2026-10-31** — S1 PASS (EV-0021 + EV-0024); S3 CLOSED (EV-0006 + EV-0009); S2 device world render PASS (EV-0034). The 30-minute device soak (K4 precursor) is deferred to M1 and recorded in §7 M1 exit criteria. | **HIGH** | 3–4 wk |
 | **M1** | Launcher shell + install + flat MC boot | **CLOSED 2026-11-01 (EV-0057)** — fresh install → world (EV-0043), 30-minute soak (EV-0044), save/relaunch (EV-0052), W1–W7 closed/accepted (input cursor cosmetic accepted); M1_ACCEPTANCE.md matrix | MEDIUM | DONE (4–6 wk plan: `docs/mvp/M1_PLAN.md`) |
 | **M2** | Provider + Vulkan VR | **CLOSED 2026-11-01 (EV-0070)** — provider init + stereo eye targets + no VR runtime (EV-0068); ABI v2 device eye handoff: VkImage→MTLTexture export + submit (EV-0069); S4a host+device PASS (EV-0063/EV-0065); matrix `docs/mvp/M2_ACCEPTANCE.md`. **M3 compositor/head tracking and M4 input NOT RUN** (device view raw/low, not clickable). | **HIGH** | DONE |
-| **M3** | Compositor stereo + head tracking | **IN PROGRESS** - M3a COMPLETE; M3-W1/W2 PASS; **M3-W3/W4 visual acceptance on D1 (EV-0094 PASS)**. Black-immersive blocker CLOSED: root cause was the M3b drawable depth-clear change 1.0 -> 0.0 (EV-0093); with depth 1.0 the immersive shows the stereo/alignment pattern and a JIT game run renders the Vivecraft menu world in the immersive space with stereo aligned and head tracking (operator-confirmed). Remaining: M4 input, window chrome, background re-entry device check, provider GPU-sync device run, M3-W5/W6 90 Hz/soak. | **HIGH** | 4 wk |
-| **M4** | Input (**hands only**, PSVR2 is P1) | **P0 action checklist passes from hands**; no controller fallback. M4 can close on schedule; G2/G3/G4 are HIGH because hands are the sole path | MEDIUM (scope) / HIGH (gesture risk) | 4–6 wk |
+| **M3** | Compositor stereo + head tracking | **IN PROGRESS** - M3a COMPLETE; M3-W1/W2 PASS; **M3-W3/W4 visual acceptance on D1 (EV-0094 PASS)**. Black-immersive blocker CLOSED: root cause was the M3b drawable depth-clear change 1.0 -> 0.0 (EV-0093); with depth 1.0 the immersive shows the stereo/alignment pattern and a JIT game run renders the Vivecraft menu world in the immersive space with stereo aligned and head tracking (operator-confirmed). Remaining: M4-W1 input device/hands run (host+sim PASS, EV-0095), window chrome, background re-entry device check, provider GPU-sync device run, M3-W5/W6 90 Hz/soak. | **HIGH** | 4 wk |
+| **M4** | Input (**hands only**, PSVR2 is P1) | **IN PROGRESS — M4-W1 (immersive-scene control) implemented: ABI v3 hand input + pinch/fist gesture engine + W1 action bindings (GUI/menu click path, attack/use/teleport, inventory), host+simulator PASS (EV-0095). Device synthetic (SYNTHETIC flag) and real-hands runs NOT RUN (`docs/mvp/M4_DEVICE_RUN.md`).** Remaining for M4 exit: full P0 gesture set (G2), locomotion virtual stick/snap turn (G3), device validation of the tracking-loss safety (G4), S5-hands checklist. No controller fallback; G2/G3/G4 are HIGH because hands are the sole path | MEDIUM (scope) / HIGH (gesture risk) | 4–6 wk |
 | **M5** | Gameplay loop + comfort + diagnostics | All H features pass | MEDIUM | 3–4 wk |
 | **M6** | Hardening + acceptance | AC-1…AC-6 + K gates evidenced. **AC-4 verification is hands-only**; PSVR2 is not checked at MVP exit | MEDIUM | 2–3 wk |
 
@@ -559,7 +579,7 @@ surfaces. README/status tables must match `VERIFY.md`.
   product commit.
 - Never commit Minecraft jars/assets, IPAs, prebuilt framework binaries, or SteamVR/OpenVR binaries.
 - Record the upstream commit/hash whenever a reference is used in a design decision.
-- **macstream** is a tracked external reference (ADR-0009): record its upstream commit, state explicitly whether code was copied/ported, and keep any ported code inside the LGPL provider — never in the GPL launcher. Current state: `VisionVR`/`VisionRenderer`/bridge wiring contain code/design derived from macstream's `RemoteVR` backend (LGPL-3.0), commit `ec5a851c…`.
+- **macstream** is a tracked external reference (ADR-0009): record its upstream commit, state explicitly whether code was copied/ported, and keep any ported code inside the LGPL provider — never in the GPL launcher. Current state: `VisionVR`/`VisionRenderer`/bridge wiring and the M4 input dispatch/gesture plumbing (`VisionVR.processInputs`/dispatch, `VisionInput` binding-table/action-set shape) contain code/design derived from macstream's `RemoteVR`/`TouchPlusInput` (LGPL-3.0), commit `ec5a851c…`.
 
 ### 10.5 Licensing boundaries
 - App: GPL-3.0 (derived from Amethyst). Publish corresponding source for every distributed build.
@@ -590,7 +610,8 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | Performance/thermals on device | **HIGH** | Presets, 45 Hz repeat, caps |
 | JIT onboarding friction | MEDIUM | Guided setup + docs |
 | Vivecraft/MC drift | MEDIUM | Pin 26.2; version guard; injection decision: Mixin, no fork (EV-0006 + EV-0009) |
-| **Hands-only input has no fallback** | **HIGH** | Gesture recognition or tracking-loss failures become MVP blockers with no controller workaround; G2/G3/G4 raised to HIGH, S5-hands is the only S5 scope. PSVR2 is P1 (not a workaround) |
+| **Hands-only input has no fallback** | **HIGH** | Gesture recognition or tracking-loss failures become MVP blockers with no controller workaround; G2/G3/G4 raised to HIGH, S5-hands is the only S5 scope. PSVR2 is P1 (not a workaround). M4-W1 mitigates the plumbing risk (host+sim PASS, EV-0095) and unit-tests no-stuck-input invariants; real-hands behavior remains unproven |
+| M4-W1 input behavior unproven on device | MEDIUM | Device-only unknowns: ARKit hand-authorization prompt timing, real 27-joint/anchor composition, aim-convention parity, mixin application inside the live Fabric/VR runtime. Mitigation: explicit authorization + fail-safe untracked publication, synthetic device run (labelled SYNTHETIC), pose-diagnostic logs, fails-closed ABI, no-stuck-input invariants; the window/UIKit input path is untouched as a fallback |
 | Provider device runtime unproven | **HIGH (device)** | Host PASS (EV-0060) only; M2-W6 device bring-up, S4a-device, Vulkan/Metal eye handoff all NOT RUN. Do not report host progress as device readiness |
 | GPL/EULA constraints | MEDIUM | Source publication, ownership gate |
 | Prior-art overlap | MEDIUM | Compete on launcher flexibility |
@@ -706,4 +727,5 @@ and never record personal data (accounts, serials beyond the standard evidence f
 | 2026-11-01 | **Repo/build cleanup (no functional change)**: deleted the diagnostic A/B app bundles (VRMC-native-v1..v13, M3A/M3B probe shells) and their temporary logs/pulls from /tmp; retained only the accepted EV-0094 build (/tmp/VRMC-native-v14-auditfix.app), the provider jar, the bridge/shell build dirs and the Amethyst build caches. stage_native_app.sh defaults now reference the accepted build; export/README next-session note updated. |
 | 2026-11-01 | **EV-0094 (PASS, device): M3c visual acceptance** - with the EV-0093 depth fix (depthZero=0) the operator confirmed the stereo/alignment pattern in the immersive space (fusion cross + border; drawable readback warm-left/green-right, centre luma ~171) and a JIT game run rendering the Vivecraft menu world in the immersive with stereo aligned and head tracking (windows parked alpha-0, provider textures luma 35-156, drawable proof luma 35-129, no command-buffer failures). **Black-immersive blocker CLOSED.** Remaining M3 work: M4 input, chrome, re-entry, provider GPU-sync device run, W5/W6 pacing/soak. |
 | 2026-11-01 | **M3c provider GPU sync (task-7, host PASS / device NOT RUN)**: provider-side half of the zero-copy eye handoff implemented flag-gated and OFF by default (game-dir vrmc-gpu-sync.flag / -Dvrmc.gpuSync=1): reflective LWJGL shim builds an exportable timeline VkSemaphore + MTLSharedEvent, per-frame signal rides MC own Vulkan submission, and VrmcBridge.submitEyesSynced publishes the pair with the eye textures; every failure falls back to the unsynchronized path with one warning. Host suite PASS incl. real macOS MoltenVK semaphore/event export (caught a heap-buffer SIGSEGV before device). Java ABI v2 unchanged; device validation pending and the EV-0094 build keeps the previous provider jar. |
+| 2026-11-01 | **M4-W1 immersive input (EV-0095, host + simulator PASS; device/hands NOT RUN)**: ABI v3 hand-input channel (`vrmc_hand_state`/`vrmc_input_state`, `vrmc_poll_input`, native-shared publish/acquire, `nativePollInput`), compositor ARKit hand tracking (explicit authorization, synthetic `vrmc-input-sim.flag`, zeroed release on exit), provider pure-Java gesture engine (pinch/fist hysteresis, 100 ms arming, 250 ms stale release, both-fist chord priority) + W1 action table + `VRInputAction.isEnabled` Mixin, cross-language C->Java fixture, and a simulator input scenario. `docs/analysis/immersive-input.md`, `docs/mvp/M4_PLAN.md`, `docs/mvp/M4_DEVICE_RUN.md`; device synthetic + real-hands runs NOT RUN. |
 | 2026-11-01 | **EV-0093 (`PASS`, device A/B): black-immersive ROOT CAUSE** — the M3b drawable depth-clear change (1.0 -> 0.0) blacks out the CompositorServices immersive on visionOS 27.2 although the colour drawable is bright; controls: known-good M3A probe displays, depth-0.0 builds (minimal-window / deprecated-API / pure-SwiftUI host) all black, depth-1.0 build displays magenta/cyan (operator-confirmed). Fix: default depth clear 1.0 + `vrmc-depth-zero.flag` A/B + `scripts/tests/DepthClearRegressionTest.sh`. Simulator does not reproduce. Final visual + JIT game run is EV-0094 (operator), then stereo alignment/chrome/re-entry follow-ups. |

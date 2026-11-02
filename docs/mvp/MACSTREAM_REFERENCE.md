@@ -52,10 +52,11 @@ build. This note records what we reuse for VRMC M2 and what must differ on visio
 ## 4. License
 
 macstream’s `spike/vivecraftmod` is a derivative of Vivecraft (LGPL-3.0). **Status: `VisionVR`,
-`VisionRenderer` and the bridge wiring contain code/design derived from macstream (`RemoteVR`,
-`RemoteVRStereoRenderer`), LGPL-3.0, upstream commit `ec5a851c…`.** That code stays in our LGPL provider
-with notices; **no macstream/derived code enters the GPL launcher**. The provider remains a separate
-published artifact (ADR-0004/ADR-0006, ADR-0009).
+`VisionRenderer`, the bridge wiring and the M4 input dispatch/gesture plumbing contain code/design
+derived from macstream (`RemoteVR`, `RemoteVRStereoRenderer`, `RemoteVR.processInputs`/`dispatchAction`,
+`TouchPlusInput` binding-table + action-set shape), LGPL-3.0, upstream commit `ec5a851c…`.** That code
+stays in our LGPL provider with notices; **no macstream/derived code enters the GPL launcher**. The
+provider remains a separate published artifact (ADR-0004/ADR-0006, ADR-0009).
 
 ## 5. Concrete next uses in M2
 
@@ -83,6 +84,17 @@ the newest ARKit pose rather than the pose Minecraft rendered with, so motion la
 Offline verification: `scripts/test_display_views.sh` (JOML frustum test, PASS) + bridge stub
 display-view roundtrip + provider compile against MC/Vivecraft jars (host PASS, EV-0088). Device run is
 the remaining evidence.
+
+## 6b. M4 input reuse (2026-11-01)
+
+macstream is the only proven non-OpenVR Vivecraft **input** backend, so M4-W1 ports its shape, not its
+transport: `RemoteVR.processInputs()`' per-action dispatch loop (`dispatchAction`, including the
+`ignorePressesNextFrame`/movement-key return-to-neutral handling) and `TouchPlusInput`'s
+source -> action binding table + `updateActiveActionSets` gating + origin convention (1 = LEFT,
+2 = RIGHT). What differs on visionOS: sources are ARKit hand joints (pinch/fist) instead of ALVR
+button paths, the pose comes from the 27-joint hand skeleton, and the single hard-coded
+`MCOpenVR.get() == null -> false` check in `VRInputAction.isEnabled()` is replaced by a provider Mixin
+(the same fallback macstream implements by forking Vivecraft; VRMC stays Mixin-only).
 
 ## 7. Batch/one-shot pipeline reuse
 

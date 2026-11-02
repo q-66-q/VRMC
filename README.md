@@ -4,16 +4,22 @@ VRMC runs **Minecraft: Java Edition 26.2 + Fabric + the real Vivecraft mod** nat
 Vision Pro, with head-tracked stereo and hand-tracked input (PSVR2 controllers are P1, post-MVP)
 when present. No PC, no streaming.
 
-> **Status: M3 in progress — native visionOS app + CompositorServices stereo presenter.** The
-> launcher, JVM/JIT runtime, Minecraft 26.2 + Fabric + Vivecraft and the VRMC provider (LGPL) run
-> end-to-end on Apple Vision Pro; current work is the immersive presentation path. In the latest device
-> iteration the black-immersive root cause was found and fixed (drawable depth-clear value; EV-0093) and
-> the immersive path passed on-device acceptance: the stereo/alignment pattern displays and a JIT game run
-> renders the Vivecraft menu world in the immersive space with stereo aligned and head tracking
-> (EV-0094 PASS).
+> **Status: M3 visual acceptance PASS (EV-0094); M4-W1 immersive input implemented — host + simulator
+> PASS (EV-0095), device/hands run pending.** The launcher, JVM/JIT runtime, Minecraft 26.2 + Fabric +
+> Vivecraft and the VRMC provider (LGPL) run end-to-end on Apple Vision Pro. The black-immersive root
+> cause was found and fixed (drawable depth-clear value; EV-0093), and the immersive path passed
+> on-device acceptance: the stereo/alignment pattern displays and a JIT game run renders the Vivecraft
+> menu world in the immersive space with stereo aligned and head tracking (EV-0094). M4-W1 adds the
+> ABI v3 ARKit hand-input channel, a hands-only pinch/fist gesture slice and the immersive GUI/menu +
+> attack/use/teleport bindings, so the game is controllable *from the immersive scene* in code; the
+> operator device run (synthetic then real hands) is the next evidence step
+> ([`docs/mvp/M4_DEVICE_RUN.md`](docs/mvp/M4_DEVICE_RUN.md)). Locomotion beyond teleport, the full
+> gesture set, window chrome, re-entry, GPU-sync device run and pacing/soak remain open.
 > Status claims are governed by [`VERIFY.md`](VERIFY.md); the operating manual is
-> [`AGENT.md`](AGENT.md), and the current plan/root-cause dossier is
-> [`docs/mvp/M3C_PLAN.md`](docs/mvp/M3C_PLAN.md).
+> [`AGENT.md`](AGENT.md), the current plans are
+> [`docs/mvp/M3C_PLAN.md`](docs/mvp/M3C_PLAN.md) and [`docs/mvp/M4_PLAN.md`](docs/mvp/M4_PLAN.md),
+> and the input design/ABI contract is
+> [`docs/analysis/immersive-input.md`](docs/analysis/immersive-input.md).
 
 ## What is decided
 
@@ -36,7 +42,17 @@ when present. No PC, no streaming.
 ./scripts/log_evidence.sh --title "example" --dry-run
 ```
 
-These scripts are implemented and self-tested; the product build scripts are not written yet.
+Build/test commands (implemented):
+
+```bash
+scripts/build_shell.sh                  # visionOS SwiftUI shell framework (CompositorServices)
+MODE=both scripts/build_bridge.sh       # ABI v3 VRMC bridge dylib (device + host)
+OUT_DIR=/tmp/vrmc-provider-build scripts/build_provider.sh   # Vivecraft provider mod jar
+scripts/m3c_selfcheck.sh                # presentation + input host/simulator one-command suite
+scripts/m4_input_selfcheck.sh           # immersive-input ABI/gesture/fixture/simulator suite
+```
+
+Device staging and the M4 input runbook: [`docs/mvp/M4_DEVICE_RUN.md`](docs/mvp/M4_DEVICE_RUN.md).
 
 ## Layout
 
@@ -47,10 +63,11 @@ These scripts are implemented and self-tested; the product build scripts are not
 | `docs/adr/` | Architecture decision records |
 | `docs/mvp/` | MVP scope, spike procedures, acceptance guide |
 | `scripts/` | Tooling (version check, bootstrap, evidence logging) |
-| `launcher/` | visionOS launcher app (not started) |
-| `runtime/` | JVM/JIT runtime build (not started) |
-| `provider/` | Vivecraft companion mod, LGPL-3.0 (not started) |
-| `bridge/` | Native VR bridge, C++/ObjC++ (not started) |
+| `launcher/` | visionOS launcher app (Amethyst-derived, GPL-3.0; build/stage scripts in `scripts/`) |
+| `runtime/` | native visionOS SwiftUI shell + CompositorServices compositor (`runtime/native-shell/`) and probes |
+| `provider/` | Vivecraft companion mod, LGPL-3.0 (provider + M4-W1 gesture engine) |
+| `bridge/` | Native VR bridge, C/ObjC++ (ABI v3: tracking, eye handoff, display views, immersive input) |
+| `docs/analysis/` | Design/root-cause dossiers (incl. `immersive-input.md`, M4-W1 ABI contract) |
 | `versions.env` | Single source of truth for pins |
 
 Third-party reference sources (`Amethyst-iOS-main/`, `VivecraftMod-Multiloader-26.2/`) are

@@ -1,13 +1,23 @@
 #!/bin/bash
-# M3c provider-sampling simulator test (two scenarios).
+# M3c/M4 provider-sampling simulator harness.
 #
 # Scenario "flat": the real compositor samples a fake provider's eye MTLTexture through the flat path
 # (vrmc-reproj-off) and the drawn-drawable readback must match the known pattern (orientation + layout).
 # Scenario "sync": same + the fake provider publishes a real MTLSharedEvent (sync.valid=1); the
 # compositor must encode encodeWaitForEvent without blocking and still present the sampled pattern.
+# Scenario "input" (M4-W1): the real compositor publishes synthetic 27-joint hand snapshots
+# (Documents/vrmc-input-sim.flag=cycle) through the fake bridge's vrmc_shared_publish_input; the fake
+# provider records every snapshot to Documents/vrmc-input-capture.txt and check.py --require-input
+# asserts the cycle + the final zeroed release snapshot. This is plumbing evidence for the
+# compositor->bridge wire path, NOT hands evidence (the simulator has no ARKit hand data).
 #
 # This exercises the full real chain without JVM/JIT/headset: bridge symbol resolution, acquire path,
-# sampling shader, drawable mapping/orientation, and the GPU-timeline wait wiring.
+# sampling shader, drawable mapping/orientation, the GPU-timeline wait wiring, and the input publish path.
+#
+# Usage: runtime/probes/m3c-provider-sim/run.sh [scenario...]
+#   No arguments runs all presentation scenarios (flat sync hidepark nopark pattern reentry).
+#   Named scenarios run in order, e.g. 'run.sh input' or 'run.sh input flat'. Known scenarios:
+#   flat sync hidepark nopark pattern reentry input.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
@@ -134,11 +144,71 @@ run_reentry() {
   python3 "$HERE/check.py" "$case_dir" --reentry --require-parking || overall=1
 }
 
-run_case flat 0
-run_case sync 1
-run_case hidepark 0 provider vrmc-hide-windows.flag
-run_case nopark 0 provider vrmc-no-parking.flag
-run_case pattern 0 pattern
-run_reentry
+run_input() {
+  local case_dir="$OUT/case-input"
+  rm -rf "$case_dir"; mkdir -p "$case_dir"
+  xcrun simctl uninstall "$SIM" "$BUNDLE" 2>/dev/null || true
+  xcrun simctl install "$SIM" "$APP"
+  local DATA; DATA=$(xcrun simctl get_app_container "$SIM" "$BUNDLE" data)
+  mkdir -p "$DATA/Documents"
+  echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
+  echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
+  printf 'cycle\n'    > "$DATA/Documents/vrmc-input-sim.flag"
+  # Optional A/B: exercise the GPU-timeline wait path in the same run (the fake provider then also
+  # publishes a real MTLSharedEvent). INPUT_SYNC=1 enables it; off by default (not input-related).
+  if [ "${INPUT_SYNC:-0}" = "1" ]; then echo "sync" > "$DATA/Documents/vrmc-fake-provider-sync.flag"; fi
+  xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'VRMCCompositorRunning generation=' 40 || true
+  # The base assertion requires the immersive scene foreground-active line in the shell log; wait for
+  # it explicitly so backgrounding early cannot race the shell's 5 s STATE log tick (flaky otherwise).
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'CPSceneSessionRoleImmersiveSpaceApplication:fgActive' 40 || true
+  # Wait for one full fabricated gesture lap (the compositor logs "lap complete" once) so the capture
+  # contains both-open, right-pinch, left-fist and both-fist frames; fall back to a capture-line
+  # threshold in case the log line is late.
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'input script=cycle lap complete' 60 || true
+  for _ in $(seq 1 20); do
+    if [ -f "$DATA/Documents/vrmc-input-capture.txt" ]; then
+      lines=$(grep -v '^#' "$DATA/Documents/vrmc-input-capture.txt" 2>/dev/null | wc -l | tr -d ' ')
+      [ "${lines:-0}" -ge 40 ] && break
+    fi
+    sleep 1
+  done
+  xcrun simctl io "$SIM" screenshot "$case_dir/screenshot.png" >/dev/null 2>&1 || true
+  # Deterministically exercise release-on-stop: backgrounding stops the compositor (the shell calls
+  # VRMCCompositor_RequestStop from didEnterBackground), which must publish the zeroed release snapshot
+  # BEFORE ar_session_stop. Afterwards the capture's LAST line is a valid_mask=0 release frame.
+  xcrun simctl launch "$SIM" com.apple.Preferences >/dev/null 2>&1 || true
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'input release' 40 || true
+  sleep 1
+  cp "$DATA/Documents/vrmc-compositor.log" "$case_dir/compositor.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-shell.log"      "$case_dir/shell.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-input-capture.txt" "$case_dir/input-capture.txt" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw" "$case_dir/drawable-L.raw" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw.meta" "$case_dir/drawable-L.raw.meta" 2>/dev/null || true
+  echo "---- scenario: input ----"
+  python3 "$HERE/check.py" "$case_dir" --require-input || overall=1
+}
+
+ALL_SCENARIOS=(flat sync hidepark nopark pattern reentry)
+if [ "$#" -gt 0 ]; then
+  SCENARIOS=("$@")
+else
+  SCENARIOS=("${ALL_SCENARIOS[@]}")
+fi
+for scenario in "${SCENARIOS[@]}"; do
+  case "$scenario" in
+    flat)     run_case flat 0 ;;
+    sync)     run_case sync 1 ;;
+    hidepark) run_case hidepark 0 provider vrmc-hide-windows.flag ;;
+    nopark)   run_case nopark 0 provider vrmc-no-parking.flag ;;
+    pattern)  run_case pattern 0 pattern ;;
+    reentry)  run_reentry ;;
+    input)    run_input ;;
+    *)
+      echo "[provider-sim] unknown scenario '$scenario' (known: ${ALL_SCENARIOS[*]} input)"
+      exit 2
+      ;;
+  esac
+done
 if [ "$overall" != "0" ]; then echo "[provider-sim] OVERALL FAIL"; exit 1; fi
-echo "[provider-sim] OVERALL PASS (flat sampling + GPU-timeline sync + test-pattern + re-entry scenarios)"
+echo "[provider-sim] OVERALL PASS (scenarios: ${SCENARIOS[*]})"

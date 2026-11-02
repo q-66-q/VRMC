@@ -46,6 +46,21 @@
 //    vrmc-no-sampling.flag (test pattern only).
 //  - Mode badge: the top 1.5% of the image is tinted by the active path (red = reprojection,
 //    green = flat sampling, blue = test pattern) so a device report can name the active path.
+//
+// M4-W1 immersive input (docs/analysis/immersive-input.md §4):
+//  - ARKit hand tracking runs in the SAME ar_session_t as world tracking (guarded by
+//    ar_hand_tracking_provider_is_supported(); a denied/unsupported provider degrades to a
+//    world-only session so head tracking/presentation never regress).
+//  - Once per frame, after the device-anchor query and before presenting, the hand anchors are
+//    queried at cp_frame_timing_get_trackable_anchor_time -> ar_hand_tracking_provider_query_anchors_at_timestamp,
+//    the 27 joints are composed into device/anchor space (anchor origin transform * anchor-from-joint)
+//    and one vrmc_input_state snapshot is published through the dlsym-resolved
+//    vrmc_shared_publish_input (bridge ABI v3 input channel; provider polls it via vrmc_poll_input).
+//  - A zeroed release snapshot (valid_mask = 0) is published before ar_session_stop on every exit
+//    path, so the provider releases every held action when the immersive space closes.
+//  - Synthetic input (Documents/vrmc-input-sim.flag) publishes scripted, fabricated 27-joint hands
+//    instead of ARKit data for the simulator harness and device A/B. Its log lines are prefixed
+//    INPUT-SIM and say SYNTHETIC; it is plumbing evidence, never hands evidence.
 #include "Bridging.h"
 #include "vrmc_abi.h"
 #include "vrmc_native_shared.h"
@@ -67,10 +82,17 @@ typedef int32_t (*eye_targets_fn)(vrmc_eye_targets *);
 typedef int32_t (*acquire_eyes_fn)(vrmc_shared_eye_frame *);
 typedef int32_t (*set_tracking_fn)(const vrmc_tracking_state *);
 typedef int32_t (*set_display_views_fn)(const vrmc_display_views *);
+// M4-W1 immersive input: the compositor publishes one vrmc_input_state per frame; the JVM provider
+// polls it through vrmc_poll_input. Both symbols are resolved with dlsym so an OLD bridge dylib
+// (v2, no input channel) never breaks the compositor: publishing is skipped with one log line.
+typedef int32_t (*input_publish_fn)(const vrmc_input_state *);
+typedef uint64_t (*input_sequence_fn)(void);
 static eye_targets_fn gEyeFn;
 static acquire_eyes_fn gAcquireFn;
 static set_tracking_fn gTrackFn;
 static set_display_views_fn gDisplayViewsFn;
+static input_publish_fn gInputPublishFn;
+static input_sequence_fn gInputSequenceFn;
 // Each immersive session (CompositorLayer callback) gets a generation. A stop request applies to the
 // generation that is current when it is made, so a late stop cannot kill the next session and a stale
 // session's VRMCImmersiveEnded can be told apart from the current one by the shell.
@@ -136,8 +158,17 @@ static void resolveBridge(void) {
         gTrackFn = (set_tracking_fn)dlsym(h, "vrmc_shared_set_tracking");
         gDisplayViewsFn = (set_display_views_fn)dlsym(h, "vrmc_shared_set_display_views");
         gAcquireFn = (acquire_eyes_fn)dlsym(h, "vrmc_shared_acquire_eyes");
-        compLog("bridge resolved handle=%p eye=%p tracking=%p displayViews=%p acquireEyes=%p", h,
-                gEyeFn, gTrackFn, gDisplayViewsFn, gAcquireFn);
+        gInputPublishFn = (input_publish_fn)dlsym(h, "vrmc_shared_publish_input");
+        gInputSequenceFn = (input_sequence_fn)dlsym(h, "vrmc_shared_input_sequence");
+        compLog("bridge resolved handle=%p eye=%p tracking=%p displayViews=%p acquireEyes=%p "
+                "publishInput=%p inputSeq=%p",
+                h, gEyeFn, gTrackFn, gDisplayViewsFn, gAcquireFn, gInputPublishFn, gInputSequenceFn);
+        if (gInputPublishFn == NULL) {
+            // Fail safe on an old bridge: log once and keep presenting. The provider sees no fresh
+            // snapshots and releases everything (its stale-input timer), so this can never stick input.
+            compLog("input: bridge dylib has no vrmc_shared_publish_input (old v2 bridge?); immersive "
+                    "input publication disabled, presentation unaffected");
+        }
     }
 }
 
@@ -145,6 +176,340 @@ static BOOL documentFlag(NSString *name) {
     NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *path = [docs.firstObject stringByAppendingPathComponent:name];
     return [[NSFileManager defaultManager] fileExistsAtPath:path] ? YES : NO;
+}
+
+// -------------------------------------------------------------------------------------------
+// M4-W1 immersive input: ARKit hand tracking -> vrmc_input_state -> bridge (native-shared).
+//
+// The compositor owns hand tracking and publishes one snapshot per frame. The JVM provider polls it
+// (vrmc_poll_input / nativePollInput) and turns pinches/fists into Vivecraft actions. Positions are
+// copied in device/anchor space - the same space as vrmc_tracking_state.head - so no extra transform
+// crosses the boundary.
+//
+// Synthetic mode (Documents/vrmc-input-sim.flag) publishes scripted, fabricated 27-joint hands for
+// the simulator harness (the visionOS simulator has no ARKit hand data) and for device A/B without
+// hands. It is independent of ARKit authorization and is NEVER hands evidence.
+// -------------------------------------------------------------------------------------------
+
+enum {
+    VRMCInputSimCycle = 0,
+    VRMCInputSimPinchRight = 1,
+    VRMCInputSimPinchLeft = 2,
+    VRMCInputSimFistLeft = 3,
+    VRMCInputSimBoth = 4,
+};
+
+typedef struct {
+    float duration_s;
+    unsigned char pinch_left, pinch_right, fist_left, fist_right;
+} VRMCInputSimPhase;
+
+// The "cycle" script is what the simulator input scenario uses: it walks both-open -> right pinch ->
+// release -> left fist -> release -> both fists -> release, so one lap exercises every gesture the
+// provider thresholds distinguish. The per-gesture scripts are device A/B helpers (hold ~2 s).
+static const VRMCInputSimPhase kSimCycle[] = {
+    {0.35f, 0, 0, 0, 0}, // both hands open (pinch distance / fist ratio above the release thresholds)
+    {0.90f, 0, 1, 0, 0}, // right pinch held
+    {0.35f, 0, 0, 0, 0},
+    {0.90f, 0, 0, 1, 0}, // left fist held
+    {0.35f, 0, 0, 0, 0},
+    {0.90f, 0, 0, 1, 1}, // both fists held
+    {0.35f, 0, 0, 0, 0},
+};
+static const VRMCInputSimPhase kSimPinchRight[] = {
+    {0.60f, 0, 0, 0, 0},
+    {2.00f, 0, 1, 0, 0},
+};
+static const VRMCInputSimPhase kSimPinchLeft[] = {
+    {0.60f, 0, 0, 0, 0},
+    {2.00f, 1, 0, 0, 0},
+};
+static const VRMCInputSimPhase kSimFistLeft[] = {
+    {0.60f, 0, 0, 0, 0},
+    {2.00f, 0, 0, 1, 0},
+};
+static const VRMCInputSimPhase kSimBoth[] = {
+    {0.60f, 0, 0, 0, 0},
+    {2.00f, 0, 0, 1, 1},
+};
+
+typedef struct {
+    const VRMCInputSimPhase *phases;
+    int count;
+    const char *name;
+} VRMCInputSimScript;
+
+static const VRMCInputSimScript kInputSimScripts[] = {
+    {kSimCycle, (int)(sizeof(kSimCycle) / sizeof(kSimCycle[0])), "cycle"},
+    {kSimPinchRight, (int)(sizeof(kSimPinchRight) / sizeof(kSimPinchRight[0])), "pinch-right"},
+    {kSimPinchLeft, (int)(sizeof(kSimPinchLeft) / sizeof(kSimPinchLeft[0])), "pinch-left"},
+    {kSimFistLeft, (int)(sizeof(kSimFistLeft) / sizeof(kSimFistLeft[0])), "fist-left"},
+    {kSimBoth, (int)(sizeof(kSimBoth) / sizeof(kSimBoth[0])), "both"},
+};
+
+// Returns the synthetic-script index when Documents/vrmc-input-sim.flag exists, else -1.
+// Content selects the script (pinch-right | pinch-left | fist-left | both | cycle); empty content or
+// an unknown value falls back to "cycle".
+static int readInputSimScript(const char **nameOut, BOOL *unknownOut) {
+    *nameOut = "none";
+    if (unknownOut != NULL) *unknownOut = NO;
+    NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *path = [docs.firstObject stringByAppendingPathComponent:@"vrmc-input-sim.flag"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) return -1;
+    NSString *raw = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    NSString *trimmed = [(raw ?: @"") stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSString *content = [trimmed lowercaseString];
+    for (int i = 0; i < (int)(sizeof(kInputSimScripts) / sizeof(kInputSimScripts[0])); i++) {
+        if ([content isEqualToString:[NSString stringWithUTF8String:kInputSimScripts[i].name]]) {
+            *nameOut = kInputSimScripts[i].name;
+            return i;
+        }
+    }
+    if (unknownOut != NULL && content.length > 0) *unknownOut = YES;
+    *nameOut = kInputSimScripts[VRMCInputSimCycle].name;
+    return VRMCInputSimCycle;
+}
+
+static double inputSimScriptDuration(int script) {
+    if (script < 0 || script >= (int)(sizeof(kInputSimScripts) / sizeof(kInputSimScripts[0]))) script = 0;
+    const VRMCInputSimScript *s = &kInputSimScripts[script];
+    double total = 0.0;
+    for (int i = 0; i < s->count; i++) total += s->phases[i].duration_s;
+    return total;
+}
+
+// Phase lookup for the scripted synthetic input. Phases loop forever (the provider only consumes
+// gesture state, so a repeating diagnostic cycle is exactly what we want).
+static void inputSimPhaseAt(int script, double elapsed_s, int *phaseOut) {
+    if (script < 0 || script >= (int)(sizeof(kInputSimScripts) / sizeof(kInputSimScripts[0]))) script = 0;
+    const VRMCInputSimScript *s = &kInputSimScripts[script];
+    const double total = inputSimScriptDuration(script);
+    *phaseOut = 0;
+    if (!(total > 0.0)) return;
+    double t = fmod(elapsed_s, total);
+    if (!(t >= 0.0)) t = 0.0;
+    double acc = 0.0;
+    for (int i = 0; i < s->count; i++) {
+        acc += (double)s->phases[i].duration_s;
+        if (t < acc) { *phaseOut = i; return; }
+    }
+    *phaseOut = s->count - 1;
+}
+
+// Logging helper for the input channel. Synthetic lines are prefixed INPUT-SIM and say SYNTHETIC so
+// a device/simulator log can never be mistaken for real hand tracking.
+static void inputLog(BOOL synthetic, const char *fmt, ...) {
+    char line[900];
+    va_list args; va_start(args, fmt);
+    vsnprintf(line, sizeof(line), fmt, args);
+    va_end(args);
+    if (synthetic) {
+        compLog("INPUT-SIM SYNTHETIC %s", line);
+    } else {
+        compLog("%s", line);
+    }
+}
+
+static const char *authorizationStatusName(intptr_t status) {
+    if (status == (intptr_t)ar_authorization_status_allowed) return "allowed";
+    if (status == (intptr_t)ar_authorization_status_denied) return "denied";
+    if (status == (intptr_t)ar_authorization_status_not_determined) return "not_determined";
+    return "unknown";
+}
+
+// Explicitly request hand-tracking authorization (ARKit does NOT prompt implicitly from
+// ar_session_run). The handler only logs the result once and signals the wait; it never mutates
+// render/session state. Returns the ARKit status, or -1 when no answer arrived in time.
+static intptr_t requestHandAuthorization(ar_session_t session, double timeoutSeconds) {
+    __block intptr_t status = -1;
+    __block BOOL logged = NO;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    ar_session_request_authorization(session, ar_authorization_type_hand_tracking,
+                                     ^(ar_authorization_results_t results, ar_error_t error) {
+        __block intptr_t resolved = -1;
+        if (results != nil && ar_authorization_results_get_count(results) > 0) {
+            ar_authorization_results_enumerate_results(results, ^bool(ar_authorization_result_t result) {
+                resolved = (intptr_t)ar_authorization_result_get_status(result);
+                return false;
+            });
+        }
+        status = resolved;
+        if (!logged) {
+            logged = YES;
+            compLog("hand tracking authorization: request result status=%s errorCode=%ld "
+                    "(allowed is required for real hands; synthetic input does not need it)",
+                    authorizationStatusName(resolved),
+                    error != nil ? (long)ar_error_get_error_code(error) : 0L);
+        }
+        dispatch_semaphore_signal(done);
+    });
+    long timedOut = dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW,
+                                                               (int64_t)(timeoutSeconds * 1e9)));
+    if (timedOut != 0) {
+        compLog("hand tracking authorization: no response within %.1f s (status unknown); "
+                "continuing without a hand provider", timeoutSeconds);
+        return -1;
+    }
+    return status;
+}
+
+// ABI v3 wire convention: chirality 0 = LEFT, 1 = RIGHT. ARKit's ar_hand_chirality enum is INVERTED
+// (ar_hand_chirality_right == 0, ar_hand_chirality_left == 1), so never cast it through: map it.
+static uint32_t abiChirality(ar_hand_chirality_t chirality) {
+    return (chirality == ar_hand_chirality_left) ? 0u : 1u;
+}
+
+// Copy one ARKit hand anchor into the ABI layout (device/anchor space, metres). Returns YES when the
+// hand is tracked. Joint transform = anchor origin transform * anchor-from-joint transform, which
+// makes the positions directly comparable with vrmc_tracking_state.head (same ARKit origin).
+static BOOL fillHandFromAnchor(vrmc_hand_state *hand, ar_hand_anchor_t anchor, uint64_t timestampNs) {
+    memset(hand, 0, sizeof(*hand));
+    hand->timestamp_ns = timestampNs;
+    hand->chirality = abiChirality(ar_hand_anchor_get_chirality(anchor));
+    if (!ar_hand_anchor_is_tracked(anchor)) return NO;
+    ar_hand_skeleton_t skeleton = ar_hand_anchor_get_hand_skeleton(anchor);
+    if (skeleton == nil) return NO;
+    simd_float4x4 anchorTransform = ar_hand_anchor_get_origin_from_anchor_transform(anchor);
+    simd_float4x4 wristTransform = anchorTransform;
+    for (int i = 0; i < VRMC_HAND_JOINT_COUNT; i++) {
+        ar_skeleton_joint_t joint =
+            ar_hand_skeleton_get_joint_named(skeleton, (ar_hand_skeleton_joint_name_t)i);
+        // Defensive: an incomplete skeleton must not publish a tracked hand with zeroed joints.
+        if (joint == nil) return NO;
+        simd_float4x4 jointTransform = simd_mul(anchorTransform,
+                                                ar_skeleton_joint_get_anchor_from_joint_transform(joint));
+        hand->joints[i].x = jointTransform.columns[3].x;
+        hand->joints[i].y = jointTransform.columns[3].y;
+        hand->joints[i].z = jointTransform.columns[3].z;
+        if (i == (int)ar_hand_skeleton_joint_name_wrist) wristTransform = jointTransform;
+    }
+    hand->tracked = 1;
+    hand->wrist_position = hand->joints[0];
+    simd_quatf orientation = simd_normalize(simd_quaternion(wristTransform));
+    hand->wrist_orientation.x = orientation.vector.x;
+    hand->wrist_orientation.y = orientation.vector.y;
+    hand->wrist_orientation.z = orientation.vector.z;
+    hand->wrist_orientation.w = orientation.vector.w;
+    return YES;
+}
+
+// Synthetic hand local layout (metres, x = wrist->fingers, y = index->little metacarpal,
+// z = palm-back normal). Values are chosen so the provider's documented gesture metrics hold:
+//  - pinch distance |joint4 - joint9|: 0.005 m pinched vs 0.068 m open (thresholds 0.030/0.045);
+//  - fist ratio avg(|joints 9,14,19,24 - joint0|) / |joint11 - joint0|: 0.77 fist vs 1.88 open
+//    (thresholds 1.25/1.55);
+//  - joint20 - joint5 is a non-degenerate hand width, so the provider can build a pose basis.
+static const float kSyntheticHandOpen[VRMC_HAND_JOINT_COUNT][3] = {
+    {0.000f,  0.000f, 0.000f}, // 0  wrist
+    {0.020f, -0.030f, 0.004f}, // 1  thumb knuckle
+    {0.045f, -0.052f, 0.008f}, // 2  thumb intermediate base
+    {0.072f, -0.064f, 0.010f}, // 3  thumb intermediate tip
+    {0.100f, -0.070f, 0.012f}, // 4  thumb tip
+    {0.020f, -0.026f, 0.000f}, // 5  index metacarpal
+    {0.080f, -0.026f, 0.000f}, // 6  index knuckle
+    {0.112f, -0.026f, 0.000f}, // 7  index intermediate base
+    {0.134f, -0.026f, 0.000f}, // 8  index intermediate tip
+    {0.150f, -0.026f, 0.000f}, // 9  index tip
+    {0.020f,  0.000f, 0.000f}, // 10 middle metacarpal
+    {0.080f,  0.000f, 0.000f}, // 11 middle knuckle (palm length)
+    {0.112f,  0.000f, 0.000f}, // 12 middle intermediate base
+    {0.134f,  0.000f, 0.000f}, // 13 middle intermediate tip
+    {0.150f,  0.000f, 0.000f}, // 14 middle tip
+    {0.020f,  0.009f, 0.000f}, // 15 ring metacarpal
+    {0.080f,  0.009f, 0.000f}, // 16 ring knuckle
+    {0.112f,  0.009f, 0.000f}, // 17 ring intermediate base
+    {0.134f,  0.009f, 0.000f}, // 18 ring intermediate tip
+    {0.150f,  0.009f, 0.000f}, // 19 ring tip
+    {0.020f,  0.027f, 0.000f}, // 20 little metacarpal
+    {0.080f,  0.027f, 0.000f}, // 21 little knuckle
+    {0.112f,  0.027f, 0.000f}, // 22 little intermediate base
+    {0.134f,  0.027f, 0.000f}, // 23 little intermediate tip
+    {0.150f,  0.027f, 0.000f}, // 24 little tip
+    {-0.040f, 0.000f, 0.000f}, // 25 forearm wrist
+    {-0.120f, 0.000f, 0.000f}, // 26 forearm arm
+};
+
+static const float kSyntheticHandFist[VRMC_HAND_JOINT_COUNT][3] = {
+    {0.000f,  0.000f, 0.000f}, // 0  wrist
+    {0.020f, -0.030f, 0.004f}, // 1  thumb knuckle
+    {0.045f, -0.052f, 0.008f}, // 2  thumb intermediate base
+    {0.072f, -0.064f, 0.010f}, // 3  thumb intermediate tip
+    {0.100f, -0.070f, 0.012f}, // 4  thumb tip (thumb stays out: no accidental pinch during a fist)
+    {0.020f, -0.026f, 0.000f}, // 5  index metacarpal
+    {0.080f, -0.026f, 0.000f}, // 6  index knuckle
+    {0.100f, -0.026f, 0.012f}, // 7  curled
+    {0.075f, -0.026f, 0.028f}, // 8  curled
+    {0.045f, -0.026f, 0.036f}, // 9  index tip curled toward the wrist
+    {0.020f,  0.000f, 0.000f}, // 10 middle metacarpal
+    {0.080f,  0.000f, 0.000f}, // 11 middle knuckle
+    {0.100f,  0.000f, 0.014f}, // 12 curled
+    {0.075f,  0.000f, 0.030f}, // 13 curled
+    {0.045f,  0.000f, 0.040f}, // 14 middle tip curled toward the wrist
+    {0.020f,  0.009f, 0.000f}, // 15 ring metacarpal
+    {0.080f,  0.009f, 0.000f}, // 16 ring knuckle
+    {0.100f,  0.009f, 0.013f}, // 17 curled
+    {0.075f,  0.009f, 0.029f}, // 18 curled
+    {0.045f,  0.009f, 0.038f}, // 19 ring tip curled toward the wrist
+    {0.020f,  0.027f, 0.000f}, // 20 little metacarpal
+    {0.080f,  0.027f, 0.000f}, // 21 little knuckle
+    {0.100f,  0.027f, 0.011f}, // 22 curled
+    {0.075f,  0.027f, 0.026f}, // 23 curled
+    {0.045f,  0.027f, 0.034f}, // 24 little tip curled toward the wrist
+    {-0.040f, 0.000f, 0.000f}, // 25 forearm wrist
+    {-0.120f, 0.000f, 0.000f}, // 26 forearm arm
+};
+
+// Build one fabricated hand in device space. The hand is placed in front of the head using the
+// device-anchor transform (the same transform that becomes vrmc_tracking_state.head), so synthetic
+// poses are plausible in the ABI space; sideSign -1 = left hand, +1 = right hand.
+static void buildSyntheticHand(vrmc_hand_state *hand, simd_float4x4 deviceTransform, int sideSign,
+                               BOOL pinched, BOOL fisted, uint64_t timestampNs) {
+    memset(hand, 0, sizeof(*hand));
+    hand->tracked = 1;
+    hand->chirality = (sideSign < 0) ? 0u : 1u; // ABI v3: 0 = LEFT, 1 = RIGHT
+    hand->timestamp_ns = timestampNs;
+    simd_float3 origin = deviceTransform.columns[3].xyz;
+    simd_float3 headRight = simd_normalize(deviceTransform.columns[0].xyz);
+    simd_float3 headUp = simd_normalize(deviceTransform.columns[1].xyz);
+    simd_float3 headForward = simd_normalize(-deviceTransform.columns[2].xyz);
+    simd_float3 aim = headForward;
+    simd_float3 side = headRight * (float)sideSign;
+    simd_float3 up = simd_normalize(simd_cross(side, aim));
+    simd_float3 wrist = origin + headForward * 0.32f + headRight * (0.13f * (float)sideSign)
+                        + headUp * (-0.10f);
+    const float (*local)[3] = fisted ? kSyntheticHandFist : kSyntheticHandOpen;
+    float jointLocal[VRMC_HAND_JOINT_COUNT][3];
+    memcpy(jointLocal, local, sizeof(jointLocal));
+    if (pinched) {
+        // Thumb tip exactly 0.005 m from the index tip: below pinchOn (0.030), never above pinchOff.
+        simd_float3 indexTip = wrist + aim * jointLocal[9][0] + side * jointLocal[9][1]
+                               + up * jointLocal[9][2];
+        simd_float3 towardThumb = simd_normalize(simd_make_float3(0.52f, -0.80f, 0.30f));
+        simd_float3 thumbTip = indexTip + towardThumb * 0.005f;
+        simd_float3 rel = thumbTip - wrist;
+        jointLocal[4][0] = simd_dot(rel, aim);
+        jointLocal[4][1] = simd_dot(rel, side);
+        jointLocal[4][2] = simd_dot(rel, up);
+    }
+    for (int i = 0; i < VRMC_HAND_JOINT_COUNT; i++) {
+        simd_float3 p = wrist + aim * jointLocal[i][0] + side * jointLocal[i][1]
+                        + up * jointLocal[i][2];
+        hand->joints[i].x = p.x;
+        hand->joints[i].y = p.y;
+        hand->joints[i].z = p.z;
+    }
+    hand->wrist_position = hand->joints[0];
+    // Orientation basis (x = side, y = up, z = -aim) so R*(0,0,-1) == aim, matching the provider's
+    // pose derivation from joints.
+    simd_float4x4 basis = simd_matrix(simd_make_float4(side.x, side.y, side.z, 0.0f),
+                                      simd_make_float4(up.x, up.y, up.z, 0.0f),
+                                      simd_make_float4(-aim.x, -aim.y, -aim.z, 0.0f),
+                                      simd_make_float4(wrist.x, wrist.y, wrist.z, 1.0f));
+    simd_quatf orientation = simd_normalize(simd_quaternion(basis));
+    hand->wrist_orientation.x = orientation.vector.x;
+    hand->wrist_orientation.y = orientation.vector.y;
+    hand->wrist_orientation.z = orientation.vector.z;
+    hand->wrist_orientation.w = orientation.vector.w;
 }
 
 // 0 = auto (reprojection unless the diagnostics say the mapping is unusable), 1 = force reprojection,
@@ -667,12 +1032,92 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     const int32_t generation = self.generation;
     resolveBridge();
 
+    // M4-W1 synthetic-input diagnostic flag, read BEFORE any ARKit session/authorization work so
+    // synthetic mode can skip the hand-tracking authorization request entirely: fabricated hands need
+    // no permission, the request would pop a system prompt, and it can block compositor start.
+    const char *inputSimName = "none";
+    BOOL inputSimUnknownContent = NO;
+    const int inputSimScript = readInputSimScript(&inputSimName, &inputSimUnknownContent);
+    const BOOL inputSynthetic = (inputSimScript >= 0);
+    if (inputSynthetic) {
+        compLog("INPUT-SIM SYNTHETIC input enabled script=%s flag=Documents/vrmc-input-sim.flag%s "
+                "(fabricated 27-joint hands; ARKit hands are ignored; plumbing evidence only, NOT "
+                "hands evidence)", inputSimName,
+                inputSimUnknownContent ? " content-unknown-defaulted-to-cycle" : "");
+    }
+
     ar_world_tracking_configuration_t cfg = ar_world_tracking_configuration_create();
     ar_world_tracking_provider_t provider = ar_world_tracking_provider_create(cfg);
-    ar_data_providers_t providers = ar_data_providers_create_with_data_providers(provider, nil);
     ar_session_t session = ar_session_create();
+
+    // M4-W1: hand tracking lives in the SAME ARKit session as world tracking. Ask for hand-tracking
+    // authorization explicitly (ARKit does NOT prompt implicitly from ar_session_run), and only add
+    // the hand provider once it is allowed: an unauthorized provider can stop the whole session,
+    // which would take head tracking (and therefore presentation) down with it. Denied/undetermined
+    // keeps the session world-only; the compositor still publishes untracked snapshots
+    // (valid_mask = 0) every frame and keeps presenting.
+    const BOOL handTrackingSupported = ar_hand_tracking_provider_is_supported();
+    ar_hand_tracking_provider_t handProvider = nil;
+    ar_hand_anchor_t handAnchorLeft = nil;
+    ar_hand_anchor_t handAnchorRight = nil;
+    BOOL handProviderIncluded = NO;
+    intptr_t handAuthorization = (intptr_t)ar_authorization_status_not_determined;
+    if (inputSynthetic) {
+        // Synthetic mode: fabricated hands drive the input channel, so no hand data is needed and no
+        // authorization prompt may block compositor start. The session stays world-only for hands.
+        compLog("INPUT-SIM SYNTHETIC input mode: hand-tracking authorization not requested "
+                "(hand tracking supported=%d); the ARKit session is world-only for hands and synthetic "
+                "publications drive the input channel", (int)handTrackingSupported);
+    } else if (handTrackingSupported) {
+        compLog("hand tracking supported=1; requesting hand-tracking authorization");
+        handAuthorization = requestHandAuthorization(session, 20.0);
+        if (handAuthorization == (intptr_t)ar_authorization_status_allowed) {
+            ar_hand_tracking_configuration_t handConfiguration = ar_hand_tracking_configuration_create();
+            handProvider = ar_hand_tracking_provider_create(handConfiguration);
+            handAnchorLeft = ar_hand_anchor_create();
+            handAnchorRight = ar_hand_anchor_create();
+            handProviderIncluded = YES;
+        } else if (handAuthorization < 0) {
+            compLog("hand tracking authorization NOT GRANTED (status=unknown: request timed out or "
+                    "returned no result): real hands are unavailable this session. Allow Hand Tracking "
+                    "in Settings > Privacy & Security > Hand Tracking, then RELAUNCH VRMC for real "
+                    "hands. The ARKit session stays world-only so presentation is unaffected; "
+                    "synthetic input is unaffected.");
+        } else {
+            compLog("hand tracking authorization NOT GRANTED (status=%s): real hands are unavailable "
+                    "this session. Allow Hand Tracking in Settings > Privacy & Security > Hand "
+                    "Tracking, then RELAUNCH VRMC for real hands. The ARKit session stays world-only so "
+                    "presentation is unaffected; synthetic input is unaffected.",
+                    authorizationStatusName(handAuthorization));
+        }
+    } else {
+        compLog("hand tracking supported=0 (no hand tracking in this environment, e.g. the visionOS "
+                "simulator); publishing untracked hands. Synthetic input (Documents/vrmc-input-sim.flag) "
+                "exercises the input channel instead");
+    }
+    ar_data_providers_t providers = handProviderIncluded
+        ? ar_data_providers_create_with_data_providers(provider, handProvider, nil)
+        : ar_data_providers_create_with_data_providers(provider, nil);
+    // Log ARKit data-provider failures (e.g. hand tracking not authorized, runtime failure) instead
+    // of silently presenting an untracked immersive scene.
+    ar_session_set_data_provider_state_change_handler(
+        session, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0),
+        ^(ar_data_providers_t changedProviders, ar_data_provider_state_t newState,
+          ar_error_t statusError, ar_data_provider_t failedProvider) {
+            (void)changedProviders;
+            const long errorCode = (statusError != nil) ? (long)ar_error_get_error_code(statusError) : 0L;
+            compLog("ARKit data provider state=%ld errorCode=%ld failedProvider=%d%s",
+                    (long)newState, errorCode, failedProvider != nil ? 1 : 0,
+                    errorCode == (long)ar_session_error_code_data_provider_not_authorized
+                        ? " HAND TRACKING NOT AUTHORIZED: allow Hand Tracking in Settings > Privacy & Security"
+                        : "");
+        });
     ar_session_run(session, providers);
-    compLog("ARKit session started (generation %d)", generation);
+    compLog("ARKit session started (generation %d) hand tracking supported=%d provider=%s "
+            "authorization=%s inputMode=%s", generation, (int)handTrackingSupported,
+            handProviderIncluded ? "started" : "not-started",
+            authorizationStatusName(handAuthorization),
+            inputSynthetic ? "synthetic" : "arkit");
 
     cp_layer_renderer_wait_until_running(lr);
     id<MTLDevice> device = cp_layer_renderer_get_device(lr);
@@ -766,6 +1211,19 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     size_t lastLoggedDrawableCount = 0;
     int nilColorViews = 0;
     float ipd = 0.064f;
+
+    // M4-W1 input state. One preallocated snapshot per frame (no per-frame allocation) and one
+    // rate-limited log counter per concern; never dump joint arrays every frame. The synthetic-flag
+    // values (inputSimScript/inputSimName/inputSynthetic) were read before the ARKit session setup.
+    double inputSimStart = -1.0;
+    int inputSimLastPhase = -1;
+    BOOL inputSimLapLogged = NO;
+    uint64_t inputPublishCount = 0;
+    uint64_t inputPublishErrors = 0;
+    uint64_t inputHandQueryFailures = 0;
+    uint64_t inputLastTimestampNs = 0;
+    BOOL inputFirstPublishLogged = NO;
+    const double inputSimLapSeconds = inputSynthetic ? inputSimScriptDuration(inputSimScript) : 0.0;
     while (true) {
         @autoreleasepool {
             if ([self stopRequested]) { compLog("stop requested before frame; exiting loop"); break; }
@@ -1108,6 +1566,119 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                 ts.controllers[0].orientation.w = 1.0f;
                 ts.controllers[1].orientation.w = 1.0f;
                 gTrackFn(&ts);
+            }
+
+            // ---------------------- M4-W1: publish the immersive input snapshot ----------------------
+            // One snapshot per frame, after the device-anchor query and before presenting. Hand anchors
+            // are queried at the frame's trackable-anchor prediction time in the SAME ARKit session as
+            // world tracking and copied in device/anchor space (same space as the head pose above), so
+            // the provider needs no extra transform. Synthetic mode (vrmc-input-sim.flag) publishes
+            // fabricated hands instead of ARKit data and is independent of authorization.
+            {
+                vrmc_input_state inputState;
+                memset(&inputState, 0, sizeof(inputState));
+                inputState.frame_index = (uint32_t)frameCount;
+                CFTimeInterval handQueryTime =
+                    cp_time_to_cf_time_interval(cp_frame_timing_get_trackable_anchor_time(actual));
+                if (!isfinite(handQueryTime)) handQueryTime = queryTime;
+                inputState.timestamp_ns = (uint64_t)llround(handQueryTime * 1e9);
+                uint32_t validMask = 0;
+                if (inputSynthetic) {
+                    if (inputSimStart < 0.0) inputSimStart = handQueryTime;
+                    int phaseIndex = 0;
+                    inputSimPhaseAt(inputSimScript, handQueryTime - inputSimStart, &phaseIndex);
+                    const VRMCInputSimScript *script = &kInputSimScripts[inputSimScript];
+                    if (phaseIndex >= 0 && phaseIndex < script->count) {
+                        const VRMCInputSimPhase *phase = &script->phases[phaseIndex];
+                        if (phaseIndex != inputSimLastPhase) {
+                            inputSimLastPhase = phaseIndex;
+                            inputLog(YES, "input script=%s phase=%d/%d L=(pinch=%d fist=%d) "
+                                          "R=(pinch=%d fist=%d) (fabricated hands)",
+                                     script->name, phaseIndex + 1, script->count,
+                                     (int)phase->pinch_left, (int)phase->fist_left,
+                                     (int)phase->pinch_right, (int)phase->fist_right);
+                        }
+                        buildSyntheticHand(&inputState.hands[VRMC_INPUT_LEFT_HAND], anchorTransform, -1,
+                                           phase->pinch_left != 0, phase->fist_left != 0,
+                                           inputState.timestamp_ns);
+                        buildSyntheticHand(&inputState.hands[VRMC_INPUT_RIGHT_HAND], anchorTransform, +1,
+                                           phase->pinch_right != 0, phase->fist_right != 0,
+                                           inputState.timestamp_ns);
+                        validMask = 3u;
+                        if (!inputSimLapLogged && (handQueryTime - inputSimStart) >= inputSimLapSeconds) {
+                            inputSimLapLogged = YES;
+                            inputLog(YES, "input script=%s lap complete frame=%d (one full fabricated "
+                                          "gesture cycle published)", script->name, frameCount);
+                        }
+                    }
+                } else if (handProvider != nil && handAnchorLeft != nil && handAnchorRight != nil) {
+                    ar_hand_anchor_query_status_t handQueryStatus =
+                        ar_hand_tracking_provider_query_anchors_at_timestamp(
+                            handProvider, handQueryTime, handAnchorLeft, handAnchorRight);
+                    if (handQueryStatus == ar_hand_anchor_query_status_success) {
+                        // Query fills LEFT into hand slot 0 and RIGHT into slot 1 by argument order,
+                        // independent of the (normalized) chirality field.
+                        if (fillHandFromAnchor(&inputState.hands[VRMC_INPUT_LEFT_HAND], handAnchorLeft,
+                                               inputState.timestamp_ns)) {
+                            validMask |= 1u;
+                        }
+                        if (fillHandFromAnchor(&inputState.hands[VRMC_INPUT_RIGHT_HAND], handAnchorRight,
+                                               inputState.timestamp_ns)) {
+                            validMask |= 2u;
+                        }
+                    } else {
+                        inputHandQueryFailures++;
+                        if (inputHandQueryFailures == 1 || (frameCount % 300) == 0) {
+                            inputLog(inputSynthetic, "input hand query failed status=%ld frame=%d "
+                                     "failures=%llu (publishing untracked hands this frame)",
+                                     (long)handQueryStatus, frameCount,
+                                     (unsigned long long)inputHandQueryFailures);
+                        }
+                    }
+                }
+                inputState.valid_mask = validMask;
+                inputLastTimestampNs = inputState.timestamp_ns;
+                if (gInputPublishFn != NULL) {
+                    const int32_t publishResult = gInputPublishFn(&inputState);
+                    if (publishResult == 0) {
+                        inputPublishCount++;
+                        if (!inputFirstPublishLogged || (frameCount % 300) == 0) {
+                            inputFirstPublishLogged = YES;
+                            const unsigned long long publishedSeq = (gInputSequenceFn != NULL)
+                                ? (unsigned long long)gInputSequenceFn()
+                                : (unsigned long long)inputPublishCount;
+                            inputLog(inputSynthetic,
+                                     "input publish seq=%llu frame=%d valid_mask=%u timestamp_ns=%llu "
+                                     "source=%s hands=L%dR%d", publishedSeq, frameCount, validMask,
+                                     (unsigned long long)inputState.timestamp_ns,
+                                     inputSynthetic ? "synthetic" : "arkit",
+                                     (validMask & 1u) ? 1 : 0, (validMask & 2u) ? 1 : 0);
+                        }
+                    } else {
+                        inputPublishErrors++;
+                        if (inputPublishErrors == 1 || (frameCount % 300) == 0) {
+                            inputLog(inputSynthetic, "input publish error rc=%d frame=%d errors=%llu "
+                                     "(provider sees no fresh snapshot and releases; presentation "
+                                     "unaffected)", publishResult, frameCount,
+                                     (unsigned long long)inputPublishErrors);
+                        }
+                    }
+                }
+                // Rate-limited hand/pose telemetry (~every 60 frames). Never dump the 27-joint arrays.
+                if ((frameCount % 60) == 0) {
+                    const unsigned long long telemetrySeq = (gInputSequenceFn != NULL)
+                        ? (unsigned long long)gInputSequenceFn()
+                        : (unsigned long long)inputPublishCount;
+                    inputLog(inputSynthetic,
+                             "input hands L=%d R=%d wristL=(%.3f,%.3f,%.3f) wristR=(%.3f,%.3f,%.3f) "
+                             "seq=%llu", (validMask & 1u) ? 1 : 0, (validMask & 2u) ? 1 : 0,
+                             inputState.hands[VRMC_INPUT_LEFT_HAND].wrist_position.x,
+                             inputState.hands[VRMC_INPUT_LEFT_HAND].wrist_position.y,
+                             inputState.hands[VRMC_INPUT_LEFT_HAND].wrist_position.z,
+                             inputState.hands[VRMC_INPUT_RIGHT_HAND].wrist_position.x,
+                             inputState.hands[VRMC_INPUT_RIGHT_HAND].wrist_position.y,
+                             inputState.hands[VRMC_INPUT_RIGHT_HAND].wrist_position.z, telemetrySeq);
+                }
             }
 
             // Acquire the latest eye frame atomically (textures + GPU timeline + change detection).
@@ -1468,6 +2039,24 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         (unsigned long long)eyesPtr->left_texture, (unsigned long long)eyesPtr->right_texture);
             }
         }
+    }
+    // M4-W1 release contract: publish one zeroed snapshot (valid_mask = 0) BEFORE ar_session_stop so
+    // the provider sees tracking loss and releases every held action. Without this, closing the
+    // immersive space mid-press could leave an attack/teleport latched. Runs on every loop exit path
+    // (stop requested, layer invalidated, stale generation); presentation cannot be affected.
+    if (gInputPublishFn != NULL) {
+        vrmc_input_state releaseState;
+        memset(&releaseState, 0, sizeof(releaseState));
+        releaseState.frame_index = (uint32_t)frameCount;
+        releaseState.valid_mask = 0;
+        releaseState.timestamp_ns = inputLastTimestampNs;
+        const int32_t releaseResult = gInputPublishFn(&releaseState);
+        const unsigned long long releaseSeq = (gInputSequenceFn != NULL)
+            ? (unsigned long long)gInputSequenceFn()
+            : 0ULL;
+        inputLog(inputSynthetic, "input release valid_mask=0 frame=%d seq=%llu rc=%d "
+                 "(zeroed snapshot before ar_session_stop so any held action is released)",
+                 frameCount, releaseSeq, releaseResult);
     }
     ar_session_stop(session);
     dispatch_async(dispatch_get_main_queue(), ^{

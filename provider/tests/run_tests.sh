@@ -8,9 +8,15 @@
 #                           constants resolve; without LWJGL it fails closed with UnavailableException
 #                           (the exact "reflection reaches nothing" fallback path)
 #   4. provider build     - scripts/build_provider.sh (jar + sha256, exit 0) with the new sources
+#   5. M4 immersive input - ABI v3 layout constants, gesture engine (hysteresis/arming/taps/stale/
+#                           action-set gating/binding table), hand-pose math, and the optional
+#                           cross-language fixture produced by bridge/tests/make_input_fixture.c
+#                           (VRMC_INPUT_FIXTURE, plus the VRMC_INPUT_FIXTURE_FRAMES timeline sidecar).
+#                           Unset fixture = explicit SKIP; set-but-missing = FAIL.
 #
 # Usage: provider/tests/run_tests.sh
-# Env:   PROVIDER_OUT (default /tmp/vrmc-provider-build), LWJGL_JAR (auto-detected for the smoke test)
+# Env:   PROVIDER_OUT (default /tmp/vrmc-provider-build), LWJGL_JAR (auto-detected for the smoke test),
+#        VRMC_INPUT_FIXTURE / VRMC_INPUT_FIXTURE_FRAMES (optional cross-language fixture)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -139,6 +145,58 @@ if [ -n "$LWJGL_CP" ] && [ -f "$MVK_LIB" ]; then
   fi
 else
   echo "[provider-tests] vulkan-host-test: SKIP (needs LWJGL 3.4.1 + MoltenVK macOS SDK; see MVK_LIB)"
+fi
+
+# --- 5. M4-W1 immersive input: layout + gesture engine + pose (+ cross-language fixture) ---------
+step "m4-input-tests"
+mkdir -p "$T/m4classes"
+M4_CP="$CP:$CLASSES:$T/m4classes"
+if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionInputLayoutTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionInputTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionHandPoseTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
+     && grep -q "PASS" "$T/m4-layout.log"; then
+    echo "[provider-tests] m4-layout: PASS (ABI v3 sizes/offsets + documented-offset round-trip)"
+  else
+    cat "$T/m4-layout.log"; fail "m4-layout"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputTest > "$T/m4-input.log" 2>&1 \
+     && grep -q "\[m4-input-test\] PASS" "$T/m4-input.log"; then
+    echo "[provider-tests] m4-gestures: PASS (hysteresis/arming/taps/stale/action-sets/bindings)"
+    grep -E "\[m4-input-test\] [0-9]+ checks" "$T/m4-input.log"
+  else
+    cat "$T/m4-input.log"; fail "m4-gestures"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionHandPoseTest > "$T/m4-pose.log" 2>&1 \
+     && grep -q "\[m4-pose-test\] PASS" "$T/m4-pose.log"; then
+    echo "[provider-tests] m4-pose: PASS (R*(0,0,-1)=aim, orthonormal basis, gaze fallback)"
+    grep -E "\[m4-pose-test\] [0-9]+ checks" "$T/m4-pose.log"
+  else
+    cat "$T/m4-pose.log"; fail "m4-pose"
+  fi
+  # Cross-language fixture: set-but-missing must FAIL; unset is an explicit SKIP (never silent).
+  FIXTURE="${VRMC_INPUT_FIXTURE:-}"
+  if [ -z "$FIXTURE" ]; then
+    echo "[provider-tests] m4-fixture: SKIP (VRMC_INPUT_FIXTURE unset; run bridge/tests/make_input_fixture.c)"
+  elif [ ! -f "$FIXTURE" ]; then
+    echo "[provider-tests] m4-fixture: FAIL (VRMC_INPUT_FIXTURE is set but the file is missing: $FIXTURE)"
+    fail "m4-fixture"
+  else
+    FRAMES="${VRMC_INPUT_FIXTURE_FRAMES:-}"
+    if [ -z "$FRAMES" ] && [ -f "$FIXTURE.frames" ]; then FRAMES="$FIXTURE.frames"; fi
+    if [ -n "$FRAMES" ]; then export VRMC_INPUT_FIXTURE_FRAMES="$FRAMES"; fi
+    if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputFixtureTest > "$T/m4-fixture.log" 2>&1 \
+       && grep -q "\[m4-fixture-test\] PASS" "$T/m4-fixture.log"; then
+      grep -E "\[m4-fixture-test\] (PASS|SKIP|[0-9]+ checks)" "$T/m4-fixture.log"
+      echo "[provider-tests] m4-fixture: PASS (C -> Java 752-byte contract + timeline replay)"
+    else
+      cat "$T/m4-fixture.log"; fail "m4-fixture"
+    fi
+  fi
+else
+  fail "m4-input-compile"
 fi
 
 if [ "$FAILED" != "0" ]; then

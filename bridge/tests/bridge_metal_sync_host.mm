@@ -199,8 +199,9 @@ static void *compositor_thread(void *arg) {
 static int run_probe(void) {
     printf("[bridge-mvk] MoltenVK/Metal host probe (host gate only; device = EV-0065)\n");
 
-    /* 0. Bridge init (ABI v2 unchanged). */
-    if (vrmc_init("{\"abi\":2,\"eyes\":2}", 18) != 0) {
+    /* 0. Bridge init (ABI v3 current; this probe only uses the additive eye-frame handoff surface). */
+    static const char *kCaps = "{\"abi\":3,\"eyes\":2,\"input\":1}";
+    if (vrmc_init(kCaps, strlen(kCaps)) != 0) {
         printf("FAIL vrmc_init: %s\n", vrmc_last_error());
         return 1;
     }

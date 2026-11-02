@@ -1,15 +1,18 @@
 /*
- * VRMC bridge stub — M2 scaffold, extended for the M3 eye-frame handoff (M3-W3/W4).
+ * VRMC bridge stub — M2 scaffold, extended for the M3 eye-frame handoff (M3-W3/W4) and the M4
+ * immersive input channel (M4-W1).
  *
- * Implements ABI v2 with deterministic fake tracking so the provider mod can be developed and tested
- * on a desktop Fabric harness before the real ARKit/Metal implementation lands. The stub is NOT
- * shipped on device once the real bridge exists; it exists to prove the handshake, the eye-frame
- * publication contract and the native-shared synchronization/lifetime surface.
+ * Implements ABI v3 with deterministic fake tracking/hand input so the provider mod can be developed
+ * and tested on a desktop Fabric harness before the real ARKit/Metal implementation lands. The stub is
+ * NOT shipped on device once the real bridge exists; it exists to prove the handshake, the eye-frame
+ * publication contract, the native-shared synchronization/lifetime surface and the ABI v3 input
+ * snapshot channel (vrmc_poll_input / vrmc_shared_{publish,acquire}_input / input sequence).
  *
  * Threading: the provider publishes from the JVM render thread; the CompositorServices renderer
  * (compositor thread, same process) acquires from its own thread. All shared state below is
- * published/read under a mutex so readers can never observe a torn eye frame or a torn tracking
- * override (the previous implementation copied 80/96-byte structs without any synchronization).
+ * published/read under a mutex so readers can never observe a torn eye frame, a torn tracking
+ * override, or a torn input snapshot (e.g. hands from frame N mixed with the other hand from
+ * frame N+1).
  *
  * GPU sync contract: see bridge/abi/vrmc_native_shared.h (vrmc_shared_publish_eyes /
  * vrmc_shared_acquire_eyes). The bridge only transports the (MTLSharedEvent, timeline value) pair;
@@ -30,7 +33,7 @@ static uint64_t g_frames = 0;
 static _Thread_local char g_error[256] = "no error";
 static vrmc_tracking_state g_tracking;
 
-/* M3-W3/W4 native-side shared state (same-process app <-> bridge; Java ABI v2 unchanged). */
+/* M3-W3/W4 native-side shared state (same-process app <-> bridge; additive, outside the Java ABI). */
 static pthread_mutex_t g_frame_mutex = PTHREAD_MUTEX_INITIALIZER;
 static vrmc_shared_eye_frame g_latest_frame;
 static int g_has_frame = 0;
@@ -47,6 +50,18 @@ static pthread_mutex_t g_display_views_mutex = PTHREAD_MUTEX_INITIALIZER;
 static vrmc_display_views g_display_views;
 static uint32_t g_display_generation = 0;
 
+/* M4-W1 immersive input (ABI v3): one vrmc_input_state snapshot written by the compositor frame loop
+ * and read by the JVM render thread through vrmc_poll_input / vrmc_shared_acquire_input. The whole
+ * 752-byte snapshot is copied under one mutex so a reader can never mix two frames. g_input_state is
+ * zeroed by vrmc_init, so polling before the first publish returns the documented "safe, no hands"
+ * snapshot (valid_mask = 0) rather than an error. Publication is allowed before vrmc_init: the
+ * compositor can start the immersive space (and ARKit hand tracking) before the JVM/Minecraft VR
+ * initialization runs vrmc_init; init then resets the channel to the same safe zero state. */
+static pthread_mutex_t g_input_mutex = PTHREAD_MUTEX_INITIALIZER;
+static vrmc_input_state g_input_state;
+static int g_has_input_publish = 0;
+static uint64_t g_input_sequence = 0;
+
 static int32_t set_error(const char *msg) {
     snprintf(g_error, sizeof(g_error), "%s", msg);
     return -1;
@@ -59,9 +74,10 @@ const char *vrmc_last_error(void) { return g_error; }
 int32_t vrmc_init(const char *caps_json, size_t caps_len) {
     if (caps_json == NULL || caps_len == 0) return set_error("caps_json missing");
     if (strstr(caps_json, "\"abi\"") == NULL) return set_error("caps_json lacks abi capability");
-    /* The real bridge will validate the advertised numbers; the stub only checks the ABI token. */
-    if (strstr(caps_json, "\"abi\": 2") == NULL && strstr(caps_json, "\"abi\":2") == NULL) {
-        return set_error("abi version mismatch (expected 2)");
+    /* The real bridge will validate the advertised numbers; the stub only checks the ABI major.
+     * ABI v2 (or anything that is not v3) FAILS CLOSED: no cross-version compatibility window. */
+    if (strstr(caps_json, "\"abi\": 3") == NULL && strstr(caps_json, "\"abi\":3") == NULL) {
+        return set_error("abi version mismatch (expected 3)");
     }
     memset(&g_tracking, 0, sizeof(g_tracking));
     g_tracking.ipd_m = 0.064f;
@@ -75,6 +91,13 @@ int32_t vrmc_init(const char *caps_json, size_t caps_len) {
     g_texture_generation = 0;
     g_frames = 0;
     pthread_mutex_unlock(&g_frame_mutex);
+    /* Safe first poll: any pre-init publication (compositor started before the JVM) is dropped, so
+     * the first vrmc_poll_input after init reports "no hands" until the next frame is published. */
+    pthread_mutex_lock(&g_input_mutex);
+    memset(&g_input_state, 0, sizeof(g_input_state));
+    g_has_input_publish = 0;
+    g_input_sequence = 0;
+    pthread_mutex_unlock(&g_input_mutex);
     g_initialized = 1;
     printf("[vrmc-stub] init ok, abi=%d\n", VRMC_ABI_VERSION);
     return 0;
@@ -95,10 +118,22 @@ int32_t vrmc_get_tracking(vrmc_tracking_state *out, uint64_t timestamp_ns) {
     return 0;
 }
 
+/* ABI v3 input polling (JVM render thread through JNI nativePollInput).
+ * Contract (bridge/abi/vrmc_abi.h + docs/analysis/immersive-input.md §3.3):
+ *   - uninitialized bridge / NULL out / out_len < sizeof(vrmc_input_state) fail closed;
+ *   - before the first publish (or after vrmc_init reset) returns 0 with a ZEROED snapshot
+ *     (frame_index 0, valid_mask 0, all hands untracked) -- "safe, no hands", not an error;
+ *   - otherwise copies exactly sizeof(vrmc_input_state) bytes from the latest snapshot. A larger
+ *     out_len is accepted and its tail is left untouched. */
 int32_t vrmc_poll_input(void *out, size_t out_len) {
     if (!g_initialized) return set_error("not initialized");
-    if (out == NULL || out_len == 0) return set_error("input buffer missing");
-    memset(out, 0, out_len);
+    if (out == NULL) return set_error("input buffer missing");
+    if (out_len < sizeof(vrmc_input_state)) {
+        return set_error("input buffer too small (need sizeof(vrmc_input_state)=752)");
+    }
+    pthread_mutex_lock(&g_input_mutex);
+    memcpy(out, &g_input_state, sizeof(g_input_state));
+    pthread_mutex_unlock(&g_input_mutex);
     return 0;
 }
 
@@ -231,6 +266,46 @@ uint32_t vrmc_shared_get_display_views(vrmc_display_views *out) {
     return gen;
 }
 
+/* ------------------------------------------------------------------------------------------- */
+/* M4-W1 native-shared input channel (vrmc_native_shared.h "Input" section).                    */
+/* ------------------------------------------------------------------------------------------- */
+
+/* Publish one per-frame input snapshot (compositor thread only). Allowed before vrmc_init: the
+ * compositor can start the immersive space before the JVM provider initializes, and an early publish
+ * must not be "rejected" (that could drop the release-on-exit snapshot). Only a NULL state fails. */
+int32_t vrmc_shared_publish_input(const vrmc_input_state *state) {
+    if (state == NULL) return set_error("bad input state");
+    pthread_mutex_lock(&g_input_mutex);
+    g_input_state = *state;
+    g_has_input_publish = 1;
+    g_input_sequence++;
+    pthread_mutex_unlock(&g_input_mutex);
+    return 0;
+}
+
+/* Acquire the latest snapshot (JVM/other threads). Fails closed before the first publish; consumers
+ * that need the documented pre-publish zero state use vrmc_poll_input (the Java ABI path). */
+int32_t vrmc_shared_acquire_input(vrmc_input_state *out) {
+    if (out == NULL) return set_error("bad input state output");
+    pthread_mutex_lock(&g_input_mutex);
+    if (!g_has_input_publish) {
+        pthread_mutex_unlock(&g_input_mutex);
+        return set_error("no input published yet");
+    }
+    *out = g_input_state;
+    pthread_mutex_unlock(&g_input_mutex);
+    return 0;
+}
+
+/* Monotonic publish counter (0 before the first publish, 1 after the first successful publish).
+ * Consumers use it only for change/staleness detection, never as a clock. */
+uint64_t vrmc_shared_input_sequence(void) {
+    pthread_mutex_lock(&g_input_mutex);
+    uint64_t seq = g_input_sequence;
+    pthread_mutex_unlock(&g_input_mutex);
+    return seq;
+}
+
 typedef void (*PFN_vrmc_vkGetMTLTextureMVK)(uint64_t image, void **out_texture);
 
 static PFN_vrmc_vkGetMTLTextureMVK resolve_get_mtl_texture(void) {
@@ -292,10 +367,29 @@ int32_t vrmc_haptic(int32_t hand, float amplitude, float frequency_hz, float dur
 int main(void) {
     vrmc_tracking_state t;
     vrmc_eye_targets e;
+    vrmc_input_state in;
     memset(&e, 0, sizeof(e));
     vrmc_frame_timing_t ft;
     if (vrmc_abi_version() != VRMC_ABI_VERSION) return 1;
-    if (vrmc_init("{\"abi\":2,\"eyes\":2}", 18) != 0) { printf("init fail: %s\n", vrmc_last_error()); return 2; }
+    /* ABI v3 handshake: a v2 caps string must FAIL CLOSED; v3 must be accepted. */
+    if (vrmc_init("{\"abi\":2,\"eyes\":2,\"hands\":2,\"input\":1}",
+                  strlen("{\"abi\":2,\"eyes\":2,\"hands\":2,\"input\":1}")) == 0) {
+        printf("abi 2 init must fail (got OK)\n"); return 2;
+    }
+    if (vrmc_poll_input(&in, sizeof(in)) == 0) { printf("poll input before init must fail\n"); return 23; }
+    /* Pre-init publication is allowed (compositor may open the immersive space first)... */
+    vrmc_input_state pre;
+    memset(&pre, 0, sizeof(pre));
+    pre.valid_mask = 3;
+    if (vrmc_shared_publish_input(&pre) != 0) {
+        printf("pre-init publish must be allowed: %s\n", vrmc_last_error()); return 24;
+    }
+    if (vrmc_shared_input_sequence() != 1) { printf("pre-init publish did not bump the sequence\n"); return 25; }
+    /* ...and vrmc_init drops it so the first poll is the safe zero snapshot. */
+    if (vrmc_init("{\"abi\":3,\"eyes\":2,\"hands\":2,\"input\":1}",
+                  strlen("{\"abi\":3,\"eyes\":2,\"hands\":2,\"input\":1}")) != 0) {
+        printf("init fail: %s\n", vrmc_last_error()); return 2;
+    }
     vrmc_eye_targets shared;
     vrmc_shared_eye_frame frame;
     if (vrmc_shared_eye_textures(&shared) == 0) { printf("shared eyes before submit should fail\n"); return 6; }
@@ -358,11 +452,53 @@ int main(void) {
     if (vrmc_shared_set_display_views(&dv) != 0 || vrmc_shared_get_display_views(&dv) != gen1) {
         printf("display views generation changed without payload change\n"); return 13;
     }
+    /* ABI v3 input channel: safe zero before publish, round-trip, sequence, release snapshot. */
+    memset(&in, 0xAA, sizeof(in));
+    if (vrmc_poll_input(&in, sizeof(in)) != 0) {
+        printf("poll input pre-publish failed: %s\n", vrmc_last_error()); return 26;
+    }
+    for (size_t i = 0; i < sizeof(in); i++) {
+        if (((const unsigned char *)&in)[i] != 0) { printf("pre-publish input snapshot not zeroed\n"); return 27; }
+    }
+    if (vrmc_shared_input_sequence() != 0) { printf("input sequence not reset by init\n"); return 28; }
+    if (vrmc_shared_acquire_input(&in) == 0) { printf("acquire input before publish must fail\n"); return 29; }
+    if (vrmc_poll_input(NULL, sizeof(in)) == 0) { printf("poll input with NULL must fail\n"); return 30; }
+    if (vrmc_poll_input(&in, sizeof(in) - 1) == 0) { printf("poll input with short buffer must fail\n"); return 31; }
+    vrmc_input_state ipub;
+    memset(&ipub, 0, sizeof(ipub));
+    ipub.frame_index = 7;
+    ipub.valid_mask = 3;
+    ipub.timestamp_ns = 0x1122334455667788ull;
+    ipub.hands[0].tracked = 1;
+    ipub.hands[0].chirality = 0; /* ARKit: 0 = left */
+    ipub.hands[1].tracked = 1;
+    ipub.hands[1].chirality = 1; /* ARKit: 1 = right */
+    ipub.hands[1].wrist_position.x = 0.125f;
+    ipub.hands[0].joints[9].y = 0.75f;
+    if (vrmc_shared_publish_input(&ipub) != 0) {
+        printf("publish input failed: %s\n", vrmc_last_error()); return 32;
+    }
+    if (vrmc_shared_input_sequence() != 1) { printf("input sequence after publish != 1\n"); return 33; }
+    memset(&in, 0, sizeof(in));
+    if (vrmc_poll_input(&in, sizeof(in)) != 0 || memcmp(&in, &ipub, sizeof(in)) != 0) {
+        printf("input poll round-trip mismatch\n"); return 34;
+    }
+    if (vrmc_shared_acquire_input(&in) != 0 || memcmp(&in, &ipub, sizeof(in)) != 0) {
+        printf("input acquire round-trip mismatch\n"); return 35;
+    }
+    vrmc_input_state release;
+    memset(&release, 0, sizeof(release)); /* release-on-exit shape: valid_mask = 0, hands untracked */
+    if (vrmc_shared_publish_input(&release) != 0) { printf("release publish failed\n"); return 36; }
+    if (vrmc_poll_input(&in, sizeof(in)) != 0 || in.valid_mask != 0 || in.frame_index != 0) {
+        printf("release snapshot not published\n"); return 37;
+    }
+    if (vrmc_shared_input_sequence() != 2) { printf("input sequence after release != 2\n"); return 38; }
     printf("[vrmc-stub-test] ok version=%d frames=%llu ipd=%.3f shared_left=0x%llx display_gen=%u "
-           "publish_seq=%llu texture_gen=%u\n",
+           "publish_seq=%llu texture_gen=%u input_seq=%llu\n",
            vrmc_abi_version(), (unsigned long long)ft.frame_index, t.ipd_m,
            (unsigned long long)shared.left_texture, gen1,
-           (unsigned long long)frame.publish_sequence, frame.texture_generation);
+           (unsigned long long)frame.publish_sequence, frame.texture_generation,
+           (unsigned long long)vrmc_shared_input_sequence());
     return 0;
 }
 #endif

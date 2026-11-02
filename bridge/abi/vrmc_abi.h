@@ -4,6 +4,8 @@
  * VRMC native bridge ABI (AGENT.md §3.4).
  *
  * v2 adds vrmc_export_mtl_texture (VkImage -> MTLTexture export through the game's MoltenVK).
+ * v3 adds the immersive input channel (M4-W1): vrmc_hand_state / vrmc_input_state and the
+ * input payload of vrmc_poll_input (compositor ARKit hand tracking -> JVM provider gestures).
  * v1 was never shipped externally; provider + bridge ship together.
  *
  * ABI EVOLUTION POLICY (binding from M2; see docs/mvp/M2_PLAN.md §9):
@@ -32,7 +34,7 @@
 extern "C" {
 #endif
 
-#define VRMC_ABI_VERSION 2
+#define VRMC_ABI_VERSION 3
 
 typedef struct { float x, y, z; } vrmc_vec3;
 typedef struct { float x, y, z, w; } vrmc_quat;
@@ -44,6 +46,46 @@ typedef struct {
     vrmc_pose controllers[2];      /* PSVR2 Sense / tracked controllers */
     float ipd_m;
 } vrmc_tracking_state;
+
+/* ------------------------------------------------------------------------------------------ */
+/* ABI v3: immersive input (M4-W1).                                                            */
+/*                                                                                            */
+/* The compositor owns ARKit hand tracking and publishes one vrmc_input_state per frame through */
+/* the native-shared channel (vrmc_shared_publish_input in vrmc_native_shared.h). The JVM       */
+/* provider polls the latest snapshot here (vrmc_poll_input / JNI nativePollInput) and turns     */
+/* gestures into Vivecraft actions. Both structs are ABI: sizes/offsets are part of the contract */
+/* and are asserted by bridge/tests/bridge_input_test.c and the provider layout test.           */
+/*                                                                                            */
+/* Coordinate space: the SAME device/anchor space as vrmc_tracking_state.head (ARKit origin,   */
+/* y-up, -Z forward, metres). The publisher applies the hand anchor's origin transform, so no   */
+/* extra transform is needed between head and hands.                                           */
+/* ------------------------------------------------------------------------------------------ */
+
+#define VRMC_HAND_JOINT_COUNT 27
+#define VRMC_INPUT_HAND_COUNT 2
+#define VRMC_INPUT_LEFT_HAND  0
+#define VRMC_INPUT_RIGHT_HAND 1
+
+/* One hand, one frame. ARKit joint index order: 0 wrist, 4 thumb tip, 9 index tip, 11 middle
+ * knuckle (palm length), 14 middle tip, 19 ring tip, 24 little tip, 5 index metacarpal,
+ * 20 little metacarpal. */
+typedef struct {
+    uint32_t tracked;        /* 1 = wrist/joints valid this frame, 0 = not tracked */
+    uint32_t chirality;      /* NORMALIZED: 0 = left, 1 = right. NOTE: this is NOT the raw ARKit enum (ar_hand_chirality_right = 0, ar_hand_chirality_left = 1), so the publisher must map ar_hand_anchor_get_chirality() into this convention. */
+    uint64_t timestamp_ns;   /* anchor-predicted timestamp the hand was queried at */
+    vrmc_quat wrist_orientation;                 /* device space */
+    vrmc_vec3 wrist_position;                    /* device space, meters */
+    vrmc_vec3 joints[VRMC_HAND_JOINT_COUNT];     /* device space, meters */
+} vrmc_hand_state;
+
+/* One published input snapshot. hands[0] is always LEFT and hands[1] always RIGHT (independent of
+ * the chirality field, which is still set for consumers that use it). */
+typedef struct {
+    uint32_t frame_index;    /* compositor frame counter */
+    uint32_t valid_mask;     /* bit0 = hands[0] (left) tracked, bit1 = hands[1] (right) tracked */
+    uint64_t timestamp_ns;   /* predicted anchor time of this snapshot */
+    vrmc_hand_state hands[VRMC_INPUT_HAND_COUNT];
+} vrmc_input_state;
 
 typedef struct {
     uint32_t frame_index;
@@ -70,6 +112,10 @@ int32_t vrmc_abi_version(void);
 int32_t vrmc_init(const char *caps_json, size_t caps_len);
 
 int32_t vrmc_get_tracking(vrmc_tracking_state *out, uint64_t timestamp_ns);
+
+/* v3: copy the latest vrmc_input_state into *out. Requires out_len >= sizeof(vrmc_input_state);
+ * returns 0 with a zeroed snapshot (valid_mask = 0) before the compositor has ever published one
+ * ("safe, no hands", not an error), and fails closed on a short buffer / uninitialized bridge. */
 int32_t vrmc_poll_input(void *out, size_t out_len);
 int32_t vrmc_submit_eyes(const vrmc_eye_targets *targets);
 int32_t vrmc_frame_timing(vrmc_frame_timing_t *out);

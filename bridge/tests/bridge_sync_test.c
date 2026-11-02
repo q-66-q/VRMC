@@ -44,7 +44,9 @@ static int g_failures = 0;
 #define SYNC_EVENT_TAG 0xCAFEF00DDEADBEEFull
 
 static int init_bridge(void) {
-    int rc = vrmc_init("{\"abi\":2,\"eyes\":2}", 18);
+    /* ABI v3 is current; this test only exercises the v2 eye-frame handoff surface. */
+    static const char *caps = "{\"abi\":3,\"eyes\":2}";
+    int rc = vrmc_init(caps, strlen(caps));
     if (rc != 0) {
         printf("FAIL init: %s\n", vrmc_last_error());
         return rc;

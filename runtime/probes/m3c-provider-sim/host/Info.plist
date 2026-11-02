@@ -17,5 +17,6 @@
   <dict><key>UIApplicationSupportsMultipleScenes</key><true/></dict>
   <key>UILaunchScreen</key><dict/>
   <key>NSWorldSensingUsageDescription</key><string>VRMC provider-sampling simulator harness.</string>
+  <key>NSHandsTrackingUsageDescription</key><string>VRMC simulator harness queries hand-tracking availability (the simulator has no hand data).</string>
 </dict>
 </plist>

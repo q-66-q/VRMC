@@ -65,3 +65,14 @@ startup (it removes itself last and never touches `vrmc-capture.flag`/`vrmc-draw
 DEVICE=<udid> scripts/m3c_pull_and_check.sh      # pulls + prints the decisive lines; exit 2 on hard regression
 scripts/m3c_pull_and_check.sh --from <dir>       # analyse an existing pull
 ```
+
+## M4 input flags (2026-11-01, immersive-scene input)
+
+| Flag | Where | Effect |
+|---|---|---|
+| `vrmc-input-sim.flag` | Documents/ (compositor) | Publish **synthetic** hand input instead of ARKit hands (diagnostic/device A/B; the visionOS simulator has no hand tracking, so its input scenario needs it). Content selects the script: `pinch-right`, `pinch-left`, `fist-left`, `both`, `cycle` (empty/missing content = `cycle`). Every log line is prefixed `INPUT-SIM` and says SYNTHETIC. Deleted by `vrmc-clear-diagnostics.flag`. |
+| `vrmc-input-tune.properties` | Minecraft game dir (`Documents/instances/default/`) | Optional key=value overrides for gesture thresholds, read once at provider init. Keys (exactly these, case-sensitive): `pinch.on`, `pinch.off`, `fist.on`, `fist.off`, `fist.hold.ms`, `arm.ms`, `stale.ms`, `tap.frames`. Example: `pinch.on=0.032`. Used for on-device gesture tuning without rebuilding the provider jar; each key is also a `-Dvrmc.input.<key>` fallback (e.g. `-Dvrmc.input.pinch.on=0.032`). Logged once at startup as `[VRMC-M4] input tuning: pinchOn=... pinchOff=... fistOn=... fistOff=... holdMs=... armMs=... staleMs=... tapFrames=...`. |
+| `-Dvrmc.input.<key>` | JVM args | Fallback for the same knobs when no properties file is present (same key names as above). |
+
+Device procedure for the immersive input work: [M4_DEVICE_RUN.md](M4_DEVICE_RUN.md). Design/ABI:
+[docs/analysis/immersive-input.md](../analysis/immersive-input.md).
