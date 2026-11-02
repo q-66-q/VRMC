@@ -1,6 +1,6 @@
 # Gaze + hand input (M4-W2) — operator requirements, API findings, and plan
 
-Status: **DESIGN / SPIKE PLANNED** (2026-11-01, after the EV-0096 on-device input acceptance).
+Status: **DESIGN / SPIKE PLANNED; smooth-hands half implemented (EV-0097).** (2026-11-01, after the EV-0096 on-device input acceptance).
 Owner: Lead. This note records the operator's requested interaction model and the exact visionOS
 APIs available to build it. It is the design input for the M4-W2 work; nothing here is implemented or
 verified yet.

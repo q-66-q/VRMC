@@ -1,6 +1,6 @@
 # M4 plan — hands-only input (M4-W1: immersive-scene control)
 
-Status: **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
+Status: **M4-W1 PASSED ON DEVICE; W2 first slice (smooth hands + shutdown hardening) host+simulator PASS (EV-0097), device pending; gaze+pinch NOT implemented.** **M4-W1 PASSED ON DEVICE — host + simulator PASS (EV-0095) and on-device acceptance PASS
 (EV-0096): synthetic plumbing + real-hands operator confirmation (“It ran very well!”); two follow-ups
 recorded: a reproducible shutdown-only JVM SIGSEGV to triage, and the operator-requested W2 features
 below.** This plan is scoped to the reported defect: once the game is in the immersive space the user
@@ -113,6 +113,22 @@ After the on-device acceptance run the operator requested, in this priority orde
 Also to fix before M4 exit: the reproducible **shutdown-only JVM SIGSEGV** after `[Minecraft] Stopping!`
 (`objc_retain` in a native thread; faulting register equals a provider eye `MTLTexture`); hypothesis is
 the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the device acceptance.
+
+## 6c. W2 progress (2026-11-01, EV-0097)
+
+- **Smooth hands (host + simulator PASS; device pending):** `VisionPoseSmoother` One-Euro filter on
+  controller translation + angle-adaptive slerp orientation, integrated in `VisionVR.updateControllerPoses`
+  for tracked hands (fallback poses unsmoothed), reset on tracking loss, enabled by default. Tuning keys:
+  `input.smooth`, `input.smooth.posMinCutoff`, `posBeta`, `derivativeCutoff`, `rotMinCutoff`, `rotBeta`
+  in `vrmc-input-tune.properties` or `-Dvrmc.input.smooth.*`. Startup log
+  `[VRMC-M4] hand smoothing: enabled=…`. Host test `VisionPoseSmootherTest` 11 checks PASS.
+- **Shutdown SIGSEGV hardening (code done; quit-game device run pending):** provider
+  `VisionVR.destroy()` clears shared eye-texture handles first (`nativeClearEyeTextures`); compositor
+  CFRetains sampled eye textures and releases them in the command-buffer completion handler. Bridge
+  stub clear/resubmit contract tested.
+- **Gaze highlight + pinch selection (NOT implemented):** tracking-area mask/render + hover effect +
+  spatial-event channel remains the design in `docs/analysis/gaze-and-hand-input.md`; needs D1 operator
+  session for true-gaze hover + pinch confirmation.
 
 ## 7. W2+ backlog (unchanged milestone content)
 
