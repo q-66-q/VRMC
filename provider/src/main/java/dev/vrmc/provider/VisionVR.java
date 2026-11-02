@@ -411,6 +411,17 @@ public class VisionVR extends MCVR {
                     applyRuntimeSettings(this.runtimeSettings);
                     detail = "runtime settings reloaded and applied";
                 }
+                case "reload-input" -> {
+                    Map<String, String> tuned = loadInputTuning();
+                    this.inputTuning = tuned;
+                    this.hotbarRange = floatValue(tuned, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
+                    this.visionInput = new VisionInput(tuned);
+                    this.bindingActions = null;
+                    this.resolvedActionMap = null;
+                    detail = "input tuning reloaded (middle=" + this.visionInput.middleEnabled()
+                        + " ring=" + this.visionInput.ringEnabled()
+                        + " swipe=" + this.visionInput.swipeEnabled() + ")";
+                }
                 case "diag" -> {
                     this.diagNextLogNs = 0L;
                     detail = "diagnostics forced";

@@ -24,6 +24,9 @@ public final class VisionCommandFileTest {
         Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "CALIBRATE-HEIGHT extra\n");
         check("case/extra whitespace normalized", "calibrate-height".equals(VisionCommandFile.take(dir, null)));
 
+        Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "reload-input\n");
+        check("reload-input accepted", "reload-input".equals(VisionCommandFile.take(dir, null)));
+
         Files.writeString(dir.resolve(VisionCommandFile.FILE_NAME), "do-something-dangerous\n");
         check("unknown command rejected", VisionCommandFile.take(dir, null) == null);
         String results = Files.readString(dir.resolve(VisionCommandFile.RESULT_FILE_NAME));

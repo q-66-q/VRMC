@@ -1183,6 +1183,10 @@ struct VRControlOverlay: View {
                             commandStatus = shellQueueGameCommand("diag") ? "Diagnostics queued." : "Queue failed."
                         }
                         .buttonStyle(.bordered)
+                        Button("Reload input") {
+                            commandStatus = shellQueueGameCommand("reload-input") ? "Input reload queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
                     }
                     if !commandStatus.isEmpty {
                         Text(commandStatus).font(.caption2).foregroundStyle(.secondary)

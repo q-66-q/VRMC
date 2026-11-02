@@ -20,7 +20,7 @@ public final class VisionCommandFile {
     public static final String FILE_NAME = "vrmc-command.txt";
     public static final String RESULT_FILE_NAME = "vrmc-command-result.txt";
     public static final List<String> COMMANDS = List.of(
-        "recenter", "calibrate-height", "reload-settings", "diag", "status");
+        "recenter", "calibrate-height", "reload-settings", "reload-input", "diag", "status");
 
     private VisionCommandFile() {}
 

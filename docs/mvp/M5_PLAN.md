@@ -97,6 +97,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Added a gesture cheat sheet covering pinch/fist/both-fist, middle-pinch family, and opt-in swipes.
 - Updated app installed (tree `abc48c93…`, provider `d6de9469…`); device UI/gesture behavior NOT RUN.
 
+## Live input reload (EV-0120)
+
+- Command channel adds `reload-input`: the provider recreates `VisionInput` from the current game-dir
+  `vrmc-input-tune.properties` (middle/ring/swipe toggles, thresholds, hotbar range) without a game
+  restart, resets binding resolution and shows action-bar feedback.
+- Launcher gains a **Reload input** button (queues the local command).
+- Provider suite/shell builds PASS; latest app installed/provider pushed. Device behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
