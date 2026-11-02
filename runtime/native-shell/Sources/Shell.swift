@@ -1192,6 +1192,11 @@ struct VRControlOverlay: View {
     @State private var ringOffMm = 46.0
     @State private var swipeSpeed = 1.2
     @State private var hotbarRange = 0.18
+    @State private var moveForwardScale = 3.0
+    @State private var moveStrafeScale = 3.0
+    @State private var moveDeadzone = 0.10
+    @State private var moveOriginZ = 0.05
+    @State private var rotatePulseMs = 120.0
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var exportURL: URL?
@@ -1323,6 +1328,20 @@ struct VRControlOverlay: View {
                             HStack {
                                 Text("Hotbar range: \(String(format: "%.2f", hotbarRange)) m").font(.caption2)
                                 Slider(value: $hotbarRange, in: 0.10...0.30, step: 0.01)
+                            }
+                            HStack {
+                                Text("Move forward/strafe: \(String(format: "%.1f", moveForwardScale))/\(String(format: "%.1f", moveStrafeScale))").font(.caption2)
+                                Slider(value: $moveForwardScale, in: 1.0...6.0, step: 0.1)
+                                Slider(value: $moveStrafeScale, in: 1.0...6.0, step: 0.1)
+                            }
+                            HStack {
+                                Text("Move deadzone: \(String(format: "%.2f", moveDeadzone)) · originZ: \(String(format: "%.2f", moveOriginZ))").font(.caption2)
+                                Slider(value: $moveDeadzone, in: 0.02...0.40, step: 0.01)
+                                Slider(value: $moveOriginZ, in: -0.30...0.30, step: 0.01)
+                            }
+                            HStack {
+                                Text("Snap-turn pulse: \(Int(rotatePulseMs)) ms").font(.caption2)
+                                Slider(value: $rotatePulseMs, in: 60...300, step: 10)
                             }
                             Text("Press Reload input to apply while the game runs; otherwise next launch. Keep off > on.").font(.caption2).foregroundStyle(.tertiary)
                         }
@@ -1557,6 +1576,11 @@ struct VRControlOverlay: View {
         ringOffMm = (Double(input["ring.off"] ?? "") ?? 0.046) * 1000.0
         swipeSpeed = Double(input["swipe.speed"] ?? "") ?? 1.2
         hotbarRange = Double(input["hotbar.range"] ?? "") ?? 0.18
+        moveForwardScale = Double(input["move.forwardScale"] ?? "") ?? 3.0
+        moveStrafeScale = Double(input["move.strafeScale"] ?? "") ?? 3.0
+        moveDeadzone = Double(input["move.deadzone"] ?? "") ?? 0.10
+        moveOriginZ = Double(input["move.originZ"] ?? "") ?? 0.05
+        rotatePulseMs = Double(input["move.rotatePulseMs"] ?? "") ?? 120.0
     }
 
     private func applySettings() {
@@ -1594,6 +1618,11 @@ struct VRControlOverlay: View {
         input["ring.off"] = String(format: "%.3f", rOff)
         input["swipe.speed"] = String(format: "%.2f", swipeSpeed)
         input["hotbar.range"] = String(format: "%.2f", hotbarRange)
+        input["move.forwardScale"] = String(format: "%.2f", moveForwardScale)
+        input["move.strafeScale"] = String(format: "%.2f", moveStrafeScale)
+        input["move.deadzone"] = String(format: "%.2f", moveDeadzone)
+        input["move.originZ"] = String(format: "%.2f", moveOriginZ)
+        input["move.rotatePulseMs"] = String(format: "%.0f", rotatePulseMs)
         let runtimeOK = shellWriteRuntimeSettings(values)
         let inputOK = shellWriteInputTune(input)
         let vignetteOK = shellWriteVignette(enabled: vignetteEnabled, strength: vignetteStrength)

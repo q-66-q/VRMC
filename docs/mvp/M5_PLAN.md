@@ -203,6 +203,13 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - m5-settings 27 checks, full provider suite PASS; app installed/provider pushed. Device K2 pacing
   behavior NOT RUN.
 
+## Locomotion tuning sliders (EV-0138)
+
+- Launcher Input tuning adds move forward/strafe scale (1–6), deadzone (0.02–0.40), originZ (−0.30–0.30)
+  and snap-turn pulse (60–300 ms); saved as `move.*` keys beside the gesture thresholds (other keys
+  preserved; reload-input/next launch).
+- Shell/app build/install PASS; provider unchanged; device locomotion feel NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
