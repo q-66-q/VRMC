@@ -128,6 +128,7 @@ public class VisionVR extends MCVR {
     private float hotbarWheelStartX;
     private int hotbarWheelSelected;
     private String lastThermalState = "";
+    private long nextThermalPollNs;
     private String thermalResponse = "notify";
     private boolean adaptiveFramerate;
     private int adaptivePressureWindows;
@@ -428,6 +429,10 @@ public class VisionVR extends MCVR {
 
     /** M5 thermal awareness: surface shell thermal pressure in-game once per state change. */
     private void pollThermalState() {
+        // Avoid per-frame filesystem I/O: the shell writes this file at thermal-change/30 s cadence.
+        long nowNs = System.nanoTime();
+        if (nowNs < this.nextThermalPollNs) return;
+        this.nextThermalPollNs = nowNs + 5_000_000_000L;
         java.nio.file.Path dir = this.mc.gameDirectory == null ? null : this.mc.gameDirectory.toPath();
         String state = VisionThermalState.readState(dir);
         if (state.equals(this.lastThermalState)) return;

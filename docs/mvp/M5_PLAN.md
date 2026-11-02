@@ -240,6 +240,12 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
   provider pushed + integrity PASS. Actual file write against a live game remains untested; device
   behavior NOT RUN.
 
+## Thermal poll throttle (EV-0146)
+
+- `pollThermalState()` had read `vrmc-thermal-state.txt` **every frame**; now it is throttled to once per
+  5 s (shell writes at thermal-change/30 s cadence), first poll immediate, advisory logic unchanged.
+- Full provider suite PASS; provider pushed + integrity PASS. Device runtime performance NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
