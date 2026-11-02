@@ -123,6 +123,18 @@ public final class VisionMiddleGestureTest {
         for (int i = 0; i < 3; i++) { dbl.pollMs(16); radial |= dbl.in.actionPressed(VisionInput.KEY_RADIAL_MENU); }
         check("middle double-tap binds radial menu (right)", radial);
 
+        // Both hands single middle taps -> climb-jump chord; per-hand jump/snap taps suppressed.
+        Rig climb = new Rig();
+        climb.poll(); climb.pollMs(150);
+        climb.lMiddle = PINCHED_MIDDLE; climb.rMiddle = PINCHED_MIDDLE; climb.pollMs(16);
+        climb.lMiddle = OPEN_MIDDLE; climb.rMiddle = OPEN_MIDDLE; climb.pollMs(16);
+        check("both-hand middle tap fires climb-jump chord", climb.in.bothMiddleTapPressed());
+        climb.in.setEnvironment(false, false, false);
+        boolean climbJump = climb.in.actionPressed(VisionInput.KEY_CLIMBEY_JUMP);
+        for (int i = 0; i < 2; i++) { climb.pollMs(16); climbJump |= climb.in.actionPressed(VisionInput.KEY_CLIMBEY_JUMP); }
+        check("climb-jump action bound to both-middle tap", climbJump);
+        check("climb chord suppresses per-hand jump action", !climb.in.actionPressed(VisionInput.KEY_JUMP));
+
         // Both hands double-tap within 120 ms -> recenter chord, individual double-taps suppressed.
         Rig both = new Rig();
         both.poll(); both.pollMs(150);

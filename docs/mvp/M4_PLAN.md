@@ -177,6 +177,14 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Host use-hold test PASS; m4-input 161 checks; full provider suite ALL PASS.
 - Device bow/use/climb feel and two-hand draw semantics beyond held-use remain NOT RUN.
 
+## 6h. W4 climb-jump chord (2026-11-01, EV-0111)
+
+- Both-hand middle single-tap chord emits a climb-jump pulse and suppresses the per-hand middle taps
+  (so it cannot also fire right-hand jump or left-hand snap-turn); bound to
+  `vivecraft.key.climbeyJump` (CONTEXTUAL, both origins).
+- Binding table 22 rows / 20 actions; middle suite 21 checks PASS; full provider suite ALL PASS.
+- Climb grab remains both-hand pinch hold (W1); device climbing/climb-jump feel NOT RUN.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode

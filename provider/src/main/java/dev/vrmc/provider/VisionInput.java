@@ -93,6 +93,7 @@ public final class VisionInput {
     public static final String KEY_CHAT = "key.chat";
     public static final String KEY_SWAP_OFFHAND = "key.swapOffhand";
     public static final String KEY_DROP = "key.drop";
+    public static final String KEY_CLIMBEY_JUMP = "vivecraft.key.climbeyJump";
     public static final String KEY_TELEPORT = "vivecraft.key.teleport";
     public static final String KEY_VR_INTERACT = "vivecraft.key.vrInteract";
     public static final String KEY_CLIMBEY_GRAB = "vivecraft.key.climbeyGrab";
@@ -165,6 +166,7 @@ public final class VisionInput {
     private static final int SRC_SWIPE_UP = 8;
     private static final int SRC_SWIPE_DOWN = 9;
     private static final int SRC_FIST_HOLD = 10;
+    private static final int SRC_BOTH_MIDDLE_TAP = 11;
 
     /** One row of the design §5.4 binding table. */
     private static final class BindingDef {
@@ -208,6 +210,8 @@ public final class VisionInput {
         new BindingDef(KEY_CHAT, HAND_LEFT, SRC_SWIPE_DOWN, ActionSet.GLOBAL),
         new BindingDef(KEY_SWAP_OFFHAND, HAND_LEFT, SRC_SWIPE_LEFT, ActionSet.INGAME),
         new BindingDef(KEY_DROP, HAND_LEFT, SRC_SWIPE_RIGHT, ActionSet.INGAME),
+        // Both-hand middle-pinch tap chord (climb jump); chord suppresses the per-hand middle taps.
+        new BindingDef(KEY_CLIMBEY_JUMP, HAND_NONE, SRC_BOTH_MIDDLE_TAP, ActionSet.CONTEXTUAL),
     };
 
     /** Unique action names in binding-table order (used to resolve VRInputActions once). */
@@ -331,6 +335,9 @@ public final class VisionInput {
     private int bothMiddleDoubleTapFrames;
     private boolean bothMiddleDoubleTapPressed;
     private long lastBothMiddleChordNs;
+    // both-middle tap chord (M4-W4 climb jump)
+    private int bothMiddleTapFrames;
+    private boolean bothMiddleTapPressed;
 
     // both-fist tap (global / key.inventory)
     private boolean bothFistHeld;
@@ -421,6 +428,7 @@ public final class VisionInput {
     public float swipeOpenRatio() { return this.swipeOpenRatio; }
     public int swipeDirection(int hand) { return this.hands[hand].swipeDirection; }
     public boolean bothMiddleDoubleTapPressed() { return this.bothMiddleDoubleTapPressed; }
+    public boolean bothMiddleTapPressed() { return this.bothMiddleTapPressed; }
     public long swipeCooldownMillis() { return this.swipeCooldownNanos / 1_000_000L; }
     public float middleOn() { return this.middleOn; }
     public float middleOff() { return this.middleOff; }
@@ -659,6 +667,7 @@ public final class VisionInput {
             updateSwipe(h, nowNs);
         }
         updateBothMiddleDoubleTap(nowNs);
+        updateBothMiddleTap();
         // Both-fist chord priority (M4-W1 follow-up): while BOTH hands present the fist gesture the
         // chord owns the fist-tap gesture, so the per-hand taps are suppressed and a both-fists hold
         // fires ONLY key.inventory instead of simultaneously firing key.use/guiRightClick + Escape.
@@ -819,6 +828,28 @@ public final class VisionInput {
         }
         this.bothMiddleDoubleTapPressed = this.bothMiddleDoubleTapFrames > 0;
         if (this.bothMiddleDoubleTapFrames > 0) this.bothMiddleDoubleTapFrames--;
+    }
+
+    /** M4-W4 both-hand middle-pinch single-tap chord: both hands emit a middle tap together. */
+    private void updateBothMiddleTap() {
+        if (!this.middleEnabled) {
+            this.bothMiddleTapPressed = false;
+            this.bothMiddleTapFrames = 0;
+            return;
+        }
+        Hand left = this.hands[HAND_LEFT];
+        Hand right = this.hands[HAND_RIGHT];
+        boolean bothTap = left.tracked && right.tracked && left.middleTapPressed && right.middleTapPressed;
+        if (bothTap) {
+            this.bothMiddleTapFrames = this.tapFrames;
+            // chord owns the gesture: suppress the per-hand tap pulses (right jump / left snap-turn)
+            left.middleTapFrames = 0;
+            right.middleTapFrames = 0;
+            left.middleTapPressed = false;
+            right.middleTapPressed = false;
+        }
+        this.bothMiddleTapPressed = this.bothMiddleTapFrames > 0;
+        if (this.bothMiddleTapFrames > 0) this.bothMiddleTapFrames--;
     }
 
     /**
@@ -1008,6 +1039,7 @@ public final class VisionInput {
             case SRC_SWIPE_UP -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_UP;
             case SRC_SWIPE_DOWN -> hand != HAND_NONE && this.hands[hand].swipeDirection == SWIPE_DOWN;
             case SRC_FIST_HOLD -> hand != HAND_NONE && this.hands[hand].fistPressed;
+            case SRC_BOTH_MIDDLE_TAP -> this.bothMiddleTapPressed;
             default -> false;
         };
     }
