@@ -119,6 +119,9 @@ public final class VisionInput {
     public static final String TUNE_SWIPE_SPEED = "swipe.speed";
     public static final String TUNE_SWIPE_OPEN_RATIO = "swipe.openRatio";
     public static final String TUNE_SWIPE_COOLDOWN_MS = "swipe.cooldownMs";
+    public static final String TUNE_RING_ENABLED = "ring.enabled";
+    public static final String TUNE_RING_ON = "ring.on";
+    public static final String TUNE_RING_OFF = "ring.off";
     public static final String TUNE_FIST_HOLD_MS = "fist.hold.ms";
     public static final String TUNE_ARM_MS = "arm.ms";
     public static final String TUNE_STALE_MS = "stale.ms";
@@ -138,6 +141,9 @@ public final class VisionInput {
     public static final float DEFAULT_SWIPE_SPEED = 1.20F;      // metres/second
     public static final float DEFAULT_SWIPE_OPEN_RATIO = 1.45F; // fistRatio above this = open hand
     public static final long DEFAULT_SWIPE_COOLDOWN_MS = 350L;
+    /** M4-W4 ring-pinch chord (thumb to ring fingertip) used as the direct-hotbar wheel modifier. */
+    public static final float DEFAULT_RING_ON = 0.032F;
+    public static final float DEFAULT_RING_OFF = 0.046F;
     public static final int SWIPE_NONE = 0;
     public static final int SWIPE_LEFT = 1;
     public static final int SWIPE_RIGHT = 2;
@@ -289,6 +295,13 @@ public final class VisionInput {
         boolean middleDoubleTapPressed;
         long lastMiddleDoubleTapNs;
 
+        // --- M4-W4 ring-pinch chord (thumb 4 <-> ring tip 19) for the direct hotbar wheel ---
+        float ringDistance = Float.NaN;
+        boolean ringRaw;
+        boolean ringArmed;
+        boolean ringPressed;
+        long ringReleasedSinceNs;
+
         // --- M4-W4 open-hand swipe edge detector (opt-in) ---
         long lastMotionNs;
         float lastWristX, lastWristY, lastWristZ;
@@ -308,6 +321,9 @@ public final class VisionInput {
     private final float middleOff;
     private final long middleTapNanos;
     private final long middleDoubleNanos;
+    private final boolean ringEnabled;
+    private final float ringOn;
+    private final float ringOff;
     private final boolean swipeEnabled;
     private final float swipeSpeed;
     private final float swipeOpenRatio;
@@ -370,6 +386,9 @@ public final class VisionInput {
         this.middleOff = tuneFloat(tune, TUNE_MIDDLE_OFF, DEFAULT_MIDDLE_OFF);
         this.middleTapNanos = tuneLong(tune, TUNE_MIDDLE_TAP_MS, DEFAULT_MIDDLE_TAP_MS) * 1_000_000L;
         this.middleDoubleNanos = tuneLong(tune, TUNE_MIDDLE_DOUBLE_MS, DEFAULT_MIDDLE_DOUBLE_MS) * 1_000_000L;
+        this.ringEnabled = tuneBool(tune, TUNE_RING_ENABLED, true);
+        this.ringOn = tuneFloat(tune, TUNE_RING_ON, DEFAULT_RING_ON);
+        this.ringOff = tuneFloat(tune, TUNE_RING_OFF, DEFAULT_RING_OFF);
         this.swipeEnabled = tuneBool(tune, TUNE_SWIPE_ENABLED, DEFAULT_SWIPE_ENABLED);
         this.swipeSpeed = tuneFloat(tune, TUNE_SWIPE_SPEED, DEFAULT_SWIPE_SPEED);
         this.swipeOpenRatio = tuneFloat(tune, TUNE_SWIPE_OPEN_RATIO, DEFAULT_SWIPE_OPEN_RATIO);
@@ -423,6 +442,7 @@ public final class VisionInput {
     public float fistOn() { return this.fistOn; }
     public float fistOff() { return this.fistOff; }
     public boolean middleEnabled() { return this.middleEnabled; }
+    public boolean ringEnabled() { return this.ringEnabled; }
     public boolean swipeEnabled() { return this.swipeEnabled; }
     public float swipeSpeed() { return this.swipeSpeed; }
     public float swipeOpenRatio() { return this.swipeOpenRatio; }
@@ -561,6 +581,7 @@ public final class VisionInput {
             }
             h.pinchDistance = Float.NaN;
             h.middleDistance = Float.NaN;
+            h.ringDistance = Float.NaN;
             h.fistRatio = Float.NaN;
             // "valid" return = the hand slot is a consistent untracked/valid record; mismatched
             // valid_mask bits vs the hand's own tracked word, or non-finite data, is malformed input
@@ -573,6 +594,7 @@ public final class VisionInput {
         }
         h.pinchDistance = distance(h.joints, VrmcBridge.JOINT_THUMB_TIP, VrmcBridge.JOINT_INDEX_TIP);
         h.middleDistance = distance(h.joints, VrmcBridge.JOINT_THUMB_TIP, VrmcBridge.JOINT_MIDDLE_TIP);
+        h.ringDistance = distance(h.joints, VrmcBridge.JOINT_THUMB_TIP, VrmcBridge.JOINT_RING_TIP);
         h.fistRatio = fistRatio(h.joints);
         return true;
     }
@@ -602,6 +624,11 @@ public final class VisionInput {
         h.middleTapPressed = false;
         h.middleDoubleTapPressed = false;
         h.lastMiddleDoubleTapNs = 0L;
+        h.ringDistance = Float.NaN;
+        h.ringRaw = false;
+        h.ringArmed = false;
+        h.ringPressed = false;
+        h.ringReleasedSinceNs = nowNs;
         h.lastMotionNs = 0L;
         h.lastSwipeNs = 0L;
         h.swipeDirection = SWIPE_NONE;
@@ -631,6 +658,11 @@ public final class VisionInput {
         h.middleTapPressed = false;
         h.middleDoubleTapPressed = false;
         h.lastMiddleDoubleTapNs = 0L;
+        h.ringDistance = Float.NaN;
+        h.ringRaw = false;
+        h.ringArmed = false;
+        h.ringPressed = false;
+        h.ringReleasedSinceNs = 0L;
         h.lastMotionNs = 0L;
         h.lastSwipeNs = 0L;
         h.swipeDirection = SWIPE_NONE;
@@ -645,6 +677,7 @@ public final class VisionInput {
             resetGestures(h);
             h.pinchDistance = Float.NaN;
             h.middleDistance = Float.NaN;
+            h.ringDistance = Float.NaN;
             h.fistRatio = Float.NaN;
         }
         this.bothFistHeld = false;
@@ -664,6 +697,7 @@ public final class VisionInput {
             updateSource(h, true, h.pinchDistance, nowNs);
             updateSource(h, false, h.fistRatio, nowNs);
             updateMiddleSource(h, nowNs);
+            updateRingSource(h, nowNs);
             updateSwipe(h, nowNs);
         }
         updateBothMiddleDoubleTap(nowNs);
@@ -862,6 +896,28 @@ public final class VisionInput {
         }
         this.bothMiddleTapPressed = this.bothMiddleTapFrames > 0;
         if (this.bothMiddleTapFrames > 0) this.bothMiddleTapFrames--;
+    }
+
+    /** M4-W4 ring-pinch hysteresis/arming (thumb-to-ring fingertip; no tap semantics). */
+    private void updateRingSource(Hand h, long nowNs) {
+        if (!this.ringEnabled) {
+            h.ringRaw = false;
+            h.ringArmed = false;
+            h.ringPressed = false;
+            return;
+        }
+        boolean raw = h.ringRaw;
+        boolean armed = h.ringArmed;
+        long releasedSince = h.ringReleasedSinceNs;
+        if (!armed && !raw && nowNs - releasedSince >= this.armNanos) armed = true;
+        boolean next = raw ? h.ringDistance <= this.ringOff : h.ringDistance < this.ringOn;
+        boolean pressed = next && armed;
+        if (next && !armed) releasedSince = nowNs;
+        else if (!next && raw) releasedSince = nowNs;
+        h.ringRaw = next;
+        h.ringArmed = armed;
+        h.ringPressed = pressed;
+        h.ringReleasedSinceNs = releasedSince;
     }
 
     /**
@@ -1141,5 +1197,11 @@ public final class VisionInput {
     public boolean middleTapPressed(int hand) { return this.hands[hand].middleTapPressed; }
     public boolean middleDoubleTapPressed(int hand) { return this.hands[hand].middleDoubleTapPressed; }
     public float middleDistance(int hand) { return this.hands[hand].middleDistance; }
+    public boolean ringPressed(int hand) { return this.hands[hand].ringPressed; }
+    public float ringDistance(int hand) { return this.hands[hand].ringDistance; }
+    public boolean bothRingPinchPressed() {
+        return this.hands[HAND_LEFT].tracked && this.hands[HAND_RIGHT].tracked
+            && this.hands[HAND_LEFT].ringPressed && this.hands[HAND_RIGHT].ringPressed;
+    }
     public boolean bothFistTapPressed() { return this.bothFistTapPressed; }
 }

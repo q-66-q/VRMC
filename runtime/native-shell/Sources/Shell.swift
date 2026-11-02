@@ -1214,6 +1214,7 @@ struct VRControlOverlay: View {
                             Text("Both fists tap: inventory menu; both middle taps: climb jump; both middle double-tap: recenter").font(.caption2)
                             Text("Middle pinch (thumb+middle): left hold + move hand = walk/strafe; right hold = sneak; right tap = jump; left tap/double = snap turn; right double = radial; both tap = climb jump; both double = recenter").font(.caption2)
                             Text("Open-hand swipes (opt-in): right horizontal = hotbar ±; right vertical = scroll; left up/down = keyboard/chat; left horizontal = swap/drop").font(.caption2)
+                            Text("Both thumb-ring pinches: hold, move left hand left/right to choose hotbar slot 1–9, release to select").font(.caption2)
                         }
                         .padding(.top, 2)
                     }

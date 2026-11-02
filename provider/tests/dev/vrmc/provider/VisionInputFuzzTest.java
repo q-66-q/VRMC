@@ -57,7 +57,7 @@ public final class VisionInputFuzzTest {
                             + " hand=" + hand);
                     }
                     if (!Float.isNaN(in.pinchDistance(hand)) || !Float.isNaN(in.middleDistance(hand))
-                        || !Float.isNaN(in.fistRatio(hand))) {
+                        || !Float.isNaN(in.ringDistance(hand)) || !Float.isNaN(in.fistRatio(hand))) {
                         violations++;
                         if (violations <= 10) System.out.println("  VIOLATION untracked non-NaN distance frame=" + frame
                             + " hand=" + hand + " pinch=" + in.pinchDistance(hand)
@@ -65,7 +65,7 @@ public final class VisionInputFuzzTest {
                     }
                 } else {
                     if (Float.isNaN(in.pinchDistance(hand)) || Float.isNaN(in.middleDistance(hand))
-                        || Float.isNaN(in.fistRatio(hand))) {
+                        || Float.isNaN(in.ringDistance(hand)) || Float.isNaN(in.fistRatio(hand))) {
                         violations++;
                         if (violations <= 10) System.out.println("  VIOLATION tracked NaN distance frame=" + frame
                             + " hand=" + hand);
@@ -84,6 +84,7 @@ public final class VisionInputFuzzTest {
 
     private static boolean anyGesture(VisionInput in, int hand) {
         return in.pinchPressed(hand) || in.fistPressed(hand) || in.fistTapPressed(hand)
+            || in.ringPressed(hand)
             || in.middlePressed(hand) || in.middleTapPressed(hand) || in.middleDoubleTapPressed(hand)
             || in.swipeDirection(hand) != VisionInput.SWIPE_NONE;
     }

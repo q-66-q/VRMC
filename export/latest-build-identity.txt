@@ -1,11 +1,11 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-01 (host time)
-source commit: d46c678 (plus uncommitted current docs/shell at staging time; regenerate from a clean commit for release)
-app tree sha256: abc48c931b76e0b1e88a59a19d1a6fef71387e23c325729c7ab405e081880f20
-app path at staging: /tmp/VRMC-native-gestures.app
+source commit: 37bf0ee (plus uncommitted current docs/provider/shell at staging time; regenerate from a clean commit for release)
+app tree sha256: 0726af92d1f671a4856fb8d49943b2852a0822fe1ea7110479daedd8e9d47f5b
+app path at staging: /tmp/VRMC-native-ring.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: d6de9469fb48106e13e6392bbf48738724d4854410c3d974bd0ef103b2be842a (already on device)
+provider jar sha256: cc24d16b923210f6f0fe00afc614ade4f3fd6edc0733a4674abc1cb83493b890
 device install: OK (D1 <D1-UDID>)
 provider jar push: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)

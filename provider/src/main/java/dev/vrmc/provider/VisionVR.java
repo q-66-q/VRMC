@@ -109,6 +109,12 @@ public class VisionVR extends MCVR {
     private long diagMaxGapNs;
     private long diagNextLogNs;
     private long nextCommandPollNs;
+    // M4-W4 direct hotbar wheel (both ring pinches + left-hand horizontal displacement).
+    private Map<String, String> inputTuning = Map.of();
+    private float hotbarRange = VisionHotbarWheel.DEFAULT_HALF_RANGE_METRES;
+    private boolean hotbarWheelActive;
+    private float hotbarWheelStartX;
+    private int hotbarWheelSelected;
     private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
     private long rotatePulseUntilNs;
@@ -195,6 +201,8 @@ public class VisionVR extends MCVR {
 
         this.populateInputActions();
         Map<String, String> tuning = loadInputTuning();
+        this.inputTuning = tuning;
+        this.hotbarRange = floatValue(tuning, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
         this.visionInput = new VisionInput(tuning);
         this.smoothingConfig = loadSmoothingConfig(tuning);
         this.moveOriginZ = floatValue(tuning, "move.originZ", "vrmc.input.move.originZ", this.moveOriginZ);
@@ -209,15 +217,16 @@ public class VisionVR extends MCVR {
         };
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
-        System.out.printf("[VRMC-M4] locomotion: middleEnabled=%s virtual stick originZ=%.2f forwardScale=%.2f "
+        System.out.printf("[VRMC-M4] locomotion: middleEnabled=%s ringEnabled=%s hotbarRange=%.2f "
+                + "swipeEnabled=%s virtual stick originZ=%.2f forwardScale=%.2f "
                 + "strafeScale=%.2f deadzone=%.2f rotatePulseMs=%d middleOn=%.3f middleOff=%.3f "
-                + "middleTapMs=%.0f middleDoubleMs=%.0f swipeEnabled=%s swipeSpeed=%.2f swipeCoolMs=%.0f%n",
-            this.visionInput.middleEnabled(), this.moveOriginZ, this.moveForwardScale,
+                + "middleTapMs=%.0f middleDoubleMs=%.0f swipeSpeed=%.2f swipeCoolMs=%.0f%n",
+            this.visionInput.middleEnabled(), this.visionInput.ringEnabled(), this.hotbarRange,
+            this.visionInput.swipeEnabled(), this.moveOriginZ, this.moveForwardScale,
             this.moveStrafeScale, this.moveDeadzone, this.rotatePulseNanos / 1_000_000L,
             this.visionInput.middleOn(), this.visionInput.middleOff(),
             (double) this.visionInput.middleTapMillis(), (double) this.visionInput.middleDoubleMillis(),
-            this.visionInput.swipeEnabled(), this.visionInput.swipeSpeed(),
-            this.visionInput.swipeCooldownMillis());
+            this.visionInput.swipeSpeed(), this.visionInput.swipeCooldownMillis());
 
         this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
         applyRuntimeSettings(this.runtimeSettings);
@@ -1098,6 +1107,56 @@ public class VisionVR extends MCVR {
     }
 
     /**
+     * M4-W4 direct hotbar wheel: both hands thumb-ring pinch to enter; moving the left hand left/right
+     * from the start point selects slot 1..9; releasing commits it. This is a deliberate two-hand
+     * chord (ring fingers), independent of the index/middle families, and shows the current slot in
+     * the action bar. Cancels without committing on stale/lost input.
+     */
+    private void applyHotbarWheel() {
+        if (this.visionInput == null) return;
+        boolean usable = this.visionInput.isInputHealthy() && !this.visionInput.isStale()
+            && !this.dh.vrSettings.seated && this.mc.gui.screen() == null && !KeyboardHandler.SHOWING;
+        boolean both = usable && this.visionInput.bothRingPinchPressed();
+        if (!usable) {
+            if (this.hotbarWheelActive) {
+                this.hotbarWheelActive = false;
+                showGameMessage("[VRMC] hotbar wheel cancelled (input lost)");
+            }
+            return;
+        }
+        if (both) {
+            if (!this.hotbarWheelActive) {
+                this.hotbarWheelActive = true;
+                this.hotbarWheelStartX = this.visionInput.wristX(VisionInput.HAND_LEFT);
+                this.hotbarWheelSelected = VisionHotbarWheel.slotForDelta(0.0F, this.hotbarRange);
+                showGameMessage("[VRMC] hotbar wheel: move left hand, release to select");
+            }
+            float delta = this.visionInput.wristX(VisionInput.HAND_LEFT) - this.hotbarWheelStartX;
+            int slot = VisionHotbarWheel.slotForDelta(delta, this.hotbarRange);
+            if (slot != this.hotbarWheelSelected) {
+                this.hotbarWheelSelected = slot;
+                showGameMessage("[VRMC] hotbar slot " + slot);
+            }
+        } else if (this.hotbarWheelActive) {
+            this.hotbarWheelActive = false;
+            commitHotbarSlot(this.hotbarWheelSelected);
+            showGameMessage("[VRMC] hotbar slot " + this.hotbarWheelSelected + " selected");
+        }
+    }
+
+    private void commitHotbarSlot(int slot) {
+        Object player = this.mc.player;
+        if (player == null) return;
+        try {
+            Object inventory = player.getClass().getMethod("getInventory").invoke(player);
+            java.lang.reflect.Method set = inventory.getClass().getMethod("setSelectedSlot", int.class);
+            set.invoke(inventory, Math.max(0, Math.min(8, slot - 1)));
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M4][WARN] hotbar slot commit failed: " + t);
+        }
+    }
+
+    /**
      * M4-W3 locomotion: while the left middle pinch is held, the left wrist relative to the head is a
      * virtual stick (forward/strafe) written to Vivecraft's {@code keyFreeMoveStrafe}. A left
      * middle-pinch tap / double-tap pulses the snap-turn analog actions. Everything is zeroed in GUI,
@@ -1307,6 +1366,7 @@ public class VisionVR extends MCVR {
         this.applyActionData();
         this.applyLocomotion();
         this.applySwipeActions();
+        this.applyHotbarWheel();
 
         if (this.visionInput.bothMiddleDoubleTapPressed()) {
             performRecenter();

@@ -164,6 +164,8 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionCommandFileTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionFrameStatsTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFuzzTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionHotbarWheelTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionRingChordTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -247,6 +249,20 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-fuzz-test\] frames=" "$T/m4-fuzz.log"
   else
     cat "$T/m4-fuzz.log"; fail "m4-fuzz"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionHotbarWheelTest > "$T/m4-hotbar.log" 2>&1 \
+     && grep -q "\[m4-hotbar-wheel-test\] PASS" "$T/m4-hotbar.log"; then
+    echo "[provider-tests] m4-hotbar-wheel: PASS (ring-chord slot mapping/deadzone/clamp)"
+    grep -E "\[m4-hotbar-wheel-test\] [0-9]+ checks" "$T/m4-hotbar.log"
+  else
+    cat "$T/m4-hotbar.log"; fail "m4-hotbar-wheel"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionRingChordTest > "$T/m4-ring.log" 2>&1 \
+     && grep -q "\[m4-ring-chord-test\] PASS" "$T/m4-ring.log"; then
+    echo "[provider-tests] m4-ring-chord: PASS (both-hand ring pinch hysteresis/loss/opt-out)"
+    grep -E "\[m4-ring-chord-test\] [0-9]+ checks" "$T/m4-ring.log"
+  else
+    cat "$T/m4-ring.log"; fail "m4-ring-chord"
   fi
   # Cross-language fixture: set-but-missing must FAIL; unset is an explicit SKIP (never silent).
   FIXTURE="${VRMC_INPUT_FIXTURE:-}"

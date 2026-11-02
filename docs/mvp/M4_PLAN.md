@@ -194,6 +194,16 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - 0 violations; full provider suite PASS. Updated provider jar pushed to D1.
 - Real-hands no-stuck behavior and gesture feel remain W5 device work.
 
+## 6j. Direct hotbar wheel (2026-11-01, EV-0118)
+
+- Both-hand **thumb-ring pinch** chord enters a direct hotbar wheel; moving the left hand left/right
+  from the start point selects slot 1–9 (centre = 5, clamps), action-bar feedback on changes, release
+  commits via a reflective `Inventory.setSelectedSlot`; stale/lost input cancels without committing.
+- `ring.enabled/on/off` and `hotbar.range` tuning keys; ring sources are included in the input fuzz
+  invariants.
+- Tests: hotbar-wheel 8 checks + ring-chord 8 checks PASS; fuzz 20k/0; full provider suite PASS.
+- Device latency/feel/commit behavior NOT RUN; visible hands/held-item and bow nuance still open.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
