@@ -514,6 +514,10 @@ public class VisionVR extends MCVR {
                 if (line.startsWith("oneLine ")) suggestion = line.substring("oneLine ".length()).trim();
             }
             showGameMessage("[VRMC] hand calibration done: " + suggestion);
+            if (this.mc.gameDirectory != null) {
+                VisionCommandFile.appendResult(this.mc.gameDirectory.toPath(), "calibrate-hands",
+                    "done " + suggestion, System.out::println);
+            }
             this.handCalibrationActive = false;
             return;
         }
