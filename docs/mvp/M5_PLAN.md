@@ -89,6 +89,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Latest build installed on D1 (app `46c80630…`, provider `39e9714a…`); behavior NOT RUN (device
   locked).
 
+## Gesture toggles + reference (EV-0117)
+
+- Launcher settings panel toggles **Middle-pinch gestures** (`middle.enabled`) and **Open-hand swipe
+  gestures** (`swipe.enabled`), persisted to `vrmc-input-tune.properties` (separate from runtime
+  settings, matching `VisionInput.loadInputTuning`); other keys preserved; applied next launch.
+- Added a gesture cheat sheet covering pinch/fist/both-fist, middle-pinch family, and opt-in swipes.
+- Updated app installed (tree `abc48c93…`, provider `d6de9469…`); device UI/gesture behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

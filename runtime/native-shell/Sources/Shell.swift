@@ -118,6 +118,43 @@ private func shellBuildDiagnosticsBundle() -> URL? {
     }
 }
 
+private func shellInputTuneURL() -> URL {
+    return shellDocumentsURL()
+        .appendingPathComponent("instances/default")
+        .appendingPathComponent("vrmc-input-tune.properties")
+}
+
+private func shellReadInputTune() -> [String: String] {
+    var values: [String: String] = [:]
+    guard let text = try? String(contentsOf: shellInputTuneURL(), encoding: .utf8) else { return values }
+    for line in text.split(whereSeparator: \.isNewline) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty || trimmed.hasPrefix("#") || trimmed.hasPrefix("!") { continue }
+        guard let eq = trimmed.firstIndex(of: "=") else { continue }
+        let key = String(trimmed[..<eq]).trimmingCharacters(in: .whitespaces)
+        let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+        if !key.isEmpty { values[key] = value }
+    }
+    return values
+}
+
+@discardableResult
+private func shellWriteInputTune(_ values: [String: String]) -> Bool {
+    let url = shellInputTuneURL()
+    do {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        let header = "# VRMC hand-input tuning edited by the launcher (M4). Applied at the next game launch.\n"
+        let body = values.keys.sorted().map { "\($0)=\(values[$0] ?? "")\n" }.joined()
+        try (header + body).write(to: url, atomically: true, encoding: .utf8)
+        shellLog("VRMC input tune saved: \(url.path) keys=\(values.keys.sorted().joined(separator: ","))")
+        return true
+    } catch {
+        shellLog("VRMC input tune save FAILED: \(error)")
+        return false
+    }
+}
+
 @discardableResult
 private func shellWriteRuntimeSettings(_ values: [String: String]) -> Bool {
     let url = shellRuntimeSettingsURL()
@@ -1031,6 +1068,8 @@ struct VRControlOverlay: View {
     @State private var autoHeight = true
     @State private var manualHeight = 1.70
     @State private var diagPeriod = 30
+    @State private var middleGestures = true
+    @State private var swipeGestures = false
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
     @State private var exportURL: URL?
@@ -1085,6 +1124,8 @@ struct VRControlOverlay: View {
                     Toggle("Seated mode", isOn: $seated)
                     Toggle("Seated free move", isOn: $seatedFreeMove)
                     Toggle("Snap turn (45°)", isOn: $snapTurn)
+                    Toggle("Middle-pinch gestures (locomotion/jump/sneak/radial)", isOn: $middleGestures)
+                    Toggle("Open-hand swipe gestures (hotbar/chat/keyboard/swap/drop)", isOn: $swipeGestures)
                     HStack {
                         Text("Performance").font(.caption)
                         Spacer()
@@ -1166,6 +1207,16 @@ struct VRControlOverlay: View {
                     if !exportStatus.isEmpty {
                         Text(exportStatus).font(.caption2).foregroundStyle(.secondary)
                     }
+                    DisclosureGroup("Gesture reference") {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Pinch (thumb+index): attack / GUI click; left hold = teleport").font(.caption2)
+                            Text("Fist: use hold (right, bow draw) / GUI right-click tap / menu (left tap)").font(.caption2)
+                            Text("Both fists tap: inventory menu; both middle taps: climb jump; both middle double-tap: recenter").font(.caption2)
+                            Text("Middle pinch (thumb+middle): left hold + move hand = walk/strafe; right hold = sneak; right tap = jump; left tap/double = snap turn; right double = radial; both tap = climb jump; both double = recenter").font(.caption2)
+                            Text("Open-hand swipes (opt-in): right horizontal = hotbar ±; right vertical = scroll; left up/down = keyboard/chat; left horizontal = swap/drop").font(.caption2)
+                        }
+                        .padding(.top, 2)
+                    }
                     Text("Provider reads these at game start; invalid values are ignored/logged. Diagnostics: vrmc-shell.log, vrmc-thermal.log.")
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
@@ -1235,6 +1286,9 @@ struct VRControlOverlay: View {
             autoHeight = true
         }
         if let raw = values["diagnostics.periodSeconds"], let n = Int(raw) { diagPeriod = min(120, max(10, (n / 10) * 10)) }
+        let input = shellReadInputTune()
+        middleGestures = input["middle.enabled"]?.lowercased() != "false"
+        swipeGestures = ["true", "1"].contains(input["swipe.enabled"]?.lowercased() ?? "")
     }
 
     private func applySettings() {
@@ -1248,7 +1302,12 @@ struct VRControlOverlay: View {
         values["comfort.worldScale"] = String(format: "%.2f", worldScale)
         values["comfort.manualHeight"] = autoHeight ? "-1" : String(format: "%.2f", manualHeight)
         values["diagnostics.periodSeconds"] = String(diagPeriod)
-        settingsStatus = shellWriteRuntimeSettings(values) ? "Saved — applies at next game start." : "Save failed — see shell log."
+        var input = shellReadInputTune()
+        input["middle.enabled"] = middleGestures ? "true" : "false"
+        input["swipe.enabled"] = swipeGestures ? "true" : "false"
+        let runtimeOK = shellWriteRuntimeSettings(values)
+        let inputOK = shellWriteInputTune(input)
+        settingsStatus = (runtimeOK && inputOK) ? "Saved — applies at next game start." : "Save failed — see shell log."
     }
 }
 
