@@ -186,6 +186,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - m5-settings 25 checks, full provider suite PASS; app installed/provider pushed. Device K5 thermal
   behavior NOT RUN.
 
+## Provider hash + settings reset (EV-0134)
+
+- Launcher status computes the provider jar's SHA256 (first 12 hex) or reports `MISSING`; the diagnostics
+  bundle header includes the 32-hex prefix + path.
+- **Reset VRMC settings** removes `vrmc-runtime.properties`, `vrmc-input-tune.properties` and
+  `vrmc-vignette.flag` (game saves/logs/crash guard untouched) and reloads UI defaults.
+- Build/install PASS; device UI NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

@@ -4,6 +4,7 @@ import UIKit
 import Observation
 import Foundation
 import AudioToolbox
+import CryptoKit
 
 /// Entry point called from the Amethyst C main() (iOS-compat binary) via dlopen/dlsym.
 /// The shell adopts SwiftUI's app lifecycle so visionOS immersive scenes / CompositorLayer exist.
@@ -114,6 +115,9 @@ private func shellBuildDiagnosticsBundle() -> URL? {
     var text = "VRMC diagnostics export\n"
     text += "app=\(Bundle.main.bundleIdentifier ?? "?") version=\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")\n"
     text += "generated=\(Date())\n"
+    let providerJar = game.appendingPathComponent("mods/vrmc-provider.jar")
+    let providerHash = shellFileSHA256(providerJar).map { String($0.prefix(32)) } ?? "missing"
+    text += "providerJarSha256Prefix=\(providerHash) path=\(providerJar.path)\n"
     text += "note=fully local; contains logs and runtime settings only, no telemetry\n\n"
     for (name, url, cap) in entries {
         text += "===== \(name): \(url.lastPathComponent) =====\n"
@@ -138,6 +142,12 @@ private func shellBuildDiagnosticsBundle() -> URL? {
         shellLog("diagnostics export FAILED: \(error)")
         return nil
     }
+}
+
+private func shellFileSHA256(_ url: URL) -> String? {
+    guard let data = try? Data(contentsOf: url) else { return nil }
+    let digest = SHA256.hash(data: data)
+    return digest.map { String(format: "%02x", $0) }.joined()
 }
 
 private func shellVignetteURL() -> URL {
@@ -1403,6 +1413,15 @@ struct VRControlOverlay: View {
                     if !exportStatus.isEmpty {
                         Text(exportStatus).font(.caption2).foregroundStyle(.secondary)
                     }
+                    Button("Reset VRMC settings") {
+                        try? FileManager.default.removeItem(at: shellRuntimeSettingsURL())
+                        try? FileManager.default.removeItem(at: shellInputTuneURL())
+                        try? FileManager.default.removeItem(at: shellVignetteURL())
+                        loadSettings()
+                        settingsStatus = "VRMC settings reset to defaults."
+                    }
+                    .font(.caption2)
+                    .buttonStyle(.bordered)
                     DisclosureGroup("Gesture reference") {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Pinch (thumb+index): attack / GUI click; left hold = teleport").font(.caption2)
@@ -1450,7 +1469,12 @@ struct VRControlOverlay: View {
             parts.append("hands=\(left ? "L" : "-")\(right ? "R" : "-")")
             parts.append("seated=\(seated)")
             let providerJar = game.appendingPathComponent("mods/vrmc-provider.jar")
-            parts.append("providerJar=\(FileManager.default.fileExists(atPath: providerJar.path) ? "ok" : "MISSING")")
+            if FileManager.default.fileExists(atPath: providerJar.path) {
+                let hash = shellFileSHA256(providerJar).map { String($0.prefix(12)) } ?? "?"
+                parts.append("providerJar=\(hash)")
+            } else {
+                parts.append("providerJar=MISSING")
+            }
         } else {
             parts.append("provider status: no session yet")
         }

@@ -1,11 +1,11 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-01 (host time)
-source commit: 340f759 (plus uncommitted current provider/shell at staging time; regenerate from a clean commit for release)
-app tree sha256: c6e05338a092e327e3f75d9a20c97092bffefcfc3a9fa88dc10abe8b4c96386c
-app path at staging: /tmp/VRMC-native-thermalresp.app
+source commit: 10f69f0 (plus uncommitted current shell at staging time; regenerate from a clean commit for release)
+app tree sha256: b7e7cd638db2d3d119570771ae00576e8f94817fa2f2d98c4ce90ca5d9be3792
+app path at staging: /tmp/VRMC-native-hash.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
 provider jar sha256: afbbb507beffbed55f0bfb36b29e8fef1880d8e494806355ca223c27861a7a25
 device install: OK (D1 <D1-UDID>)
-provider jar push: OK -> Documents/instances/default/mods/vrmc-provider.jar
+provider jar push: OK -> Documents/instances/default/mods/vrmc-provider.jar (previous push)
 device lock at staging: passcodeRequired=true (no behavior test performed)
