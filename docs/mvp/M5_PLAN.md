@@ -56,6 +56,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Launcher overlay buttons: **Recenter**, **Calibrate height**, **Reload settings**, **Diagnostics**.
   Device behavior/UI interaction NOT RUN.
 
+## Diagnostics export (EV-0107)
+
+- Provider writes `vrmc-status.json` (ABI, bridge, display views, tracked frames, seated/input/hand
+  state, player present, runtime-settings summary) at init and on the `status` command.
+- Launcher **Export diagnostics** button builds a capped local text bundle from shell/compositor/
+  thermal/Minecraft logs, status, shutdown journal, command results and runtime settings; a ShareLink
+  opens the system share sheet for manual save/AirDrop. No automatic upload or telemetry.
+- Device share-sheet behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

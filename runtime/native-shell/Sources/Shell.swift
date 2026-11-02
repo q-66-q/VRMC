@@ -75,6 +75,49 @@ private func shellQueueGameCommand(_ command: String) -> Bool {
     }
 }
 
+/// M5 diagnostics export: one local text bundle the user can AirDrop/share. No network, no telemetry.
+private func shellBuildDiagnosticsBundle() -> URL? {
+    let docs = shellDocumentsURL()
+    let game = docs.appendingPathComponent("instances/default")
+    let entries: [(String, URL, Int)] = [
+        ("shell log", docs.appendingPathComponent("vrmc-shell.log"), 262_144),
+        ("compositor log", docs.appendingPathComponent("vrmc-compositor.log"), 262_144),
+        ("thermal log", docs.appendingPathComponent("vrmc-thermal.log"), 65_536),
+        ("minecraft log (tail)", docs.appendingPathComponent("latestlog.txt"), 262_144),
+        ("provider status", game.appendingPathComponent("vrmc-status.json"), 65_536),
+        ("shutdown journal", game.appendingPathComponent("vrmc-shutdown.log"), 65_536),
+        ("command results", game.appendingPathComponent("vrmc-command-result.txt"), 65_536),
+        ("runtime settings", game.appendingPathComponent("vrmc-runtime.properties"), 32_768),
+    ]
+    var text = "VRMC diagnostics export\n"
+    text += "app=\(Bundle.main.bundleIdentifier ?? "?") version=\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")\n"
+    text += "generated=\(Date())\n"
+    text += "note=fully local; contains logs and runtime settings only, no telemetry\n\n"
+    for (name, url, cap) in entries {
+        text += "===== \(name): \(url.lastPathComponent) =====\n"
+        guard let data = try? Data(contentsOf: url) else {
+            text += "(missing)\n\n"
+            continue
+        }
+        let slice = data.count > cap ? data.suffix(cap) : data
+        if data.count > cap { text += "(truncated to last \(cap) bytes of \(data.count))\n" }
+        text += String(data: slice, encoding: .utf8) ?? "(not UTF-8)"
+        if !text.hasSuffix("\n") { text += "\n" }
+        text += "\n"
+    }
+    let stamp = DateFormatter()
+    stamp.dateFormat = "yyyyMMdd-HHmmss"
+    let out = docs.appendingPathComponent("vrmc-diagnostics-\(stamp.string(from: Date())).txt")
+    do {
+        try text.write(to: out, atomically: true, encoding: .utf8)
+        shellLog("diagnostics export written: \(out.path) bytes=\(text.utf8.count)")
+        return out
+    } catch {
+        shellLog("diagnostics export FAILED: \(error)")
+        return nil
+    }
+}
+
 @discardableResult
 private func shellWriteRuntimeSettings(_ values: [String: String]) -> Bool {
     let url = shellRuntimeSettingsURL()
@@ -920,6 +963,8 @@ struct VRControlOverlay: View {
     @State private var frameLimit = 90
     @State private var settingsStatus = ""
     @State private var commandStatus = ""
+    @State private var exportURL: URL?
+    @State private var exportStatus = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1004,6 +1049,26 @@ struct VRControlOverlay: View {
                     }
                     if !commandStatus.isEmpty {
                         Text(commandStatus).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 8) {
+                        Button("Export diagnostics") {
+                            if let url = shellBuildDiagnosticsBundle() {
+                                exportURL = url
+                                exportStatus = "Bundle ready — use Share to save/AirDrop."
+                            } else {
+                                exportStatus = "Export failed — see shell log."
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        if let exportURL {
+                            ShareLink(item: exportURL) {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    if !exportStatus.isEmpty {
+                        Text(exportStatus).font(.caption2).foregroundStyle(.secondary)
                     }
                     Text("Provider reads these at game start; invalid values are ignored/logged. Diagnostics: vrmc-shell.log, vrmc-thermal.log.")
                         .font(.caption2).foregroundStyle(.tertiary)

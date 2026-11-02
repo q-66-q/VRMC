@@ -227,6 +227,7 @@ public class VisionVR extends MCVR {
         this.initialized = true;
         this.initSuccess = true;
         appendShutdownLog("init", "bridgeReady=" + this.bridgeReady + " abi=" + VrmcBridge.ABI_VERSION);
+        writeStatusReport();
         System.out.println("[VRMC-M2] VisionVR.init() succeeded");
         return true;
     }
@@ -257,6 +258,34 @@ public class VisionVR extends MCVR {
         this.initialized = false;
         super.destroy();
         appendShutdownLog("destroy-complete", "no exception during provider teardown");
+    }
+
+    /** M5/M6 support file: current provider status snapshot (local only; user-initiated export). */
+    private void writeStatusReport() {
+        try {
+            File dir = this.mc.gameDirectory;
+            if (dir == null) return;
+            StringBuilder json = new StringBuilder();
+            json.append("{\n");
+            json.append("  \"generatedAt\": \"").append(Instant.now()).append("\",\n");
+            json.append("  \"abi\": ").append(VrmcBridge.ABI_VERSION).append(",\n");
+            json.append("  \"bridgeReady\": ").append(this.bridgeReady).append(",\n");
+            json.append("  \"initialized\": ").append(this.initialized).append(",\n");
+            json.append("  \"displayViewsGen\": ").append(this.displayViewsGen).append(",\n");
+            json.append("  \"trackedFrames\": ").append(this.trackedFrames).append(",\n");
+            json.append("  \"seated\": ").append(this.dh.vrSettings.seated).append(",\n");
+            json.append("  \"inputHealthy\": ").append(this.visionInput != null && this.visionInput.isInputHealthy()).append(",\n");
+            json.append("  \"handLeftTracked\": ").append(this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_LEFT)).append(",\n");
+            json.append("  \"handRightTracked\": ").append(this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT)).append(",\n");
+            json.append("  \"playerPresent\": ").append(this.mc.player != null).append(",\n");
+            json.append("  \"runningOnVisionOS\": ").append(System.getProperty("os.name", "")).append(",\n");
+            json.append("  \"runtimeSettings\": \"").append(this.runtimeSettings.summary().replace("\"", "'")).append("\"\n");
+            json.append("}\n");
+            Files.writeString(dir.toPath().resolve("vrmc-status.json"), json.toString(),
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M5][WARN] could not write vrmc-status.json: " + t);
+        }
     }
 
     /**
@@ -376,9 +405,13 @@ public class VisionVR extends MCVR {
                     this.diagNextLogNs = 0L;
                     detail = "diagnostics forced";
                 }
-                case "status" -> detail = "bridgeReady=" + this.bridgeReady
-                    + " displayViewsGen=" + this.displayViewsGen + " trackedFrames=" + this.trackedFrames
-                    + " inputHealthy=" + (this.visionInput != null && this.visionInput.isInputHealthy());
+                case "status" -> {
+                    writeStatusReport();
+                    detail = "bridgeReady=" + this.bridgeReady
+                        + " displayViewsGen=" + this.displayViewsGen + " trackedFrames=" + this.trackedFrames
+                        + " inputHealthy=" + (this.visionInput != null && this.visionInput.isInputHealthy())
+                        + " statusFile=vrmc-status.json";
+                }
                 default -> detail = "unknown";
             }
         } catch (Throwable t) {
