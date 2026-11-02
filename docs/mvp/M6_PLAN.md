@@ -82,6 +82,14 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Reproducible provider jar (EV-0154)
+
+- `build_provider.sh` packages with fixed entry timestamps (`jar --date`, override `REPRO_TIMESTAMP`)
+  instead of wall-clock stamps: identical source/JDK/payload now yields an identical sha256.
+- Two independent builds: `fcd1df76…` (90,619 bytes) both; provider suite PASS; jar pushed and device
+  integrity PASS.
+- Release manifest/package metadata must be regenerated to the new stable provider hash.
+
 ## Async heartbeat write (EV-0153)
 
 - Heartbeat throttling stays on the frame thread (≤1 Hz), but the atomic file write is dispatched to a

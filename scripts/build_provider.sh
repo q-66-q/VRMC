@@ -17,10 +17,8 @@
 #   GRADLE_CACHE            Gradle cache root (default ~/.gradle/caches)
 #   VERBOSE=1               echo the resolved classpath entries and javac version
 #
-# Note on sha256: the jar tool stamps META-INF/ and META-INF/MANIFEST.MF with the wall-clock time of
-# the build, so the jar sha256 changes on every run even though the payload bytes are identical
-# (verified against the reference jar: identical after unzip). Use the printed sha256 as the identity
-# of THIS build/stage, not as a content hash across builds.
+# Reproducible jar: entry timestamps are fixed via jar --date, so the sha256 below is a content hash
+# across rebuilds with the same JDK/payload (release manifests/integrity checks rely on this).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -117,8 +115,10 @@ cp -R "$ROOT/provider/src/main/resources/." "$OUT_DIR/stage/"
 cp -R "$OUT_DIR/classes/." "$OUT_DIR/stage/"
 
 JAR="$OUT_DIR/vrmc-provider.jar"
+REPRO_TIMESTAMP="${REPRO_TIMESTAMP:-2024-01-01T00:00:00Z}"
 rm -f "$JAR"
-( cd "$OUT_DIR/stage" && "$JAR_TOOL" cf "$JAR" . ) || die "jar packaging failed"
+( cd "$OUT_DIR/stage" && "$JAR_TOOL" --create --file "$JAR" --date="$REPRO_TIMESTAMP" -C . . ) \
+  || die "jar packaging failed"
 
 # --- verify ----------------------------------------------------------------
 for entry in fabric.mod.json vrmc.mixins.json dev/vrmc/provider/VisionVR.class \

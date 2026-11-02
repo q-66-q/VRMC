@@ -5,7 +5,7 @@ source commit: 01d6e63 (plus uncommitted current shell at staging time; regenera
 app tree sha256: 0aebb8069ede92efe478d482b2ebd64c701dbcc5b6d975be94b020362d58a3e2
 app path at staging: /tmp/VRMC-native-asyncheartbeat.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: cd7eacb7f48aa69914a9542e4fdb4ad470b0fc17e2e713cbb4dea7d9944ea9b5
+provider jar sha256: fcd1df769cd0a6a25a3664938f1440bdf8c0292d1a3971bd59674f07b8d3cbe2
 device install: OK (D1 <D1-UDID>)
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar (previous push, integrity PASS)
 device lock at staging: passcodeRequired=true (no behavior test performed)
