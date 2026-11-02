@@ -307,6 +307,14 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Host test covers rejection/consumption/result (m5-command 14 checks). Provider pushed + integrity PASS.
   Device behavior NOT RUN.
 
+## Restore-performance command (EV-0178)
+
+- Provider records original render/simulation distance and frame limit before thermal/adaptive caps; the
+  new `restore-performance` command restores them once, clears applied flags/pressure counter, logs and
+  shows an action-bar message (or `nothing to restore`). Launcher gains a Restore performance button.
+- m5-command 15 checks; full provider suite PASS; app installed/provider pushed + integrity PASS.
+  Device restore behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.

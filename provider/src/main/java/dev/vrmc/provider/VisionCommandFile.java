@@ -22,7 +22,8 @@ public final class VisionCommandFile {
     /** A local command is always a short word; an oversized file is rejected without reading it. */
     public static final long MAX_COMMAND_BYTES = 4096L;
     public static final List<String> COMMANDS = List.of(
-        "recenter", "calibrate-height", "reload-settings", "reload-input", "diag", "status", "controls");
+        "recenter", "calibrate-height", "reload-settings", "reload-input", "diag", "status", "controls",
+        "restore-performance");
 
     private VisionCommandFile() {}
 

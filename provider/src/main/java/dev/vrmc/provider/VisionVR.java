@@ -138,6 +138,10 @@ public class VisionVR extends MCVR {
     private boolean adaptiveFramerate;
     private int adaptivePressureWindows;
     private boolean adaptiveApplied;
+    // Originals captured before thermal/adaptive quality caps so the user can restore them.
+    private int preReductionRender = -1;
+    private int preReductionSim = -1;
+    private int preReductionFps = -1;
     private boolean thermalReductionApplied;
     private final VisionFrameStats frameStats = new VisionFrameStats(900);
     private long rotatePulseNanos = 120_000_000L;
@@ -468,6 +472,38 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /** Restore the settings captured by thermal/adaptive quality caps (explicit user command). */
+    private String restorePerformanceReductions() {
+        StringBuilder restored = new StringBuilder();
+        try {
+            if (this.preReductionRender >= 0) {
+                this.mc.options.renderDistance().set(this.preReductionRender);
+                restored.append("render=").append(this.preReductionRender).append(' ');
+                this.preReductionRender = -1;
+            }
+            if (this.preReductionSim >= 0) {
+                this.mc.options.simulationDistance().set(this.preReductionSim);
+                restored.append("sim=").append(this.preReductionSim).append(' ');
+                this.preReductionSim = -1;
+            }
+            if (this.preReductionFps >= 0) {
+                this.mc.options.framerateLimit().set(this.preReductionFps);
+                restored.append("fps=").append(this.preReductionFps).append(' ');
+                this.preReductionFps = -1;
+            }
+        } catch (Throwable t) {
+            return "restore-performance failed: " + t;
+        }
+        this.thermalReductionApplied = false;
+        this.adaptiveApplied = false;
+        this.adaptivePressureWindows = 0;
+        if (restored.length() == 0) return "nothing to restore";
+        String detail = "restored " + restored.toString().trim();
+        System.out.println("[VRMC-M5] " + detail);
+        showGameMessage("[VRMC] " + detail);
+        return detail;
+    }
+
     /**
      * Opt-in M5 thermal protection: cap render distance/simulation distance and frame limit once when
      * shell thermal state becomes serious/critical. Never auto-restores (avoids oscillation); the user
@@ -479,6 +515,9 @@ public class VisionVR extends MCVR {
             int render = this.mc.options.renderDistance().get();
             int sim = this.mc.options.simulationDistance().get();
             int fps = this.mc.options.framerateLimit().get();
+            if (this.preReductionRender < 0) this.preReductionRender = render;
+            if (this.preReductionSim < 0) this.preReductionSim = sim;
+            if (this.preReductionFps < 0) this.preReductionFps = fps;
             int newRender = Math.min(render, 8);
             int newSim = Math.min(sim, 8);
             int newFps = Math.min(fps, 72);
@@ -549,6 +588,9 @@ public class VisionVR extends MCVR {
                         + " move=" + this.moveForwardScale + "/" + this.moveStrafeScale
                         + " components=" + (this.handComponentJoints ? "joints" : "identity") + ")";
                 }
+                case "restore-performance" -> {
+                    detail = restorePerformanceReductions();
+                }
                 case "controls" -> {
                     showGameChat(controlsHelpLines());
                     detail = "controls summary sent to chat";
@@ -614,6 +656,7 @@ public class VisionVR extends MCVR {
                     this.adaptiveApplied = true;
                     try {
                         int fps = this.mc.options.framerateLimit().get();
+                        if (this.preReductionFps < 0) this.preReductionFps = fps;
                         int newFps = Math.min(fps, 72);
                         if (newFps != fps) this.mc.options.framerateLimit().set(newFps);
                         System.out.println("[VRMC-M5] adaptive framerate: " + fps + " -> " + newFps

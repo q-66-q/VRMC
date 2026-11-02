@@ -1431,6 +1431,10 @@ struct VRControlOverlay: View {
                             commandStatus = shellQueueGameCommand("status") ? "Status write queued." : "Queue failed."
                         }
                         .buttonStyle(.bordered)
+                        Button("Restore performance") {
+                            commandStatus = shellQueueGameCommand("restore-performance") ? "Performance restore queued." : "Queue failed."
+                        }
+                        .buttonStyle(.bordered)
                     }
                     if !commandStatus.isEmpty {
                         Text(commandStatus).font(.caption2).foregroundStyle(.secondary)
