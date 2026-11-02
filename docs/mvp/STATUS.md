@@ -5,12 +5,12 @@ evidence bundles; this page is a navigation summary.
 
 ## Current installed build (D1)
 
-- App: path-independent tree sha256 `2939c509d8522c92504c2cc19923336ddf8fa0d3530e7164f9aee0da403ee4d7`
-  (`/tmp/VRMC-native-restoreperf.app`, 169 signed Mach-O, deep/strict verify PASS)
-- Provider: `5379fe2ced32d9cc1ece9bbb6cbf49684d0657584c0f22f06edb8e8df138baf6` (92,008 bytes),
+- App: path-independent tree sha256 `2388965a1908f9630f80f77e4f5b8fc4b44ddddf58175452613182faabd375f3`
+  (`/tmp/VRMC-native-sprint.app`, 169 signed Mach-O, deep/strict verify PASS)
+- Provider: `a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58` (92,516 bytes),
   reproducible (two-build check) and **device integrity PASS** via `scripts/m6_device_integrity.sh`
-- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,470,289 sha256
-  `20ffc04d980001124a9585f9511047b3a7f17bedc62b9482003486d6298ce648`; verifier PASS; not a final release.
+- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,471,014 sha256
+  `bc497dfe140db8433bffa532cfffa2e84488de0fcaf8ef11d2daba9189d2ebbd`; verifier PASS; not a final release.
 - D1 is currently **locked**; latest build has not been launched since install. All behavior/acceptance
   gates remain **NOT RUN**.
 
