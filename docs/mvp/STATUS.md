@@ -9,8 +9,8 @@ evidence bundles; this page is a navigation summary.
   (`/tmp/VRMC-native-sprint.app`, 169 signed Mach-O, deep/strict verify PASS)
 - Provider: `a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58` (92,516 bytes),
   reproducible (two-build check) and **device integrity PASS** via `scripts/m6_device_integrity.sh`
-- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,471,014 sha256
-  `bc497dfe140db8433bffa532cfffa2e84488de0fcaf8ef11d2daba9189d2ebbd`; verifier PASS; not a final release.
+- Development package: `/tmp/VRMC-dev-release.zip` bytes=206,479,055 sha256
+  `9540a8a947a2f360742b7c7f958474b975eab2132da74e944d2792aa8287a7ac`; verifier PASS; not a final release.
 - D1 is currently **locked**; latest build has not been launched since install. All behavior/acceptance
   gates remain **NOT RUN**.
 

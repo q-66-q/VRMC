@@ -1,12 +1,12 @@
 VRMC development sideload package (not final release sign-off)
-generated: 2026-11-02T00:55:55-1000
-source_commit=8ac7a91b7ab538be509532845392f88eaf137383
-app_tree_sha256=2388965a1908f9630f80f77e4f5b8fc4b44ddddf58175452613182faabd375f3
+generated: 2026-11-02T01:04:02-1000
+source_commit=7f88a0e2fe2d2bc804262ec9f292904ff3f11dce
+app_tree_sha256=b0680cac1e25fdbc8e59689528b6e893b4b0635c1777accb91b84d2cb449474b
 app_tree_hash_method=path-independent bundle-relative files (scripts/app_tree_sha256.sh)
-provider_sha256=a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58
+provider_sha256=180290456350ef014967e4761f300158ddf7ff559355e8d37e2698b2fc92b5a0
 zip_path=/tmp/VRMC-dev-release.zip
-zip_bytes=206471014
-zip_sha256=bc497dfe140db8433bffa532cfffa2e84488de0fcaf8ef11d2daba9189d2ebbd
+zip_bytes=206479055
+zip_sha256=9540a8a947a2f360742b7c7f958474b975eab2132da74e944d2792aa8287a7ac
 package_verify=PASS (scripts/m6_verify_release_package.sh)
 package_freshness=PASS (m6_check_release_current.sh)
 device_integrity=provider hash matches installed D1

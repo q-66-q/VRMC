@@ -88,6 +88,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
   package verifier/freshness and device integrity: all PASS.
 - Release-ready host gates PASS; acceptance 0/22 explicit PASS → NOT READY. Device AC/K/H gates NOT RUN.
 
+## Refreshed package for calibration build (EV-0191)
+
+- Package refreshed to app `b0680cac…` + provider `18029045…`: bytes=206,479,055 sha256
+  `9540a8a947a2f360742b7c7f958474b975eab2132da74e944d2792aa8287a7ac`; freshness/verifier/release-ready
+  host gates PASS; acceptance NOT READY; metrics + STATUS.md refreshed.
+
 ## Release gate default app freshness (EV-0187)
 
 - `m6_release_ready.sh` defaults `RELEASE_APP_BUNDLE` from `export/latest-build-identity.txt`'s staged app

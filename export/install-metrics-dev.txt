@@ -1,11 +1,11 @@
 VRMC install metrics (host measurement; device install size still a K6 acceptance step)
-generated: 2026-11-02T00:55:57-1000
-app_path=/tmp/VRMC-native-sprint.app
-app_bytes=583667712
+generated: 2026-11-02T01:04:03-1000
+app_path=/tmp/VRMC-native-handcalib.app
+app_bytes=583688192
 app_files=485
 app_macho_files=169
-provider_bytes=92516
-provider_sha256=a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58
+provider_bytes=95918
+provider_sha256=180290456350ef014967e4761f300158ddf7ff559355e8d37e2698b2fc92b5a0
 package_path=/tmp/VRMC-dev-release.zip
-package_bytes=206471014
-package_sha256=bc497dfe140db8433bffa532cfffa2e84488de0fcaf8ef11d2daba9189d2ebbd
+package_bytes=206479055
+package_sha256=9540a8a947a2f360742b7c7f958474b975eab2132da74e944d2792aa8287a7ac
