@@ -45,7 +45,7 @@ hash() { [ -e "$1" ] && shasum -a 256 "$1" | awk '{print $1}' || echo "missing";
   echo "visionos_sdk=${VISIONOS_SDK}"
   echo "visionos_sim_runtime=${VISIONOS_SIM_RUNTIME}"
   echo "app_bundle=${APP_BUNDLE:-none}"
-  echo "app_bundle_sha256=$( [ -n "$APP_BUNDLE" ] && [ -d "$APP_BUNDLE" ] && { find "$APP_BUNDLE" -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256 | awk '{print $1}'; } || echo missing )"
+  echo "app_bundle_sha256=$( [ -n "$APP_BUNDLE" ] && [ -d "$APP_BUNDLE" ] && "$ROOT/scripts/app_tree_sha256.sh" "$APP_BUNDLE" || echo missing )"
   echo "bridge_dylib=${BRIDGE_DYLIB:-none}"
   echo "bridge_dylib_sha256=$(hash "${BRIDGE_DYLIB:-/nonexistent}")"
   echo "provider_jar=${PROVIDER_JAR:-none}"
