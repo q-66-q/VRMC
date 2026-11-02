@@ -82,6 +82,13 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Single-command release gate (EV-0165)
+
+- `scripts/m6_release_ready.sh [--zip PATH] [--report-only] [--skip-device]` aggregates: host release
+  check, package verifier, read-only device provider integrity, and the acceptance `--require-pass` gate.
+- Current expected result: host/package/device-integrity PASS; acceptance 0/22 explicit PASS →
+  **NOT RELEASE READY**, exit 1. Use `--report-only` for informational runs.
+
 ## Package verifier PASS (EV-0164)
 
 - App tree hash is now bundle-relative/path-independent: `d1d685968dbc19f728b2279fa3ac23b87862ecf79913b6108b8718e4c83a1269`;
