@@ -82,6 +82,12 @@ Status: **IN PROGRESS (offline groundwork)** — EV-0102: shutdown journal, soak
 - Requires no launch/unlock; behavior/acceptance gates remain separate.
 - Current D1: **PASS** — provider `4602605f…` (85,957 bytes) matches; VRMC 1.2.0 installed.
 
+## Acceptance report parser fix (EV-0161)
+
+- M6 acceptance rows were parsed from the evidence/gap cell; the report now reads the status cell for
+  AC/K rows and strips backticks for M5 H rows. Current accurate summary: rows=22, explicit-pass=0,
+  not-run=17, partial=7; `--require-pass` remains NOT READY. Device gates NOT RUN.
+
 ## Refreshed package to latest app (EV-0160)
 
 - Clean-tree release check PASS + reproducibility PASS.

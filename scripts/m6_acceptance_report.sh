@@ -1,12 +1,14 @@
 #!/bin/bash
 # M6/M5 acceptance readiness report (host documentation gate).
 #
-# Parses the acceptance matrices in docs/mvp/M5_ACCEPTANCE.md (H1..H10) and
-# docs/mvp/M6_ACCEPTANCE.md (AC-1..AC-6, K1..K6) and prints the current status + counts.
-# This is a reporting gate only: it does NOT turn host evidence into device PASS.
+# Parses the acceptance matrices:
+#   docs/mvp/M5_ACCEPTANCE.md  -> H1..H10 (status is the LAST table cell)
+#   docs/mvp/M6_ACCEPTANCE.md  -> AC-1..AC-6/K1..K6 (status is the SECOND-to-last cell;
+#                                                     the last cell is evidence/gap)
+# Prints per-row status + counts. This is a reporting gate only: host evidence never becomes a device PASS.
 #
 # Usage: scripts/m6_acceptance_report.sh [--require-pass]
-#   --require-pass  exit 1 unless every listed row has an explicit PASS status
+#   --require-pass  exit 1 unless every listed row's status is an explicit PASS
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${OUT:-$(mktemp -t vrmc-acceptance.XXXXXX)}"
@@ -17,36 +19,48 @@ for arg in "$@"; do
     *) echo "[acceptance] unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
+
+trim_cell() { echo "$1" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/^\*\*//; s/\*\*$//; s/^`//; s/`$//'; }
+
 {
   echo "# VRMC acceptance readiness report"
   echo "# generated: $(date '+%Y-%m-%dT%H:%M:%S%z')"
   echo "# source: docs/mvp/M5_ACCEPTANCE.md, docs/mvp/M6_ACCEPTANCE.md"
   echo
-  for f in "$ROOT/docs/mvp/M5_ACCEPTANCE.md" "$ROOT/docs/mvp/M6_ACCEPTANCE.md"; do
-    [ -f "$f" ] || continue
-    echo "## $(basename "$f")"
-    grep -E '^\| *\*?\*?(H[0-9]+|AC-[0-9]+|K[0-9]+)' "$f" | \
-      sed -E 's/^\| *\*?\*?([^|*]+)\*?\*? *\|.*\| *([^|]+) *\|[[:space:]]*$/\1 :: \2/' | \
-      while IFS= read -r row; do
-        id="${row%% :: *}"
-        status="${row##* :: }"
-        printf '%-6s %s\n' "$id" "$status"
-      done
-    echo
-  done
+  echo "## M5_ACCEPTANCE.md (H1..H10)"
+  awk -F'|' '/^\| *\*?\*?H[0-9]+/ {
+        id=$2; status=$5;
+        gsub(/^[ \t*`]+|[ \t*`]+$/, "", id);
+        gsub(/^[ \t*`]+|[ \t*`]+$/, "", status);
+        gsub(/`/, "", status);
+        printf "%-6s %s\n", id, status;
+      }' "$ROOT/docs/mvp/M5_ACCEPTANCE.md"
+  echo
+  echo "## M6_ACCEPTANCE.md (AC-1..AC-6, K1..K6)"
+  awk -F'|' '/^\| *\*?\*?(AC-[0-9]+|K[0-9]+)/ {
+        id=$2; status=$4;
+        gsub(/^[ \t*`]+|[ \t*`]+$/, "", id);
+        gsub(/^[ \t*`]+|[ \t*`]+$/, "", status);
+        printf "%-6s %s\n", id, status;
+      }' "$ROOT/docs/mvp/M6_ACCEPTANCE.md"
+  echo
 } > "$OUT"
-PASS=$(grep -c -E ':: *`?PASS`? *$' "$OUT" || true)
-NOTRUN=$(grep -c -E 'NOT RUN' "$OUT" || true)
-PARTIAL=$(grep -c -E 'PARTIAL' "$OUT" || true)
-TOTAL=$(grep -c -E '^(H[0-9]+|AC-[0-9]+|K[0-9]+) ' "$OUT" || true)
+ROWS=$(grep -E '^(H[0-9]+|AC-[0-9]+|K[0-9]+) ' "$OUT" || true)
+TOTAL=$(printf '%s\n' "$ROWS" | grep -c . || true)
+PASS=$(printf '%s\n' "$ROWS" | grep -c -E ' PASS$' || true)
+NOTRUN=$(printf '%s\n' "$ROWS" | grep -c 'NOT RUN' || true)
+PARTIAL=$(printf '%s\n' "$ROWS" | grep -c 'PARTIAL' || true)
+MIXED=$(printf '%s\n' "$ROWS" | grep 'PARTIAL' | grep -c 'NOT RUN' || true)
 {
   echo "## summary"
-  echo "rows=$TOTAL pass=$PASS partial=$PARTIAL not-run=$NOTRUN"
+  echo "rows=$TOTAL explicit-pass=$PASS not-run=$NOTRUN partial=$PARTIAL (partial rows that also say NOT RUN: $MIXED; categories overlap intentionally)"
+  echo
+  echo "## rows (machine-readable)"
+  grep -E '^(H[0-9]+|AC-[0-9]+|K[0-9]+) ' "$OUT" | sed -E 's/^(H[0-9]+|AC-[0-9]+|K[0-9]+) +/id=\1 status=/'
 } >> "$OUT"
 cat "$OUT"
 if [ "$REQUIRE" = "1" ]; then
-  # Every row must contain an explicit PASS (partial/host-pass does NOT satisfy a device gate).
-  if grep -E '^(H[0-9]+|AC-[0-9]+|K[0-9]+) ' "$OUT" | grep -qv 'PASS'; then
+  if printf '%s\n' "$ROWS" | grep -qv ' PASS$'; then
     echo "[acceptance] RESULT: NOT READY ($PASS/$TOTAL rows explicit PASS)" >&2
     exit 1
   fi
