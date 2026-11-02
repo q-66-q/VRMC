@@ -299,34 +299,33 @@ public class VisionVR extends MCVR {
 
     /** M5/M6 support file: current provider status snapshot (local only; user-initiated export). */
     private void writeStatusReport() {
+        if (this.mc.gameDirectory == null) return;
+        VisionStatusJson.Data data = new VisionStatusJson.Data(
+            java.time.Instant.now().toString(),
+            VrmcBridge.ABI_VERSION,
+            this.bridgeReady,
+            this.initialized,
+            this.displayViewsGen,
+            this.trackedFrames,
+            this.dh.vrSettings.seated,
+            this.visionInput != null && this.visionInput.isInputHealthy(),
+            this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_LEFT),
+            this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT),
+            this.mc.player != null,
+            System.getProperty("os.name", ""),
+            this.runtimeSettings.summary(),
+            this.hotbarRange,
+            this.visionInput == null ? "" : this.visionInput.tuningSummary(),
+            this.lastThermalState,
+            this.thermalResponse,
+            this.adaptiveFramerate,
+            this.adaptiveApplied);
+        String json = VisionStatusJson.build(data, java.time.Instant.now());
+        java.nio.file.Path path = this.mc.gameDirectory.toPath().resolve("vrmc-status.json");
         try {
-            File dir = this.mc.gameDirectory;
-            if (dir == null) return;
-            StringBuilder json = new StringBuilder();
-            json.append("{\n");
-            json.append("  \"generatedAt\": \"").append(Instant.now()).append("\",\n");
-            json.append("  \"abi\": ").append(VrmcBridge.ABI_VERSION).append(",\n");
-            json.append("  \"bridgeReady\": ").append(this.bridgeReady).append(",\n");
-            json.append("  \"initialized\": ").append(this.initialized).append(",\n");
-            json.append("  \"displayViewsGen\": ").append(this.displayViewsGen).append(",\n");
-            json.append("  \"trackedFrames\": ").append(this.trackedFrames).append(",\n");
-            json.append("  \"seated\": ").append(this.dh.vrSettings.seated).append(",\n");
-            json.append("  \"inputHealthy\": ").append(this.visionInput != null && this.visionInput.isInputHealthy()).append(",\n");
-            json.append("  \"handLeftTracked\": ").append(this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_LEFT)).append(",\n");
-            json.append("  \"handRightTracked\": ").append(this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT)).append(",\n");
-            json.append("  \"playerPresent\": ").append(this.mc.player != null).append(",\n");
-            json.append("  \"runningOnVisionOS\": ").append(System.getProperty("os.name", "")).append(",\n");
-            json.append("  \"runtimeSettings\": \"").append(this.runtimeSettings.summary().replace("\"", "'")).append("\",\n");
-            json.append("  \"hotbarRange\": ").append(this.hotbarRange).append(",\n");
-            json.append("  \"inputTuning\": \"").append(this.visionInput == null ? ""
-                : this.visionInput.tuningSummary().replace("\"", "'")).append("\",\n");
-            json.append("  \"thermalState\": \"").append(this.lastThermalState).append("\",\n");
-            json.append("  \"thermalResponse\": \"").append(this.thermalResponse).append("\",\n");
-            json.append("  \"adaptiveFramerate\": ").append(this.adaptiveFramerate).append(",\n");
-            json.append("  \"adaptiveFramerateApplied\": ").append(this.adaptiveApplied).append("\n");
-            json.append("}\n");
-            Files.writeString(dir.toPath().resolve("vrmc-status.json"), json.toString(),
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            java.nio.file.Files.writeString(path, json,
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Throwable t) {
             System.out.println("[VRMC-M5][WARN] could not write vrmc-status.json: " + t);
         }

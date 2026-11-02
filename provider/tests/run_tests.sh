@@ -167,6 +167,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionHotbarWheelTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionRingChordTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionThermalStateTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionStatusJsonTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
      && grep -q "PASS" "$T/m4-layout.log"; then
@@ -264,6 +265,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m4-ring-chord-test\] [0-9]+ checks" "$T/m4-ring.log"
   else
     cat "$T/m4-ring.log"; fail "m4-ring-chord"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionStatusJsonTest > "$T/m5-status-json.log" 2>&1 \
+     && grep -q "\[m5-status-json-test\] PASS" "$T/m5-status-json.log"; then
+    echo "[provider-tests] m5-status-json: PASS (strict JSON validity/escapes/EV-0144 regression)"
+    grep -E "\[m5-status-json-test\] [0-9]+ checks" "$T/m5-status-json.log"
+  else
+    cat "$T/m5-status-json.log"; fail "m5-status-json"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionThermalStateTest > "$T/m5-thermal.log" 2>&1 \
      && grep -q "\[m5-thermal-test\] PASS" "$T/m5-thermal.log"; then

@@ -231,6 +231,15 @@ thermal/low-power monitor. Device/gameplay verification is `NOT RUN` while D1 is
 - Full provider suite PASS; app installed/provider pushed + integrity PASS. No automated JSON-schema
   test; device UI NOT RUN.
 
+## Testable status JSON builder (EV-0145)
+
+- Extracted `VisionStatusJson` pure builder for `vrmc-status.json` (all fields, string escaping, finite
+  numbers); `VisionVR` populates Data and writes atomically.
+- `VisionStatusJsonTest` includes a strict-enough JSON parser and covers values/types, quote/backslash/
+  control escapes and the EV-0144 trailing-quote regression (12 checks). Full provider suite PASS;
+  provider pushed + integrity PASS. Actual file write against a live game remains untested; device
+  behavior NOT RUN.
+
 ## Still to implement (M5 completion)
 
 - Recenter / height / world-scale actions and persistence.
