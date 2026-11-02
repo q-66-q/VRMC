@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-10-31.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0089`.
+**Next evidence ID:** `EV-0090`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -2346,6 +2346,52 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Device run is the remaining verification (EV-0088). Next: run the three-issue procedure and check aligned stereo/no black.
 
+### EV-0088 — M3-W3/W4 host PASS: macstream-style display-view channel (per-eye tangents + eye transforms -> provider projection) and flat mapping; device run pending
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:08:52-10:00 |
+| Commit | `1b3b73c8312549fa73ddb93057c843411d92e737` |
+| Dirty state | ridge/abi/vrmc_native_shared.h, bridge/src/vrmc_jni.c, bridge/src/vrmc_stub.c, provider/src/main/java/dev/vrmc/provider/VisionRenderer.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java, runtime/native-shell/Sources/VRMCCompositor.mm, runtime/native-shell/build/VRMCShell.framework/Modules/VRMCShell.swiftmodule/Project/arm64-apple-xros.swiftsourceinfo, runtime/native-shell/build/VRMCShell.framework/VRMCShell, scripts/test_display_views.sh, scripts/tests/ |
+| Device | host validation only (device run NOT RUN) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. port macstream Phase 8 root causes 3+4: publish CompositorServices display views to provider, provider renders display frustum/eye transforms, compositor flat mapping; offline frustum test
+
+**Expected:** provider frustum from display tangents maps near-plane corners to NDC corners; display-view bridge roundtrip; provider compiles
+
+**Actual:** PASS: DisplayViewsTest PASS (both lopsided device views and symmetric fallback: corners exact; straight-ahead NDC offset matches -(r+l)/(r-l), -(top+bottom)/(top-bottom)); bridge stub test PASS incl. display views generation; provider javac PASS; jar rebuilt; app+shell+bridge rebuilt/signed/installed and provider jar hash-verified. Device validation pending.
+
+**Artifacts:** evidence/EV-0088/display-views-test.log (c4c86568d9cb); evidence/EV-0088/summary.log (6082d71f7565)
+
+**Limitations:** Device run is the remaining verification (EV-0088). Next: run the three-issue procedure and check aligned stereo/no black.
+
+### EV-0089 — Recovered M3b device logs PARTIAL: provider eye textures valid (non-black) and chrome/windows parked; session backgrounded before visual alignment check
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-01T15:11:31-10:00 |
+| Commit | `6a440de4efff1531b0074aca3e60b16e1f40e2b6` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro RealityDevice14,1 (visionOS 27.2) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. recover Documents/vrmc-shell.log + vrmc-compositor.log from the 14:41 M3b session
+
+**Expected:** provider eye textures valid and presentation proceeds; visual alignment confirmed
+
+**Actual:** Provider textures non-black (L mean RGB 83/108/51, R 78/100/48; nonBlack 1024/1024, alpha 255) and first command buffer completed; chrome/windows hidden in shell log. Session backgrounded immediately (stop/invalidation + VRMCImmersiveEnded), so no visual alignment report. Confirms EV-0086 black was compositor reprojection/presentation, not provider content.
+
+**Artifacts:** evidence/EV-0089/vrmc-shell.log (110619294653); evidence/EV-0089/vrmc-compositor.log (f7bb65acad9e); evidence/EV-0089/summary.log (5c5f4a682e0d)
+
+**Limitations:** Display-view alignment fix (EV-0088) is built/installed but device-locked; alignment device run pending.
+
 ---
 
 ## 7. Status dashboard
@@ -2472,3 +2518,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | Verification owner | — | pending | — |
 | Lead | — | pending | — |
 | 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported: compositor `vrmc_shared_set_display_views` (per-eye `cp_view_get_tangents` + `cp_view_get_transform` + measured IPD); provider `getDisplayViews` renders `frustum(l·n,r·n,d·n,u·n)` with head-relative eye matrices and NaN cache invalidation; compositor switches to flat 1:1 mapping (reprojection/black branch bypassed). Host checks all PASS: DisplayViewsTest (both device display views + symmetric fallback, corners exact, straight-ahead NDC offset formula), bridge stub display-view roundtrip, provider javac. App+shell+bridge rebuilt/signed/installed; provider jar rebuilt/pushed/hash-verified. **Device run NOT RUN → next EV-0089.** |
+| 2026-11-01 | **EV-0088 (`PASS`, host): display-view alignment fix** — macstream Phase 8 root causes 3+4 ported (display views, head-relative eye matrices, asymmetric per-eye frustum, NaN projection cache invalidation, flat mapping); offline frustum/bridge/provider checks PASS; app+bridge+provider built/installed. **EV-0089 (`PARTIAL`): recovered M3b device logs** — provider eye textures valid non-black (L/R mean RGB), first command buffer completed, chrome/windows parked/hidden; session backgrounded before visual alignment check. Device locked; alignment device run pending. Next ID `EV-0090`. |

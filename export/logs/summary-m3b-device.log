@@ -1,0 +1,8 @@
+# Recovered M3b device session logs (2026-11-01 14:41 local) — provider eye textures non-black, chrome/windows parked, session backgrounded immediately
+# date: 2026-11-01T15:11:31-1000
+
+Recovered from D1 after the M3b (EV-0087) build install (before the EV-0088 display-view alignment build installed at ~15:05):
+- Shell: 'compositor presenting; hiding chrome + parking windows', 'window parked windows=2 visible=false chrome=hidden-when-presenting', scene/window hidden; background: willResignActive/didEnterBackground, VRMCImmersiveEnded generation=2, window restored, immersive dismissed.
+- Compositor: provider eye textures L/R format=70 1024x1024 with real content (mean RGB L=(83,108,51) luma≈80.7, R=(78,100.7,47.9) luma≈75.6; nonBlack=1024/1024; alpha=255); first command buffer completed; then stop/invalidation after timing wait (background) and clean VRMCImmersiveEnded.
+
+Significance: the provider eye textures were valid (not black) in that session, so EV-0086's black screen was the compositor's reprojection/presentation, not the provider content. Chrome hiding/parking also reported hidden in that build. No visual alignment report was captured before backgrounding.

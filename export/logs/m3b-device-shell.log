@@ -1,0 +1,127 @@
+[shell] 2026-11-01 20:44:04 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 20:44:04 +0000 launcher host appeared
+[shell] 2026-11-01 20:44:09 +0000 openImmersiveSpace result=opened
+[shell] 2026-11-01 20:59:56 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 20:59:56 +0000 launcher host appeared
+[shell] 2026-11-01 21:00:00 +0000 openImmersiveSpace result=opened
+[shell] 2026-11-01 21:02:19 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:02:19 +0000 launcher host appeared
+[shell] 2026-11-01 21:02:24 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:02:24 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:12:01 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:12:01 +0000 launcher host appeared
+[shell] 2026-11-01 21:12:06 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:12:22 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:33:21 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:33:21 +0000 launcher host appeared
+[shell] 2026-11-01 21:33:32 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:33:48 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:33:48 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 21:34:20 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:42:32 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:42:32 +0000 launcher host appeared
+[shell] 2026-11-01 21:42:36 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:42:52 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:42:52 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 21:49:59 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:49:59 +0000 launcher host appeared
+[shell] 2026-11-01 21:50:03 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:50:19 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:50:19 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 21:57:50 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 21:57:51 +0000 launcher host appeared
+[shell] 2026-11-01 21:57:56 +0000 VRMCGameStarted received
+[shell] 2026-11-01 21:58:11 +0000 auto openImmersiveSpace result=opened
+[shell] 2026-11-01 21:58:11 +0000 window parked windows=3 alpha=0.0
+[shell] 2026-11-01 23:08:28 +0000 vrmc_shell_start invoked
+[shell] 2026-11-01 23:08:28 +0000 coordinator ready
+[shell] 2026-11-01 23:08:28 +0000 didBecomeActive gameStarted=false immersive=false reopen=false
+[shell] 2026-11-01 23:08:28 +0000 launcher host appeared
+[shell] 2026-11-01 23:08:35 +0000 VRMCGameStarted received
+[shell] 2026-11-01 23:08:50 +0000 auto attempt 1 openImmersiveSpace result=opened
+[shell] 2026-11-01 23:08:50 +0000 window parked windows=2 visible=false
+[shell] 2026-11-01 23:09:10 +0000 willResignActive gameStarted=true immersive=true
+[shell] 2026-11-01 23:09:10 +0000 didEnterBackground gameStarted=true immersive=true
+[shell] 2026-11-01 23:09:10 +0000 VRMCImmersiveEnded generation=1 current=1
+[shell] 2026-11-01 23:09:10 +0000 window restored windows=2 visible=true
+[shell] 2026-11-01 23:09:10 +0000 immersive space dismissed
+[shell] 2026-11-01 23:09:17 +0000 didBecomeActive gameStarted=true immersive=false reopen=true
+[shell] 2026-11-01 23:09:19 +0000 foreground attempt 1 openImmersiveSpace result=opened
+[shell] 2026-11-01 23:09:19 +0000 window parked windows=2 visible=false
+[shell] 2026-11-01 23:09:26 +0000 VRMCImmersiveEnded generation=2 current=2
+[shell] 2026-11-01 23:09:26 +0000 window restored windows=2 visible=true
+[shell] 2026-11-01 23:09:26 +0000 immersive space dismissed
+[shell] 2026-11-01 23:09:53 +0000 willResignActive gameStarted=true immersive=false
+[shell] 2026-11-01 23:09:53 +0000 didEnterBackground gameStarted=true immersive=false
+[shell] 2026-11-02 00:23:10 +0000 vrmc_shell_start invoked
+[shell] 2026-11-02 00:23:10 +0000 activity init appActive=false windowSceneActive=false
+[shell] 2026-11-02 00:23:10 +0000 coordinator ready chromeMode=hidden-when-immersive
+[shell] 2026-11-02 00:23:10 +0000 activity UIScene.didActivate appActive=false windowSceneActive=true
+[shell] 2026-11-02 00:23:10 +0000 activity didBecomeActive appActive=true windowSceneActive=true
+[shell] 2026-11-02 00:23:10 +0000 didBecomeActive gameStarted=false immersive=false reopen=false windowActive=true
+[shell] 2026-11-02 00:23:10 +0000 launcher host appeared
+[shell] 2026-11-02 00:23:15 +0000 VRMCGameStarted received
+[shell] 2026-11-02 00:23:31 +0000 auto attempt 1 openImmersiveSpace result=opened epoch=0
+[shell] 2026-11-02 00:23:31 +0000 window parked windows=2 visible=false chrome=hidden-when-immersive
+[shell] 2026-11-02 00:23:31 +0000 immersive session opened generation=0 chrome=hidden-when-immersive reason=auto
+[shell] 2026-11-02 00:23:50 +0000 activity UIScene.willDeactivate appActive=true windowSceneActive=true
+[shell] 2026-11-02 00:23:50 +0000 willResignActive gameStarted=true immersive=true
+[shell] 2026-11-02 00:23:50 +0000 didEnterBackground gameStarted=true immersive=true
+[shell] 2026-11-02 00:23:50 +0000 VRMCImmersiveEnded generation=1 current=1
+[shell] 2026-11-02 00:23:50 +0000 window restored windows=2 visible=true chrome=hidden-when-immersive
+[shell] 2026-11-02 00:23:52 +0000 immersive space dismissed epoch=3
+[shell] 2026-11-02 00:31:59 +0000 vrmc_shell_start invoked
+[shell] 2026-11-02 00:32:00 +0000 activity init appActive=false windowSceneActive=false windows=no-window-scenes
+[shell] 2026-11-02 00:32:00 +0000 coordinator ready chromeMode=hidden-when-presenting gameSurfaceMode=legacy-root-swap
+[shell] 2026-11-02 00:32:00 +0000 activity UIScene.didActivate appActive=false windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0]
+[shell] 2026-11-02 00:32:00 +0000 activity didBecomeActive appActive=true windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0]
+[shell] 2026-11-02 00:32:00 +0000 didBecomeActive gameStarted=false immersive=false reopen=false windowActive=true
+[shell] 2026-11-02 00:32:00 +0000 launcher host appeared
+[shell] 2026-11-02 00:33:01 +0000 vrmc_shell_start invoked
+[shell] 2026-11-02 00:33:01 +0000 activity init appActive=false windowSceneActive=false windows=no-window-scenes
+[shell] 2026-11-02 00:33:01 +0000 coordinator ready chromeMode=hidden-when-presenting gameSurfaceMode=legacy-root-swap
+[shell] 2026-11-02 00:33:01 +0000 activity UIScene.didActivate appActive=false windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0]
+[shell] 2026-11-02 00:33:01 +0000 activity didBecomeActive appActive=true windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0]
+[shell] 2026-11-02 00:33:01 +0000 didBecomeActive gameStarted=false immersive=false reopen=false windowActive=true
+[shell] 2026-11-02 00:33:01 +0000 launcher host appeared
+[shell] 2026-11-02 00:33:05 +0000 VRMCGameStarted received
+[shell] 2026-11-02 00:33:21 +0000 auto: open requested appActive=true windowActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:33:21 +0000 auto attempt 1 openImmersiveSpace result=opened epoch=0 windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:33:21 +0000 immersive space opened generation=0; waiting for the first compositor frame before parking
+[shell] 2026-11-02 00:33:29 +0000 NO-FRAME: no compositor frame 8 s after open (reason=auto, windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]); dismissing and retrying once
+[shell] 2026-11-02 00:33:29 +0000 window restored while recovering windows=2 visible=true chrome=hidden-when-presenting state=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:33:29 +0000 VRMCImmersiveEnded generation=1 current=1 windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:33:29 +0000 window restored windows=2 visible=true chrome=hidden-when-presenting state=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:33:29 +0000 immersive space dismissed epoch=1
+[shell] 2026-11-02 00:40:54 +0000 vrmc_shell_start invoked
+[shell] 2026-11-02 00:40:54 +0000 activity init appActive=false windowSceneActive=false windows=no-window-scenes
+[shell] 2026-11-02 00:40:54 +0000 coordinator ready chromeMode=hidden-when-presenting gameSurfaceMode=legacy-root-swap
+[shell] 2026-11-02 00:40:54 +0000 activity UIScene.didActivate appActive=false windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0]
+[shell] 2026-11-02 00:40:54 +0000 activity didBecomeActive appActive=true windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0]
+[shell] 2026-11-02 00:40:54 +0000 didBecomeActive gameStarted=false immersive=false reopen=false windowActive=true
+[shell] 2026-11-02 00:40:54 +0000 launcher host appeared
+[shell] 2026-11-02 00:40:54 +0000 launch-test immersive flag active; opening in 5 s
+[shell] 2026-11-02 00:40:54 +0000 activity UIScene.didActivate appActive=true windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] scene(0) w0[hidden=false alpha=1.00 level=0.0]
+[shell] 2026-11-02 00:40:54 +0000 launcher host appeared
+[shell] 2026-11-02 00:40:57 +0000 activity UIScene.willDeactivate appActive=true windowSceneActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0] scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=10.0]
+[shell] 2026-11-02 00:40:59 +0000 launch-test: open requested appActive=true windowActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:41:01 +0000 launch-test attempt 1 openImmersiveSpace result=opened epoch=0 windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:41:01 +0000 immersive space opened generation=0; waiting for the first compositor frame before parking
+[shell] 2026-11-02 00:41:10 +0000 NO-FRAME: no compositor frame 8 s after open (reason=launch-test, windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]); dismissing and retrying once
+[shell] 2026-11-02 00:41:10 +0000 VRMCImmersiveEnded generation=1 current=1 windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:41:10 +0000 window restored windows=2 visible=true chrome=hidden-when-presenting state=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:41:10 +0000 immersive space dismissed epoch=1
+[shell] 2026-11-02 00:41:17 +0000 VRMCGameStarted received
+[shell] 2026-11-02 00:41:33 +0000 auto: open requested appActive=true windowActive=true windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:41:33 +0000 auto attempt 1 openImmersiveSpace result=opened epoch=1 windows=scene(0) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:41:33 +0000 immersive space opened generation=1; waiting for the first compositor frame before parking
+[shell] 2026-11-02 00:41:41 +0000 NO-FRAME: still no compositor frame after recovery (reason=auto); leaving the space open for logs
+[shell] 2026-11-02 00:41:57 +0000 VRMCCompositorRunning generation=2 immersive=true
+[shell] 2026-11-02 00:41:57 +0000 compositor presenting; hiding chrome + parking windows
+[shell] 2026-11-02 00:41:57 +0000 window parked windows=2 visible=false chrome=hidden-when-presenting state=scene(0) w0[hidden=true alpha=0.00 level=0.0] w1[hidden=true alpha=0.00 level=1.0]
+[shell] 2026-11-02 00:41:57 +0000 activity UIScene.willDeactivate appActive=true windowSceneActive=true windows=scene(0) w0[hidden=true alpha=0.00 level=0.0] w1[hidden=true alpha=0.00 level=1.0]
+[shell] 2026-11-02 00:41:57 +0000 willResignActive gameStarted=true immersive=true presenting=true windows=scene(2) w0[hidden=true alpha=0.00 level=0.0] w1[hidden=true alpha=0.00 level=1.0]
+[shell] 2026-11-02 00:41:57 +0000 didEnterBackground gameStarted=true immersive=true presenting=false windows=scene(2) w0[hidden=true alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 00:41:57 +0000 VRMCImmersiveEnded generation=2 current=2 windows=scene(2) w0[hidden=true alpha=0.00 level=0.0] w1[hidden=false alpha=0.00 level=1.0]
+[shell] 2026-11-02 00:41:57 +0000 window restored windows=2 visible=true chrome=hidden-when-presenting state=scene(2) w0[hidden=false alpha=1.00 level=0.0] w1[hidden=false alpha=1.00 level=1.0]
+[shell] 2026-11-02 00:41:59 +0000 immersive space dismissed epoch=4

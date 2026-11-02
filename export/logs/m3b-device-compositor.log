@@ -1,0 +1,280 @@
+[vrmc-comp] starting compositor thread
+[vrmc-comp] bridge resolved handle=0x39c0dc9d0 eye=0x13038c3a4 tracking=0x13038c448
+[vrmc-comp] ARKit session started
+[vrmc-comp] pipeline ready
+[vrmc-comp] frame 1 eyes=0 anchor=1 head=(0.00,1.28,0.00) p0=0x0 p1=0x0
+[vrmc-comp] frame 120 eyes=0 anchor=1 head=(-0.00,1.28,0.00) p0=0x0 p1=0x0
+[vrmc-comp] frame 240 eyes=0 anchor=1 head=(-0.03,1.27,0.01) p0=0x0 p1=0x0
+[vrmc-comp] frame 360 eyes=0 anchor=1 head=(0.02,1.27,0.00) p0=0x0 p1=0x0
+[vrmc-comp] frame 480 eyes=0 anchor=1 head=(0.01,1.26,-0.01) p0=0x0 p1=0x0
+[vrmc-comp] starting compositor thread
+[vrmc-comp] bridge resolved handle=0x39c0dc9d0 eye=0x11ef2c3a4 tracking=0x11ef2c448
+[vrmc-comp] ARKit session started
+[vrmc-comp] pipeline ready
+[vrmc-comp] frame 1 eyes=0 anchor=1 head=(-0.00,1.19,0.00) p0=0x0 p1=0x0
+[vrmc-comp] frame 120 eyes=0 anchor=1 head=(-0.01,1.17,-0.02) p0=0x0 p1=0x0
+[vrmc-comp] frame 240 eyes=0 anchor=1 head=(-0.01,1.18,-0.00) p0=0x0 p1=0x0
+[vrmc-comp] frame 360 eyes=0 anchor=1 head=(-0.01,1.18,0.01) p0=0x0 p1=0x0
+[vrmc-comp] frame 480 eyes=0 anchor=1 head=(-0.01,1.18,0.01) p0=0x0 p1=0x0
+[vrmc-comp] frame 600 eyes=0 anchor=1 head=(-0.01,1.18,0.01) p0=0x0 p1=0x0
+[vrmc-comp] frame 720 eyes=0 anchor=1 head=(-0.03,1.18,0.01) p0=0x0 p1=0x0
+[vrmc-comp] frame 840 eyes=0 anchor=1 head=(-0.04,1.17,0.01) p0=0x0 p1=0x0
+[vrmc-comp] frame 960 eyes=0 anchor=1 head=(-0.01,1.18,-0.01) p0=0x0 p1=0x0
+[vrmc-comp] frame 1080 eyes=0 anchor=1 head=(-0.01,1.18,-0.01) p0=0x0 p1=0x0
+[vrmc-comp] layer invalidated
+[vrmc-comp] starting compositor thread
+[vrmc-comp] bridge resolved handle=0x39c0e49a0 eye=0x7217eac3a4 tracking=0x7217eac448
+[vrmc-comp] ARKit session started
+[vrmc-comp] pipeline ready
+[vrmc-comp] samplingDisabled=0
+[vrmc-comp] frame 1 eyes=1 anchor=1 head=(-0.00,1.19,0.00) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 120 eyes=1 anchor=1 head=(-0.06,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 240 eyes=1 anchor=1 head=(-0.04,1.20,0.02) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 360 eyes=1 anchor=1 head=(-0.01,1.20,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 480 eyes=1 anchor=1 head=(-0.04,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 600 eyes=1 anchor=1 head=(-0.04,1.19,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 720 eyes=1 anchor=1 head=(-0.03,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 840 eyes=1 anchor=1 head=(-0.04,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 960 eyes=1 anchor=1 head=(-0.01,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1080 eyes=1 anchor=1 head=(-0.01,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1200 eyes=1 anchor=1 head=(-0.09,1.19,0.05) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1320 eyes=1 anchor=1 head=(-0.08,1.21,0.05) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1440 eyes=1 anchor=1 head=(0.03,1.19,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1560 eyes=1 anchor=1 head=(-0.03,1.19,0.02) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1680 eyes=1 anchor=1 head=(-0.03,1.19,0.02) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1800 eyes=1 anchor=1 head=(-0.02,1.18,0.01) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 1920 eyes=1 anchor=1 head=(-0.02,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2040 eyes=1 anchor=1 head=(-0.03,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2160 eyes=1 anchor=1 head=(-0.02,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2280 eyes=1 anchor=1 head=(-0.03,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2400 eyes=1 anchor=1 head=(-0.02,1.21,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2520 eyes=1 anchor=1 head=(-0.10,1.20,0.09) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2640 eyes=1 anchor=1 head=(0.02,1.21,0.05) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2760 eyes=1 anchor=1 head=(-0.04,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 2880 eyes=1 anchor=1 head=(-0.04,1.18,0.02) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3000 eyes=1 anchor=1 head=(-0.05,1.19,0.03) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3120 eyes=1 anchor=1 head=(-0.02,1.19,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3240 eyes=1 anchor=1 head=(-0.04,1.20,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3360 eyes=1 anchor=1 head=(-0.04,1.20,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3480 eyes=1 anchor=1 head=(-0.04,1.20,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3600 eyes=1 anchor=1 head=(-0.04,1.20,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3720 eyes=1 anchor=1 head=(-0.04,1.20,0.04) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3840 eyes=1 anchor=1 head=(-0.04,1.20,0.06) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 3960 eyes=1 anchor=1 head=(-0.07,1.20,0.06) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] frame 4080 eyes=1 anchor=1 head=(-0.04,1.18,0.01) p0=0x72219ca580 p1=0x72219ca300
+[vrmc-comp] layer left running state before endSubmission; exiting loop
+[vrmc-comp] starting compositor thread
+[vrmc-comp] bridge resolved handle=0x39c0e4990 eye=0x72217c83a4 tracking=0x72217c8448
+[vrmc-comp] ARKit session started
+[vrmc-comp] pipeline ready
+[vrmc-comp] samplingDisabled=0
+[vrmc-comp] frame 1 eyes=1 anchor=1 head=(0.00,1.19,-0.00) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 120 eyes=1 anchor=1 head=(0.01,1.19,0.00) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 240 eyes=1 anchor=1 head=(0.06,1.19,0.04) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 360 eyes=1 anchor=1 head=(0.00,1.22,0.10) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 480 eyes=1 anchor=1 head=(-0.01,1.14,-0.05) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 600 eyes=1 anchor=1 head=(-0.05,1.19,0.02) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 720 eyes=1 anchor=1 head=(0.01,1.19,-0.00) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 840 eyes=1 anchor=1 head=(-0.01,1.20,0.01) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 960 eyes=1 anchor=1 head=(0.03,1.19,0.01) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1080 eyes=1 anchor=1 head=(-0.03,1.21,0.03) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1200 eyes=1 anchor=1 head=(0.04,1.22,0.10) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1320 eyes=1 anchor=1 head=(0.05,1.21,0.07) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1440 eyes=1 anchor=1 head=(0.03,1.18,-0.01) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1560 eyes=1 anchor=1 head=(-0.01,1.18,-0.00) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1680 eyes=1 anchor=1 head=(-0.03,1.17,-0.00) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1800 eyes=1 anchor=1 head=(-0.00,1.17,0.00) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 1920 eyes=1 anchor=1 head=(0.04,1.16,-0.00) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 2040 eyes=1 anchor=1 head=(0.02,1.18,0.02) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 2160 eyes=1 anchor=1 head=(0.01,1.18,0.01) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 2280 eyes=1 anchor=1 head=(0.01,1.19,0.02) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 2400 eyes=1 anchor=1 head=(0.01,1.18,0.02) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 2520 eyes=1 anchor=1 head=(0.00,1.18,0.01) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 2640 eyes=1 anchor=1 head=(-0.00,1.18,0.01) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] frame 2760 eyes=1 anchor=1 head=(-0.00,1.18,0.02) p0=0x722e01a300 p1=0x722e01a080
+[vrmc-comp] starting compositor thread
+[vrmc-comp] bridge resolved handle=0x39c0e49b0 eye=0x72215183a4 tracking=0x7221518448
+[vrmc-comp] ARKit session started
+[vrmc-comp] pipeline ready
+[vrmc-comp] samplingDisabled=0
+[vrmc-comp] frame 1 eyes=1 anchor=1 head=(0.05,1.20,0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 120 eyes=1 anchor=1 head=(-0.02,1.21,0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 240 eyes=1 anchor=1 head=(-0.07,1.20,0.03) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 360 eyes=1 anchor=1 head=(-0.07,1.18,-0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 480 eyes=1 anchor=1 head=(-0.04,1.20,0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 600 eyes=1 anchor=1 head=(0.01,1.21,0.01) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 720 eyes=1 anchor=1 head=(0.01,1.20,0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 840 eyes=1 anchor=1 head=(-0.01,1.21,0.01) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 960 eyes=1 anchor=1 head=(-0.08,1.20,0.02) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1080 eyes=1 anchor=1 head=(-0.08,1.19,0.04) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1200 eyes=1 anchor=1 head=(-0.02,1.20,-0.01) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1320 eyes=1 anchor=1 head=(-0.00,1.20,-0.02) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1440 eyes=1 anchor=1 head=(-0.01,1.16,-0.30) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1560 eyes=1 anchor=1 head=(0.00,1.19,-0.01) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1680 eyes=1 anchor=1 head=(-0.00,1.20,-0.01) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1800 eyes=1 anchor=1 head=(-0.02,1.21,-0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 1920 eyes=1 anchor=1 head=(-0.02,1.23,0.08) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2040 eyes=1 anchor=1 head=(-0.08,1.16,-0.04) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2160 eyes=1 anchor=1 head=(0.04,1.17,-0.04) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2280 eyes=1 anchor=1 head=(-0.01,1.20,-0.03) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2400 eyes=1 anchor=1 head=(0.01,1.20,-0.03) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2520 eyes=1 anchor=1 head=(0.00,1.20,-0.02) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2640 eyes=1 anchor=1 head=(-0.01,1.20,-0.02) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2760 eyes=1 anchor=1 head=(0.00,1.20,-0.01) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 2880 eyes=1 anchor=1 head=(-0.02,1.20,-0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3000 eyes=1 anchor=1 head=(-0.03,1.20,-0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3120 eyes=1 anchor=1 head=(-0.03,1.20,0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3240 eyes=1 anchor=1 head=(-0.02,1.20,-0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3360 eyes=1 anchor=1 head=(-0.01,1.20,0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3480 eyes=1 anchor=1 head=(-0.03,1.20,0.00) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3600 eyes=1 anchor=1 head=(-0.01,1.20,0.01) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3720 eyes=1 anchor=1 head=(-0.02,1.19,-0.03) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] frame 3840 eyes=1 anchor=1 head=(-0.02,1.20,-0.02) p0=0x722c8ce580 p1=0x722c8ce300
+[vrmc-comp] stop/invalidation after timing wait; exiting without submission
+[vrmc-comp] posted VRMCImmersiveEnded
+[vrmc-comp] starting compositor thread
+[vrmc-comp] bridge resolved handle=0x39c0e49b0 eye=0x7217d783a4 tracking=0x7217d78448
+[vrmc-comp] ARKit session started
+[vrmc-comp] pipeline ready
+[vrmc-comp] samplingDisabled=0
+[vrmc-comp] frame 1 eyes=1 anchor=1 head=(0.02,1.19,-0.01) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 120 eyes=1 anchor=1 head=(-0.05,1.21,0.03) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 240 eyes=1 anchor=1 head=(-0.06,1.20,0.05) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 360 eyes=1 anchor=1 head=(-0.00,1.20,0.00) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 480 eyes=1 anchor=1 head=(0.00,1.22,0.02) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 600 eyes=1 anchor=1 head=(0.07,1.23,0.08) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 720 eyes=1 anchor=1 head=(0.02,1.21,-0.00) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 840 eyes=1 anchor=1 head=(0.01,1.21,0.00) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 960 eyes=1 anchor=1 head=(0.02,1.19,-0.01) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 1080 eyes=1 anchor=1 head=(0.01,1.21,0.00) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 1200 eyes=1 anchor=1 head=(-0.00,1.20,-0.01) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 1320 eyes=1 anchor=1 head=(0.01,1.20,-0.00) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 1440 eyes=1 anchor=1 head=(0.01,1.23,0.03) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] frame 1560 eyes=1 anchor=1 head=(0.00,1.22,0.02) p0=0x7220e46300 p1=0x7220e46080
+[vrmc-comp] stop/invalidation after timing wait; exiting without submission
+[vrmc-comp] posted VRMCImmersiveEnded
+[vrmc-comp] starting compositor thread
+[vrmc-comp] bridge resolved handle=0x39c0e4430 eye=0x11cc1c3a4 tracking=0x11cc1c448
+[vrmc-comp] ARKit session started
+[vrmc-comp] pipeline ready
+[vrmc-comp] samplingDisabled=0
+[vrmc-comp] frame 1 eyes=1 anchor=0 head=(0.00,0.00,0.00) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 120 eyes=1 anchor=1 head=(-0.01,1.17,0.01) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 240 eyes=1 anchor=1 head=(-0.01,1.16,0.00) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 360 eyes=1 anchor=1 head=(-0.01,1.16,0.01) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 480 eyes=1 anchor=1 head=(-0.03,1.17,0.03) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 600 eyes=1 anchor=1 head=(-0.02,1.16,0.00) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 720 eyes=1 anchor=1 head=(-0.03,1.16,-0.00) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 840 eyes=1 anchor=1 head=(-0.03,1.16,0.00) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 960 eyes=1 anchor=1 head=(-0.03,1.16,0.01) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 1080 eyes=1 anchor=1 head=(-0.03,1.16,0.01) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 1200 eyes=1 anchor=1 head=(-0.04,1.17,0.02) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 1320 eyes=1 anchor=1 head=(-0.01,1.16,0.00) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 1440 eyes=1 anchor=1 head=(-0.03,1.17,0.01) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 1560 eyes=1 anchor=1 head=(-0.02,1.17,0.02) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] frame 1680 eyes=1 anchor=1 head=(-0.02,1.17,0.02) p0=0x722b0b2300 p1=0x722b0b2080
+[vrmc-comp] stop/invalidation after timing wait; exiting without submission
+[vrmc-comp] posted VRMCImmersiveEnded
+[vrmc-comp] starting compositor thread (generation 1)
+[vrmc-comp] bridge resolved handle=0x39c0e46a0 eye=0x7221a003a4 tracking=0x7221a00448
+[vrmc-comp] ARKit session started (generation 1)
+[vrmc-comp] pipeline ready
+[vrmc-comp] samplingDisabled=0
+[vrmc-comp] view 0 (left) tangents l/r/d/u=(-1.732,1.000,-1.192,1.000) pos=(-0.0349,-0.0272,0.0045) fwd=(0.001,0.014,-1.000)
+[vrmc-comp] view 1 (right) tangents l/r/d/u=(-1.000,1.732,-1.192,1.000) pos=(0.0300,-0.0251,0.0025) fwd=(0.003,0.016,-1.000)
+[vrmc-comp] provider eye tangents L=(-1.428,1.428,-1.428,1.428) R=(-1.428,1.428,-1.428,1.428) ipd=0.0650
+[vrmc-comp] frame 1 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(-0.00,1.18,-0.00) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 120 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(-0.01,1.18,-0.01) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 240 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.03,1.16,-0.03) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 360 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.06,1.18,-0.05) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 480 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.02,1.19,0.05) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 600 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(-0.00,1.18,0.00) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 720 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.01,1.17,-0.02) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 840 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.06,1.18,-0.05) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 960 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.05,1.20,-0.03) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 1080 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(-0.02,1.18,-0.01) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 1200 eyes=1 anchor=1 leftView=0 ipd=0.0651 head=(0.05,1.18,-0.06) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 1320 eyes=1 anchor=1 leftView=0 ipd=0.0651 head=(0.07,1.18,-0.08) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 1440 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.05,1.18,-0.02) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 1560 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.04,1.15,-0.05) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] frame 1680 eyes=1 anchor=1 leftView=0 ipd=0.0650 head=(0.06,1.17,-0.05) p0=0x722d0b2580 p1=0x722d0b2300
+[vrmc-comp] stop/invalidation after timing wait; exiting without submission
+[vrmc-comp] posted VRMCImmersiveEnded (generation 1)
+[vrmc-comp] starting compositor thread (generation 2)
+[vrmc-comp] ARKit session started (generation 2)
+[vrmc-comp] pipeline ready
+[vrmc-comp] layer invalidated
+[vrmc-comp] posted VRMCImmersiveEnded (generation 2)
+[vrmc-comp] starting compositor thread (generation 1)
+[vrmc-comp] bridge resolved handle=0x39c0e4900 eye=0x11975c338 tracking=0x11975c3f0
+[vrmc-comp] ARKit session started (generation 1)
+[vrmc-comp] samplingDisabled=0
+[vrmc-comp] diagnostics: reprojMode=0 (0=auto 1=forced 2=flat) debugShading=0 samplingDisabled=0
+[vrmc-comp] layer configuration colorFormat=115 depthFormat=252
+[vrmc-comp] pipeline ready reproj=1 flat=1 test=1
+[vrmc-comp] stop requested before frame; exiting loop
+[vrmc-comp] posted VRMCImmersiveEnded (generation 1)
+[vrmc-comp] 14:33:21.365 starting compositor thread (generation 1)
+[vrmc-comp] 14:33:21.367 bridge resolved handle=0x8ec4a600 eye=0x17259c338 tracking=0x17259c3f0
+[vrmc-comp] 14:33:21.368 ARKit session started (generation 1)
+[vrmc-comp] 14:33:21.368 wait_until_running: entering (layer state=1)
+[vrmc-comp] 14:33:29.525 wait_until_running: returned (layer state=3)
+[vrmc-comp] 14:33:29.527 samplingDisabled=0
+[vrmc-comp] 14:33:29.527 diagnostics: reprojMode=0 (0=auto 1=forced 2=flat) debugShading=0 samplingDisabled=0
+[vrmc-comp] 14:33:29.527 layer configuration colorFormat=115 depthFormat=252
+[vrmc-comp] 14:33:29.528 pipeline ready reproj=1 flat=1 test=1
+[vrmc-comp] 14:33:29.528 layer invalidated
+[vrmc-comp] 14:33:29.528 posted VRMCImmersiveEnded (generation 1)
+[vrmc-comp] 14:41:01.963 starting compositor thread (generation 1)
+[vrmc-comp] 14:41:01.964 bridge resolved handle=0x39c0d9e50 eye=0x11afe4338 tracking=0x11afe43f0
+[vrmc-comp] 14:41:01.965 ARKit session started (generation 1)
+[vrmc-comp] 14:41:01.965 wait_until_running: entering (layer state=1)
+[vrmc-comp] 14:41:10.133 wait_until_running: returned (layer state=3)
+[vrmc-comp] 14:41:10.134 samplingDisabled=0
+[vrmc-comp] 14:41:10.134 diagnostics: reprojMode=0 (0=auto 1=forced 2=flat) debugShading=0 samplingDisabled=0
+[vrmc-comp] 14:41:10.134 layer configuration colorFormat=115 depthFormat=252
+[vrmc-comp] 14:41:10.135 pipeline ready reproj=1 flat=1 test=1
+[vrmc-comp] 14:41:10.135 layer invalidated
+[vrmc-comp] 14:41:10.135 posted VRMCImmersiveEnded (generation 1)
+[vrmc-comp] 14:41:33.630 starting compositor thread (generation 2)
+[vrmc-comp] 14:41:33.640 ARKit session started (generation 2)
+[vrmc-comp] 14:41:33.640 wait_until_running: entering (layer state=1)
+[vrmc-comp] 14:41:57.591 wait_until_running: returned (layer state=2)
+[vrmc-comp] 14:41:57.592 diagnostics: reprojMode=0 (0=auto 1=forced 2=flat) debugShading=0 samplingDisabled=0
+[vrmc-comp] 14:41:57.592 layer configuration colorFormat=115 depthFormat=252
+[vrmc-comp] 14:41:57.592 pipeline ready reproj=1 flat=1 test=1
+[vrmc-comp] 14:41:57.601 drawable: colorFormat=115 views=2
+[vrmc-comp] 14:41:57.601 viewToDevice col0=(1.0000,-0.0007,0.0008,0.0000) col1=(0.0007,0.9999,0.0142,-0.0000)
+[vrmc-comp] 14:41:57.601 viewToDevice col2=(-0.0008,-0.0142,0.9999,-0.0000) col3=(-0.0318,-0.0253,-0.0519,1.0000)
+[vrmc-comp] 14:41:57.601 projection col0=(0.7143,0.0000,0.0000,0.0001) col1=(0.0000,0.8904,0.0000,0.0001)
+[vrmc-comp] 14:41:57.601 projection col2=(-0.2699,-0.0901,0.0000,-1.0001) col3=(0.0000,0.0000,0.0976,0.0000)
+[vrmc-comp] 14:41:57.602 view 0 (left) texIndex=0 viewport=(0,0,1888,1792) tangents l/r/d/u=(-1.777,1.022,-1.224,1.022) pos=(-0.0318,-0.0253,-0.0519) fwd=(0.001,0.014,-1.000)
+[vrmc-comp] 14:41:57.602 viewToDevice col0=(1.0000,-0.0008,0.0030,0.0000) col1=(0.0007,0.9999,0.0155,-0.0000)
+[vrmc-comp] 14:41:57.602 viewToDevice col2=(-0.0030,-0.0155,0.9999,-0.0000) col3=(0.0319,-0.0253,-0.0518,1.0000)
+[vrmc-comp] 14:41:57.602 projection col0=(0.7153,0.0000,0.0000,-0.0001) col1=(0.0000,0.8917,0.0000,-0.0001)
+[vrmc-comp] 14:41:57.602 projection col2=(0.2673,-0.0849,0.0000,-1.0000) col3=(0.0000,0.0000,0.0977,0.0000)
+[vrmc-comp] 14:41:57.602 view 1 (right) texIndex=1 viewport=(0,0,1888,1792) tangents l/r/d/u=(-1.025,1.771,-1.217,1.026) pos=(0.0319,-0.0253,-0.0518) fwd=(0.003,0.016,-1.000)
+[vrmc-comp] 14:41:57.602 provider eye tangents L=(-1.428,1.428,-1.428,1.428) R=(-1.428,1.428,-1.428,1.428) ipd=0.0637 haveEyes=1
+[vrmc-comp] 14:41:57.602 diag view 0 (left): center d=(-0.074,-0.017,-0.195) finite=1 behind=0 t=(-0.376,-0.087) uv=(0.368,0.530) inside=1
+[vrmc-comp] 14:41:57.602 diag view 0 corner 0 ndc=(-1,-1) finite=1 behind=0 uv=(-0.111,0.915) inside=0
+[vrmc-comp] 14:41:57.602 diag view 0 corner 1 ndc=(1,-1) finite=1 behind=0 uv=(0.852,0.917) inside=1
+[vrmc-comp] 14:41:57.602 diag view 0 corner 2 ndc=(-1,1) finite=1 behind=0 uv=(-0.130,0.132) inside=0
+[vrmc-comp] 14:41:57.602 diag view 0 corner 3 ndc=(1,1) finite=1 behind=0 uv=(0.864,0.132) inside=1
+[vrmc-comp] 14:41:57.602 diag view 0 coverage 9x9: inside=68/81 behind=0/81 nonFinite=0/81 maxUvExcess=0.130
+[vrmc-comp] 14:41:57.602 diag view 1 (right): center d=(0.074,-0.016,-0.195) finite=1 behind=0 t=(0.376,-0.080) uv=(0.632,0.528) inside=1
+[vrmc-comp] 14:41:57.602 diag view 1 corner 0 ndc=(-1,-1) finite=1 behind=0 uv=(0.150,0.911) inside=1
+[vrmc-comp] 14:41:57.602 diag view 1 corner 1 ndc=(1,-1) finite=1 behind=0 uv=(1.113,0.915) inside=0
+[vrmc-comp] 14:41:57.602 diag view 1 corner 2 ndc=(-1,1) finite=1 behind=0 uv=(0.138,0.130) inside=1
+[vrmc-comp] 14:41:57.602 diag view 1 corner 3 ndc=(1,1) finite=1 behind=0 uv=(1.135,0.128) inside=0
+[vrmc-comp] 14:41:57.602 diag view 1 coverage 9x9: inside=67/81 behind=0/81 nonFinite=0/81 maxUvExcess=0.135
+[vrmc-comp] 14:41:57.602 shading mode=reprojection (auto)
+[vrmc-comp] 14:41:57.602 posted VRMCCompositorRunning (generation 2)
+[vrmc-comp] 14:41:57.602 frame 1 eyes=1 anchor=0 leftView=0 ipd=0.0637 mode=reproj head=(0.00,0.00,0.00) p0=0x72383a2580 p1=0x72383a2300
+[vrmc-comp] 14:41:57.605 provider tex L L: mean=(83.0,108.0,51.0) alpha=255.0 max=(83,108,51) nonBlack=1024/1024 luma=80.67 frame=0
+[vrmc-comp] 14:41:57.605 provider tex R R: mean=(78.1,100.7,47.9) alpha=255.0 max=(83,108,51) nonBlack=1024/1024 luma=75.58 frame=0
+[vrmc-comp] 14:41:57.608 frame 0 command buffer completed (first)
+[vrmc-comp] 14:41:57.612 provider eye textures L=0x72383a2580 fmt=70 1024x1024 R=0x72383a2300 fmt=70 1024x1024
+[vrmc-comp] 14:41:57.613 provider tex L L: mean=(83.0,108.0,51.0) alpha=255.0 max=(83,108,51) nonBlack=1024/1024 luma=80.67 frame=1
+[vrmc-comp] 14:41:57.613 provider tex R R: mean=(78.1,100.7,47.9) alpha=255.0 max=(83,108,51) nonBlack=1024/1024 luma=75.58 frame=1
+[vrmc-comp] 14:41:57.700 stop/invalidation after timing wait; exiting without submission
+[vrmc-comp] 14:41:57.701 posted VRMCImmersiveEnded (generation 2)

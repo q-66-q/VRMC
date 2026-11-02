@@ -154,3 +154,24 @@ See docs/mvp/M3_PLAN.md §17 and export/logs/m3b-* for the full build/stage log 
 - evidence/EV-0086.md, logs/*fixes-run.log, evidence/EV-0083/84/85.md — earlier device evidence.
 - export/patches/vrmc-m3w3-modal-game-surface.patch — the Amethyst modal game-surface patch.
 - export/VRMC-immersive-integration-blocker-2026-11-01.zip — this dossier (updated for M3b).
+
+
+## Alignment fix staged (EV-0088) + recovered M3b device logs (EV-0089)
+
+After the macstream reference analysis (VERIFY.md Phase 8 root causes 3+4: eye matrices must be
+head-relative, and the provider must use the client's asymmetric per-eye FOV with cached-projection
+invalidation), VRMC now has a display-view channel:
+
+- compositor publishes `cp_view_get_tangents` + `cp_view_get_transform` + measured IPD to the bridge,
+- provider renders the display frustum and sets head-relative eye matrices, invalidating cached
+  projections (NaN farClip, as macstream 43981c8),
+- compositor uses flat 1:1 eye-texture mapping once views are published (EV-0086 black reprojection
+  branch bypassed).
+
+Offline: `scripts/test_display_views.sh` PASS (lopsided device views + symmetric fallback), bridge stub
+display-view roundtrip PASS, provider compiles; app/bridge/provider built+installed (device run pending).
+
+A recovered M3b device session log (14:41 local) shows the provider eye textures were **valid non-black
+content** (L mean RGB 83/108/51, R 78/100/48; 1024/1024 non-black, alpha 255), the first command buffer
+completed, and chrome/windows were parked/hidden; the session backgrounded before a visual alignment
+check. So EV-0086's black screen was compositor reprojection/presentation, not provider content.
