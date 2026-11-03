@@ -1,7 +1,7 @@
 # M7 — Simplified gesture set + Gesture Lab data collector
 
-Status: design + companion app built/installed on D1 (2026-11-02); first accepted dataset: MENU_RIGHT_PINCH
-(31.23 s, 563 samples, 42 pinch events; EV-0213). This milestone replaces the M4 per-finger
+Status: **all 14 action datasets accepted from the Gesture Lab (2026-11-02, EV-0213…EV-0227)**. Next:
+implement the production M7 gesture engine behind a mode switch with host tests, then device A/B. This milestone replaces the M4 per-finger
 micro-gesture layer with the operator's preferred, whole-hand scheme. Every threshold below is a
 starting point to be tuned from Gesture Lab recordings; none is device-verified yet.
 
@@ -201,3 +201,11 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   flick: wrist max 0.65 m/s, right index-tip speed p95/p99 1.28/2.66 m/s, acceleration p95 20.8 (max
   62.6); **22 index-finger tap events 0.05–0.22 s**. Rule: quick right index-fingertip tap selects the
   next hotbar slot, double tap cycles back; suppress while walking/bow/GUI.
+
+
+## 12. Dataset collection complete (2026-11-02)
+
+All 14 intended actions have accepted labelled data. See
+`export/gesturelab-data/accepted/README.md` for the consolidated table and starting thresholds. The
+collected distributions are provisional: in-game A/B (and a second pass for sneak transitions) is still
+required after the M7 engine lands.
