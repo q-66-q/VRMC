@@ -1,0 +1,317 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		47E4762D653A6FF31D98BDF0 /* LabMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD09F2E3EE7C9404F1FA733 /* LabMotion.swift */; };
+		74AE3D9A039B52DB358D58D9 /* LabModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7386766C4792A0FEFC059CB0 /* LabModel.swift */; };
+		AE5DBA8465EB5CD247A5B75A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC6661B61BF8F16AC885883E /* ContentView.swift */; };
+		C0ADECC7DD2F597CB0EF908A /* ImmersiveLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B74EC1DFDCCE456E21D7C39 /* ImmersiveLabView.swift */; };
+		FBA0137B06459978F3D4F831 /* GestureLabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7761C1F95601B1D3CC38C4 /* GestureLabApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0B74EC1DFDCCE456E21D7C39 /* ImmersiveLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersiveLabView.swift; sourceTree = "<group>"; };
+		1AD09F2E3EE7C9404F1FA733 /* LabMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabMotion.swift; sourceTree = "<group>"; };
+		4D7761C1F95601B1D3CC38C4 /* GestureLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureLabApp.swift; sourceTree = "<group>"; };
+		7386766C4792A0FEFC059CB0 /* LabModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabModel.swift; sourceTree = "<group>"; };
+		B682554EAFD08D59EF6B938F /* VRMCGestureLab.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VRMCGestureLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BC6661B61BF8F16AC885883E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1AE4FD62816F9D209606F4AC /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B682554EAFD08D59EF6B938F /* VRMCGestureLab.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		969FF329DAB17DC758779393 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BC6661B61BF8F16AC885883E /* ContentView.swift */,
+				4D7761C1F95601B1D3CC38C4 /* GestureLabApp.swift */,
+				0B74EC1DFDCCE456E21D7C39 /* ImmersiveLabView.swift */,
+				7386766C4792A0FEFC059CB0 /* LabModel.swift */,
+				1AD09F2E3EE7C9404F1FA733 /* LabMotion.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A3945CDF29901BF36332B381 = {
+			isa = PBXGroup;
+			children = (
+				969FF329DAB17DC758779393 /* Sources */,
+				1AE4FD62816F9D209606F4AC /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		76C722F25E0BB4C4B649CC1B /* VRMCGestureLab */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7443DD346531136F34B5CAD9 /* Build configuration list for PBXNativeTarget "VRMCGestureLab" */;
+			buildPhases = (
+				6924C823D44ADD4E5617817C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VRMCGestureLab;
+			packageProductDependencies = (
+			);
+			productName = VRMCGestureLab;
+			productReference = B682554EAFD08D59EF6B938F /* VRMCGestureLab.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7583BA4AEEC9D1329CEAD3D7 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					76C722F25E0BB4C4B649CC1B = {
+						DevelopmentTeam = "${VRMC_TEAM_ID}";
+					};
+				};
+			};
+			buildConfigurationList = 7E0C2592C02336F44E9B4139 /* Build configuration list for PBXProject "VRMCGestureLab" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A3945CDF29901BF36332B381;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 1AE4FD62816F9D209606F4AC /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				76C722F25E0BB4C4B649CC1B /* VRMCGestureLab */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6924C823D44ADD4E5617817C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE5DBA8465EB5CD247A5B75A /* ContentView.swift in Sources */,
+				FBA0137B06459978F3D4F831 /* GestureLabApp.swift in Sources */,
+				C0ADECC7DD2F597CB0EF908A /* ImmersiveLabView.swift in Sources */,
+				74AE3D9A039B52DB358D58D9 /* LabModel.swift in Sources */,
+				47E4762D653A6FF31D98BDF0 /* LabMotion.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		11FB9533618A86BE72D47D7D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "${VRMC_TEAM_ID}";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vrmc.s2probe;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
+		147EF3B28059D17A96313137 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "${VRMC_TEAM_ID}";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vrmc.s2probe;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		18BB8295E6CA142AB0D16F03 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "VRMC Gesture Lab";
+				INFOPLIST_KEY_NSHandsTrackingUsageDescription = "VRMC Gesture Lab records hand-joint motion to tune VR gestures.";
+				INFOPLIST_KEY_NSWorldSensingUsageDescription = "VRMC Gesture Lab uses head tracking to label hand motion relative to the headset.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = xros;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Debug;
+		};
+		7701837CA7EA6A93DB527489 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "VRMC Gesture Lab";
+				INFOPLIST_KEY_NSHandsTrackingUsageDescription = "VRMC Gesture Lab records hand-joint motion to tune VR gestures.";
+				INFOPLIST_KEY_NSWorldSensingUsageDescription = "VRMC Gesture Lab uses head tracking to label hand motion relative to the headset.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = xros;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7443DD346531136F34B5CAD9 /* Build configuration list for PBXNativeTarget "VRMCGestureLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18BB8295E6CA142AB0D16F03 /* Debug */,
+				7701837CA7EA6A93DB527489 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7E0C2592C02336F44E9B4139 /* Build configuration list for PBXProject "VRMCGestureLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				147EF3B28059D17A96313137 /* Debug */,
+				11FB9533618A86BE72D47D7D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7583BA4AEEC9D1329CEAD3D7 /* Project object */;
+}

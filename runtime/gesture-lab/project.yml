@@ -1,0 +1,28 @@
+name: VRMCGestureLab
+options:
+  bundleIdPrefix: dev.vrmc
+  deploymentTarget:
+    visionOS: "27.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
+    CODE_SIGNING_ALLOWED: NO
+    PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.s2probe
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "7"
+    SUPPORTS_MACCATALYST: NO
+targets:
+  VRMCGestureLab:
+    type: application
+    platform: visionOS
+    sources:
+      - Sources
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "VRMC Gesture Lab"
+        INFOPLIST_KEY_NSHandsTrackingUsageDescription: "VRMC Gesture Lab records hand-joint motion to tune VR gestures."
+        INFOPLIST_KEY_NSWorldSensingUsageDescription: "VRMC Gesture Lab uses head tracking to label hand motion relative to the headset."
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"

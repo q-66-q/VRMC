@@ -1,0 +1,113 @@
+# M7 — Simplified gesture set + Gesture Lab data collector
+
+Status: design + companion app built/installed on D1 (2026-11-02); awaiting labelled recordings. This milestone replaces the M4 per-finger
+micro-gesture layer with the operator's preferred, whole-hand scheme. Every threshold below is a
+starting point to be tuned from Gesture Lab recordings; none is device-verified yet.
+
+## 1. Operator intent, made precise
+
+| # | Action | Intended gesture | Notes / conflicts resolved |
+|---|---|---|---|
+| 1 | Menu / UI click | System eye hover highlights; **right pinch** activates | Raw eye gaze is not exposed to third-party apps. Native SwiftUI menus get system gaze hover. In-game Minecraft GUI (a texture) cannot: see §3. |
+| 2 | Escape | **left fist tap** | No close gesture; Escape/back lives in Options. |
+| 3 | Walk / run | **both fists, alternating arm swing** (walking-in-place motion) | Forward only; turning by body/head. Short both-fist taps remain inventory. Suppresses attack/use while active. |
+| 4 | Jump | **physical head rise** (or auto-jump for one block) | Auto-jump enabled by default. Head-rise detector has hysteresis; seated fallback remains. |
+| 5 | Sneak | **physical head lowering** (sustained) | Seated fallback remains; sneaking by looking down must NOT trigger. |
+| 6 | Teleport | **left pinch hold → aim → release to commit** | Release commits; opening hand / losing tracking cancels. |
+| 7 | Attack | **right-hand swing** | No pinch needed. Suppressed while walking, bow drawing, eating, or GUI open. |
+| 8 | Eat / drink | **right hand close to head** while holding food/drink | Hold near head to continue; release/away stops. Suppressed while bow drawing. |
+| 9 | Bow | **both fists, one hand front, other back; draw back hand back; release back fist** | Context override: if a bow is held, both fists mean bow, not walk. |
+| 10 | Place block | **right pinch** at gaze/head target while holding a block | Right pinch is "use/place" in world; attack is the swing. |
+| 11 | Inventory | **both fists tap**; gaze/head highlight; **right pinch hold** grabs, release places | Drag semantics use pinch press/release, not click. |
+| 12 | Hotbar | **right-hand tap** selects next slot; double-tap previous | Kept deliberately simple; direct 1–9 wheel remains available as fallback. |
+| 13 | Climbing | **alternating hand reach up + grab + pull**, release and repeat | Detection is alternating vertical hand motion while a climbable is in reach; maps to climb actions; release on open hand. |
+| 14 | Visible hands | simple 3D hand + finger geometry driven by 27 ARKit joints | Lab shows the model first; in-game overlay/renderer is a separate step. |
+
+## 2. Why the original description needed editing
+
+- **Eye tracking is private.** visionOS apps cannot read continuous gaze. `SpatialEventGesture` and
+  `HoverEffect` give system-managed gaze hover only for SwiftUI/native controls; a rendered Minecraft
+  GUI cannot know which pixel the eyes are on. The practical game-GUI implementation is a **head/eye-ray
+  reticle** (head ray is available from `DeviceAnchor`) that highlights the Minecraft control under it.
+  True eye hover remains native-UI only. This must be accepted or the GUI must be re-implemented natively.
+- **Both-fist walking conflicts** with both-fist inventory, both-fist bow, right-fist use, and both-fist
+  climbing. Resolve by context + timing: tap (<250 ms, little motion) = inventory; sustained alternating
+  swing = walk; bow in hand = bow; climbable in reach = climb.
+- **Head-rise jump / head-lower sneak** can false-trigger from looking up/down or from recentering.
+  Use vertical displacement relative to a slowly adapting baseline + velocity, with hysteresis and a
+  "sitting/lying" fallback. Do not map pitch to jump/sneak.
+- **"Right hand tap to select items"** is underspecified for a hotbar that is fixed to the HUD. Chosen
+  interpretation: a quick right-wrist tap cycles the hotbar (single next, double previous). If the
+  operator meant tapping a world-space hotbar item, that needs a follow-up design.
+- **Climbing with alternating arms** needs a climb action held while the hand is closed/gripping; the
+  existing Vivecraft climb action expects grab enable/disable. Drive it per-hand from grip above head
+  plus alternating pull, and release when the hand opens.
+- **Inventory "right hand hold"** conflicts with right-fist use only outside the GUI; inside the GUI,
+  right-pinch press/hold/release is the drag, and world actions are disabled.
+
+## 3. Game-GUI gaze policy
+
+1. Native menus (launcher, native overlays): use system gaze hover + right pinch; no custom gaze data.
+2. Minecraft GUI: draw a **head-ray reticle** from the HMD forward axis; right pinch activates the
+   highlighted slot; inventory drag = right pinch press/hold/release. This is head-aimed, not eye-aimed.
+3. If the operator rejects head-aim for the GUI, the only true-eye option is replacing that GUI with a
+   native SwiftUI/RealityKit UI — a much larger, separate milestone.
+
+## 4. Gesture state machine (priority high → low)
+
+1. GUI open: reticle + right pinch/drag; no locomotion/attack.
+2. Bow held + both fists + front/back hand separation: bow draw/release.
+3. Climbable in reach + alternating reach/pull: climb grab/release.
+4. Both fists sustained alternating swing: walk/run (forward); suppress attack/use.
+5. Right hand near head + edible/drinkable held: eat/drink.
+6. Right-hand swing velocity/acceleration above threshold: attack.
+7. Left pinch hold: teleport aim; release commits.
+8. Right pinch: place block/interact at reticle.
+9. Right-wrist tap: hotbar next/previous.
+10. Both-fist tap: inventory.
+11. Left-fist tap: Escape.
+12. Idle: release all.
+
+Every digital source has a release path on tracking loss, GUI close, mode change, and game stop.
+Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exit uses hold timers.
+
+## 5. Feature definitions for the lab/classifier
+
+- **Pinch distance:** `|thumbTip - indexTip|`; pinch on < 0.030 m, off > 0.045 m (starting values).
+- **Fist curl:** mean fingertip distance to palm center, normalized by hand scale (wrist→middle knuckle).
+  Fist if ratio < 0.55; open if > 0.75.
+- **Wrist swing:** per-hand wrist position relative to head, in head-yaw frame; low-pass at 6 Hz;
+  walking = opposite-phase z/x swing, amplitude > 0.04 m, period 0.5–2.0 s, both fists held.
+- **Right swing attack:** wrist speed > 1.4 m/s or acceleration peak > 8 m/s², followed by direction
+  reversal; not a fist, not near head.
+- **Head jump:** head y baseline EMA (τ≈2 s), jump if `y - baseline > 0.08 m` with upward velocity
+  > 0.25 m/s; landing clearance for 300 ms.
+- **Head sneak:** `baseline - y > 0.10 m` sustained 350 ms; exit when < 0.05 m for 250 ms.
+- **Eat/drink:** right wrist within 0.28 m of head anchor and held item is edible; hold 250 ms to latch.
+- **Bow:** both fists; front/back wrist separation along the hand-forward axis > 0.25 m; draw = increase
+  separation; release when back fist opens.
+- **Climb:** closed hand above head by >0.05 m while a climbable is within reach; alternating hand
+  vertical movement; release when hand opens or drops below chest.
+- **Hotbar tap:** right wrist vertical velocity spike >0.5 m/s and return within 250 ms.
+
+## 6. Gesture Lab app (separate visionOS app)
+
+- Bundle id `dev.vrmc.s2probe` (existing profile), installed alongside VRMC.
+- SwiftUI window + immersive `RealityView`; 27-joint hand skeleton (spheres + bones) for left/right,
+  plus head marker; records:
+  - timestamp, current label, hand joint names/transforms (anchor space), head transform,
+  - derived features (pinch, fist curl, wrist velocities, classification),
+  - JSONL in the app's Documents, throttled to ~30 Hz; pull via devicectl.
+- Manual label buttons + guided capture sequence; live deterministic classifier output so actions can
+  be distinguished while recording.
+- It is deliberately a data/label tool, not the production input path. Production changes land in the
+  provider only after the recordings establish thresholds.
+- Built app bundle: `dev.vrmc.s2probe` (signed manually; free-profile slot freed by temporarily
+  removing SideStore; SideInstaller remains). Source: `runtime/gesture-lab/`.
+
+## 7. Acceptance for M7
+
+- Lab installs/launches, tracks both hands, renders fingers, records and exports labeled JSONL.
+- Recordings cover 10 repetitions of each action for each operator; thresholds fitted and documented.
+- Provider state machine implements §4 with host tests and device A/B against the old scheme.
+- Device evidence for each mapping, plus no stuck input across 30 min of mixed actions.
