@@ -340,7 +340,7 @@ public class VisionVR extends MCVR {
                 : Math.max(0.0F, Math.min(1.0F, this.dh.bowTracker.getDrawPercent())),
             this.dh.vrPlayer != null && this.dh.climbTracker != null
                 && this.dh.climbTracker.isGrabbingLadder(),
-            this.dh.vrPlayer != null && this.dh.climbTracker != null
+            this.dh.vrPlayer != null && this.dh.climbTracker != null && this.mc.player != null
                 && this.dh.climbTracker.isClimbeyClimb(),
             this.dh.vrPlayer != null && this.dh.climbTracker != null && this.mc.player != null
                 && this.dh.climbTracker.isActive(this.mc.player),

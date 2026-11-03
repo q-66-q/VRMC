@@ -330,6 +330,13 @@ the M3 eye-texture lifetime/teardown race — add a clean-shutdown step to the d
 - Removed the init-time status write (auto status now happens on the first update after init) and guarded
   bow/climb fields with `dh.vrPlayer != null`. Provider pushed + device integrity PASS; relaunch required.
 
+## 7c. Device-found first-update NPE (2026-11-02, EV-0211)
+
+- After EV-0210, device init succeeds (renderer/eye targets/tracking/input/bindings OK). First poll
+  auto-status write crashed with `ClimbTracker.isClimbeyClimb` dereferencing null `mc.player`.
+- Added `mc.player != null` guard for that field (other player-dependent fields already guarded).
+  Provider pushed + device integrity PASS; relaunch required.
+
 ## 7. W2+ backlog (unchanged milestone content)
 
 - Locomotion: free-move virtual stick / snap turn, teleport comfort defaults, gaze-aim mode
