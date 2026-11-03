@@ -1,13 +1,13 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-02 (host time)
-source commit: pending M7 engine commit (regenerate from a clean commit for release)
+source commit: M7 pre-A/B review (regenerate from a clean release commit)
 app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
 app path at staging: /tmp/VRMC-native-checklist-summary.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: 367aa78a0fd8c69530177bfa721a678c5a829156e6e2a2e9e56e6c92842aebec
-provider bytes: 108325
-gesture mode default: m7 (fallback gesture.mode=m4)
+provider jar sha256: 1c75ae86635243e5844a15f3327378f540f45a18b2c595e122448cb86ceddb33
+provider bytes: 108379
+gesture mode: device tune currently set to m4 for rollback test (M7 is default when the tune file is absent)
 device install: app unchanged (D1)
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)

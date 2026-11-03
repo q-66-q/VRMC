@@ -59,3 +59,17 @@ unlock required. Behavior evidence still comes from the operator notes + this bu
 
 Record as a new VERIFY entry (`EV-…`) with `PASS`/`PARTIAL`, limitations, and artifacts; never claim
 device PASS from simulator/host data.
+
+## M7 device A/B companion checks (pre-M5 acceptance)
+
+Record these alongside H1–H10:
+
+1. **Rollback:** set `gesture.mode=m4` in `vrmc-input-tune.properties`, Reload input, confirm old M4
+   mapping is playable; restore `gesture.mode=m7` and reload.
+2. **GUI click accuracy:** open inventory/chest/crafting; right-pinch clicks must land on the intended
+   slot; record mis-clicks and whether drag-and-hold is needed. No M7 reticle exists yet.
+3. **Seated comfort:** seated mode + head turn + forward movement; note sideways-walk discomfort. If
+   present, snap turn becomes required before M6 and the seated-mode scope must be resolved.
+4. **Climb false triggers:** hands hanging naturally / holding items / reaching above head; record
+   false grab/climb triggers from the current fist-height heuristic.
+5. **Sneak transitions:** record a second transition-heavy sneak pass before final M7 tuning.

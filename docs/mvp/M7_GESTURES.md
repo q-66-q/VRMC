@@ -209,3 +209,22 @@ All 14 intended actions have accepted labelled data. See
 `export/gesturelab-data/accepted/README.md` for the consolidated table and starting thresholds. The
 collected distributions are provisional: in-game A/B (and a second pass for sneak transitions) is still
 required after the M7 engine lands.
+
+
+## 13. GUI degradation (recorded before device A/B)
+
+- **Current state:** the rendered Minecraft GUI receives the M7 **right-pinch click** only. There is no
+  custom visual reticle and no drag-and-hold inventory gesture from M7. Native SwiftUI UI (launcher,
+  system controls) still gets system gaze hover; a Minecraft GUI rendered into a texture cannot.
+- **M5 device-run verification points:** inventory click accuracy (does the right-pinch click land on the
+  intended slot?), whether drag-and-hold is actually needed for inventory transfer, and whether the
+  missing reticle causes mis-selection.
+- **Backlog:** a head-ray reticle (and, if needed, pinch-drag mapping) is M5/M6 polish. It does **not**
+  block M7 device A/B; M7 should be judged on the core actions first.
+
+## 14. Climb heuristic placeholder
+
+- M7 climb currently treats a closed hand above the chest/head as a grab candidate and alternating
+  reach/pull cycles as climbing; it has **no in-game context** for "climbable is in reach".
+- M5 device run must observe false-trigger rate while hands hang naturally, hold items, or reach above
+  the head for other reasons. Expect false triggers; context gating is a follow-up.

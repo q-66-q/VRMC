@@ -217,20 +217,21 @@ public final class VisionM7Gesture {
         if (both && !this.bothFistPrev) {
             // started above
         }
-        // Bow fire: release the back/right fist while the hands were wide apart.
-        // (bow was active on the previous frame is approximated by previous both+separation)
-        // We keep a small state bit below; simplest: fire on transition from bow to not-bow with both
-        // still tracked and right fist opening.
-        if (this.bowActivePrev && !bow && !gui && nowNs - this.bowFireUntilNs > 250_000_000L) {
+        // Use the *previous* mode state for both the bow-fire edge and inventory suppression: by the
+        // time the inventory release is evaluated, bow/climb may already have ended this frame.
+        boolean wasBow = this.bowActivePrev;
+        boolean wasClimb = this.climbActivePrev;
+        if (wasBow && !bow && !gui && nowNs - this.bowFireUntilNs > 250_000_000L) {
             this.bowFireUntilNs = nowNs + 80_000_000L;
         }
-        this.bowActivePrev = bow;
-
-        // Inventory pulse on the release edge of a short both-fist tap that never became a walk/bow.
-        if (this.bothFistPrev && !both && !this.bowActivePrev && !this.walkActive && !gui
+        // Inventory pulse on the release edge of a short both-fist tap that never became walk/bow/climb.
+        if (this.bothFistPrev && !both && !wasBow && !wasClimb
+            && !this.walkActive && !gui
             && this.bothFistStartNs > 0L && nowNs - this.bothFistStartNs <= INVENTORY_TAP_MAX_NS) {
             this.inventoryPulseUntilNs = nowNs + 80_000_000L;
         }
+        this.bowActivePrev = bow;
+        this.climbActivePrev = climbCandidate;
 
         // Right pinch duration split: short = place pulse, held = break. On release, use the duration
         // recorded while the pinch was still closed (the current pinch metric is already open).
@@ -316,6 +317,7 @@ public final class VisionM7Gesture {
 
     // fields used by the transition logic
     private boolean bowActivePrev;
+    private boolean climbActivePrev;
     private boolean breakHeld;
     private boolean attackHeld;
     private boolean eatHeld;
@@ -351,6 +353,7 @@ public final class VisionM7Gesture {
         this.prevFistL = false; this.prevFistR = false;
         this.bothFistPrev = false;
         this.bowActivePrev = false;
+        this.climbActivePrev = false;
         this.walk = false; this.walkForward = 0.0F;
         this.jump = false; this.sneak = false; this.teleportHold = false;
         this.place = false; this.breakHeld = false; this.attack = false;

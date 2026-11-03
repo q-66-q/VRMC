@@ -61,6 +61,7 @@ public final class VisionM7GestureTest {
         testHotbar();
         testBowAndEat();
         testGui();
+        testAdjacentPriorities();
         testSeatedAndRelease();
 
         System.out.println("[m7-gesture-test] " + checks + " checks, " + failures + " failed");
@@ -208,6 +209,98 @@ public final class VisionM7GestureTest {
         update(m, joints(false, -0.25F, 1.2F, -0.2F), r, true, true, 0.2F, 0.2F,
             HEAD[0], HEAD[1], HEAD[2], u + 100_000_000L, true, false);
         check("GUI left fist taps menu/escape", m.menu());
+    }
+
+    private static void testAdjacentPriorities() {
+        long t = 12_000_000_000L;
+        float[] bothL = joints(true, -0.12F, 1.2F, -0.2F);
+        float[] bothR = joints(true, 0.12F, 1.2F, -0.2F);
+        float[] openL = joints(false, -0.12F, 1.2F, -0.2F);
+        float[] openR = joints(false, 0.12F, 1.2F, -0.2F);
+
+        // GUI open + both fists must not open inventory.
+        VisionM7Gesture gui = new VisionM7Gesture();
+        update(gui, bothL, bothR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, true, false);
+        update(gui, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 100_000_000L, true, false);
+        check("GUI + both fists suppresses inventory", !gui.inventory());
+        check("GUI + both fists suppresses walk", !gui.walkActive());
+
+        // Bow + both fists must not open inventory.
+        VisionM7Gesture bow = new VisionM7Gesture();
+        float[] bowL = joints(true, -0.35F, 1.25F, -0.1F);
+        float[] bowR = joints(true, 0.35F, 1.15F, -0.1F);
+        update(bow, bowL, bowR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(bow, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 80_000_000L, false, false);
+        check("bow + both fists suppresses inventory", !bow.inventory());
+        check("bow + both fists suppresses walk", !bow.walkActive());
+        check("bow release fires", bow.bowFire());
+
+        // Climb + both fists must not open inventory.
+        VisionM7Gesture climb = new VisionM7Gesture();
+        float[] climbL = joints(true, -0.25F, 1.62F, -0.2F);
+        float[] climbR = joints(true, 0.25F, 1.62F, -0.2F);
+        update(climb, climbL, climbR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(climb, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 80_000_000L, false, false);
+        check("climb + both fists suppresses inventory", !climb.inventory());
+        check("climb + both fists suppresses walk", !climb.walkActive());
+
+        // Sustained walk + both fists must not open inventory on release.
+        VisionM7Gesture walk = new VisionM7Gesture();
+        long w = 13_000_000_000L;
+        for (int i = 0; i < 30; i++) {
+            float phase = (i % 10) < 5 ? 1.0F : -1.0F;
+            update(walk, joints(true, -0.15F, 1.2F, -0.2F + 0.18F * phase),
+                joints(true, 0.15F, 1.2F, -0.2F - 0.18F * phase),
+                true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], w, false, false);
+            w += 50_000_000L;
+        }
+        update(walk, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], w, false, false);
+        check("walk + both fists suppresses inventory", !walk.inventory());
+
+        // Inventory tap must not start walk.
+        VisionM7Gesture inv = new VisionM7Gesture();
+        update(inv, bothL, bothR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(inv, bothL, bothR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 120_000_000L, false, false);
+        update(inv, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 200_000_000L, false, false);
+        check("inventory tap does not start walk", !inv.walkActive());
+
+        // Place/break boundary: 349 ms release = place; 350 ms held = break, no place.
+        VisionM7Gesture p349 = new VisionM7Gesture();
+        update(p349, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(p349, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 349_000_000L, false, false);
+        update(p349, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 349_000_000L, false, false);
+        check("pinch 349 ms releases place", p349.place());
+        check("pinch 349 ms is short", !p349.breakHeld());
+        VisionM7Gesture p351 = new VisionM7Gesture();
+        update(p351, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(p351, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 351_000_000L, false, false);
+        check("pinch 351 ms is break", p351.breakHeld());
+        update(p351, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 351_000_000L, false, false);
+        check("pinch 351 ms does not place", !p351.place());
+
+        VisionM7Gesture p350 = new VisionM7Gesture();
+        update(p350, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(p350, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 350_000_000L, false, false);
+        check("pinch 350 ms is break", p350.breakHeld());
+        update(p350, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 350_000_000L, false, false);
+        check("pinch 350 ms does not place", !p350.place());
+
+        // Hotbar vs attack: a fast wrist swing must attack and must not cycle the hotbar.
+        VisionM7Gesture sw = new VisionM7Gesture();
+        long s = 14_000_000_000L;
+        float[] prev = joints(false, 0.2F, 1.3F, -0.2F);
+        update(sw, openL, prev, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], s, false, false);
+        float[] fast = joints(false, 0.2F, 1.3F, -0.2F);
+        moveIndexTip(fast, 0.2F, 1.3F, -0.8F);
+        // Move the whole hand quickly as well, as a swing does.
+        set(fast, 0, 0.2F, 1.3F, -0.8F);
+        set(fast, 6, 0.16F, 1.37F, -0.81F);
+        set(fast, 11, 0.2F, 1.38F, -0.8F);
+        set(fast, 16, 0.24F, 1.37F, -0.79F);
+        set(fast, 21, 0.28F, 1.36F, -0.78F);
+        update(sw, openL, fast, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], s + 16_000_000L, false, false);
+        check("fast wrist swing attacks", sw.attack());
+        check("attack swing does not cycle hotbar", !sw.hotbarNext() && !sw.hotbarPrev());
     }
 
     private static void testSeatedAndRelease() {

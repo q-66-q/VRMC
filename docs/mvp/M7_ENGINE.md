@@ -11,7 +11,10 @@
 - M7 dispatch writes Vivecraft actions directly; the existing action-set gating and dispatch loop still
   apply, so stuck-input release paths are preserved.
 - Minecraft `autoJump` is enabled by default in M7 mode for one-block steps.
-- Host regression: full provider suite PASS, including `m7-gesture` 23 synthetic checks.
+- Host regression: full provider suite PASS, including `m7-gesture` **40 synthetic checks** (see
+  `M7_TEST_MATRIX.md`; adjacent-priority and 0.35 s boundary cases included).
+- **Rollback path is NOT device-tested yet**: the first device A/B step is `gesture.mode=m4` → Reload
+  input → confirm M4 playable → `gesture.mode=m7`.
 
 ## Mapping in the game
 
