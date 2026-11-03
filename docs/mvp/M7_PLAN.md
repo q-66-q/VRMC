@@ -19,8 +19,10 @@ A/B. Rebuild order after A/B pass:
 
 - Tune file: `Documents/instances/default/vrmc-input-tune.properties` → `gesture.mode=m4`.
 - Launcher: **Reload input** (or relaunch game); startup log must show `[VRMC-M7] gesture mode=m4`.
-- **Status: NOT device-tested yet.** Step 0 of device A/B is: set m4, reload, confirm the game is
-  playable with the old mappings, then set m7 and reload before starting M7 checks.
+- **Status: PARTIAL (2026-11-02, EV-0230).** The m4 session launched and old actions fired; mode log
+  confirmed `gesture.mode=m4`. The operator reported frequent hand-tracking dropouts, poor/random
+  movement, and accidental inventory/menu in M4. Tune is now switched back to `gesture.mode=m7`.
+  Treat M4 as a functional but usability-caveated fallback; the M7 A/B itself has NOT run.
 - M7 default remains `m7`; fallback is one tune-file edit away.
 
 ## Risks / recorded backlog

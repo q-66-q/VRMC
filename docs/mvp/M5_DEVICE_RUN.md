@@ -73,3 +73,6 @@ Record these alongside H1–H10:
 4. **Climb false triggers:** hands hanging naturally / holding items / reaching above head; record
    false grab/climb triggers from the current fist-height heuristic.
 5. **Sneak transitions:** record a second transition-heavy sneak pass before final M7 tuning.
+6. **Hand-tracking dropouts:** the M4 rollback session showed frequent hand untracked events and needed
+   the operator to look at the hands. Record dropout frequency, whether looking at a hand restores
+   tracking, and impact on M7 walk/menu; this is an ARKit/visibility issue shared by both mappings.
