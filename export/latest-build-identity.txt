@@ -1,12 +1,12 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-02 (host time)
-source commit: M7 GUI cursor/tap-forgiveness build (regenerate from a clean release commit)
+source commit: M7 GUI cursor API-drift crash fix (regenerate from a clean release commit)
 app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
 app path at staging: /tmp/VRMC-native-checklist-summary.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: c69ccd3bcf31c082033951a61527f50286b6c27a87a99381aad74ba718b2299d
-provider bytes: 108690
+provider jar sha256: 3a3bf56e62aa089ac7b78ce4b328bd0288ed8ed7d1b6f2632c0c0f587a877d3f
+provider bytes: 108623
 gesture mode: m7
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)

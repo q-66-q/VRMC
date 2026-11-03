@@ -39,6 +39,9 @@
 
 ## Known gaps / next device work
 
+- **Crash fix:** the first M7 head-ray cursor build crashed on launch with a runtime-missing
+  `WindowExtension.vivecraft$getActualWindowSize()` method. The M7 GUI cursor now uses direct window
+  scaling and is wrapped in try/catch; the same latent call was removed from the gaze path.
 - GUI **eye hover highlight** remains impossible for a rendered Minecraft GUI. M7 now projects a
   **head-ray cursor** onto Vivecraft's GUI plane each frame and dispatches the right-pinch click there;
   this is closer to look-to-select than the old hand-aim pointer, but it is still head aim, not eye gaze.

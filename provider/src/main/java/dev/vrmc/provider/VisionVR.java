@@ -158,6 +158,7 @@ public class VisionVR extends MCVR {
     private final VisionM7Gesture m7Gesture = new VisionM7Gesture();
     private final Vector3f m7GuiOrigin = new Vector3f();
     private final Vector3f m7GuiDir = new Vector3f();
+    private int m7GuiWarnCount;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
     private int poseLogFrames;
@@ -1066,6 +1067,17 @@ public class VisionVR extends MCVR {
             || GuiHandler.GUI_ROTATION_ROOM == null) {
             return;
         }
+        try {
+            updateM7GuiCursorImpl();
+        } catch (Throwable t) {
+            // A GUI-aim failure must never crash the render thread; the next frame may succeed.
+            if (this.m7GuiWarnCount++ < 3) {
+                System.out.println("[VRMC-M7][WARN] GUI cursor update failed: " + t);
+            }
+        }
+    }
+
+    private void updateM7GuiCursorImpl() {
         this.m7GuiOrigin.set(this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32());
         this.m7GuiDir.set(0.0F, 0.0F, -1.0F);
         this.hmdPose.transformDirection(this.m7GuiDir);
@@ -1080,11 +1092,6 @@ public class VisionVR extends MCVR {
         int winH = this.mc.getWindow().getHeight();
         double mx = uv.x * (double) winW;
         double my = uv.y * (double) winH;
-        Vector2ic actual = ((WindowExtension) (Object) this.mc.getWindow()).vivecraft$getActualWindowSize();
-        if (actual != null) {
-            mx = mx * actual.x() / (double) this.mc.getWindow().getScreenWidth();
-            my = my * actual.y() / (double) this.mc.getWindow().getScreenHeight();
-        }
         InputSimulator.setMousePos(mx, my);
     }
 
@@ -1163,11 +1170,6 @@ public class VisionVR extends MCVR {
         int winH = this.mc.getWindow().getHeight();
         double mx = uv.x * (double) winW;
         double my = uv.y * (double) winH;
-        Vector2ic actual = ((WindowExtension) (Object) this.mc.getWindow()).vivecraft$getActualWindowSize();
-        if (actual != null) {
-            mx = mx * actual.x() / (double) this.mc.getWindow().getScreenWidth();
-            my = my * actual.y() / (double) this.mc.getWindow().getScreenHeight();
-        }
         if (this.gazeActivationLogCount < 20) {
             this.gazeActivationLogCount++;
             System.out.printf("[VRMC-M4] gaze tile=%d (%dx%d) kind=%d uv=(%.4f,%.4f) mouse=(%.1f,%.1f) screen=%s%n",
