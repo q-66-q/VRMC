@@ -164,3 +164,7 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   p50/p95/max 1.30/2.97/4.75 m/s; acceleration p50/p95/max 5.85/21.39/50.61 m/s²; 228 frames >1.4 m/s,
   186 >8 m/s², ~28 swings. Starting detector: right speed >1.4 m/s or acceleration >8 m/s², one-handed,
   with GUI/bow/eat/climb/both-fist suppression.
+
+- `EAT_RIGHT_HAND_HEAD`: 30.85 s / 455 samples; right 386/455 tracked; wrist→head p05/p50/p95
+  0.218/0.283/0.734 m; 181 frames <0.28 m; **11 near-head events** 0.22–6.04 s. Starting detector
+  ~0.28 m with 250 ms latch, edible/drinkable context, stop >0.35 m; 0.22–0.25 m is a stronger trigger.
