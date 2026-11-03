@@ -35,6 +35,14 @@ A/B. Rebuild order after A/B pass:
   discomfort and decide whether snap turn is required before M6.
 - **Thresholds:** provisional from Gesture Lab; device A/B is the acceptance gate.
 
+## Crash-guard precondition
+
+- The first M7 launch attempt was blocked by the shell crash guard (count=2) from previous unclean exits:
+  automatic VR open was suppressed, so the game never entered immersive even though the M7 provider
+  initialized. This is not an M7 failure.
+- Resolution: exit the app, restart VRMC; use **Enter VR** if the guard is still active, and quit the
+  game cleanly (`destroy-complete`) so the count resets. Crash count was reset to 0 on 2026-11-02.
+
 ## Device A/B order
 
 | Step | Action | Record |
