@@ -12,7 +12,7 @@ final class LabModel: ObservableObject {
     @Published private(set) var visibleJointCount = 0
     @Published private(set) var sampleCount = 0
     @Published var classification = "idle"
-    @Published var selectedLabel = "HOTBAR_RIGHT_TAP"
+    @Published var selectedLabel = "CLIMB_ALTERNATE"
     @Published var recording = false
     @Published var recordFile = "—"
     @Published var logFile = "gesturelab.log"

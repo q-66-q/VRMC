@@ -196,3 +196,8 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
 - `INVENTORY_BOTH_FISTS`: 31.14 s / 562 samples; both hands 562/562 tracked; **24 both-fist tap runs
   0.06–0.28 s** (left/right matched); 75 frames both fists closed; hand separation 0.264–0.436 m.
   Rule: both fists close together <0.35 s with no sustained alternating swing → inventory.
+
+- `HOTBAR_RIGHT_TAP`: 30.94 s / 558 samples; right 558 tracked; the tap is a **finger tap**, not a wrist
+  flick: wrist max 0.65 m/s, right index-tip speed p95/p99 1.28/2.66 m/s, acceleration p95 20.8 (max
+  62.6); **22 index-finger tap events 0.05–0.22 s**. Rule: quick right index-fingertip tap selects the
+  next hotbar slot, double tap cycles back; suppress while walking/bow/GUI.
