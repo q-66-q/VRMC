@@ -88,10 +88,15 @@ final class LabClassifier {
         f.indexTipWorld = indexTip
         f.pinch = simd_distance(thumbTip, indexTip)
         f.isPinch = f.pinch < 0.030
-        let palm = (wrist + indexKnuckle + middleKnuckle + ringKnuckle + littleKnuckle) / 5
-        let tips = (indexTip + middleTip + ringTip + littleTip) / 4
-        let scale = max(0.03, simd_distance(wrist, middleKnuckle))
-        f.fistRatio = simd_distance(tips, palm) / scale
+        // Curl ratio: fingertip→knuckle distance divided by wrist→knuckle distance. Unlike a
+        // palm-center/scale ratio this does not grow above 1 when the fist shortens the palm.
+        let ratios = [
+            simd_distance(indexTip, indexKnuckle) / max(0.02, simd_distance(wrist, indexKnuckle)),
+            simd_distance(middleTip, middleKnuckle) / max(0.02, simd_distance(wrist, middleKnuckle)),
+            simd_distance(ringTip, ringKnuckle) / max(0.02, simd_distance(wrist, ringKnuckle)),
+            simd_distance(littleTip, littleKnuckle) / max(0.02, simd_distance(wrist, littleKnuckle))
+        ]
+        f.fistRatio = ratios.reduce(0, +) / Float(ratios.count)
         f.isFist = f.fistRatio < 0.55
         let previous = self.previous[key]
         if let previous {

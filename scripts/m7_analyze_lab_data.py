@@ -26,6 +26,41 @@ def pct(values, p):
     return s[k]
 
 
+def joint_map(hand):
+    return {j.get("name"): j for j in hand.get("joints", []) if isinstance(j, dict)}
+
+
+def joint_pos(j):
+    m = j.get("m", [])
+    if len(m) < 15:
+        return None
+    return (m[12], m[13], m[14])
+
+
+def joint_dist(a, b):
+    if a is None or b is None:
+        return None
+    return math.dist(a, b)
+
+
+def fist_ratio(hand):
+    """Same curl ratio as the app: mean(tip→knuckle / wrist→knuckle)."""
+    j = joint_map(hand)
+    wrist = j.get("wrist")
+    ws = joint_pos(wrist) if wrist else None
+    if ws is None:
+        return None
+    vals = []
+    for finger in ("index", "middle", "ring", "little"):
+        kn = j.get(finger + "FingerKnuckle")
+        tip = j.get(finger + "FingerTip")
+        a, b = joint_pos(kn) if kn else None, joint_pos(tip) if tip else None
+        if a is None or b is None:
+            return None
+        vals.append(joint_dist(b, a) / max(0.02, joint_dist(ws, a)))
+    return sum(vals) / len(vals)
+
+
 def main():
     if len(sys.argv) < 2:
         print("usage: m7_analyze_lab_data.py <recording-dir>", file=sys.stderr); return 2
@@ -53,18 +88,27 @@ def main():
     out = ["# Gesture Lab analysis", ""]
     out.append(f"files={len(files)} samples={total} unparsed={bad} labels={len(by_label)}")
     out.append("")
-    out.append("| label | samples | left tracked | right tracked | pinch p05/p50/p95 | pinch<0.03 | pinch events | right fist p50 | right speed p95 | right wrist→head p50 | head y range |")
-    out.append("|---|---|---|---|---|---|---|---|---|---|---|")
+    out.append("| label | samples | left tracked | right tracked | pinch p05/p50/p95 | pinch<0.03 | pinch events | left fist p50 | right fist p50 | right speed p95 | right wrist→head p50 | head y range |")
+    out.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
     suggestions = []
     for label in sorted(by_label):
         rows = by_label[label]
         left = sum(1 for s in rows if s.get("left", {}).get("tracked"))
         right = sum(1 for s in rows if s.get("right", {}).get("tracked"))
-        pinches, fists, speeds, head_dists, head_ys = [], [], [], [], []
+        pinches, right_fists, left_fists, speeds, head_dists, head_ys = [], [], [], [], [], []
         for s in rows:
             rf = s.get("rightFeatures", {})
+            if s.get("left", {}).get("tracked"):
+                v = fist_ratio(s["left"])
+                if v is not None:
+                    left_fists.append(v)
+            if s.get("right", {}).get("tracked"):
+                v = fist_ratio(s["right"])
+                if v is not None:
+                    right_fists.append(v)
             pinches.append(fnum(rf.get("pinch"), 1.0))
-            fists.append(fnum(rf.get("fistRatio"), 1.0))
+            if not right_fists:
+                pass
             speeds.append(abs(fnum(rf.get("speed"), 0.0)))
             if s.get("headTracked") and s.get("right", {}).get("tracked"):
                 head = s.get("head", [0, 0, 0])
@@ -90,13 +134,20 @@ def main():
                 events += 1
         out.append(f"| {label} | {len(rows)} | {left} | {right} | "
                    f"{pct(pinches,0.05):.3f}/{pct(pinches,0.5):.3f}/{pct(pinches,0.95):.3f} | "
-                   f"{len(closed)} | {events} | {pct(fists,0.5):.2f} | {pct(speeds,0.95):.2f} | "
-                   f"{pct(head_dists,0.5):.3f} | {rng:.3f} |")
+                   f"{len(closed)} | {events} | {pct(left_fists,0.5):.2f} | {pct(right_fists,0.5):.2f} | "
+                   f"{pct(speeds,0.95):.2f} | {pct(head_dists,0.5):.3f} | {rng:.3f} |")
         if label in ("MENU_RIGHT_PINCH", "PLACE_RIGHT_PINCH") and pinches:
             suggestions.append(f"- {label}: {len(closed)} closed frames (<0.030 m), {events} pinch events; "
                                f"p05={pct(pinches,0.05):.3f} p25={pct(pinches,0.25):.3f} "
                                f"p50={pct(pinches,0.5):.3f} p95={pct(pinches,0.95):.3f} m. "
                                f"Current 0.030 on / 0.045 off is consistent if the open-hand p25 stays above 0.045.")
+        if label in ("ESCAPE_LEFT_FIST", "WALK_BOTH_FISTS", "BOW_BOTH_FISTS", "INVENTORY_BOTH_FISTS", "CLIMB_ALTERNATE"):
+            closed_l = sum(1 for v in left_fists if v < 0.55)
+            closed_r = sum(1 for v in right_fists if v < 0.55)
+            suggestions.append(f"- {label}: left fist frames <0.55={closed_l}/{len(left_fists)}; "
+                               f"right fist frames <0.55={closed_r}/{len(right_fists)}; "
+                               f"left p50={pct(left_fists,0.5):.2f}, right p50={pct(right_fists,0.5):.2f}. "
+                               f"Use closed frames with both-hands-visible to set fist on/off hysteresis.")
         if label in ("WALK_BOTH_FISTS", "BOW_BOTH_FISTS", "ATTACK_RIGHT_SWING") and speeds:
             suggestions.append(f"- {label}: right wrist speed p95={pct(speeds,0.95):.2f} m/s; "
                                f"use for attack/walk separation after checking falsing.")

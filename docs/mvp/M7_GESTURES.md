@@ -120,3 +120,12 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   relabelled with `sourceLabel=IDLE`. Raw JSONL stays local under
   `export/gesturelab-data/accepted/`; summary/analysis tracked. This establishes the starting
   0.030 m on / 0.045 m off pinch band; device A/B still required.
+
+## 9. Lab data-quality fixes (EV-0214)
+
+- Recorder now writes on either hand's anchor update (left-hand-only actions previously starved: 31 s wall
+  recording yielded only 18.15 s of samples with an 11.5 s gap).
+- Fist metric changed to mean(tip→knuckle / wrist→knuckle), threshold <0.55; the old palm-center ratio
+  could exceed 1.0 in a fist, so live `isFist` never fired.
+- Analyzer re-derives fist ratios from recorded joint transforms; existing sparse ESCAPE_LEFT_FIST data
+  is not accepted; re-record required.

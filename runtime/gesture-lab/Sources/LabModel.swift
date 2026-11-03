@@ -337,7 +337,9 @@ final class LabModel: ObservableObject {
         classification = output.label + (output.detail.isEmpty ? "" : " [\(output.detail)]")
         leftFeatures = String(format: "pinch=%.3f fist=%.2f", lf.pinch, lf.fistRatio)
         rightFeatures = String(format: "pinch=%.3f fist=%.2f", rf.pinch, rf.fistRatio)
-        if recording && anchor.chirality == .right {
+        if recording {
+            // Write on either hand's update: left-hand-only actions previously starved the recorder
+            // because only right-hand anchor updates produced samples.
             writeSample(left: leftAnchor, right: rightAnchor, lf: lf, rf: rf)
         }
     }
