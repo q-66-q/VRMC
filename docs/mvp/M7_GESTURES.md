@@ -192,3 +192,7 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
 - `BREAK_RIGHT_PINCH_HOLD`: 31.11 s / 588 samples; right 588/588 tracked; 470 frames <0.03 m;
   **7 held-pinch events** 1.21–10.44 s (no short taps). Confirms short (<0.35 s) = place/select and
   held (≥0.35 s) = break/mine; the 10.44 s hold exercises long-hold stability.
+
+- `INVENTORY_BOTH_FISTS`: 31.14 s / 562 samples; both hands 562/562 tracked; **24 both-fist tap runs
+  0.06–0.28 s** (left/right matched); 75 frames both fists closed; hand separation 0.264–0.436 m.
+  Rule: both fists close together <0.35 s with no sustained alternating swing → inventory.
