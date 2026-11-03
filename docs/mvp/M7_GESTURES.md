@@ -1,7 +1,7 @@
 # M7 — Simplified gesture set + Gesture Lab data collector
 
-Status: **all 14 action datasets accepted from the Gesture Lab (2026-11-02, EV-0213…EV-0227)**. Next:
-implement the production M7 gesture engine behind a mode switch with host tests, then device A/B. This milestone replaces the M4 per-finger
+Status: **all 14 action datasets accepted (EV-0213…EV-0227); M7 engine implemented behind a mode switch and
+host-verified (EV-0228)**. Next: device A/B against the M4 mapping. See `M7_ENGINE.md`. This milestone replaces the M4 per-finger
 micro-gesture layer with the operator's preferred, whole-hand scheme. Every threshold below is a
 starting point to be tuned from Gesture Lab recordings; none is device-verified yet.
 

@@ -1,6 +1,6 @@
 # VRMC current status & handoff (development build)
 
-Updated: 2026-11-02 (host time; EV-0212 first successful played session). Authority remains [`VERIFY.md`](../../VERIFY.md) and the per-round
+Updated: 2026-11-02 (host time; M7 engine implemented host-only, EV-0228). Authority remains [`VERIFY.md`](../../VERIFY.md) and the per-round
 evidence bundles; this page is a navigation summary.
 
 ## Current installed build (D1)
@@ -56,6 +56,12 @@ scripts/m6_release_ready.sh --zip /tmp/VRMC-dev-release.zip   # currently NOT RE
 Latest host results: provider suite ALL PASS; bridge suite incl. TSan ALL PASS; 1M-frame input fuzz,
 200k pose fuzz, 100k smoother fuzz, 500k gaze fuzz, 100k JSON fuzz, 100k settings fuzz — 0 violations;
 release check PASS; package verifier/freshness PASS; release-ready host gates PASS (acceptance NOT READY).
+
+## M7 simplified gesture engine (EV-0228)
+
+- Pure-Java `VisionM7Gesture` + VisionVR dispatch; default `gesture.mode=m7`, fallback `m4`.
+- Host suite ALL PASS (m7-gesture 23 checks); provider pushed/verified on D1.
+- **Device A/B NOT RUN**; GUI eye-hover/drag and climb context are known gaps.
 
 ## First successful device session (EV-0212)
 

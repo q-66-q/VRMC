@@ -154,6 +154,8 @@ public class VisionVR extends MCVR {
     private int rotatePulseDirection;
     private int lastSwipeDirection = VisionInput.SWIPE_NONE;
     private VRInputAction[] bindingActions;
+    private boolean m7Mode;
+    private final VisionM7Gesture m7Gesture = new VisionM7Gesture();
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
     private int poseLogFrames;
@@ -254,6 +256,7 @@ public class VisionVR extends MCVR {
             new VisionPoseSmoother(this.smoothingConfig),
             new VisionPoseSmoother(this.smoothingConfig)
         };
+        this.m7Mode = gestureModeM7(tuning, System.out::println);
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
         System.out.println("[VRMC-M4] hand components: mode=" + (this.handComponentJoints ? "joints" : "identity")
@@ -262,6 +265,14 @@ public class VisionVR extends MCVR {
         System.out.println(VisionLogFormat.locomotionLine(this.visionInput, this.hotbarRange,
             this.moveOriginZ, this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone,
             this.rotatePulseNanos));
+        System.out.println("[VRMC-M7] gesture mode=" + (this.m7Mode ? "m7" : "m4")
+            + " (tune gesture.mode / -Dvrmc.gesture.mode; operator mapping)");
+        if (this.m7Mode) {
+            System.out.println("[VRMC-M7] mapping: short right pinch=place, held right pinch=break, "
+                + "left fist=escape, both-fist tap=inventory, both-fist swing=walk, head rise/lower=jump/sneak, "
+                + "left pinch hold=teleport, right swing=attack, right index tap=hotbar, near-head=eat, "
+                + "wide both fists=bow, alternating grips=climb");
+        }
 
         this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
         applyRuntimeSettings(this.runtimeSettings);
@@ -433,6 +444,15 @@ public class VisionVR extends MCVR {
 
     /** Apply the opt-in M5 settings; every field is guarded by an explicit presence flag. */
     private void applyRuntimeSettings(VisionRuntimeSettings settings) {
+        if (this.m7Mode && this.mc != null) {
+            try {
+                // The operator wants one-block step-up without a dedicated jump gesture; head-rise
+                // jump remains available for deliberate jumps.
+                this.mc.options.autoJump().set(true);
+            } catch (Throwable t) {
+                System.out.println("[VRMC-M7][WARN] could not enable autoJump: " + t);
+            }
+        }
         if (settings == null) return;
         if (settings.hasSeated) this.dh.vrSettings.seated = settings.seated;
         if (settings.hasSeatedFreeMove) this.dh.vrSettings.seatedFreeMove = settings.seatedFreeMove;
@@ -503,6 +523,7 @@ public class VisionVR extends MCVR {
         this.bindingActions = null;
         this.resolvedActionMap = null;
         this.hotbarWheelActive = false;
+        this.m7Mode = gestureModeM7(tuned, System.out::println);
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
         return "input tuning reloaded (middle=" + this.visionInput.middleEnabled()
@@ -647,6 +668,7 @@ public class VisionVR extends MCVR {
                 }
                 case "release-input" -> {
                     this.visionInput = new VisionInput(this.inputTuning);
+                    this.m7Gesture.releaseAll();
                     this.bindingActions = null;
                     this.resolvedActionMap = null;
                     this.hotbarWheelActive = false;
@@ -766,6 +788,17 @@ public class VisionVR extends MCVR {
         System.out.printf("[VRMC-M4] hand smoothing: enabled=%s posMinCutoff=%.2f posBeta=%.2f dCutoff=%.2f "
                 + "rotMinCutoff=%.2f rotBeta=%.2f%n",
             c.enabled, c.posMinCutoff, c.posBeta, c.derivativeCutoff, c.rotMinCutoff, c.rotBeta);
+    }
+
+    /** M7 is the product mapping; gesture.mode=m4/legacy keeps the previous M4 bindings for A/B. */
+    private static boolean gestureModeM7(Map<String, String> tune, java.util.function.Consumer<String> log) {
+        String v = System.getProperty("vrmc.gesture.mode");
+        if (v == null || v.isBlank()) v = tune == null ? null : tune.get("gesture.mode");
+        if (v == null || v.isBlank()) return true;
+        String normalized = v.trim().toLowerCase(java.util.Locale.ROOT);
+        boolean m7 = !normalized.equals("m4") && !normalized.equals("legacy");
+        if (!m7) log.accept("[VRMC-M7] gesture.mode=m4 requested; using legacy M4 mappings");
+        return m7;
     }
 
     private static void logInputTuning(VisionInput in) {
@@ -926,6 +959,22 @@ public class VisionVR extends MCVR {
             }
         }
         this.visionInput.poll(this.inputChannelBroken ? null : this.input, rc, nowNs);
+
+        if (this.m7Mode) {
+            boolean trackedL = this.visionInput.isHandTracked(VisionInput.HAND_LEFT);
+            boolean trackedR = this.visionInput.isHandTracked(VisionInput.HAND_RIGHT);
+            boolean healthy = this.visionInput.isInputHealthy() && !this.visionInput.isStale();
+            if (healthy) {
+                this.m7Gesture.update(trackedL, this.visionInput.joints(VisionInput.HAND_LEFT),
+                    trackedR, this.visionInput.joints(VisionInput.HAND_RIGHT),
+                    this.visionInput.pinchDistance(VisionInput.HAND_LEFT),
+                    this.visionInput.pinchDistance(VisionInput.HAND_RIGHT),
+                    this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
+                    nowNs, this.mc.gui.screen() != null, this.dh.vrSettings.seated);
+            } else {
+                this.m7Gesture.releaseAll();
+            }
+        }
 
         // Tracking acquisition/loss episodes (one line each) + single-hand loss releases that hand's
         // held actions on the SAME frame (G4: never a stuck attack/teleport).
@@ -1405,6 +1454,75 @@ public class VisionVR extends MCVR {
     }
 
     /**
+     * M7 dispatch: write the simplified-gesture actions directly. Only this provider's action data is
+     * touched; the generic dispatch loop below still applies Vivecraft's action-set gating and presses
+     * the KeyMapping, so stuck-input safety is unchanged.
+     */
+    private void applyM7Actions() {
+        boolean gui = this.mc.gui.screen() != null;
+        boolean seated = this.dh.vrSettings.seated;
+        boolean walk = this.m7Gesture.walkActive() && !gui && !seated;
+        boolean use = this.m7Gesture.place() || this.m7Gesture.eat() || this.m7Gesture.bowDraw();
+        boolean attack = this.m7Gesture.attack();
+        setM7Action(VisionInput.KEY_ATTACK, VisionInput.HAND_RIGHT, attack);
+        setM7Action(VisionInput.KEY_USE, VisionInput.HAND_RIGHT, use);
+        setM7Action(VisionInput.KEY_INVENTORY, VisionInput.HAND_NONE, this.m7Gesture.inventory());
+        setM7Action(VisionInput.KEY_INGAME_MENU, VisionInput.HAND_LEFT, this.m7Gesture.menu());
+        setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump());
+        setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT, this.m7Gesture.sneak());
+        setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, this.m7Gesture.teleportHeld());
+        setM7Action(VisionInput.KEY_HOTBAR_NEXT, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarNext());
+        setM7Action(VisionInput.KEY_HOTBAR_PREV, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarPrev());
+        setM7Action(VisionInput.KEY_GUI_LEFT_CLICK, VisionInput.HAND_RIGHT, this.m7Gesture.guiClick());
+        setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_LEFT, this.m7Gesture.climbGrabLeft());
+        setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_RIGHT, this.m7Gesture.climbGrabRight());
+        setM7Action(VisionInput.KEY_CLIMBEY_JUMP, VisionInput.HAND_NONE, this.m7Gesture.climbJump());
+
+        VRInputAction strafe = this.getInputAction(VivecraftVRMod.INSTANCE.keyFreeMoveStrafe);
+        if (strafe != null) {
+            writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), 0.0F,
+                walk ? this.m7Gesture.walkForward() : 0.0F, VisionInput.ORIGIN_LEFT);
+        }
+    }
+
+    private void setM7Action(String name, int hand, boolean state) {
+        VRInputAction action = this.getInputAction(name);
+        if (action == null) return;
+        int slot;
+        long origin;
+        if (action.isHanded()) {
+            boolean left = hand == VisionInput.HAND_LEFT;
+            slot = left ? ControllerType.LEFT.ordinal() : ControllerType.RIGHT.ordinal();
+            origin = left ? VisionInput.ORIGIN_LEFT : VisionInput.ORIGIN_RIGHT;
+        } else {
+            slot = 0;
+            origin = hand == VisionInput.HAND_LEFT ? VisionInput.ORIGIN_LEFT : VisionInput.ORIGIN_RIGHT;
+        }
+        writeDigital(action, slot, true, state, origin);
+    }
+
+    private void releaseM7Actions() {
+        for (String name : new String[]{VisionInput.KEY_ATTACK, VisionInput.KEY_USE,
+            VisionInput.KEY_INVENTORY, VisionInput.KEY_INGAME_MENU, VisionInput.KEY_JUMP,
+            VisionInput.KEY_SNEAK, VisionInput.KEY_TELEPORT, VisionInput.KEY_HOTBAR_NEXT,
+            VisionInput.KEY_HOTBAR_PREV, VisionInput.KEY_GUI_LEFT_CLICK,
+            VisionInput.KEY_CLIMBEY_GRAB, VisionInput.KEY_CLIMBEY_JUMP}) {
+            VRInputAction action = this.getInputAction(name);
+            if (action == null) continue;
+            if (action.isHanded()) {
+                writeDigital(action, ControllerType.LEFT.ordinal(), false, false, VisionInput.ORIGIN_LEFT);
+                writeDigital(action, ControllerType.RIGHT.ordinal(), false, false, VisionInput.ORIGIN_RIGHT);
+            } else {
+                writeDigital(action, 0, false, false, VisionInput.ORIGIN_RIGHT);
+            }
+        }
+        VRInputAction strafe = this.getInputAction(VivecraftVRMod.INSTANCE.keyFreeMoveStrafe);
+        if (strafe != null) {
+            writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), 0.0F, 0.0F, VisionInput.ORIGIN_LEFT);
+        }
+    }
+
+    /**
      * Write each bound action's DigitalData/AnalogData exactly where MCOpenVR.readDigitalData/
      * readAnalogData would, with the action-set gating computed by VisionInput (design §5.4/§5.5).
      */
@@ -1715,6 +1833,32 @@ public class VisionVR extends MCVR {
         boolean screenOpen = this.mc.gui.screen() != null;
         boolean keyboardShowing = KeyboardHandler.SHOWING || RadialHandler.isShowing();
         this.visionInput.setEnvironment(screenOpen, this.dh.vrSettings.ingameBindingsInGui, keyboardShowing);
+
+        if (this.m7Mode) {
+            boolean usable = this.visionInput.isInputHealthy() && !this.visionInput.isStale()
+                && (this.visionInput.isHandTracked(VisionInput.HAND_LEFT)
+                    || this.visionInput.isHandTracked(VisionInput.HAND_RIGHT));
+            if (usable) {
+                this.applyM7Actions();
+            } else {
+                this.releaseM7Actions();
+            }
+            if (this.visionInput.bothMiddleDoubleTapPressed()) {
+                performRecenter();
+            }
+            for (VRInputAction action : this.inputActions.values()) {
+                if (action.isHanded()) {
+                    for (ControllerType hand : ControllerType.values()) {
+                        action.setCurrentHand(hand);
+                        this.dispatchAction(action);
+                    }
+                } else {
+                    this.dispatchAction(action);
+                }
+            }
+            this.ignorePressesNextFrame = false;
+            return;
+        }
 
         this.applyActionData();
         this.applyLocomotion();
