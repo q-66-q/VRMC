@@ -159,3 +159,8 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
 - `TELEPORT_LEFT_PINCH`: two samples 31.09 s/551 and 38.97 s/703; left tracked 484/629; **16 left-pinch
   events** total at 0.030 on/0.045 off, from 0.05 s taps to 4.56 s aimed holds. Mapping: pinch press
   starts aim, release commits, open hand/tracking loss cancels.
+
+- `ATTACK_RIGHT_SWING`: 31.41 s / 520 samples; right tracked 503, left 25 (one-handed); right wrist speed
+  p50/p95/max 1.30/2.97/4.75 m/s; acceleration p50/p95/max 5.85/21.39/50.61 m/s²; 228 frames >1.4 m/s,
+  186 >8 m/s², ~28 swings. Starting detector: right speed >1.4 m/s or acceleration >8 m/s², one-handed,
+  with GUI/bow/eat/climb/both-fist suppression.
