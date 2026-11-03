@@ -140,3 +140,8 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   the full `headMatrix` (4x4) in addition to the `head` position, alongside the hand joints.
 - Head marker (yellow sphere) remains in the immersive scene. This covers head-rise jump / head-lower
   sneak data collection without changing the game.
+
+- `WALK_BOTH_FISTS`: 30.97 s / 558 samples; both fists 420/558 (75%); fist p50 L/R 0.359/0.348;
+  relative-to-head wrist z range 0.788/0.645 m with z correlation **−0.73** (opposite phase), ~25 cycles
+  (~0.8 Hz); head tracked 558/558 with full 4×4 transform. Source picker stayed MENU_RIGHT_PINCH;
+  canonical copy relabelled with provenance.
