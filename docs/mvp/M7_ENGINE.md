@@ -11,9 +11,10 @@
 - M7 dispatch writes Vivecraft actions directly; the existing action-set gating and dispatch loop still
   apply, so stuck-input release paths are preserved.
 - Minecraft `autoJump` is enabled by default in M7 mode for one-block steps.
-- Host regression: full provider suite PASS, including `m7-gesture` **40 synthetic checks** (see
-  `M7_TEST_MATRIX.md`; adjacent-priority and place/break boundary cases included). Current forgiveness
-  thresholds: fist curl 0.65, both/left-fist tap 450 ms.
+- Host regression: full provider suite PASS, including `m7-gesture` **44 synthetic checks** (see
+  `M7_TEST_MATRIX.md`; adjacent-priority, place/break boundary, pinch-jitter and post-both-fist
+  false-trigger cases included). Current thresholds: fist curl 0.65, both/left-fist tap 450 ms, pinch
+  0.025 on/0.050 off with 40 ms debounce + 100 ms arming.
 - **Rollback path is NOT device-tested yet**: the first device A/B step is `gesture.mode=m4` → Reload
   input → confirm M4 playable → `gesture.mode=m7`.
 

@@ -159,6 +159,8 @@ public class VisionVR extends MCVR {
     private final Vector3f m7GuiOrigin = new Vector3f();
     private final Vector3f m7GuiDir = new Vector3f();
     private int m7GuiWarnCount;
+    private int m7GuiCursorLogCount;
+    private long m7LastScreenCloseNs;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
     private int poseLogFrames;
@@ -1092,6 +1094,11 @@ public class VisionVR extends MCVR {
         int winH = this.mc.getWindow().getHeight();
         double mx = uv.x * (double) winW;
         double my = uv.y * (double) winH;
+        if (this.m7GuiCursorLogCount < 3) {
+            this.m7GuiCursorLogCount++;
+            System.out.printf("[VRMC-M7] head cursor uv=(%.4f,%.4f) mouse=(%.1f,%.1f) screen=%s%n",
+                uv.x, uv.y, mx, my, this.mc.gui.screen().getClass().getSimpleName());
+        }
         InputSimulator.setMousePos(mx, my);
     }
 
@@ -1504,6 +1511,17 @@ public class VisionVR extends MCVR {
      * touched; the generic dispatch loop below still applies Vivecraft's action-set gating and presses
      * the KeyMapping, so stuck-input safety is unchanged.
      */
+    /** M7 left-fist in a GUI closes the current screen; it must not open a pause menu on top. */
+    private void closeM7Screen() {
+        Object screen = this.mc.gui.screen();
+        if (screen == null) return;
+        try {
+            screen.getClass().getMethod("onClose").invoke(screen);
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M7][WARN] could not close GUI screen: " + t);
+        }
+    }
+
     private void applyM7Actions() {
         boolean gui = this.mc.gui.screen() != null;
         boolean seated = this.dh.vrSettings.seated;
@@ -1513,7 +1531,14 @@ public class VisionVR extends MCVR {
         setM7Action(VisionInput.KEY_ATTACK, VisionInput.HAND_RIGHT, attack);
         setM7Action(VisionInput.KEY_USE, VisionInput.HAND_RIGHT, use);
         setM7Action(VisionInput.KEY_INVENTORY, VisionInput.HAND_NONE, this.m7Gesture.inventory());
-        setM7Action(VisionInput.KEY_INGAME_MENU, VisionInput.HAND_LEFT, this.m7Gesture.menu());
+        long nowNs = System.nanoTime();
+        boolean menuPulse = this.m7Gesture.menu();
+        boolean menuAction = menuPulse && !gui && nowNs - this.m7LastScreenCloseNs > 400_000_000L;
+        if (gui && menuPulse && nowNs - this.m7LastScreenCloseNs > 400_000_000L) {
+            this.closeM7Screen();
+            this.m7LastScreenCloseNs = nowNs;
+        }
+        setM7Action(VisionInput.KEY_INGAME_MENU, VisionInput.HAND_LEFT, menuAction);
         setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump());
         setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT, this.m7Gesture.sneak());
         setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, this.m7Gesture.teleportHeld());

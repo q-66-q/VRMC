@@ -37,8 +37,10 @@ public final class VisionM7Gesture {
     private static final int FLOATS = JOINTS * 3;
 
     // Pinch (from VisionInput, same ABI distances).
-    public static final float PINCH_ON = 0.030F;
-    public static final float PINCH_OFF = 0.045F;
+    public static final float PINCH_ON = 0.025F;
+    public static final float PINCH_OFF = 0.050F;
+    public static final long PINCH_DEBOUNCE_NS = 40_000_000L;
+    public static final long PINCH_ARM_NS = 100_000_000L;
     // Curl ratio (same definition as Gesture Lab / data summaries).
     public static final float FIST_ON = 0.65F;
     public static final float FIST_OFF = 0.75F;
@@ -77,6 +79,15 @@ public final class VisionM7Gesture {
     private float speedL, speedR, tipSpeedL, tipSpeedR;
 
     private long leftFistPressNs, rightFistPressNs;
+    private boolean rawPinchL, rawPinchR;
+    private boolean pinchPressedL, pinchPressedR;
+    private boolean pinchArmedL = true, pinchArmedR = true;
+    private long pinchRawSinceL, pinchRawSinceR;
+    private long pinchReleasedSinceL, pinchReleasedSinceR;
+    private long pinchLastDurationL, pinchLastDurationR;
+    private float prevTipSpeedR;
+    private long lastBothFistCloseNs, lastBothFistReleaseNs;
+    private long lastInventoryNs, lastMenuNs;
     private long bothFistStartNs;
     private boolean bothFistPrev;
     private long leftPinchPressNs, rightPinchPressNs;
@@ -153,10 +164,12 @@ public final class VisionM7Gesture {
             this.tipSpeedR = 0.0F;
         }
 
-        boolean pinchNowL = trackedL && pinchL >= 0.0F && pinchL < PINCH_ON;
-        boolean pinchNowR = trackedR && pinchR >= 0.0F && pinchR < PINCH_ON;
-        if (pinchNowL && !this.prevPinchL) this.leftPinchPressNs = nowNs;
-        if (pinchNowR && !this.prevPinchR) this.rightPinchPressNs = nowNs;
+        // Debounced + armed pinch: a single noisy frame cannot fire place/break/click. A pinch must be
+        // continuously closed for PINCH_DEBOUNCE_NS and the hand must have been open for PINCH_ARM_NS.
+        boolean rawL = trackedL && pinchL >= 0.0F && pinchL < PINCH_ON;
+        boolean rawR = trackedR && pinchR >= 0.0F && pinchR < PINCH_ON;
+        boolean pinchNowL = this.debouncePinch(true, rawL, nowNs);
+        boolean pinchNowR = this.debouncePinch(false, rawR, nowNs);
         if (pinchNowR) this.rightPinchLastDurationNs = nowNs - this.rightPinchPressNs;
         if (this.fistL && !this.prevFistL) this.leftFistPressNs = nowNs;
         if (this.fistR && !this.prevFistR) this.rightFistPressNs = nowNs;
@@ -181,6 +194,8 @@ public final class VisionM7Gesture {
         // ---- both-fist family ----
         boolean both = this.fistL && this.fistR;
         float handSep = (trackedL && trackedR) ? dist(this.wL, this.wR) : 0.0F;
+        if (both) this.lastBothFistCloseNs = nowNs;
+        if (this.bothFistPrev && !both) this.lastBothFistReleaseNs = nowNs;
         if (both && !this.bothFistPrev) this.bothFistStartNs = nowNs;
         boolean gui = guiOpen;
         boolean bow = !gui && both && handSep > BOW_SEPARATION;
@@ -229,6 +244,7 @@ public final class VisionM7Gesture {
             && !this.walkActive && !gui
             && this.bothFistStartNs > 0L && nowNs - this.bothFistStartNs <= INVENTORY_TAP_MAX_NS) {
             this.inventoryPulseUntilNs = nowNs + 80_000_000L;
+            this.lastInventoryNs = nowNs;
         }
         this.bowActivePrev = bow;
         this.climbActivePrev = climbCandidate;
@@ -236,11 +252,13 @@ public final class VisionM7Gesture {
         // Right pinch duration split: short = place pulse, held = break. On release, use the duration
         // recorded while the pinch was still closed (the current pinch metric is already open).
         boolean rightPinch = pinchNowR;
-        long rightPinchDuration = rightPinch ? this.rightPinchLastDurationNs : 0L;
+        long rightPinchDuration = rightPinch ? nowNs - this.rightPinchPressNs : this.pinchLastDurationR;
         this.breakHeld = !gui && rightPinch && rightPinchDuration >= PLACE_MAX_NS;
-        if (!gui && this.prevPinchR && !rightPinch && this.rightPinchLastDurationNs < PLACE_MAX_NS) {
-            this.placePulseUntilNs = nowNs + 80_000_000L;
-            this.rightPinchLastDurationNs = 0L;
+        if (!gui && this.prevPinchR && !rightPinch) {
+            if (this.pinchLastDurationR < PLACE_MAX_NS) {
+                this.placePulseUntilNs = nowNs + 80_000_000L;
+            }
+            this.pinchLastDurationR = 0L;
         }
         // Right attack swing: fast wrist movement, one-handed, not a pinch/fist/bow/eat.
         boolean nearHead = trackedR && dist3(this.wR[0], this.wR[1], this.wR[2], headX, headY, headZ) < EAT_DISTANCE;
@@ -257,15 +275,23 @@ public final class VisionM7Gesture {
 
         // Left fist tap = Escape (short release; not both-fist inventory, not GUI click path).
         if (this.prevFistL && !this.fistL && !this.fistR && this.leftFistPressNs > 0L
-            && nowNs - this.leftFistPressNs <= INVENTORY_TAP_MAX_NS) {
+            && nowNs - this.leftFistPressNs <= INVENTORY_TAP_MAX_NS
+            && nowNs - this.lastBothFistReleaseNs > 350_000_000L
+            && nowNs - this.lastBothFistCloseNs > 350_000_000L
+            && nowNs - this.lastInventoryNs > 350_000_000L) {
             this.menuPulseUntilNs = nowNs + 80_000_000L;
+            this.lastMenuNs = nowNs;
         }
 
         // Right index-finger tap = hotbar next; double tap = previous.
         // Hotbar tap is a fingertip tap with a quiet wrist; attack swings are wrist-fast and must not
         // also cycle the hotbar.
-        if (!gui && !bow && trackedR && !rightPinch && !this.fistR && this.speedR < 0.8F
-            && this.tipSpeedR > 1.2F && nowNs >= this.hotbarLastNs + 150_000_000L) {
+        if (!gui && !bow && trackedR && !rightPinch && !this.fistR && this.speedR < 0.5F
+            && this.prevTipSpeedR < 0.6F && this.tipSpeedR > 1.2F
+            && nowNs - this.lastBothFistReleaseNs > 400_000_000L
+            && nowNs - this.lastInventoryNs > 300_000_000L
+            && nowNs - this.lastMenuNs > 300_000_000L
+            && nowNs >= this.hotbarLastNs + 150_000_000L) {
             if (nowNs - this.hotbarLastNs <= HOTBAR_DOUBLE_NS) {
                 this.hotbarPrevPulseUntilNs = nowNs + 80_000_000L;
             } else {
@@ -311,6 +337,7 @@ public final class VisionM7Gesture {
         System.arraycopy(this.wR, 0, this.prevWR, 0, 3);
         System.arraycopy(this.tipL, 0, this.prevTipL, 0, 3);
         System.arraycopy(this.tipR, 0, this.prevTipR, 0, 3);
+        this.prevTipSpeedR = this.tipSpeedR;
         this.prevHeadY = headY;
         this.prevNs = nowNs;
     }
@@ -350,6 +377,11 @@ public final class VisionM7Gesture {
         this.trackedL = false; this.trackedR = false;
         this.fistL = false; this.fistR = false;
         this.prevPinchL = false; this.prevPinchR = false;
+        this.rawPinchL = false; this.rawPinchR = false;
+        this.pinchPressedL = false; this.pinchPressedR = false;
+        this.pinchArmedL = true; this.pinchArmedR = true;
+        this.pinchRawSinceL = 0L; this.pinchRawSinceR = 0L;
+        this.pinchReleasedSinceL = 0L; this.pinchReleasedSinceR = 0L;
         this.prevFistL = false; this.prevFistR = false;
         this.bothFistPrev = false;
         this.bowActivePrev = false;
@@ -362,6 +394,46 @@ public final class VisionM7Gesture {
         this.climbGrabL = false; this.climbGrabR = false; this.climbJump = false;
         this.prevNs = 0L;
         this.summary = "M7 released";
+    }
+
+    private boolean debouncePinch(boolean left, boolean raw, long nowNs) {
+        boolean pressed = left ? this.pinchPressedL : this.pinchPressedR;
+        boolean armed = left ? this.pinchArmedL : this.pinchArmedR;
+        long rawSince = left ? this.pinchRawSinceL : this.pinchRawSinceR;
+        long releasedSince = left ? this.pinchReleasedSinceL : this.pinchReleasedSinceR;
+        long pressNs = left ? this.leftPinchPressNs : this.rightPinchPressNs;
+        boolean wasRaw = left ? this.rawPinchL : this.rawPinchR;
+        if (raw) {
+            if (!wasRaw) {
+                rawSince = nowNs;
+            }
+            if (!pressed && armed && nowNs - rawSince >= PINCH_DEBOUNCE_NS) {
+                pressed = true;
+                // Duration starts at the raw contact frame, not the debounce confirmation, so the
+                // 0.35 s place/break boundary measures actual pinch contact.
+                pressNs = rawSince;
+                if (left) this.leftPinchPressNs = pressNs; else this.rightPinchPressNs = pressNs;
+            }
+            if (left) this.rawPinchL = true; else this.rawPinchR = true;
+            if (left) this.pinchRawSinceL = rawSince; else this.pinchRawSinceR = rawSince;
+            if (left) this.pinchPressedL = pressed; else this.pinchPressedR = pressed;
+            if (!left) this.pinchArmedR = armed;
+            else this.pinchArmedL = armed;
+            return pressed;
+        }
+        if (pressed) {
+            long duration = Math.max(0L, nowNs - pressNs);
+            if (left) { this.pinchLastDurationL = duration; this.pinchPressedL = false; }
+            else { this.pinchLastDurationR = duration; this.pinchPressedR = false; }
+            if (left) this.pinchArmedL = false; else this.pinchArmedR = false;
+            if (left) this.pinchReleasedSinceL = nowNs; else this.pinchReleasedSinceR = nowNs;
+            releasedSince = nowNs;
+        }
+        if (left) this.rawPinchL = false; else this.rawPinchR = false;
+        if (!armed && nowNs - releasedSince >= PINCH_ARM_NS) {
+            if (left) this.pinchArmedL = true; else this.pinchArmedR = true;
+        }
+        return false;
     }
 
     private static void copyPos(float[] joints, int index, float[] out) {

@@ -63,6 +63,9 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - Host suite ALL PASS (m7-gesture **40** checks); provider `1c75ae86…` pushed/verified on D1.
 - Rollback path prepared (`gesture.mode=m4` in tune, read back); **step 0 playability NOT RUN**.
 - Device A/B order in `M7_PLAN.md`; release metadata update deferred until after A/B acceptance.
+- 2026-11-02: M7 menu/inventory false triggers (inventory only once, menu/hotbar glitches, pinches
+  too sensitive) fixed in provider `b77897dd…` with pinch debounce/arming, GUI close via onClose,
+  menu/hotbar suppression, head-ray cursor logging; device retest pending (EV-0236).
 - 2026-11-02: first M7 GUI-cursor build crashed on launch (runtime-missing WindowExtension method);
   fixed in EV-0235 and provider re-pushed. Hand-tracking dropouts remain.
 - 2026-11-02: after reset/restart, M7 immersive opened and quit cleanly (EV-0232); subsequent deliberate

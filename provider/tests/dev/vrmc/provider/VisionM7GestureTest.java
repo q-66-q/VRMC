@@ -74,8 +74,10 @@ public final class VisionM7GestureTest {
         float[] l = joints(false, -0.25F, 1.2F, -0.2F);
         float[] r = joints(false, 0.25F, 1.2F, -0.2F);
         long t = 1_000_000_000L;
-        // Pinch closed.
+        // Pinch closed (two frames: debounce window).
         update(g, l, r, true, true, 0.02F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(g, l, r, true, true, 0.02F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 20_000_000L, false, false);
+        update(g, l, r, true, true, 0.02F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 60_000_000L, false, false);
         check("short pinch not place while held", !g.place());
         // Release after 150 ms -> place pulse.
         t += 150_000_000L;
@@ -86,6 +88,8 @@ public final class VisionM7GestureTest {
         VisionM7Gesture h = new VisionM7Gesture();
         long u = 2_000_000_000L;
         update(h, l, r, true, true, 0.02F, 0.02F, HEAD[0], HEAD[1], HEAD[2], u, false, false);
+        update(h, l, r, true, true, 0.02F, 0.02F, HEAD[0], HEAD[1], HEAD[2], u + 20_000_000L, false, false);
+        update(h, l, r, true, true, 0.02F, 0.02F, HEAD[0], HEAD[1], HEAD[2], u + 60_000_000L, false, false);
         u += 500_000_000L;
         update(h, l, r, true, true, 0.02F, 0.02F, HEAD[0], HEAD[1], HEAD[2], u, false, false);
         check("held right pinch breaks", h.breakHeld());
@@ -200,6 +204,7 @@ public final class VisionM7GestureTest {
         float[] r = joints(false, 0.25F, 1.2F, -0.2F);
         update(g, l, r, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, true, false);
         update(g, l, r, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 16_000_000L, true, false);
+        update(g, l, r, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 80_000_000L, true, false);
         check("GUI right pinch fires click", g.guiClick());
         check("GUI suppresses world place", !g.place());
         VisionM7Gesture m = new VisionM7Gesture();
@@ -267,12 +272,16 @@ public final class VisionM7GestureTest {
         // Place/break boundary: 349 ms release = place; 350 ms held = break, no place.
         VisionM7Gesture p349 = new VisionM7Gesture();
         update(p349, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(p349, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 20_000_000L, false, false);
+        update(p349, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 60_000_000L, false, false);
         update(p349, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 349_000_000L, false, false);
         update(p349, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 349_000_000L, false, false);
         check("pinch 349 ms releases place", p349.place());
         check("pinch 349 ms is short", !p349.breakHeld());
         VisionM7Gesture p351 = new VisionM7Gesture();
         update(p351, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(p351, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 20_000_000L, false, false);
+        update(p351, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 60_000_000L, false, false);
         update(p351, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 351_000_000L, false, false);
         check("pinch 351 ms is break", p351.breakHeld());
         update(p351, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 351_000_000L, false, false);
@@ -280,10 +289,40 @@ public final class VisionM7GestureTest {
 
         VisionM7Gesture p350 = new VisionM7Gesture();
         update(p350, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(p350, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 20_000_000L, false, false);
+        update(p350, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 60_000_000L, false, false);
         update(p350, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 350_000_000L, false, false);
         check("pinch 350 ms is break", p350.breakHeld());
         update(p350, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 350_000_000L, false, false);
         check("pinch 350 ms does not place", !p350.place());
+
+        // A single noisy pinch frame must not fire place/click (pinch debounce).
+        VisionM7Gesture jitter = new VisionM7Gesture();
+        update(jitter, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(jitter, openL, openR, true, true, 0.2F, 0.02F, HEAD[0], HEAD[1], HEAD[2], t + 16_000_000L, false, false);
+        update(jitter, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 32_000_000L, false, false);
+        check("single-frame pinch jitter does not place", !jitter.place());
+        check("single-frame pinch jitter does not break", !jitter.breakHeld());
+
+        // A left-fist tap immediately after a both-fist tap must not open the menu (inventory close path).
+        VisionM7Gesture invMenu = new VisionM7Gesture();
+        float[] leftFist = joints(true, -0.12F, 1.2F, -0.2F);
+        update(invMenu, bothL, bothR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(invMenu, bothL, bothR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 120_000_000L, false, false);
+        update(invMenu, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 180_000_000L, false, false);
+        update(invMenu, leftFist, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 220_000_000L, false, false);
+        update(invMenu, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 280_000_000L, false, false);
+        check("left-fist tap after inventory does not open menu", !invMenu.menu());
+
+        // A hotbar tap candidate immediately after a both-fist tap must be suppressed.
+        VisionM7Gesture hotAfterInv = new VisionM7Gesture();
+        update(hotAfterInv, bothL, bothR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t, false, false);
+        update(hotAfterInv, bothL, bothR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 100_000_000L, false, false);
+        update(hotAfterInv, openL, openR, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 160_000_000L, false, false);
+        float[] tip = joints(false, 0.2F, 1.3F, -0.2F);
+        moveIndexTip(tip, 0.2F, 1.3F, -0.6F);
+        update(hotAfterInv, openL, tip, true, true, 0.2F, 0.2F, HEAD[0], HEAD[1], HEAD[2], t + 200_000_000L, false, false);
+        check("hotbar tap after both-fist is suppressed", !hotAfterInv.hotbarNext() && !hotAfterInv.hotbarPrev());
 
         // Hotbar vs attack: a fast wrist swing must attack and must not cycle the hotbar.
         VisionM7Gesture sw = new VisionM7Gesture();
