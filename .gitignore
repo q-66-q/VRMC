@@ -36,3 +36,7 @@ runtime/probes/*/*.xcodeproj
 # Probe run artifacts (readback images/logs): local only, bundled into evidence/EV-* instead
 runtime/probes/*/results/
 runtime/probes/*/build/
+
+# Gesture Lab raw recordings (operator hand data stays local; summaries/analysis are tracked)
+/export/gesturelab-data/**/*.jsonl
+/export/gesturelab-data/rejected/

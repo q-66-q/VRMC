@@ -77,9 +77,12 @@ struct ContentView: View {
                     Button("Start Recording") { model.startRecording() }
                         .buttonStyle(.bordered)
                         .disabled(!model.running)
-                    Button("Guided Capture") { model.startGuidedCapture() }
+                    Button("Record 30s") { model.startTimedRecording(seconds: 30) }
                         .buttonStyle(.borderedProminent)
-                        .disabled(!model.running || model.guidedActive)
+                        .disabled(!model.running || model.recording || model.guidedActive)
+                    Button("Guided Capture") { model.startGuidedCapture() }
+                        .buttonStyle(.bordered)
+                        .disabled(!model.running || model.guidedActive || model.recording)
                 }
             }
 
@@ -93,6 +96,9 @@ struct ContentView: View {
                 .font(.caption)
             }
 
+            if model.recording && model.recordRemaining > 0 {
+                Text("RECORDING — \(model.recordRemaining)s remaining").font(.title3).foregroundStyle(.red)
+            }
             if model.guidedActive {
                 Text("GUIDED \(model.guidedProgress) — \(model.guidedPrompt)").font(.headline)
             } else if model.guidedPrompt != "ready" {

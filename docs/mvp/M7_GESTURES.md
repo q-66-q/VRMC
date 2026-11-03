@@ -1,6 +1,7 @@
 # M7 — Simplified gesture set + Gesture Lab data collector
 
-Status: design + companion app built/installed on D1 (2026-11-02); awaiting labelled recordings. This milestone replaces the M4 per-finger
+Status: design + companion app built/installed on D1 (2026-11-02); first accepted dataset: MENU_RIGHT_PINCH
+(31.23 s, 563 samples, 42 pinch events; EV-0213). This milestone replaces the M4 per-finger
 micro-gesture layer with the operator's preferred, whole-hand scheme. Every threshold below is a
 starting point to be tuned from Gesture Lab recordings; none is device-verified yet.
 
@@ -111,3 +112,11 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
 - Recordings cover 10 repetitions of each action for each operator; thresholds fitted and documented.
 - Provider state machine implements §4 with host tests and device A/B against the old scheme.
 - Device evidence for each mapping, plus no stuck input across 30 min of mixed actions.
+
+## 8. Accepted datasets
+
+- `MENU_RIGHT_PINCH`: 31.23 s / 563 samples / 42 pinch events; pinch p05/p50/p95 =
+  0.006/0.083/0.148 m; right hand tracked throughout; source picker was IDLE and the canonical copy is
+  relabelled with `sourceLabel=IDLE`. Raw JSONL stays local under
+  `export/gesturelab-data/accepted/`; summary/analysis tracked. This establishes the starting
+  0.030 m on / 0.045 m off pinch band; device A/B still required.

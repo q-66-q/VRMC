@@ -16,7 +16,7 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 for f in d.get("result", {}).get("files", []):
     name = f.get("name") or f.get("fileName") or f.get("url", "").rstrip("/").split("/")[-1]
-    if name.startswith("gesturelab-") and (name.endswith(".jsonl") or name == "gesturelab.log"):
+    if name == "gesturelab.log" or (name.startswith("gesturelab-") and name.endswith(".jsonl")):
         print(name)
 PY
 COUNT=0

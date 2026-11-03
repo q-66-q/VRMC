@@ -12,13 +12,14 @@ final class LabModel: ObservableObject {
     @Published private(set) var visibleJointCount = 0
     @Published private(set) var sampleCount = 0
     @Published var classification = "idle"
-    @Published var selectedLabel = "IDLE"
+    @Published var selectedLabel = "MENU_RIGHT_PINCH"
     @Published var recording = false
     @Published var recordFile = "—"
     @Published var logFile = "gesturelab.log"
     @Published var guidedActive = false
     @Published var guidedPrompt = "ready"
     @Published var guidedProgress = ""
+    @Published var recordRemaining = 0
     @Published var headTracked = false
     @Published var leftFeatures = "—"
     @Published var rightFeatures = "—"
@@ -41,6 +42,7 @@ final class LabModel: ObservableObject {
     private var headMarker: ModelEntity?
     private let speech = AVSpeechSynthesizer()
     private var guidedTask: Task<Void, Never>?
+    private var timedRecordingTask: Task<Void, Never>?
 
     func setupScene() {
         guard !sceneReady else { return }
@@ -130,6 +132,8 @@ final class LabModel: ObservableObject {
     func stop() {
         guidedTask?.cancel()
         guidedTask = nil
+        timedRecordingTask?.cancel()
+        timedRecordingTask = nil
         guidedActive = false
         runningTask?.cancel()
         runningTask = nil
@@ -175,6 +179,26 @@ final class LabModel: ObservableObject {
         }
     }
 
+    func startTimedRecording(seconds: Int = 30) {
+        guard running, !recording else { return }
+        guard startRecording() else { return }
+        timedRecordingTask?.cancel()
+        recordRemaining = seconds
+        speak("Recording \(seconds) seconds. Go.")
+        timedRecordingTask = Task { [weak self] in
+            guard let self else { return }
+            for remaining in stride(from: seconds, through: 1, by: -1) {
+                if Task.isCancelled { return }
+                self.recordRemaining = remaining
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            if Task.isCancelled { return }
+            self.recordRemaining = 0
+            self.stopRecording()
+            self.speak("Recording finished. Stop and save is complete.")
+        }
+    }
+
     @discardableResult
     func startRecording(label: String? = nil) -> Bool {
         guard running, !recording else { return false }
@@ -198,6 +222,9 @@ final class LabModel: ObservableObject {
     }
 
     func stopRecording() {
+        timedRecordingTask?.cancel()
+        timedRecordingTask = nil
+        recordRemaining = 0
         guard recording else { return }
         try? fileHandle?.close()
         fileHandle = nil

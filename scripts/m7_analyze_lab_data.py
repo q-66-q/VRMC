@@ -53,8 +53,8 @@ def main():
     out = ["# Gesture Lab analysis", ""]
     out.append(f"files={len(files)} samples={total} unparsed={bad} labels={len(by_label)}")
     out.append("")
-    out.append("| label | samples | left tracked | right tracked | right pinch p50/p95 | right fist p50 | right speed p95 | right wrist→head p50 | head y range |")
-    out.append("|---|---|---|---|---|---|---|---|---|")
+    out.append("| label | samples | left tracked | right tracked | pinch p05/p50/p95 | pinch<0.03 | pinch events | right fist p50 | right speed p95 | right wrist→head p50 | head y range |")
+    out.append("|---|---|---|---|---|---|---|---|---|---|---|")
     suggestions = []
     for label in sorted(by_label):
         rows = by_label[label]
@@ -79,11 +79,24 @@ def main():
                     head_dists.append(math.dist(wr, head))
                     head_ys.append(fnum(head[1]))
         rng = (max(head_ys) - min(head_ys)) if head_ys else 0.0
-        out.append(f"| {label} | {len(rows)} | {left} | {right} | {pct(pinches,0.5):.3f}/{pct(pinches,0.95):.3f} | "
-                   f"{pct(fists,0.5):.2f} | {pct(speeds,0.95):.2f} | {pct(head_dists,0.5):.3f} | {rng:.3f} |")
+        closed = [p for p in pinches if p < 0.030]
+        on = False
+        events = 0
+        for p in pinches:
+            if not on and p < 0.030:
+                on = True
+            elif on and p > 0.045:
+                on = False
+                events += 1
+        out.append(f"| {label} | {len(rows)} | {left} | {right} | "
+                   f"{pct(pinches,0.05):.3f}/{pct(pinches,0.5):.3f}/{pct(pinches,0.95):.3f} | "
+                   f"{len(closed)} | {events} | {pct(fists,0.5):.2f} | {pct(speeds,0.95):.2f} | "
+                   f"{pct(head_dists,0.5):.3f} | {rng:.3f} |")
         if label in ("MENU_RIGHT_PINCH", "PLACE_RIGHT_PINCH") and pinches:
-            suggestions.append(f"- pinch threshold: {label} pinch p95={pct(pinches,0.95):.3f} m "
-                               f"(p50={pct(pinches,0.5):.3f}); set on/off below/above this band after comparing WALK/IDLE.")
+            suggestions.append(f"- {label}: {len(closed)} closed frames (<0.030 m), {events} pinch events; "
+                               f"p05={pct(pinches,0.05):.3f} p25={pct(pinches,0.25):.3f} "
+                               f"p50={pct(pinches,0.5):.3f} p95={pct(pinches,0.95):.3f} m. "
+                               f"Current 0.030 on / 0.045 off is consistent if the open-hand p25 stays above 0.045.")
         if label in ("WALK_BOTH_FISTS", "BOW_BOTH_FISTS", "ATTACK_RIGHT_SWING") and speeds:
             suggestions.append(f"- {label}: right wrist speed p95={pct(speeds,0.95):.2f} m/s; "
                                f"use for attack/walk separation after checking falsing.")
