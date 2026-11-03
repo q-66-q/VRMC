@@ -40,11 +40,11 @@ public final class VisionM7Gesture {
     public static final float PINCH_ON = 0.030F;
     public static final float PINCH_OFF = 0.045F;
     // Curl ratio (same definition as Gesture Lab / data summaries).
-    public static final float FIST_ON = 0.55F;
+    public static final float FIST_ON = 0.65F;
     public static final float FIST_OFF = 0.75F;
 
     public static final long PLACE_MAX_NS = 350_000_000L;
-    public static final long INVENTORY_TAP_MAX_NS = 350_000_000L;
+    public static final long INVENTORY_TAP_MAX_NS = 450_000_000L;
     public static final float WALK_START_SWING = 0.04F;
     public static final float BOW_SEPARATION = 0.55F;
     public static final float EAT_DISTANCE = 0.28F;

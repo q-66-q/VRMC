@@ -48,7 +48,8 @@ A/B. Rebuild order after A/B pass:
 | Step | Action | Record |
 |---|---|---|
 | 0 | rollback to m4, reload, verify playable, return to m7 | mode log, playable Y/N |
-| 1 | menu/escape | **NOT RUN.** EV-0232/0233 verified only immersive open + clean quit. Incidental action log entries are not evidence. |
+| 1 | menu/escape | **PARTIAL (2026-11-02):** menu GUI clicks triggered but frequently missed targets; left-fist escape triggered. Head-ray GUI cursor added (EV-0234); retest needed. |
+| 2 | inventory | **PARTIAL:** both-fist inventory triggered sometimes but frequently missed; fist threshold 0.55→0.65 and tap window 350→450 ms (EV-0234); retest needed. |
 | 2 | inventory | both-fist priority |
 | 3 | walk | sustained swing |
 | 4 | place/break | 0.35 s boundary |

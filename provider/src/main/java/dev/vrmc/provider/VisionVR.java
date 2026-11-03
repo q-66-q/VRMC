@@ -156,6 +156,8 @@ public class VisionVR extends MCVR {
     private VRInputAction[] bindingActions;
     private boolean m7Mode;
     private final VisionM7Gesture m7Gesture = new VisionM7Gesture();
+    private final Vector3f m7GuiOrigin = new Vector3f();
+    private final Vector3f m7GuiDir = new Vector3f();
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
     private int poseLogFrames;
@@ -355,7 +357,8 @@ public class VisionVR extends MCVR {
                 && this.dh.climbTracker.isClimbeyClimb(),
             this.dh.vrPlayer != null && this.dh.climbTracker != null && this.mc.player != null
                 && this.dh.climbTracker.isActive(this.mc.player),
-            this.visionInput == null ? "" : this.visionInput.gestureSummary());
+            this.m7Mode ? this.m7Gesture.summary()
+                : (this.visionInput == null ? "" : this.visionInput.gestureSummary()));
         String json = VisionStatusJson.build(data, java.time.Instant.now());
         java.nio.file.Path path = this.mc.gameDirectory.toPath().resolve("vrmc-status.json");
         try {
@@ -876,6 +879,9 @@ public class VisionVR extends MCVR {
             this.pollDisplayViews();
             this.pollGazeEvents();
             this.updateAim();
+            if (this.m7Mode) {
+                this.updateM7GuiCursor();
+            }
             this.processInputs();
             this.hmdSampling();
         }
@@ -1047,6 +1053,41 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /**
+     * M7 GUI guidance: the operator expects look-to-target + right-pinch click. Raw eye gaze is not
+     * available for a rendered Minecraft GUI, so the closest controllable approximation is a head-ray
+     * cursor: project the HMD forward axis onto Vivecraft's GUI plane every frame while a screen is open.
+     * This does not replace the game's own GUI rendering; it only positions the existing cursor so the
+     * right-pinch click lands where the operator is looking. The system-provided eye-hover remains native
+     * SwiftUI only.
+     */
+    private void updateM7GuiCursor() {
+        if (this.mc.gui.screen() == null || GuiHandler.GUI_POS_ROOM == null
+            || GuiHandler.GUI_ROTATION_ROOM == null) {
+            return;
+        }
+        this.m7GuiOrigin.set(this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32());
+        this.m7GuiDir.set(0.0F, 0.0F, -1.0F);
+        this.hmdPose.transformDirection(this.m7GuiDir);
+        float aspect = (float) this.mc.getWindow().getGuiScaledHeight()
+            / (float) this.mc.getWindow().getGuiScaledWidth();
+        Vector2f uv = VisionGazeMath.intersectGuiPlane(this.m7GuiOrigin, this.m7GuiDir,
+            GuiHandler.GUI_POS_ROOM, GuiHandler.GUI_ROTATION_ROOM, GuiHandler.GUI_SCALE, aspect);
+        if (uv == null) {
+            return;
+        }
+        int winW = this.mc.getWindow().getWidth();
+        int winH = this.mc.getWindow().getHeight();
+        double mx = uv.x * (double) winW;
+        double my = uv.y * (double) winH;
+        Vector2ic actual = ((WindowExtension) (Object) this.mc.getWindow()).vivecraft$getActualWindowSize();
+        if (actual != null) {
+            mx = mx * actual.x() / (double) this.mc.getWindow().getScreenWidth();
+            my = my * actual.y() / (double) this.mc.getWindow().getScreenHeight();
+        }
+        InputSimulator.setMousePos(mx, my);
+    }
+
     // ------------------------------------------------------------------------------------------
     // M4-W2 gaze: tile id -> GUI pixel, pinch-confirm click. The compositor publishes a tile event
     // only when Documents/vrmc-gaze.flag enabled its tracking-area grid; no event = no behaviour.
@@ -1151,6 +1192,9 @@ public class VisionVR extends MCVR {
     // ------------------------------------------------------------------------------------------
 
     private void logInputDiagnostics() {
+        if (this.m7Mode) {
+            return; // M4 gesture edge log is misleading in M7 mode; M7 summary is in status/report
+        }
         VisionInput in = this.visionInput;
         if (!this.firstSnapshotLogged && in.hasSeenSnapshot() && in.hasPublishEvidence()) {
             this.firstSnapshotLogged = true;
