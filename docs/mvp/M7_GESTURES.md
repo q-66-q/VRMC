@@ -155,3 +155,7 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   events** >0.10 m with depths 0.10–0.25 m (two ~4.9 s holds); max speed 1.66 m/s. Starting detector:
   baseline EMA (τ≈2 s), >0.10 m drop sustained 350 ms, release within 0.05 m for 250 ms. Long holds mean
   a second pass should add more transitions.
+
+- `TELEPORT_LEFT_PINCH`: two samples 31.09 s/551 and 38.97 s/703; left tracked 484/629; **16 left-pinch
+  events** total at 0.030 on/0.045 off, from 0.05 s taps to 4.56 s aimed holds. Mapping: pinch press
+  starts aim, release commits, open hand/tracking loss cancels.

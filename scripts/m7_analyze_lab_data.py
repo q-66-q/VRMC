@@ -88,17 +88,19 @@ def main():
     out = ["# Gesture Lab analysis", ""]
     out.append(f"files={len(files)} samples={total} unparsed={bad} labels={len(by_label)}")
     out.append("")
-    out.append("| label | samples | left tracked | right tracked | pinch p05/p50/p95 | pinch<0.03 | pinch events | left fist p50 | right fist p50 | right speed p95 | right wrist→head p50 | head y range |")
-    out.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    out.append("| label | samples | L tracked | R tracked | L pinch p05/p50/p95 | L events | R pinch p05/p50/p95 | R events | L fist p50 | R fist p50 | R speed p95 | R wrist→head p50 | head y range |")
+    out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     suggestions = []
     for label in sorted(by_label):
         rows = by_label[label]
         left = sum(1 for s in rows if s.get("left", {}).get("tracked"))
         right = sum(1 for s in rows if s.get("right", {}).get("tracked"))
-        pinches, right_fists, left_fists, speeds, head_dists, head_ys = [], [], [], [], [], []
+        pinches, left_pinches, right_fists, left_fists, speeds, head_dists, head_ys = [], [], [], [], [], [], []
         for s in rows:
             rf = s.get("rightFeatures", {})
+            lf = s.get("leftFeatures", {})
             if s.get("left", {}).get("tracked"):
+                left_pinches.append(fnum(lf.get("pinch"), 1.0))
                 v = fist_ratio(s["left"])
                 if v is not None:
                     left_fists.append(v)
@@ -123,18 +125,23 @@ def main():
                     head_dists.append(math.dist(wr, head))
                     head_ys.append(fnum(head[1]))
         rng = (max(head_ys) - min(head_ys)) if head_ys else 0.0
+        def pinch_events(vals):
+            on = False
+            count = 0
+            for p in vals:
+                if not on and p < 0.030:
+                    on = True
+                elif on and p > 0.045:
+                    on = False
+                    count += 1
+            return count
         closed = [p for p in pinches if p < 0.030]
-        on = False
-        events = 0
-        for p in pinches:
-            if not on and p < 0.030:
-                on = True
-            elif on and p > 0.045:
-                on = False
-                events += 1
+        events = pinch_events(pinches)
+        left_events = pinch_events(left_pinches)
         out.append(f"| {label} | {len(rows)} | {left} | {right} | "
-                   f"{pct(pinches,0.05):.3f}/{pct(pinches,0.5):.3f}/{pct(pinches,0.95):.3f} | "
-                   f"{len(closed)} | {events} | {pct(left_fists,0.5):.2f} | {pct(right_fists,0.5):.2f} | "
+                   f"{pct(left_pinches,0.05):.3f}/{pct(left_pinches,0.5):.3f}/{pct(left_pinches,0.95):.3f} | "
+                   f"{left_events} | {pct(pinches,0.05):.3f}/{pct(pinches,0.5):.3f}/{pct(pinches,0.95):.3f} | "
+                   f"{events} | {pct(left_fists,0.5):.2f} | {pct(right_fists,0.5):.2f} | "
                    f"{pct(speeds,0.95):.2f} | {pct(head_dists,0.5):.3f} | {rng:.3f} |")
         if label in ("MENU_RIGHT_PINCH", "PLACE_RIGHT_PINCH") and pinches:
             suggestions.append(f"- {label}: {len(closed)} closed frames (<0.030 m), {events} pinch events; "
@@ -148,6 +155,11 @@ def main():
                                f"right fist frames <0.55={closed_r}/{len(right_fists)}; "
                                f"left p50={pct(left_fists,0.5):.2f}, right p50={pct(right_fists,0.5):.2f}. "
                                f"Use closed frames with both-hands-visible to set fist on/off hysteresis.")
+        if label == "TELEPORT_LEFT_PINCH":
+            suggestions.append(f"- TELEPORT_LEFT_PINCH: left pinch events={left_events}; "
+                               f"p05={pct(left_pinches,0.05):.3f} p50={pct(left_pinches,0.5):.3f} "
+                               f"p95={pct(left_pinches,0.95):.3f} m. Left pinch hold should start teleport-aim; "
+                               f"release commits.")
         if label in ("WALK_BOTH_FISTS", "BOW_BOTH_FISTS", "ATTACK_RIGHT_SWING") and speeds:
             suggestions.append(f"- {label}: right wrist speed p95={pct(speeds,0.95):.2f} m/s; "
                                f"use for attack/walk separation after checking falsing.")

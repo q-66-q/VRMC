@@ -40,3 +40,5 @@ runtime/probes/*/build/
 # Gesture Lab raw recordings (operator hand data stays local; summaries/analysis are tracked)
 /export/gesturelab-data/**/*.jsonl
 /export/gesturelab-data/rejected/
+/export/gesturelab-data/*.log
+/export/gesturelab-data/*.md
