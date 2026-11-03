@@ -168,3 +168,8 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
 - `EAT_RIGHT_HAND_HEAD`: 30.85 s / 455 samples; right 386/455 tracked; wrist→head p05/p50/p95
   0.218/0.283/0.734 m; 181 frames <0.28 m; **11 near-head events** 0.22–6.04 s. Starting detector
   ~0.28 m with 250 ms latch, edible/drinkable context, stop >0.35 m; 0.22–0.25 m is a stronger trigger.
+
+- `BOW_BOTH_FISTS`: 46.66 s / 819 samples; left/right 695/758 tracked; wrist separation
+  0.156–1.049 m; **16 draw/release cycles** >0.55 m; left fist p50 0.349 (bow hand closed), right p50
+  0.479/p95 0.983 (string hand opens on release). Starting detector: both fists, separation >0.55 m,
+  release on back-hand open, walk suppressed while bow context is active.
