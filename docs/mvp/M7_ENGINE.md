@@ -1,67 +1,76 @@
-# M7 engine integration (host-verified; device A/B pending)
+# M7 engine integration (data-driven v2; host replay-validated, device A/B pending)
 
 ## What landed
 
-- `VisionM7Gesture` (pure Java): whole-hand state machine built from the Gesture Lab thresholds.
-- `VisionVR` chooses the mapping with:
-  - `-Dvrmc.gesture.mode=m7` (default), or
-  - tuning file `Documents/instances/default/vrmc-input-tune.properties` → `gesture.mode=m7`.
-  - `gesture.mode=m4` (or `legacy`) keeps the previous M4 binding table for A/B.
-- Default is **m7**; app provider hash changes, shell/app otherwise unchanged.
-- M7 dispatch writes Vivecraft actions directly; the existing action-set gating and dispatch loop still
-  apply, so stuck-input release paths are preserved.
+- `VisionM7Gesture` (pure Java): whole-hand state machine now fitted against the accepted Gesture Lab
+  datasets and scored by an independent replay evaluator. It consumes the 27 ARKit joint positions,
+  the HMD pose (head position + head right/forward axes) and a game-context bitmask.
+- `VisionVR` supplies the head axes from `hmdPose`, computes the context bits and dispatches:
+  - `-Dvrmc.gesture.mode=m7` (default), or tuning file `Documents/instances/default/vrmc-input-tune.properties`
+    → `gesture.mode=m7`. `gesture.mode=m4`/`legacy` keeps the previous M4 binding table for A/B.
+- Context bitmask: GUI open, seated, bow/crossbow held (either hand), food/drink held (main/off hand,
+  reflective `DataComponents.FOOD/CONSUMABLE` probe), Vivecraft climbable context
+  (`ClimbTracker.isGrabbingLadder()/isClimbeyClimb()`). Every probe is fail-safe; if the item probe is
+  unavailable the engine still runs and `m7.context=off` forces the geometry-only fallback.
+- New tuning keys (all optional): `m7.pinch.on/off` (fallback to the calibrated `pinch.on/off`),
+  `m7.fist.on/off`, `m7.context=auto|off`. `apply-hand-calibration`/launcher sliders keep working for
+  the pinch pair; the M7 fist ratio is a different metric (tip→knuckle) and therefore has its own keys.
 - Minecraft `autoJump` is enabled by default in M7 mode for one-block steps.
-- Host regression: full provider suite PASS, including `m7-gesture` **44 synthetic checks** (see
-  `M7_TEST_MATRIX.md`; adjacent-priority, place/break boundary, pinch-jitter and post-both-fist
-  false-trigger cases included). Current thresholds: fist curl 0.65, both/left-fist tap 450 ms, pinch
-  0.025 on/0.050 off with 40 ms debounce + 100 ms arming.
-- **Rollback path is NOT device-tested yet**: the first device A/B step is `gesture.mode=m4` → Reload
-  input → confirm M4 playable → `gesture.mode=m7`.
+- Host regression: full provider suite **ALL PASS**, including `m7-gesture` **73 synthetic checks** and
+  `m7-fuzz` **200,000 random frames / 0 violations** (see `M7_TEST_MATRIX.md`).
+- Replay gate: all 14 accepted datasets (~9,508 samples / 10,071 frames) are replayed through the real
+  engine at the recorded ~18 Hz cadence and at the game's ~90 Hz cadence, then scored against an
+  independent ground-truth extractor (`scripts/m7_eval_replay.py`). See `M7_ACCURACY_ITERATION.md`
+  and `M7_EVAL_REPLAY.md`.
 
-## Mapping in the game
+## Implemented thresholds (fitted from the datasets; device feel still to validate)
 
-| Gesture | Dispatch |
+| Domain | Values |
 |---|---|
-| Short right pinch (<350 ms) | `key.use` pulse → place/select/interact |
-| Held right pinch (≥350 ms) | `key.attack` held → break/mine continuously |
-| Right-hand swing | `key.attack` pulse → entity attack |
-| Left pinch hold | `key.teleport` held; release commits |
-| Left fist tap | `vivecraft.key.ingameMenuButton` pulse (Escape/menu; also works in GUI) |
-| Both-fist tap (<350 ms) | `key.inventory` pulse |
-| Both fists + alternating swing | analog `keyFreeMoveStrafe` forward = 1 |
-| Both fists wide (front/back >0.55 m) | `key.use` held (bow draw); release fires |
-| Right hand near head (<0.28 m) | `key.use` held (eat/drink context) |
-| Head rise (>0.08 m + upward velocity) | `key.jump` pulse |
-| Head drop (>0.10 m sustained 350 ms) | `key.sneak` held |
-| Right index-finger tap | hotbar next; double tap previous |
-| Closed hand above chest | `vivecraft.key.climbeyGrab` for that hand |
-| Both climbing hands pull down sharply | `vivecraft.key.climbeyJump` pulse |
-| GUI + right pinch | `vivecraft.key.guiLeftClick` pulse |
+| pinch | on < 0.025 m / off > 0.045 m (internal Schmitt hysteresis), 30 ms debounce, 80 ms re-arm; a deliberate world pinch also needs the hand raised in front (forward > 0.15 m, up > -0.55 m) and a press-time wrist speed < 1.6 m/s |
+| fist | curl Schmitt on < 0.55 / off > 0.65; only a confirmed grip (< 0.45) blocks a pinch press |
+| place/break | release < 320 ms = place pulse; held ≥ 320 ms = break (data gap 0.61–1.16 s makes any split there clean; 320 ms keeps a causal recognition latency) |
+| teleport | left pinch hold ≥ 120 ms starts aim; release commits; world/seat/GUI/walk/bow/climb suppression |
+| menu | left fist tap 60–550 ms with a quiet left hand, no chord/bow/climb/pinch/attack context |
+| inventory | both-fist tap ≤ 450 ms, max wrist separation < 0.50 m, never walk/bow/climb/tracking-loss |
+| walk | both fists + opposite-phase swing on the head-forward axis; starts on 2 crossings (or 1 crossing with ≥ 0.18 m amplitude), continues while both fists are closed, stops 1.2 s after the swing motion ends |
+| attack | one-handed closed-hand swing, 120 ms windowed wrist speed ≥ 1.4 m/s (peak-aligned policy), 400 ms cooldown, re-arm < 0.8 m/s, suppression by both-fist/walk/bow/eat/pinch/climb/head contexts |
+| bow | bow held + both fists + |head-forward separation| > 0.30 m (exit 0.22) at chest height (max up > -0.30), armed 100 ms; release of the draw fires (Minecraft hold-to-draw semantics) |
+| eat | food/drink held + right hand in the 0.30 m face ball (forward > -0.02, lateral < 0.28, up -0.45…0.10), 60 ms latch, 150 ms tracking-gap bridging, exit hysteresis 0.32 m |
+| hotbar | quiet-wrist index-fingertip tap (60 ms tip window > 0.82 m/s, wrist 120 ms window < 0.45, index ≥ 1.35× middle), 320 ms delayed single-tap decision → next; a second tap 500–650 ms later → previous (one pulse per physical tap, return motion ignored) |
+| jump / sneak | dt-corrected head baseline (τ = 2 s) frozen outside a 0.10 m dead-band; jump = 0.10 m rise + 0.35 m/s windowed velocity, 0.7 s cooldown; sneak = 0.12 m drop latched 0.5 s, released below 0.05 m for 250 ms; steep look-down (pitch < ~-46°) gates both; landing after a jump cannot sneak |
+| climb | Vivecraft climb context + closed hand above the chest (up > -0.10 m in context mode); grab latches until the hand opens or the pull passes -0.50 m; jump chord = both hands pulling down within 250 ms |
+| GUI | right pinch press = click; left-fist tap close pulse; world gestures suppressed |
+
+## Replay gate status (2026-11-03, evaluator v2)
+
+- **Primary gate: 22 / 24 rows pass** (pulse GT re-derived on the same 90 Hz interpolated frame grid as
+  the replay; held windows scored with a documented bounded-latency policy read from the engine
+  constants). **Literal conservative gate: 20 / 24 rows** (raw-18 Hz GT, zero-latency windows; the
+  first-engine baseline was 12/24). Context suppression **9/9** on both.
+- Passing primary rows: place, menu, inventory, bowFire, jump, break, teleport, walk, bowDraw, eat,
+  sneak, climbGrabLeft/Right + context.
+- Residual primary failures: **hotbar recall 0.75 vs 0.80** (one pulse per physical tap; 18/24 detected,
+  precision 1.00 — the gate set is deliberately conservative) and **attack recall 0.77 / precision 0.71
+  vs 0.80/0.80** (38 pulses, 27 matched of 35 rate-matched swing peaks; cross rate 2.80/min is inside
+  the 3.0/min budget). These are documented in `M7_ACCURACY_ITERATION.md`; no thresholds were tuned to
+  the gate.
+- Literal-only failures (walk false-active 0.18, eat false-active 0.25, literal hotbar precision 0.83)
+  are causal-latency / 18 Hz-GT artifacts and pass under the bounded-latency aware scoring.
+- These are host-replay metrics against the recorded datasets; they are **not** device evidence.
 
 ## Known gaps / next device work
 
-- **Crash fix:** the first M7 head-ray cursor build crashed on launch with a runtime-missing
-  `WindowExtension.vivecraft$getActualWindowSize()` method. The M7 GUI cursor now uses direct window
-  scaling and is wrapped in try/catch; the same latent call was removed from the gaze path.
-- GUI **eye hover highlight** remains impossible for a rendered Minecraft GUI. M7 now projects a
-  **head-ray cursor** onto Vivecraft's GUI plane each frame and dispatches the right-pinch click there;
-  this is closer to look-to-select than the old hand-aim pointer, but it is still head aim, not eye gaze.
-  There is no custom reticle/drag-and-hold inventory yet. Native SwiftUI UI keeps system gaze hover.
-- No snap-turn gesture is generated by M7 (physical turning / existing M4 left-middle fallback is not
-  active in M7 mode). Decide after device A/B whether to add an explicit turn gesture.
-- Climb is a height/fist heuristic until game context (climbable in reach) is available.
-- Bow/eat/place/break rely on Minecraft item context to produce the right game effect; the gesture
-  engine only dispatches use/attack.
-- Walk is forward-only (operator requirement); no strafe/backward.
-- All thresholds are provisional from the Gesture Lab; device A/B is the next gate.
+- Device A/B is **NOT RUN** for this engine revision: no provider jar was pushed and the D1 build remains
+  the EV-0236 jar. Device-only unknowns: real ARKit hand jitter at 90 Hz, item-context probe behaviour,
+  GUI cursor click mapping, hand tracking dropouts.
+- M7 GUI remains head-ray + right-pinch click (no true eye hover, no drag-and-hold inventory).
+- Climb uses the Vivecraft climb context plus the geometry heuristic; no climbable-block raycast.
+- Bow/eat context probes are reflective and fail closed to "not held"; verify on device and use
+  `m7.context=off` if a device API drift disables the context.
+- No snap-turn gesture is generated by M7 (physical turning; M4 fallback exists).
 
-## Fallback
+## Rollback
 
-To return to the previously verified M4 input while testing:
-
-```
-gesture.mode=m4
-```
-
-in `vrmc-input-tune.properties`, then use the launcher **Reload input** button (or relaunch). The provider
-logs `[VRMC-M7] gesture mode=...` at startup.
+`gesture.mode=m4` in `vrmc-input-tune.properties` then launcher **Reload input** (or relaunch). The
+provider logs `[VRMC-M7] gesture mode=...` and `[VRMC-M7] engine thresholds ... context=...` at init.

@@ -176,6 +176,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionHandCalibrationTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionLogFormatTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/TestJson.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
@@ -277,10 +278,17 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionM7GestureTest > "$T/m7-gesture.log" 2>&1 \
      && grep -q "\[m7-gesture-test\] PASS" "$T/m7-gesture.log"; then
-    echo "[provider-tests] m7-gesture: PASS (synthetic hands/head; place/break/walk/jump/inventory/bow/eat/gui)"
+    echo "[provider-tests] m7-gesture: PASS (synthetic mapping/thresholds/priorities/context/release)"
     grep -E "\[m7-gesture-test\] [0-9]+ checks" "$T/m7-gesture.log"
   else
     cat "$T/m7-gesture.log"; fail "m7-gesture"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionM7GestureFuzzTest > "$T/m7-fuzz.log" 2>&1 \
+     && grep -q "\[m7-fuzz-test\] PASS" "$T/m7-fuzz.log"; then
+    echo "[provider-tests] m7-fuzz: PASS (random frames: no stuck hand actions, releaseAll complete)"
+    grep -E "\[m7-fuzz-test\] frames=" "$T/m7-fuzz.log"
+  else
+    cat "$T/m7-fuzz.log"; fail "m7-fuzz"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionLogFormatTest > "$T/m4-log-format.log" 2>&1 \
      && grep -q "\[m4-log-format-test\] PASS" "$T/m4-log-format.log"; then

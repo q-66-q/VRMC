@@ -1,14 +1,18 @@
 # VRMC current status & handoff (development build)
 
-Updated: 2026-11-02 (host time; M7 pre-A/B review EV-0229; device A/B pending). Authority remains [`VERIFY.md`](../../VERIFY.md) and the per-round
-evidence bundles; this page is a navigation summary.
+Updated: 2026-11-03 (host time; M7 data-driven accuracy iteration EV-0237; device A/B pending).
+Authority remains [`VERIFY.md`](../../VERIFY.md) and the per-round evidence bundles; this page is a
+navigation summary.
 
 ## Current installed build (D1)
 
 - App: path-independent tree sha256 `2388965a1908f9630f80f77e4f5b8fc4b44ddddf58175452613182faabd375f3`
   (`/tmp/VRMC-native-releaseinput.app`, 169 signed Mach-O, deep/strict verify PASS)
-- Provider: `a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58` (92,516 bytes),
-  reproducible (two-build check) and **device integrity PASS** via `scripts/m6_device_integrity.sh`
+- Packaged release-app provider: `a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58`
+  (92,516 bytes, two-build reproducible; M6 package integrity PASS via `scripts/m6_device_integrity.sh`).
+  The D1 `mods/` provider has since been updated by the M7 pushes; the latest **installed** D1 provider is
+  `b77897dd…` (EV-0236). The EV-0237 accuracy-iteration provider (`d2c8a8d9…`, 120,666 bytes) is a host
+  artifact only and has **not** been pushed.
 - Development package: `/tmp/VRMC-dev-release.zip` bytes=206,538,366 sha256
   `4d9141f05a8993a0c5242534df4ff102aaefe6fffd7ae555bf82c06dd9e3d2af`; verifier PASS; not a final release.
 - D1 is available and the latest build has now **launched successfully and been played** (EV-0212):
@@ -57,22 +61,25 @@ Latest host results: provider suite ALL PASS; bridge suite incl. TSan ALL PASS; 
 200k pose fuzz, 100k smoother fuzz, 500k gaze fuzz, 100k JSON fuzz, 100k settings fuzz — 0 violations;
 release check PASS; package verifier/freshness PASS; release-ready host gates PASS (acceptance NOT READY).
 
-## M7 simplified gesture engine (EV-0228)
+## M7 simplified gesture engine (EV-0228 → EV-0237)
 
 - Pure-Java `VisionM7Gesture` + VisionVR dispatch; default `gesture.mode=m7`, fallback `m4`.
-- Host suite ALL PASS (m7-gesture **40** checks); provider `1c75ae86…` pushed/verified on D1.
+- **2026-11-03 (EV-0237): data-driven accuracy iteration.** All 14 Gesture Lab datasets were analysed
+  by two independent scripts/reports, replayed through the real engine (90 Hz + raw) and scored by an
+  independent evaluator. The engine now uses fitted thresholds/hysteresis, head-frame geometry, item/
+  climb game context, windowed speeds and a dt-corrected head baseline. Host: 73 synthetic checks +
+  200k-frame fuzz ALL PASS; literal replay gate **20/24 rows (baseline 12/24)**, context suppression
+  9/9. Residual literal rows and root-cause analysis: `M7_ACCURACY_ITERATION.md`.
+- **The EV-0237 provider was NOT pushed to D1**: the installed device provider remains the EV-0236 jar,
+  so no device behaviour is claimed for the new engine. Device A/B is the remaining acceptance gate
+  (`M7_PLAN.md`).
 - Rollback path prepared (`gesture.mode=m4` in tune, read back); **step 0 playability NOT RUN**.
-- Device A/B order in `M7_PLAN.md`; release metadata update deferred until after A/B acceptance.
-- 2026-11-02: M7 menu/inventory false triggers (inventory only once, menu/hotbar glitches, pinches
-  too sensitive) fixed in provider `b77897dd…` with pinch debounce/arming, GUI close via onClose,
-  menu/hotbar suppression, head-ray cursor logging; device retest pending (EV-0236).
+- 2026-11-02 EV-0236: menu/inventory false triggers (inventory once, menu/hotbar glitches, pinches too
+  sensitive) addressed with pinch debounce/arming, GUI close via onClose, menu/hotbar suppression and a
+  head-ray cursor; device retest was still pending when EV-0237 landed.
 - 2026-11-02: first M7 GUI-cursor build crashed on launch (runtime-missing WindowExtension method);
-  fixed in EV-0235 and provider re-pushed. Hand-tracking dropouts remain.
-- 2026-11-02: after reset/restart, M7 immersive opened and quit cleanly (EV-0232); subsequent deliberate
-  menu/inventory test showed triggers but frequent target misses (menu) / recognition misses (inventory).
-  Added M7 head-ray GUI cursor and looser fist/tap thresholds (EV-0234); device retest required. Hand
-  tracking dropouts remain an ARKit/visibility issue.
-- **Device A/B NOT RUN**; GUI eye-hover/drag and climb context are known gaps.
+  fixed in EV-0235. Hand-tracking dropouts remain an ARKit/visibility issue.
+- **Device A/B NOT RUN**; GUI eye-hover/drag remain known gaps (climb now has runtime context).
 
 ## First successful device session (EV-0212)
 

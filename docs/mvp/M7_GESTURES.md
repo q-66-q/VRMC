@@ -1,9 +1,10 @@
 # M7 — Simplified gesture set + Gesture Lab data collector
 
-Status: **all 14 action datasets accepted (EV-0213…EV-0227); M7 engine implemented behind a mode switch and
-host-verified (EV-0228)**. Next: device A/B against the M4 mapping. See `M7_ENGINE.md`. This milestone replaces the M4 per-finger
-micro-gesture layer with the operator's preferred, whole-hand scheme. Every threshold below is a
-starting point to be tuned from Gesture Lab recordings; none is device-verified yet.
+Status: **all 14 action datasets accepted (EV-0213…EV-0227); M7 engine implemented behind a mode
+switch (EV-0228) and re-fitted against the datasets with an independent replay gate (EV-0237)**.
+The thresholds below are now the implemented, data-fitted values (see §5/§15); device A/B is the only
+remaining acceptance gate. See `M7_ENGINE.md` and `M7_ACCURACY_ITERATION.md`. This milestone replaces
+the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand scheme.
 
 ## 1. Operator intent, made precise
 
@@ -73,24 +74,44 @@ starting point to be tuned from Gesture Lab recordings; none is device-verified 
 Every digital source has a release path on tracking loss, GUI close, mode change, and game stop.
 Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exit uses hold timers.
 
-## 5. Feature definitions for the lab/classifier
+## 5. Feature definitions (implemented, fitted from the datasets)
 
-- **Pinch distance:** `|thumbTip - indexTip|`; pinch on < 0.030 m, off > 0.045 m (starting values).
-- **Fist curl:** mean fingertip distance to palm center, normalized by hand scale (wrist→middle knuckle).
-  Fist if ratio < 0.55; open if > 0.75.
-- **Wrist swing:** per-hand wrist position relative to head, in head-yaw frame; low-pass at 6 Hz;
-  walking = opposite-phase z/x swing, amplitude > 0.04 m, period 0.5–2.0 s, both fists held.
-- **Right swing attack:** wrist speed > 1.4 m/s or acceleration peak > 8 m/s², followed by direction
-  reversal; not a fist, not near head.
-- **Head jump:** head y baseline EMA (τ≈2 s), jump if `y - baseline > 0.08 m` with upward velocity
-  > 0.25 m/s; landing clearance for 300 ms.
-- **Head sneak:** `baseline - y > 0.10 m` sustained 350 ms; exit when < 0.05 m for 250 ms.
-- **Eat/drink:** right wrist within 0.28 m of head anchor and held item is edible; hold 250 ms to latch.
-- **Bow:** both fists; front/back wrist separation along the hand-forward axis > 0.25 m; draw = increase
-  separation; release when back fist opens.
-- **Climb:** closed hand above head by >0.05 m while a climbable is within reach; alternating hand
-  vertical movement; release when hand opens or drops below chest.
-- **Hotbar tap:** right wrist vertical velocity spike >0.5 m/s and return within 250 ms.
+Every value below is the constant implemented in `VisionM7Gesture` and scored by
+`scripts/m7_eval_replay.py`; each is derived from the recorded distributions in
+`M7_DATA_ANALYSIS_HANDS.md` / `M7_DATA_ANALYSIS_HEAD.md` and is host-replay validated (device A/B NOT RUN).
+
+- **Pinch distance:** `|thumbTip - indexTip|`; Schmitt on < 0.025 m / off > 0.045 m, 30 ms debounce,
+  80 ms re-arm. A world pinch also requires the hand raised in front (forward > 0.15 m, up > -0.55 m),
+  press-time wrist speed < 1.6 m/s, and an open (not fist-gripped, curl ≥ 0.45) hand.
+- **Fist curl:** mean fingertip→knuckle distance divided by wrist→knuckle distance (four fingers);
+  Schmitt on < 0.55 / off > 0.65. Open-hand release p50 of the recorded relaxed hands is 0.90-0.99.
+- **Walk swing:** both fists; left/right wrist difference projected on the head-forward axis (head pose
+  from the HMD, not world Z); start on 2 swing crossings (or 1 crossing with ≥ 0.18 m amplitude);
+  continue while both fists stay closed; stop 1.2 s after the swing motion ends. Ambient/data gap
+  0.5–1.0 s.
+- **Attack:** one-handed closed-hand swing; 120 ms windowed wrist displacement speed ≥ 1.4 m/s,
+  400 ms cooldown, re-arm below 0.8 m/s; suppressed by both fists, walk, bow, eat, pinch, climb, GUI,
+  near-head and head-gesture states (recorded accidental pinches abort within 250 ms if the hand
+  accelerates like a swing).
+- **Head jump:** dt-corrected head-y baseline (τ = 2 s, EMA α = 1 − e^(−dt/τ)) frozen outside a 0.10 m
+  dead-band; jump if rise > 0.10 m with 120 ms windowed upward velocity > 0.35 m/s; 0.7 s cooldown;
+  steep look-down (pitch < ~-46°) gated.
+- **Head sneak:** `baseline - y > 0.12 m` latched 0.5 s; exit when the drop < 0.05 m for 250 ms;
+  baseline freeze keeps a sustained physical crouch latched (the old per-frame EMA dropped it after ~1 s).
+- **Eat/drink:** food/drink held (item context) and right wrist inside the 0.30 m face ball
+  (forward > -0.02 m, |lateral| < 0.28 m, up -0.45…0.10 m); 60 ms latch, 150 ms tracking-gap bridge,
+  0.32 m exit hysteresis.
+- **Bow:** bow held (item context) + both fists + |head-forward wrist separation| > 0.30 m (exit 0.22 m)
+  with the hands at chest height (max up > -0.30 m), armed for 100 ms; releasing the drawn bow fires
+  (Minecraft hold-to-draw semantics). Without a bow in hand the gesture does nothing (context auto);
+  `m7.context=off` restores a geometry-only fallback.
+- **Climb:** Vivecraft climbable context + closed hand above the chest (up > -0.10 m); the grab latches
+  until the hand opens or the pull passes -0.50 m; both hands pulling down within a 250 ms window is the
+  climb-jump chord.
+- **Hotbar tap:** right index fingertip 60 ms windowed speed > 0.82 m/s with a quiet wrist
+  (120 ms window < 0.45 m/s) and index ≥ 1.35× the middle-finger tip speed; 320 ms delayed single-tap
+  decision → next; a second tap 500–650 ms later → previous (one pulse per physical tap, the tap's
+  return motion is ignored). No hotbar during walk/bow/eat/climb/GUI or within 1.5 s of a pinch.
 
 ## 6. Gesture Lab app (separate visionOS app)
 
@@ -222,9 +243,28 @@ required after the M7 engine lands.
 - **Backlog:** a head-ray reticle (and, if needed, pinch-drag mapping) is M5/M6 polish. It does **not**
   block M7 device A/B; M7 should be judged on the core actions first.
 
-## 14. Climb heuristic placeholder
+## 14. Climb heuristic + runtime context
 
-- M7 climb currently treats a closed hand above the chest/head as a grab candidate and alternating
-  reach/pull cycles as climbing; it has **no in-game context** for "climbable is in reach".
+- M7 climb uses the **Vivecraft climb context** (`ClimbTracker.isGrabbingLadder()/isClimbeyClimb()`)
+  plus the closed-hand-above-chest geometry and the alternating reach/pull pattern; the grab latches
+  until the hand opens or the pull passes -0.50 m. In fallback mode (`m7.context=off`) it requires both
+  hands; the old "closed hand above head" over-approximation was replaced after it produced false grabs
+  during PLACE/ATTACK recordings (see `M7_ACCURACY_ITERATION.md`).
+
+## 15. Accuracy iteration (2026-11-03, EV-0237; host replay, device NOT RUN)
+
+- Two independent analyses (`M7_DATA_ANALYSIS_HANDS.md`, `M7_DATA_ANALYSIS_HEAD.md`) measured every
+  gesture and found the first engine's main errors: bow rule overrode walk (44 false draws/41 false
+  fires on WALK, walk coverage 28%), FIST_ON 0.65 misread pinch/eat/tap postures, `PINCH_OFF` was dead,
+  attack fired per-frame speed (52 pulses / 28 swings), the eat latch was missing, the climb release cut
+  the pull mid-move, the head baseline was frame-rate dependent (87% sustained-crouch dropout) and the
+  hotbar lost 15/22 taps.
+- The engine was re-fitted (§5) and is now scored by a replay harness + independent evaluator
+  (`M7_EVAL_REPLAY.md`): literal gate 20/24 rows pass, up from 12/24; place 0.31→0.94 recall, inventory
+  24/24, menu 20/20, jump 28/28, bow fire 8/8, break/teleport/bowDraw/sneak/climb rows pass,
+  context-suppression 9/9. Residual literal failures are documented in
+  `M7_ACCURACY_ITERATION.md` (hotbar/attack 18 Hz ground-truth resolution, walk/eat causal-latency
+  tails); no device behaviour is claimed.
+- Device A/B against the M4 mapping is still the acceptance gate (M7_PLAN.md step order unchanged).
 - M5 device run must observe false-trigger rate while hands hang naturally, hold items, or reach above
   the head for other reasons. Expect false triggers; context gating is a follow-up.

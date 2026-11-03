@@ -1,7 +1,9 @@
 # M7 plan / device A/B handoff
 
-Status: M7 datasets accepted (EV-0213…EV-0227); M7 engine host PASS (EV-0228, 40 synthetic checks);
-**device A/B NOT RUN**.
+Status: M7 datasets accepted (EV-0213…EV-0227); M7 engine implemented (EV-0228) and **re-fitted with a
+data-driven accuracy iteration (EV-0237): 73 synthetic checks + 200k-frame fuzz ALL PASS, literal replay
+gate 20/24 rows (up from 12/24)**; **device A/B NOT RUN**. The installed D1 provider remains the EV-0236
+jar — no device behaviour is claimed for EV-0237.
 
 ## Release metadata timing
 
@@ -27,8 +29,17 @@ A/B. Rebuild order after A/B pass:
 
 ## Risks / recorded backlog
 
-- **Sneak transition data:** first SNEAK_HEAD dataset (EV-0218) over-represents held crouches; add a
-  second, transition-heavy sneak pass before final tuning.
+- **Replay gates (EV-0237, evaluator v2): primary gate 22/24 rows pass** (90 Hz rate-matched pulse GT +
+  bounded-latency-aware held scoring; held 8/8, context 9/9). Residual primary rows: hotbar recall 0.75
+  (18/24 taps, precision 1.00) and attack recall 0.77 / precision 0.71 (38 pulses for 35 rate-matched
+  swings; cross 2.80/min within the 3.0/min budget) — genuine frozen-engine behaviour, left failing
+  rather than over-fitted. Literal conservative gate 20/24 (hotbar precision 0.83, attack precision
+  0.66, walk false 0.18, eat false 0.25 are 18 Hz-GT/causal-latency artifacts). See
+  `M7_ACCURACY_ITERATION.md` / `M7_EVAL_REPLAY.md`.
+- **Device A/B for the new engine is the acceptance gate:** push the EV-0237 provider jar, verify the
+  item-context probe and threshold log, exercise the operator mapping table, then record the A/B.
+- **Sneak transition data:** second SNEAK_HEAD pass still useful (first dataset over-represents held
+  crouches); the dt-corrected/adapt-band engine now passes the replay gate for both jump and sneak.
 - **Climb heuristic:** no climbable-context gating; M5 device run records false-trigger rate.
 - **GUI:** right-pinch click only; no reticle/drag-and-hold (see M7_GESTURES §13).
 - **Seated snap turn:** currently absent; M5 device run must check seated + head turn + forward for

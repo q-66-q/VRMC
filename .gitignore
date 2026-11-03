@@ -39,6 +39,9 @@ runtime/probes/*/build/
 
 # Gesture Lab raw recordings (operator hand data stays local; summaries/analysis are tracked)
 /export/gesturelab-data/**/*.jsonl
+# Derived replay fixtures/evaluations (local analysis aid; regenerate with scripts/m7_lab_replay.sh)
+/export/m7-lab-fixtures*/
+/export/m7-replay*/
 /export/gesturelab-data/rejected/
 /export/gesturelab-data/*.log
 /export/gesturelab-data/*.md

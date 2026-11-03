@@ -155,7 +155,14 @@ public class VisionVR extends MCVR {
     private int lastSwipeDirection = VisionInput.SWIPE_NONE;
     private VRInputAction[] bindingActions;
     private boolean m7Mode;
-    private final VisionM7Gesture m7Gesture = new VisionM7Gesture();
+    private VisionM7Gesture m7Gesture = new VisionM7Gesture();
+    /** Scratch pose vectors for the gesture engine's head frame (allocated once). */
+    private final Vector3f m7HeadForward = new Vector3f();
+    private final Vector3f m7HeadRight = new Vector3f();
+    private boolean m7ContextAuto = true;
+    /** Item-context probe result throttled to a few Hz (held item changes are not fast). */
+    private int m7ItemContextFrame;
+    private int m7ItemContextBits;
     private final Vector3f m7GuiOrigin = new Vector3f();
     private final Vector3f m7GuiDir = new Vector3f();
     private int m7GuiWarnCount;
@@ -262,6 +269,7 @@ public class VisionVR extends MCVR {
             new VisionPoseSmoother(this.smoothingConfig)
         };
         this.m7Mode = gestureModeM7(tuning, System.out::println);
+        this.m7Gesture = buildM7Gesture(tuning);
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
         System.out.println("[VRMC-M4] hand components: mode=" + (this.handComponentJoints ? "joints" : "identity")
@@ -530,6 +538,7 @@ public class VisionVR extends MCVR {
         this.resolvedActionMap = null;
         this.hotbarWheelActive = false;
         this.m7Mode = gestureModeM7(tuned, System.out::println);
+        this.m7Gesture = buildM7Gesture(tuned);
         logInputTuning(this.visionInput);
         logSmoothingConfig(this.smoothingConfig);
         return "input tuning reloaded (middle=" + this.visionInput.middleEnabled()
@@ -807,6 +816,79 @@ public class VisionVR extends MCVR {
         return m7;
     }
 
+    /**
+     * Build the M7 gesture engine from the tune file. M7 uses its own fist-ratio thresholds because
+     * the M4 fist ratio uses a different (palm-relative) metric; pinch thresholds are shared with the
+     * M4/calibration keys because they measure the same thumb-index distance.
+     */
+    private VisionM7Gesture buildM7Gesture(Map<String, String> tuning) {
+        Map<String, String> tune = tuning == null ? Map.of() : tuning;
+        float pinchOn = m7Float(tune, "m7.pinch.on", m7Float(tune, "pinch.on", VisionM7Gesture.PINCH_ON));
+        float pinchOff = m7Float(tune, "m7.pinch.off", m7Float(tune, "pinch.off", VisionM7Gesture.PINCH_OFF));
+        pinchOn = Math.max(0.005F, Math.min(0.080F, pinchOn));
+        pinchOff = Math.max(pinchOn + 0.005F, Math.min(0.120F, pinchOff));
+        float fistOn = Math.max(0.20F, Math.min(1.00F,
+            m7Float(tune, "m7.fist.on", VisionM7Gesture.FIST_ON)));
+        float fistOff = Math.max(fistOn + 0.03F, Math.min(1.20F,
+            m7Float(tune, "m7.fist.off", VisionM7Gesture.FIST_OFF)));
+        String context = System.getProperty("vrmc.m7.context");
+        if (context == null || context.isBlank()) context = tune.getOrDefault("m7.context", "auto");
+        this.m7ContextAuto = !"off".equalsIgnoreCase(context.trim());
+        VisionM7Gesture gesture = new VisionM7Gesture(pinchOn, pinchOff, fistOn, fistOff,
+            this.m7ContextAuto);
+        System.out.printf(java.util.Locale.ROOT,
+            "[VRMC-M7] engine thresholds pinch=%.3f/%.3f fist=%.2f/%.2f context=%s%n",
+            pinchOn, pinchOff, fistOn, fistOff, this.m7ContextAuto ? "auto" : "off");
+        return gesture;
+    }
+
+    private static float m7Float(Map<String, String> tune, String key, float def) {
+        String raw = tune.get(key);
+        if (raw == null || raw.isBlank()) return def;
+        try {
+            float v = Float.parseFloat(raw.trim());
+            return Float.isFinite(v) && v > 0.0F ? v : def;
+        } catch (NumberFormatException e) {
+            System.out.println("[VRMC-M7][WARN] invalid tune " + key + "=" + raw + "; using " + def);
+            return def;
+        }
+    }
+
+    /**
+     * Game-context bits for the gesture engine: GUI/seated plus the held-item contexts (bow, edible).
+     * Item probes are fail-safe (a reflection/API problem degrades to "not held", never throws).
+     */
+    private int computeM7Context() {
+        int ctx = 0;
+        if (this.mc == null) return ctx;
+        try {
+            if (this.mc.gui.screen() != null) ctx |= VisionM7Gesture.CTX_GUI;
+        } catch (Throwable ignored) {
+            // GUI state unavailable: treat as world context
+        }
+        try {
+            if (this.dh.vrSettings.seated) ctx |= VisionM7Gesture.CTX_SEATED;
+        } catch (Throwable ignored) {
+            // settings unavailable: keep default
+        }
+        if ((this.m7ItemContextFrame++ % 6) == 0) {
+            this.m7ItemContextBits = VisionM7ItemContext.flags(this.mc.player);
+        }
+        if ((this.m7ItemContextBits & 1) != 0) ctx |= VisionM7Gesture.CTX_BOW_HELD;
+        if ((this.m7ItemContextBits & 2) != 0) ctx |= VisionM7Gesture.CTX_EDIBLE_HELD;
+        try {
+            if (this.dh.vrPlayer != null && this.dh.climbTracker != null
+                && this.mc.player != null
+                && (this.dh.climbTracker.isGrabbingLadder()
+                    || this.dh.climbTracker.isClimbeyClimb())) {
+                ctx |= VisionM7Gesture.CTX_CLIMBABLE;
+            }
+        } catch (Throwable ignored) {
+            // climb context is advisory; fall back to the geometry heuristic
+        }
+        return ctx;
+    }
+
     private static void logInputTuning(VisionInput in) {
         System.out.printf("[VRMC-M4] input tuning: pinchOn=%.3f pinchOff=%.3f fistOn=%.2f fistOff=%.2f "
                 + "holdMs=%d armMs=%d staleMs=%d tapFrames=%d%n",
@@ -974,12 +1056,18 @@ public class VisionVR extends MCVR {
             boolean trackedR = this.visionInput.isHandTracked(VisionInput.HAND_RIGHT);
             boolean healthy = this.visionInput.isInputHealthy() && !this.visionInput.isStale();
             if (healthy) {
+                this.m7HeadForward.set(0.0F, 0.0F, -1.0F);
+                this.hmdPose.transformDirection(this.m7HeadForward);
+                this.m7HeadRight.set(1.0F, 0.0F, 0.0F);
+                this.hmdPose.transformDirection(this.m7HeadRight);
                 this.m7Gesture.update(trackedL, this.visionInput.joints(VisionInput.HAND_LEFT),
                     trackedR, this.visionInput.joints(VisionInput.HAND_RIGHT),
                     this.visionInput.pinchDistance(VisionInput.HAND_LEFT),
                     this.visionInput.pinchDistance(VisionInput.HAND_RIGHT),
                     this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
-                    nowNs, this.mc.gui.screen() != null, this.dh.vrSettings.seated);
+                    this.m7HeadRight.x, this.m7HeadRight.y, this.m7HeadRight.z,
+                    this.m7HeadForward.x, this.m7HeadForward.y, this.m7HeadForward.z,
+                    nowNs, computeM7Context());
             } else {
                 this.m7Gesture.releaseAll();
             }
@@ -1064,6 +1152,11 @@ public class VisionVR extends MCVR {
      * right-pinch click lands where the operator is looking. The system-provided eye-hover remains native
      * SwiftUI only.
      */
+    /** True when M7 is responsible for positioning the GUI cursor this frame. */
+    public boolean m7OwnsGuiCursor() {
+        return this.m7Mode && this.mc != null && this.mc.gui.screen() != null;
+    }
+
     private void updateM7GuiCursor() {
         if (this.mc.gui.screen() == null || GuiHandler.GUI_POS_ROOM == null
             || GuiHandler.GUI_ROTATION_ROOM == null) {
@@ -1090,14 +1183,14 @@ public class VisionVR extends MCVR {
         if (uv == null) {
             return;
         }
-        int winW = this.mc.getWindow().getWidth();
-        int winH = this.mc.getWindow().getHeight();
+        int winW = this.mc.getWindow().getScreenWidth();
+        int winH = this.mc.getWindow().getScreenHeight();
         double mx = uv.x * (double) winW;
         double my = uv.y * (double) winH;
         if (this.m7GuiCursorLogCount < 3) {
             this.m7GuiCursorLogCount++;
-            System.out.printf("[VRMC-M7] head cursor uv=(%.4f,%.4f) mouse=(%.1f,%.1f) screen=%s%n",
-                uv.x, uv.y, mx, my, this.mc.gui.screen().getClass().getSimpleName());
+            System.out.printf("[VRMC-M7] head cursor uv=(%.4f,%.4f) screenPx=(%d,%d) mouse=(%.1f,%.1f) screen=%s%n",
+                uv.x, uv.y, winW, winH, mx, my, this.mc.gui.screen().getClass().getSimpleName());
         }
         InputSimulator.setMousePos(mx, my);
     }
@@ -1516,9 +1609,13 @@ public class VisionVR extends MCVR {
         Object screen = this.mc.gui.screen();
         if (screen == null) return;
         try {
-            screen.getClass().getMethod("onClose").invoke(screen);
+            this.mc.gui.setScreen(null);
         } catch (Throwable t) {
-            System.out.println("[VRMC-M7][WARN] could not close GUI screen: " + t);
+            try {
+                screen.getClass().getMethod("onClose").invoke(screen);
+            } catch (Throwable t2) {
+                System.out.println("[VRMC-M7][WARN] could not close GUI screen: " + t);
+            }
         }
     }
 
@@ -1534,7 +1631,8 @@ public class VisionVR extends MCVR {
         long nowNs = System.nanoTime();
         boolean menuPulse = this.m7Gesture.menu();
         boolean menuAction = menuPulse && !gui && nowNs - this.m7LastScreenCloseNs > 400_000_000L;
-        if (gui && menuPulse && nowNs - this.m7LastScreenCloseNs > 400_000_000L) {
+        boolean closeTap = this.m7Gesture.leftFistTap();
+        if (gui && closeTap && nowNs - this.m7LastScreenCloseNs > 400_000_000L) {
             this.closeM7Screen();
             this.m7LastScreenCloseNs = nowNs;
         }
