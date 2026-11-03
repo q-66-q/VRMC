@@ -150,3 +150,8 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   events** >0.08 m, peaks 0.11–0.30 m, durations 0.27–0.95 s; upward velocity p95 1.51 m/s, max 2.36.
   Starting detector: baseline EMA (τ≈2 s), >0.08 m rise and >0.25 m/s upward, 300 ms release. Minecraft
   auto-jump remains enabled for one-block steps.
+
+- `SNEAK_HEAD`: 31.00 s / 524 samples; head 524/524 tracked; head Y 0.779–1.509 m; **5 downward
+  events** >0.10 m with depths 0.10–0.25 m (two ~4.9 s holds); max speed 1.66 m/s. Starting detector:
+  baseline EMA (τ≈2 s), >0.10 m drop sustained 350 ms, release within 0.05 m for 250 ms. Long holds mean
+  a second pass should add more transitions.
