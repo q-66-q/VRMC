@@ -77,8 +77,11 @@ struct ContentView: View {
                     Button("Start Recording") { model.startRecording() }
                         .buttonStyle(.bordered)
                         .disabled(!model.running)
-                    Button("Record 30s") { model.startTimedRecording(seconds: 30) }
+                    Button("Record 30s — \(model.selectedLabel)") { model.startTimedRecording(seconds: 30) }
                         .buttonStyle(.borderedProminent)
+                        .disabled(!model.running || model.recording || model.guidedActive)
+                    Button("Record 60s") { model.startTimedRecording(seconds: 60) }
+                        .buttonStyle(.bordered)
                         .disabled(!model.running || model.recording || model.guidedActive)
                     Button("Guided Capture") { model.startGuidedCapture() }
                         .buttonStyle(.bordered)
@@ -86,14 +89,17 @@ struct ContentView: View {
                 }
             }
 
+            Text("CURRENT ACTION: \(model.selectedLabel)")
+                .font(.title3).bold()
+                .foregroundStyle(.yellow)
             HStack {
-                Text("next samples are labelled:").font(.caption)
+                Text("change action:").font(.caption)
                 Picker("Label", selection: $model.selectedLabel) {
                     ForEach(labels, id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                .font(.caption)
+                .font(.headline)
             }
 
             if model.recording && model.recordRemaining > 0 {

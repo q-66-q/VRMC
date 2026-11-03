@@ -129,3 +129,7 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   could exceed 1.0 in a fist, so live `isFist` never fired.
 - Analyzer re-derives fist ratios from recorded joint transforms; existing sparse ESCAPE_LEFT_FIST data
   is not accepted; re-record required.
+
+- `ESCAPE_LEFT_FIST`: 31.18 s / 561 samples; left hand 561/561 tracked; left fist curl p05/p50/p95 =
+  0.298/0.905/0.983; 146 frames <0.55; **24 left-fist events** (0.22–0.67 s); right fist 0 frames.
+  Source picker stayed MENU_RIGHT_PINCH; canonical copy relabelled with `sourceLabel` provenance.
