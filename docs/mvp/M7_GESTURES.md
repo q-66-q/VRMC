@@ -188,3 +188,7 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
 - `PLACE_RIGHT_PINCH`: 59.19 s / 1062 samples; right 1055 tracked; 76 pinch events, **72 short
   <0.35 s** (mostly 0.11–0.22 s) plus 4 long holds excluded from the place fit. Short pinch =
   place/select; the long outliers belong to break semantics.
+
+- `BREAK_RIGHT_PINCH_HOLD`: 31.11 s / 588 samples; right 588/588 tracked; 470 frames <0.03 m;
+  **7 held-pinch events** 1.21–10.44 s (no short taps). Confirms short (<0.35 s) = place/select and
+  held (≥0.35 s) = break/mine; the 10.44 s hold exercises long-hold stability.
