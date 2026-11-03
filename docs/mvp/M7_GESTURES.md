@@ -145,3 +145,8 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   relative-to-head wrist z range 0.788/0.645 m with z correlation **−0.73** (opposite phase), ~25 cycles
   (~0.8 Hz); head tracked 558/558 with full 4×4 transform. Source picker stayed MENU_RIGHT_PINCH;
   canonical copy relabelled with provenance.
+
+- `JUMP_HEAD`: 80.03 s / 923 samples; head 923/923 tracked; head Y 1.057–1.809 m; **29 head-rise
+  events** >0.08 m, peaks 0.11–0.30 m, durations 0.27–0.95 s; upward velocity p95 1.51 m/s, max 2.36.
+  Starting detector: baseline EMA (τ≈2 s), >0.08 m rise and >0.25 m/s upward, 300 ms release. Minecraft
+  auto-jump remains enabled for one-block steps.
