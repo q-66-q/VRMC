@@ -39,8 +39,8 @@ struct ContentView: View {
                     .frame(width: 10, height: 10)
                 Text(model.status).font(.callout)
                 Spacer()
-                Text(model.headTracked ? "head ✓" : "head —")
-                    .font(.caption2)
+                Text(model.headTracked ? "head ✓ \(model.headPositionText)" : "head —")
+                    .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
             Text("tracked joints: \(model.visibleJointCount)   samples: \(model.sampleCount)")

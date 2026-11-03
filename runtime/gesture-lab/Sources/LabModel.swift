@@ -21,6 +21,7 @@ final class LabModel: ObservableObject {
     @Published var guidedProgress = ""
     @Published var recordRemaining = 0
     @Published var headTracked = false
+    @Published var headPositionText = "—"
     @Published var leftFeatures = "—"
     @Published var rightFeatures = "—"
 
@@ -104,6 +105,7 @@ final class LabModel: ObservableObject {
         headWorld = SIMD3<Float>(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
         headMatrix = transform
         headTracked = true
+        headPositionText = String(format: "x=%.3f y=%.3f z=%.3f", headWorld.x, headWorld.y, headWorld.z)
         if let marker = headMarker {
             marker.isEnabled = true
             marker.transform = Transform(matrix: transform)
@@ -243,6 +245,10 @@ final class LabModel: ObservableObject {
             "label": selectedLabel,
             "headTracked": headTracked,
             "head": headTracked ? [headMatrix.columns.3.x, headMatrix.columns.3.y, headMatrix.columns.3.z] : [0, 0, 0],
+            "headMatrix": headTracked ? [headMatrix.columns.0.x, headMatrix.columns.0.y, headMatrix.columns.0.z, headMatrix.columns.0.w,
+                                          headMatrix.columns.1.x, headMatrix.columns.1.y, headMatrix.columns.1.z, headMatrix.columns.1.w,
+                                          headMatrix.columns.2.x, headMatrix.columns.2.y, headMatrix.columns.2.z, headMatrix.columns.2.w,
+                                          headMatrix.columns.3.x, headMatrix.columns.3.y, headMatrix.columns.3.z, headMatrix.columns.3.w] : [],
             "left": handDictionary(left),
             "right": handDictionary(right),
             "leftFeatures": featureDictionary(lf),

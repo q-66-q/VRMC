@@ -133,3 +133,10 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
 - `ESCAPE_LEFT_FIST`: 31.18 s / 561 samples; left hand 561/561 tracked; left fist curl p05/p50/p95 =
   0.298/0.905/0.983; 146 frames <0.55; **24 left-fist events** (0.22–0.67 s); right fist 0 frames.
   Source picker stayed MENU_RIGHT_PINCH; canonical copy relabelled with `sourceLabel` provenance.
+
+## 10. Headset tracking in the lab (2026-11-02)
+
+- The lab already ran `WorldTrackingProvider`; the window now shows live head x/y/z and each sample stores
+  the full `headMatrix` (4x4) in addition to the `head` position, alongside the hand joints.
+- Head marker (yellow sphere) remains in the immersive scene. This covers head-rise jump / head-lower
+  sneak data collection without changing the game.
