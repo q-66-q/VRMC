@@ -63,9 +63,9 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - Host suite ALL PASS (m7-gesture **40** checks); provider `1c75ae86…` pushed/verified on D1.
 - Rollback path prepared (`gesture.mode=m4` in tune, read back); **step 0 playability NOT RUN**.
 - Device A/B order in `M7_PLAN.md`; release metadata update deferred until after A/B acceptance.
-- 2026-11-02: first M7 immersive attempt was blocked by crash safe mode; after reset/restart, the next
-  session opened immersive (EV-0232). Right-pinch GUI clicks and left-fist menu were observed; no other
-  M7 actions tested yet. Three right-hand tracking dropouts, clean shutdown.
+- 2026-11-02: after reset/restart, M7 immersive opened and quit cleanly (EV-0232), but the operator
+  clarifies no M7 actions were deliberately tested (EV-0233). M7 action A/B remains NOT RUN; incidental
+  action log entries are not step evidence.
 - **Device A/B NOT RUN**; GUI eye-hover/drag and climb context are known gaps.
 
 ## First successful device session (EV-0212)

@@ -48,7 +48,7 @@ A/B. Rebuild order after A/B pass:
 | Step | Action | Record |
 |---|---|---|
 | 0 | rollback to m4, reload, verify playable, return to m7 | mode log, playable Y/N |
-| 1 | menu/escape | **observed in EV-0232:** right-pinch GUI clicks (8), left-fist menu (1); operator score/false count pending |
+| 1 | menu/escape | **NOT RUN.** EV-0232/0233 verified only immersive open + clean quit. Incidental action log entries are not evidence. |
 | 2 | inventory | both-fist priority |
 | 3 | walk | sustained swing |
 | 4 | place/break | 0.35 s boundary |
