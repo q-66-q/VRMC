@@ -18,6 +18,7 @@ struct ContentView: View {
         "EAT_RIGHT_HAND_HEAD",
         "BOW_BOTH_FISTS",
         "PLACE_RIGHT_PINCH",
+        "BREAK_RIGHT_PINCH_HOLD",
         "INVENTORY_BOTH_FISTS",
         "HOTBAR_RIGHT_TAP",
         "CLIMB_ALTERNATE"

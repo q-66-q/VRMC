@@ -15,10 +15,10 @@ starting point to be tuned from Gesture Lab recordings; none is device-verified 
 | 4 | Jump | **physical head rise** (or auto-jump for one block) | Auto-jump enabled by default. Head-rise detector has hysteresis; seated fallback remains. |
 | 5 | Sneak | **physical head lowering** (sustained) | Seated fallback remains; sneaking by looking down must NOT trigger. |
 | 6 | Teleport | **left pinch hold → aim → release to commit** | Release commits; opening hand / losing tracking cancels. |
-| 7 | Attack | **right-hand swing** | No pinch needed. Suppressed while walking, bow drawing, eating, or GUI open. |
+| 7 | Attack entity / break block | **right-hand swing** = entity attack; **held right pinch** = break/mine block, release stops | Short right pinch remains place/select. Held pinch and swing are suppressed while walking, bow drawing, eating, GUI open, or climbing. |
 | 8 | Eat / drink | **right hand close to head** while holding food/drink | Hold near head to continue; release/away stops. Suppressed while bow drawing. |
 | 9 | Bow | **both fists, one hand front, other back; draw back hand back; release back fist** | Context override: if a bow is held, both fists mean bow, not walk. |
-| 10 | Place block | **right pinch** at gaze/head target while holding a block | Right pinch is "use/place" in world; attack is the swing. |
+| 10 | Place block / break | **short right pinch** at gaze/head target while holding a block = place; **held right pinch (>~350 ms)** = break/mine continuously, release stops | A single pinch gesture is disambiguated by duration: tap = place, hold = break. Right-hand swing remains the entity attack; block breaking uses the held pinch. GUI context suppresses both. |
 | 11 | Inventory | **both fists tap**; gaze/head highlight; **right pinch hold** grabs, release places | Drag semantics use pinch press/release, not click. |
 | 12 | Hotbar | **right-hand tap** selects next slot; double-tap previous | Kept deliberately simple; direct 1–9 wheel remains available as fallback. |
 | 13 | Climbing | **alternating hand reach up + grab + pull**, release and repeat | Detection is alternating vertical hand motion while a climbable is in reach; maps to climb actions; release on open hand. |
@@ -62,7 +62,8 @@ starting point to be tuned from Gesture Lab recordings; none is device-verified 
 4. Both fists sustained alternating swing: walk/run (forward); suppress attack/use.
 5. Right hand near head + edible/drinkable held: eat/drink.
 6. Right-hand swing velocity/acceleration above threshold: attack.
-7. Left pinch hold: teleport aim; release commits.
+7. Short right pinch: place/select. Held right pinch: break/mine (after a 350 ms threshold), release stops.
+8. Left pinch hold: teleport aim; release commits.
 8. Right pinch: place block/interact at reticle.
 9. Right-wrist tap: hotbar next/previous.
 10. Both-fist tap: inventory.
@@ -173,3 +174,13 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   0.156–1.049 m; **16 draw/release cycles** >0.55 m; left fist p50 0.349 (bow hand closed), right p50
   0.479/p95 0.983 (string hand opens on release). Starting detector: both fists, separation >0.55 m,
   release on back-hand open, walk suppressed while bow context is active.
+
+## 11. Pinch-duration split (operator change, 2026-11-02)
+
+- **Short right pinch (< ~350 ms)**: place block / select in world or GUI.
+- **Held right pinch (> ~350 ms)**: break/mine block continuously; release stops. This replaces using a
+  pinch-hold for attack. Entity attack remains the right-hand swing.
+- The split needs separate datasets: `PLACE_RIGHT_PINCH` (short taps) and
+  `BREAK_RIGHT_PINCH_HOLD` (1–2 s holds). Menu pinch data already represents the short end; the break
+  hold dataset is still to be recorded.
+- In-game context: if holding a block, short = place, hold = break; if GUI open, both are GUI actions.

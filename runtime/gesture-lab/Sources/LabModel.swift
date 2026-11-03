@@ -152,6 +152,7 @@ final class LabModel: ObservableObject {
         let actions = ["MENU_RIGHT_PINCH", "ESCAPE_LEFT_FIST", "WALK_BOTH_FISTS", "JUMP_HEAD",
                        "SNEAK_HEAD", "TELEPORT_LEFT_PINCH", "ATTACK_RIGHT_SWING",
                        "EAT_RIGHT_HAND_HEAD", "BOW_BOTH_FISTS", "PLACE_RIGHT_PINCH",
+                       "BREAK_RIGHT_PINCH_HOLD",
                        "INVENTORY_BOTH_FISTS", "HOTBAR_RIGHT_TAP", "CLIMB_ALTERNATE"]
         guidedActive = true
         guidedTask?.cancel()
