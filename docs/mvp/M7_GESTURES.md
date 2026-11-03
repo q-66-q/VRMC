@@ -184,3 +184,7 @@ Hysteresis: on/off thresholds differ; mode entry requires 2–3 frames; mode exi
   `BREAK_RIGHT_PINCH_HOLD` (1–2 s holds). Menu pinch data already represents the short end; the break
   hold dataset is still to be recorded.
 - In-game context: if holding a block, short = place, hold = break; if GUI open, both are GUI actions.
+
+- `PLACE_RIGHT_PINCH`: 59.19 s / 1062 samples; right 1055 tracked; 76 pinch events, **72 short
+  <0.35 s** (mostly 0.11–0.22 s) plus 4 long holds excluded from the place fit. Short pinch =
+  place/select; the long outliers belong to break semantics.
