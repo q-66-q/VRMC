@@ -14,7 +14,7 @@ evidence never counts as a device PASS.
 
 | ID | Criterion | Status | Evidence / gap |
 |---|---|---|---|
-| AC-1 | Fresh install → world, natively on AVP, no PC/streaming | `PARTIAL` | M1 CLOSED (EV-0043/0044/0052/0057); native immersive path EV-0094. Re-verify after M4/M5 changes and on a clean install for release. |
+| AC-1 | Fresh install → world, natively on AVP, no PC/streaming | `PARTIAL` | M1 CLOSED (EV-0043/0044/0052/0057); native immersive path EV-0094. Current build launched and was played on D1 (EV-0212), but clean-install/world-load sequence and full checklist remain. |
 | AC-2 | Stereo correct, no eye swap/flip; head tracking aligned | `PARTIAL` | EV-0094 operator-confirmed stereo alignment + head tracking; M3-W5/W6 90 Hz/soak still NOT RUN. |
 | AC-3 | Immersive input from hands (no controller fallback) | `PARTIAL` | W1 device PASS (EV-0096); W2–W4 host PASS (EV-0097–EV-0101); full AC-4 hands checklist NOT RUN. |
 | AC-4 | Every P0 action reachable from hands; no stuck input | `NOT RUN` | Guesture slices host-tested; real-hands P0 checklist, gesture tuning, no-stuck stress on D1 required. |

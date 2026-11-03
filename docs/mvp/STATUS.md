@@ -1,6 +1,6 @@
 # VRMC current status & handoff (development build)
 
-Updated: 2026-11-02 (host time). Authority remains [`VERIFY.md`](../../VERIFY.md) and the per-round
+Updated: 2026-11-02 (host time; EV-0212 first successful played session). Authority remains [`VERIFY.md`](../../VERIFY.md) and the per-round
 evidence bundles; this page is a navigation summary.
 
 ## Current installed build (D1)
@@ -11,8 +11,9 @@ evidence bundles; this page is a navigation summary.
   reproducible (two-build check) and **device integrity PASS** via `scripts/m6_device_integrity.sh`
 - Development package: `/tmp/VRMC-dev-release.zip` bytes=206,538,366 sha256
   `4d9141f05a8993a0c5242534df4ff102aaefe6fffd7ae555bf82c06dd9e3d2af`; verifier PASS; not a final release.
-- D1 is currently **locked**; latest build has not been launched since install. All behavior/acceptance
-  gates remain **NOT RUN**.
+- D1 is available and the latest build has now **launched successfully and been played** (EV-0212):
+  immersive/hands/input active, no exceptions, 12,199 presented frames, p50 8.34 ms/p95 9.24 ms,
+  clean provider teardown. It was **locked/not launched** earlier; full device acceptance remains pending.
 
 ## Milestones
 
@@ -55,6 +56,15 @@ scripts/m6_release_ready.sh --zip /tmp/VRMC-dev-release.zip   # currently NOT RE
 Latest host results: provider suite ALL PASS; bridge suite incl. TSan ALL PASS; 1M-frame input fuzz,
 200k pose fuzz, 100k smoother fuzz, 500k gaze fuzz, 100k JSON fuzz, 100k settings fuzz — 0 violations;
 release check PASS; package verifier/freshness PASS; release-ready host gates PASS (acceptance NOT READY).
+
+## First successful device session (EV-0212)
+
+- Operator launched and played; no exceptions in latestlog.
+- Both hands tracked, input healthy, player present, display views live.
+- 12,199 compositor frames (flat mode, eyes=1, anchor=1), 0 frames without drawable/encoder.
+- Frame stats: p50 8.34 ms, p95 9.24 ms, missed90 3/3586.
+- Clean `destroy-complete` with no teardown exception; thermal nominal.
+- Full H1–H10/AC/K checklist is still not recorded; this is a smoke/partial device PASS, not final acceptance.
 
 ## What remains (device only, D1)
 
