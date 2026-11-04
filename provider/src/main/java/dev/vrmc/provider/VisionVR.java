@@ -167,6 +167,11 @@ public class VisionVR extends MCVR {
     private final Vector3f m7GuiDir = new Vector3f();
     private int m7GuiWarnCount;
     private int m7GuiCursorLogCount;
+    /** GUI-cursor session state: center once when a screen opens, then head-ray tracking. */
+    private boolean m7GuiScreenOpen;
+    private boolean m7GuiHadValidUv;
+    private int m7GuiNullLogCount;
+    private int m7GuiDebugFrameCount;
     private long m7LastScreenCloseNs;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
@@ -1160,7 +1165,19 @@ public class VisionVR extends MCVR {
     private void updateM7GuiCursor() {
         if (this.mc.gui.screen() == null || GuiHandler.GUI_POS_ROOM == null
             || GuiHandler.GUI_ROTATION_ROOM == null) {
+            this.m7GuiScreenOpen = false;
+            this.m7GuiHadValidUv = false;
             return;
+        }
+        if (!this.m7GuiScreenOpen) {
+            // Start the cursor in the middle of the view instead of the top-left default (0,0) while
+            // the head ray is still being resolved. The first valid ray projection refines it.
+            this.m7GuiScreenOpen = true;
+            this.m7GuiHadValidUv = false;
+            this.m7GuiDebugFrameCount = 0;
+            centerM7GuiCursor();
+            System.out.printf("[VRMC-M7] head cursor centered on GUI open screen=%s%n",
+                this.mc.gui.screen().getClass().getSimpleName());
         }
         try {
             updateM7GuiCursorImpl();
@@ -1172,6 +1189,13 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /** Put the GUI cursor in the centre of the window (used on screen-open and until the ray hits). */
+    private void centerM7GuiCursor() {
+        int winW = Math.max(1, this.mc.getWindow().getScreenWidth());
+        int winH = Math.max(1, this.mc.getWindow().getScreenHeight());
+        InputSimulator.setMousePos(winW * 0.5D, winH * 0.5D);
+    }
+
     private void updateM7GuiCursorImpl() {
         this.m7GuiOrigin.set(this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32());
         this.m7GuiDir.set(0.0F, 0.0F, -1.0F);
@@ -1180,11 +1204,23 @@ public class VisionVR extends MCVR {
             / (float) this.mc.getWindow().getGuiScaledWidth();
         Vector2f uv = VisionGazeMath.intersectGuiPlane(this.m7GuiOrigin, this.m7GuiDir,
             GuiHandler.GUI_POS_ROOM, GuiHandler.GUI_ROTATION_ROOM, GuiHandler.GUI_SCALE, aspect);
-        if (uv == null) {
-            return;
-        }
         int winW = this.mc.getWindow().getScreenWidth();
         int winH = this.mc.getWindow().getScreenHeight();
+        if (uv == null) {
+            // Ray misses the GUI plane: keep the cursor centred until the first real hit rather than
+            // leaving it in the top-left default.
+            if (!this.m7GuiHadValidUv) {
+                centerM7GuiCursor();
+            }
+            if (this.m7GuiNullLogCount < 3) {
+                this.m7GuiNullLogCount++;
+                System.out.printf("[VRMC-M7] head cursor ray miss (kept=%s) screenPx=(%d,%d) screen=%s%n",
+                    this.m7GuiHadValidUv ? "last" : "centre", winW, winH,
+                    this.mc.gui.screen().getClass().getSimpleName());
+            }
+            return;
+        }
+        this.m7GuiHadValidUv = true;
         double mx = uv.x * (double) winW;
         double my = uv.y * (double) winH;
         if (this.m7GuiCursorLogCount < 3) {
@@ -1193,6 +1229,19 @@ public class VisionVR extends MCVR {
                 uv.x, uv.y, winW, winH, mx, my, this.mc.gui.screen().getClass().getSimpleName());
         }
         InputSimulator.setMousePos(mx, my);
+        // Slow diagnostic cadence: enough to prove the mapping on device without flooding the log.
+        if ((this.m7GuiDebugFrameCount++ % 300) == 0) {
+            System.out.printf(
+                "[VRMC-M7] cursor diag uv=(%.4f,%.4f) mouse=(%.1f,%.1f) readback=(%.1f,%.1f) "
+                    + "win=(%d,%d) fb=(%d,%d) gui=(%d,%d) scale=%.2f plane=(%.2f,%.2f,%.2f) "
+                    + "head=(%.2f,%.2f,%.2f) dir=(%.2f,%.2f,%.2f)%n",
+                uv.x, uv.y, mx, my, this.mc.mouseHandler.xpos(), this.mc.mouseHandler.ypos(),
+                winW, winH, this.mc.getWindow().getWidth(), this.mc.getWindow().getHeight(),
+                this.mc.getWindow().getGuiScaledWidth(), this.mc.getWindow().getGuiScaledHeight(),
+                GuiHandler.GUI_SCALE, GuiHandler.GUI_POS_ROOM.x(), GuiHandler.GUI_POS_ROOM.y(),
+                GuiHandler.GUI_POS_ROOM.z(), this.m7GuiOrigin.x(), this.m7GuiOrigin.y(),
+                this.m7GuiOrigin.z(), this.m7GuiDir.x(), this.m7GuiDir.y(), this.m7GuiDir.z());
+        }
     }
 
     // ------------------------------------------------------------------------------------------

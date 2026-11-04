@@ -67,6 +67,10 @@
   (`devicectl` RSD allocation error), so behaviour, real ARKit hand jitter at 90 Hz, the item-context
   probe, GUI-cursor click mapping and hand tracking dropouts remain device-unknown; operator A/B required.
 - M7 GUI remains head-ray + right-pinch click (no true eye hover, no drag-and-hold inventory).
+- GUI cursor is centred when a screen opens and kept centred while the head ray misses the GUI plane
+  (a valid hit is never overwritten by a miss); while a GUI is open the provider logs a rate-limited
+  `cursor diag` line with uv/mouse/read-back/window-framebuffer-GUI sizes/plane/head/dir so the on-device
+  mapping can be verified from the log (EV-0239).
 - Climb uses the Vivecraft climb context plus the geometry heuristic; no climbable-block raycast.
 - Bow/eat context probes are reflective and fail closed to "not held"; verify on device and use
   `m7.context=off` if a device API drift disables the context.

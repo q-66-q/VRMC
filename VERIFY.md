@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0239`.
+**Next evidence ID:** `EV-0240`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -5839,6 +5839,31 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Notes:** This push corrects a state discrepancy found during the EV-0237 verification: the jar actually installed on D1 before this push was `cf3ef0a0…` (110,857 B), not the EV-0236 `b77897dd…` recorded earlier — the post-EV-0236 provider update had not been recorded in VERIFY. The read-back after the push is `d2c8a8d9…`/120,666 B (see artifacts). The app could not be relaunched at push time (`devicectl` RSD allocation error), so no gesture/behaviour evidence exists for EV-0237/EV-0238 yet.
 
+### EV-0239 — M7 GUI cursor: centre-on-open + ray-miss fallback + device cursor diagnostics (retest pending)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-04T06:30:46-10:00 |
+| Commit | `d181595a3387bc185d38b800178994d870049bb7` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Read device log: cursor set only after a successful GUI-plane intersection; default mouse position is top-left
+2. Add centre-on-open and centre-while-ray-misses fallback (valid hits are never overwritten)
+3. Add rate-limited cursor diagnostic (every ~300 frames while a GUI is open)
+4. Provider suite + two independent builds; push to D1 with round-trip/integrity verification
+
+**Expected:** Cursor starts and stays in the middle of the view until a valid head-ray hit; diagnostics make the on-device mapping verifiable
+
+**Actual:** Host suite ALL PASS; jar fdce66d4.../121326 B two-build identical; pushed and integrity PASS. Device visual retest NOT RUN (operator relaunch required).
+
+**Artifacts:** evidence/EV-0239/push.log (f26dfacf69d3); evidence/EV-0239/integrity.log (0bc6f370de17); evidence/EV-0239/cursor-tests.log (dfd9b1adf1df); evidence/EV-0239/build-a.log (44fea2c5b2b0); evidence/EV-0239/build-b.log (773727fa0119)
+
+**Limitations:** Operator feedback: GUI cursor appears in the top-left of the view instead of the middle. Host analysis of the device log showed the cursor was only positioned after a successful head-ray/GUI-plane intersection; until then MouseHandler keeps its default (0,0). Fix: centre the cursor when a GUI screen opens and keep it centred while the ray misses (never overwrite a valid hit), plus a rate-limited diag line (uv, mouse, read-back, window/framebuffer/GUI sizes, plane, head, dir). Provider suite ALL PASS; two-build reproducible; pushed/integrity PASS. Visual retest on D1 NOT RUN yet (needs app relaunch + operator observation).
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6122,3 +6147,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-02 | **EV-0236 (`PARTIAL`): M7 false-trigger fixes** — feedback: inventory opens once then menu/glitch; pinch too sensitive. Added pinch debounce 40 ms + 100 ms arming (0.025 on/0.050 off), GUI left-fist now calls `Screen.onClose()` with pause suppression, menu suppressed around both-fist/inventory, hotbar suppressed after both-fist/inventory/menu. Head-ray cursor retained + logged. 44 checks PASS; provider `b77897dd…` (109,829 bytes) pushed/integrity PASS. Device retest required. Next ID `EV-0237`. |
 | 2026-11-03 | **EV-0237 (`PARTIAL`, host): M7 data-driven gesture accuracy iteration + replay gate** — all 14 accepted Gesture Lab datasets (~9.5k samples) analysed by two independent scripts/reports (HANDS: pinch/fist/attack/hotbar/eat/bow/climb/walk/menu/inventory/teleport; HEAD: jump/sneak/head-frame/pitch/negatives; the top-level IDLE recording is the MENU twin — there is no true idle capture). Re-fitted `VisionM7Gesture`: pinch/fist Schmitt hysteresis, head-frame geometry, windowed speeds, dt-corrected head baseline + adapt band, press/peak gates, hotbar delayed single-vs-double decision, item context (bow, food/drink) and Vivecraft climb context via fail-safe probes (`m7.context=auto|off`). Added replay tooling: `scripts/m7_lab_fixture.py`, `M7LabReplay.java`, independent `scripts/m7_eval_replay.py` evaluator with per-action recall/precision/coverage/false gates, one-command `scripts/m7_lab_replay.sh`. Host: full provider suite ALL PASS including **m7-gesture 73 synthetic checks** and **m7-fuzz 200k frames / 0 violations**; literal replay gate **20/24 rows** and evaluator-v2 **primary gate 22/24 rows** (rate-matched 90 Hz pulse GT + bounded-latency-aware held scoring; baseline 12/24; context suppression 9/9). Residual literal rows: hotbar precision 0.83 vs 0.85, attack precision 0.66 vs 0.80, walk false-active 0.18 vs 0.10, eat false-active 0.25 vs 0.15; residual primary rows: hotbar recall 0.75 and attack recall 0.77/precision 0.71 — all root-caused in `M7_ACCURACY_ITERATION.md`; no threshold was loosened to hide them. Provider jar `d2c8a8d9…` (120,666 bytes), two-build reproducible. **Device A/B NOT RUN**: the installed D1 provider remains EV-0236 and no device behaviour is claimed for this engine revision. Next ID `EV-0238`. |
 | 2026-11-03 | **EV-0238 (`PARTIAL`, device push): EV-0237 provider installed on D1** — pushed `d2c8a8d9…` (120,666 B) to `Documents/instances/default/mods/vrmc-provider.jar`; devicectl round-trip sha256 PASS and read-only device integrity PASS. Read-back before the push showed the actually-installed jar was `cf3ef0a0…` (110,857 B; a previous unrecorded post-EV-0236 push), correcting the earlier "installed remains EV-0236" claim. App relaunch for the operator A/B was **NOT RUN**: `devicectl device process launch` failed twice with "Failed to allocate RSD device" and the running game process is from the earlier session. Gesture A/B remains NOT RUN (operator required); rollback `gesture.mode=m4` unchanged. Next ID `EV-0239`. |
+| 2026-11-04 | **EV-0239 (`PARTIAL`, host+device-push): M7 GUI cursor centre-on-open + diagnostics** — operator feedback: GUI cursor appears in the top-left of the view, not the middle. Device log analysis: the cursor is only positioned after a successful head-ray/GUI-plane intersection, so until then the mouse handler keeps its top-left default. Fix: centre the cursor when a GUI screen opens, keep it centred while the head ray misses (a valid hit is never overwritten), and log a rate-limited cursor diag (uv/mouse/read-back/window/framebuffer/GUI sizes/plane/head/dir). Provider suite ALL PASS; `fdce66d4…`/121,326 B two-build identical; pushed to D1 and integrity PASS. **Device visual retest NOT RUN** (app relaunch is operator-side); diagnostics will make the next session's cursor mapping verifiable. Next ID `EV-0240`. |
