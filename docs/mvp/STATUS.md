@@ -10,9 +10,11 @@ navigation summary.
   (`/tmp/VRMC-native-releaseinput.app`, 169 signed Mach-O, deep/strict verify PASS)
 - Packaged release-app provider: `a109ae5661fd726b445ed083e3cce3c00b651fe5dd89154daf501a85ec19de58`
   (92,516 bytes, two-build reproducible; M6 package integrity PASS via `scripts/m6_device_integrity.sh`).
-  The D1 `mods/` provider has since been updated by the M7 pushes; the latest **installed** D1 provider is
-  `b77897dd…` (EV-0236). The EV-0237 accuracy-iteration provider (`d2c8a8d9…`, 120,666 bytes) is a host
-  artifact only and has **not** been pushed.
+  The D1 `mods/` provider has since been updated by the M7 pushes. **EV-0238**: the EV-0237 provider
+  `d2c8a8d9…` (120,666 bytes) was pushed and round-trip/integrity verified on D1; the pre-push installed
+  jar was `cf3ef0a0…` (110,857 bytes, a previous unrecorded push). App launch for the operator A/B was
+  **NOT RUN** at push time (`devicectl` app launch failed with "Failed to allocate RSD device"); gesture
+  behaviour is unverified and the operator session remains the acceptance gate.
 - Development package: `/tmp/VRMC-dev-release.zip` bytes=206,538,366 sha256
   `4d9141f05a8993a0c5242534df4ff102aaefe6fffd7ae555bf82c06dd9e3d2af`; verifier PASS; not a final release.
 - D1 is available and the latest build has now **launched successfully and been played** (EV-0212):

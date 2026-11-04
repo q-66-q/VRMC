@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0238`.
+**Next evidence ID:** `EV-0239`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -5811,6 +5811,34 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Host-only: 14 Gesture Lab datasets analysed/replayed; provider suite ALL PASS (73 synthetic + 200k fuzz); evaluator-v2.1 primary replay gate 22/24 rows, literal conservative gate 20/24 (first-engine baseline 12/24), context 9/9; residual primary rows: hotbar recall 0.75, attack 0.77/0.71; evaluator --self-check 6/6; independent verifier report included; DEVICE A/B NOT RUN (installed D1 provider remains EV-0236).
 
+### EV-0238 — M7 EV-0237 provider pushed to D1 + installed integrity PASS (device launch blocked)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-03T21:39:25-10:00 |
+| Commit | `419f7f9c50dabd3d30c33d8faf57733059733243` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Push provider jar d2c8a8d9 to app data container and verify round-trip sha256
+2. Run read-only device integrity check (installed jar vs local build)
+3. Attempt app relaunch via devicectl (blocked: Failed to allocate RSD device)
+4. Pull pre-push device diagnostics/logs/status/tune for the record
+
+**Expected:** Installed D1 provider matches the committed EV-0237 build and the app can be launched for the operator A/B
+
+**Actual:** Push round-trip PASS and device integrity PASS (d2c8a8d9/120666). App launch NOT RUN: RSD device allocation failed twice; game process still running the previous session build. Gesture A/B remains NOT RUN; operator session required.
+
+**Artifacts:** evidence/EV-0238/push.log (c021e9efbcc7); evidence/EV-0238/integrity.log (668e0af1ee74); evidence/EV-0238/launch-attempt.log (9b2866c328f5); evidence/EV-0238/device-info.log (e09a85b5ebc1); evidence/EV-0238/tune.properties (bcd3e7af8ca5); evidence/EV-0238/pre-push-observation.txt (4ec6f36aeaf4); evidence/EV-0238/device-diag-pre-push.tgz (f71437b5d570); evidence/EV-0238/artifact-sha256.txt (1dfa2dbac5d3)
+
+**Limitations:** Provider-only push of the EV-0237 jar; no app rebuild. Installed jar read-back matches local build. App launch/behaviour NOT RUN: devicectl launch failed with RSD allocation error at push time; gesture A/B still requires the operator session. Pre-push installed provider was cf3ef0a0 (110857 B, previous unrecorded push) - corrected in docs/identity.
+
+**Notes:** This push corrects a state discrepancy found during the EV-0237 verification: the jar actually installed on D1 before this push was `cf3ef0a0…` (110,857 B), not the EV-0236 `b77897dd…` recorded earlier — the post-EV-0236 provider update had not been recorded in VERIFY. The read-back after the push is `d2c8a8d9…`/120,666 B (see artifacts). The app could not be relaunched at push time (`devicectl` RSD allocation error), so no gesture/behaviour evidence exists for EV-0237/EV-0238 yet.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6093,3 +6121,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-02 | **EV-0235 (`DEVICE CRASH FIX`): M7 GUI cursor NoSuchMethodError** — launch crashed at `VisionVR.updateM7GuiCursor` because `WindowExtension.vivecraft$getActualWindowSize()` exists at compile time but not in the runtime Vivecraft build. Removed the call (direct window scaling), wrapped GUI cursor in try/catch, fixed the same latent call in the gaze path. Provider `3a3bf56e…` (108,623 bytes) pushed/integrity PASS; device retest required. Next ID `EV-0236`. |
 | 2026-11-02 | **EV-0236 (`PARTIAL`): M7 false-trigger fixes** — feedback: inventory opens once then menu/glitch; pinch too sensitive. Added pinch debounce 40 ms + 100 ms arming (0.025 on/0.050 off), GUI left-fist now calls `Screen.onClose()` with pause suppression, menu suppressed around both-fist/inventory, hotbar suppressed after both-fist/inventory/menu. Head-ray cursor retained + logged. 44 checks PASS; provider `b77897dd…` (109,829 bytes) pushed/integrity PASS. Device retest required. Next ID `EV-0237`. |
 | 2026-11-03 | **EV-0237 (`PARTIAL`, host): M7 data-driven gesture accuracy iteration + replay gate** — all 14 accepted Gesture Lab datasets (~9.5k samples) analysed by two independent scripts/reports (HANDS: pinch/fist/attack/hotbar/eat/bow/climb/walk/menu/inventory/teleport; HEAD: jump/sneak/head-frame/pitch/negatives; the top-level IDLE recording is the MENU twin — there is no true idle capture). Re-fitted `VisionM7Gesture`: pinch/fist Schmitt hysteresis, head-frame geometry, windowed speeds, dt-corrected head baseline + adapt band, press/peak gates, hotbar delayed single-vs-double decision, item context (bow, food/drink) and Vivecraft climb context via fail-safe probes (`m7.context=auto|off`). Added replay tooling: `scripts/m7_lab_fixture.py`, `M7LabReplay.java`, independent `scripts/m7_eval_replay.py` evaluator with per-action recall/precision/coverage/false gates, one-command `scripts/m7_lab_replay.sh`. Host: full provider suite ALL PASS including **m7-gesture 73 synthetic checks** and **m7-fuzz 200k frames / 0 violations**; literal replay gate **20/24 rows** and evaluator-v2 **primary gate 22/24 rows** (rate-matched 90 Hz pulse GT + bounded-latency-aware held scoring; baseline 12/24; context suppression 9/9). Residual literal rows: hotbar precision 0.83 vs 0.85, attack precision 0.66 vs 0.80, walk false-active 0.18 vs 0.10, eat false-active 0.25 vs 0.15; residual primary rows: hotbar recall 0.75 and attack recall 0.77/precision 0.71 — all root-caused in `M7_ACCURACY_ITERATION.md`; no threshold was loosened to hide them. Provider jar `d2c8a8d9…` (120,666 bytes), two-build reproducible. **Device A/B NOT RUN**: the installed D1 provider remains EV-0236 and no device behaviour is claimed for this engine revision. Next ID `EV-0238`. |
+| 2026-11-03 | **EV-0238 (`PARTIAL`, device push): EV-0237 provider installed on D1** — pushed `d2c8a8d9…` (120,666 B) to `Documents/instances/default/mods/vrmc-provider.jar`; devicectl round-trip sha256 PASS and read-only device integrity PASS. Read-back before the push showed the actually-installed jar was `cf3ef0a0…` (110,857 B; a previous unrecorded post-EV-0236 push), correcting the earlier "installed remains EV-0236" claim. App relaunch for the operator A/B was **NOT RUN**: `devicectl device process launch` failed twice with "Failed to allocate RSD device" and the running game process is from the earlier session. Gesture A/B remains NOT RUN (operator required); rollback `gesture.mode=m4` unchanged. Next ID `EV-0239`. |

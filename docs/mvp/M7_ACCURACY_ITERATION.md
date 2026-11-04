@@ -109,8 +109,10 @@ teleport coverage 0.38; break coverage 0.83; bowDraw 0.60; sneak 0.37 (pre dt-co
 
 ## Device validation plan (next gate)
 
-1. Build/push the provider jar from this commit; verify `[VRMC-M7] engine thresholds ... context=auto`
-   and `[VRMC-M7] item-context probe` in the log.
+1. ~~Build/push the provider jar~~ **DONE (EV-0238)**: `d2c8a8d9…` (120,666 B) pushed and integrity-verified
+   on D1 (pre-push installed jar was `cf3ef0a0…`). The app relaunch/behaviour check is still **NOT RUN**
+   (devicectl RSD allocation error at push time); on the next launch verify `[VRMC-M7] engine thresholds
+   ... context=auto` and the item-context probe in the log.
 2. Test each mapping on D1 against the user table (short/held right pinch, left pinch hold, left fist
    tap, both-fist tap/swing, wide both fists, near-head, index tap/double, head rise/lower, alternating
    reach/pull) plus GUI right-pinch click and left-fist close.

@@ -61,9 +61,11 @@
 
 ## Known gaps / next device work
 
-- Device A/B is **NOT RUN** for this engine revision: no provider jar was pushed and the D1 build remains
-  the EV-0236 jar. Device-only unknowns: real ARKit hand jitter at 90 Hz, item-context probe behaviour,
-  GUI cursor click mapping, hand tracking dropouts.
+- Device A/B is **NOT RUN** for this engine revision. **EV-0238** pushed the provider jar `d2c8a8d9…`
+  (120,666 bytes) to D1 and verified the installed jar by read-back (push round-trip + device integrity
+  PASS; pre-push installed jar was `cf3ef0a0…`). The app could not be relaunched for testing at push time
+  (`devicectl` RSD allocation error), so behaviour, real ARKit hand jitter at 90 Hz, the item-context
+  probe, GUI-cursor click mapping and hand tracking dropouts remain device-unknown; operator A/B required.
 - M7 GUI remains head-ray + right-pinch click (no true eye hover, no drag-and-hold inventory).
 - Climb uses the Vivecraft climb context plus the geometry heuristic; no climbable-block raycast.
 - Bow/eat context probes are reflective and fail closed to "not held"; verify on device and use

@@ -1,9 +1,11 @@
 # M7 plan / device A/B handoff
 
 Status: M7 datasets accepted (EV-0213…EV-0227); M7 engine implemented (EV-0228) and **re-fitted with a
-data-driven accuracy iteration (EV-0237): 73 synthetic checks + 200k-frame fuzz ALL PASS, literal replay
-gate 20/24 rows (up from 12/24)**; **device A/B NOT RUN**. The installed D1 provider remains the EV-0236
-jar — no device behaviour is claimed for EV-0237.
+data-driven accuracy iteration (EV-0237): 73 synthetic checks + 200k-frame fuzz ALL PASS, primary replay
+gate 22/24 rows (literal 20/24, up from 12/24)**. **EV-0238: the EV-0237 provider `d2c8a8d9…` was pushed
+and integrity-verified on D1** (pre-push installed jar was `cf3ef0a0…`). **Device A/B is still NOT RUN**:
+the app launch at push time failed with a `devicectl` RSD allocation error, and gesture behaviour needs the
+operator session — no device behaviour is claimed for EV-0237.
 
 ## Release metadata timing
 

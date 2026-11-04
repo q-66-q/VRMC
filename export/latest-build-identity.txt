@@ -1,12 +1,13 @@
 VRMC latest staged/installed development build (not a release manifest)
 
-date: 2026-11-02 (host time)
-source commit: M7 false-trigger fixes (pinch debounce, GUI close, hotbar suppression)
-app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
-app path at staging: /tmp/VRMC-native-checklist-summary.app
-signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: b77897dd4bb6ab67fb288ea98422fd78cb301f63bc8c483b4f6fd31a0a58c030
-provider bytes: 109829
+date: 2026-11-03 (host time; provider-only update on top of the installed app bundle)
+source commit: 419f7f9 (M7 data-driven gesture accuracy iteration + replay gate, EV-0237/EV-0238)
+app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent; app bundle unchanged by the provider-only push)
+app path at staging: /tmp/VRMC-native-checklist-summary.app (installed app bundle from the prior staging; not rebuilt here)
+signed Mach-O files: 169 (codesign --verify --deep --strict PASS at the prior staging; app bundle not re-signed in this provider-only push)
+provider jar sha256: d2c8a8d96e5a0ea0a836b080b2243ed1cb0c16f22bf29ca1da514f48159438fc
+provider bytes: 120666
 gesture mode: m7
-provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
-device lock at staging: passcodeRequired=true (no behavior test performed)
+provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar (round-trip sha256 PASS, EV-0238)
+device launch: NOT RUN (devicectl app launch failed with "Failed to allocate RSD device" on 2026-11-03 21:34-21:36 HST); gesture A/B remains NOT RUN, operator session required
+note: pre-push installed provider was cf3ef0a06.../110857 B (previous unrecorded post-EV-0236 push); the read-back after this push is d2c8a8d9.../120666 B
