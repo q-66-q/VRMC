@@ -68,9 +68,12 @@
   probe, GUI-cursor click mapping and hand tracking dropouts remain device-unknown; operator A/B required.
 - M7 GUI remains head-ray + right-pinch click (no true eye hover, no drag-and-hold inventory).
 - GUI cursor is centred when a screen opens and kept centred while the head ray misses the GUI plane
-  (a valid hit is never overwritten by a miss); while a GUI is open the provider logs a rate-limited
-  `cursor diag` line with uv/mouse/read-back/window-framebuffer-GUI sizes/plane/head/dir so the on-device
-  mapping can be verified from the log (EV-0239).
+  (a valid hit is never overwritten by a miss). On this Vivecraft/visionOS runtime the MouseHandlerVRMixin
+  scales onMove arguments by GUI_WIDTH/actualWindowSize while VR is running, so a raw uv*screenWidth write
+  lands at half position and clicks miss; the provider measures that factor with a one-time probe write +
+  MouseHandler read-back when a screen opens and divides every cursor write by it (EV-0242). While a GUI is
+  open the provider logs a rate-limited `cursor diag` line with uv/mouse/read-back/cursorScale/window-
+  framebuffer-GUI sizes/plane/head/dir so the on-device mapping can be verified from the log (EV-0239/0242).
 - Climb uses the Vivecraft climb context plus the geometry heuristic; no climbable-block raycast.
 - Bow/eat context probes are reflective and fail closed to "not held"; verify on device and use
   `m7.context=off` if a device API drift disables the context.

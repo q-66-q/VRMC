@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0242`.
+**Next evidence ID:** `EV-0243`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -5915,6 +5915,33 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Artifacts:** evidence/EV-0241/diagnosis.txt (e520ba3c535e); evidence/EV-0241/shell-launch1.log (1eb167a08ea2); evidence/EV-0241/shell-launch2.log (a060b3e71a5a); evidence/EV-0241/shutdown.log (dd47791c7eb0); evidence/EV-0241/latestlog.txt (6e0f9ffb92ca); evidence/EV-0241/vrmc-crash-count.txt (5feceb66ffc8)
 
 **Limitations:** After the EV-0240 counter reset, the app restarted its shell twice within 26 s (22:23:35 and 22:24:01 HST). Each start evaluates the crash guard against the last unclean shutdown.log line, so the count went 0 -> 1 -> 2 and safe mode suppressed the automatic immersive open again. Not a provider/M7 fault and not operator error; shell-lifecycle interaction. Reset count to 0 again (read-back 0); single launch will auto-open. Robust fix is a clean game shutdown (destroy-complete) via the in-game Quit Game menu, or in-session Enter VR / Clear crash safe mode. A shell-side debounce is a candidate permanent fix but needs an app rebuild.
+
+### EV-0242 — M7 GUI cursor half-scale onMove mapping + pinch-click misses: probe calibration fix
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-04T22:33:12-10:00 |
+| Commit | `6957cd8ac63c71ae1b3585a56a6f78d6a35c3819` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Pull the immersive-session cursor diag lines (new telemetry)
+2. Show MouseHandler readback = half the requested position and compute the resulting GUI pixel
+3. Trace to the runtime MouseHandlerVRMixin onMove coordinate scale (GUI_WIDTH/actualWindowSize)
+4. Add a one-time probe calibration and divide cursor writes by the measured scale; log cursorScale
+5. Provider suite + two independent builds; push/integrity; set crash-count headroom for the relaunch
+
+**Expected:** After the fix the stored MouseHandler position is uv*win (cursor under the head ray, centred when aimed at the GUI centre) and pinch clicks land on the aimed button
+
+**Actual:** Root cause proven from device telemetry; calibration fix built/pushed/integrity-PASS (069ea641.../121,974 B). Device visual retest NOT RUN (requires one app relaunch; crash-count headroom -3 set).
+
+**Artifacts:** evidence/EV-0242/diagnosis.txt (4026ae2fd251); evidence/EV-0242/latestlog-before-fix.txt (efbcf8d01447); evidence/EV-0242/shell-immersive.log (e0c06f3cda16); evidence/EV-0242/push.log (5508d4716414); evidence/EV-0242/integrity.log (bb021ac812e4); evidence/EV-0242/cursor-cal-tests.log (4a702ba08077); evidence/EV-0242/ev0242-build-a.log (782e47262164); evidence/EV-0242/ev0242-build-b.log (525f653fddfc); evidence/EV-0242/vrmc-crash-count-headroom.txt (615bdd17c255)
+
+**Limitations:** In the EV-0239 immersive session the cursor sat upper-left and right-pinch clicks missed. The new cursor diag proved MouseHandler stores exactly half the requested position: mouse=(645.5,471.2) readback=(322.7,235.6), win/fb=1280x720, gui=427x240 -> GUI pixel ~107,78. The runtime Vivecraft MouseHandlerVRMixin scales onMove args by GUI_WIDTH/actualWindowSize while VR is running (actual window 2560x1440 vs 1280x720 screen), and the provider cannot call the runtime-missing WindowExtension helper (EV-0235). Fix: one-time calibration probe on screen open (write centre, read MouseHandler back, derive scale) and divide every cursor write by it; diag logs cursorScale/readback. Provider suite ALL PASS; two builds identical; pushed/integrity PASS. Device visual retest NOT RUN yet; crash-count headroom -3 set on the device for the relaunch.
 
 ## 7. Status dashboard
 

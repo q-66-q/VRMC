@@ -172,6 +172,17 @@ public class VisionVR extends MCVR {
     private boolean m7GuiHadValidUv;
     private int m7GuiNullLogCount;
     private int m7GuiDebugFrameCount;
+    /**
+     * Empirically measured onMove coordinate scale. On this Vivecraft/visionOS build the runtime
+     * MouseHandler.onMove mixin transforms the argument (observed x0.5: actual window 2560 logical px
+     * vs MC screen width 1280), so a raw uv*screenWidth write lands at half position (top-left-ish)
+     * and clicks miss. We calibrate with one probe write + MouseHandler read-back and divide it out.
+     */
+    private double m7CursorScaleX = 1.0D;
+    private double m7CursorScaleY = 1.0D;
+    private boolean m7CursorCalibrated;
+    private int m7CursorCalibWinW = -1;
+    private int m7CursorCalibWinH = -1;
     private long m7LastScreenCloseNs;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
@@ -1175,9 +1186,12 @@ public class VisionVR extends MCVR {
             this.m7GuiScreenOpen = true;
             this.m7GuiHadValidUv = false;
             this.m7GuiDebugFrameCount = 0;
+            calibrateM7GuiCursorScale();
             centerM7GuiCursor();
-            System.out.printf("[VRMC-M7] head cursor centered on GUI open screen=%s%n",
-                this.mc.gui.screen().getClass().getSimpleName());
+            System.out.printf(
+                "[VRMC-M7] head cursor centered on GUI open screen=%s scale=(%.3f,%.3f)%n",
+                this.mc.gui.screen().getClass().getSimpleName(), this.m7CursorScaleX,
+                this.m7CursorScaleY);
         }
         try {
             updateM7GuiCursorImpl();
@@ -1193,7 +1207,50 @@ public class VisionVR extends MCVR {
     private void centerM7GuiCursor() {
         int winW = Math.max(1, this.mc.getWindow().getScreenWidth());
         int winH = Math.max(1, this.mc.getWindow().getScreenHeight());
-        InputSimulator.setMousePos(winW * 0.5D, winH * 0.5D);
+        InputSimulator.setMousePos(
+            winW * 0.5D / this.m7CursorScaleX, winH * 0.5D / this.m7CursorScaleY);
+    }
+
+    /**
+     * Measure how MouseHandler transforms onMove arguments on this runtime build by writing a known
+     * probe position and reading the stored value back. The provider cannot call the runtime-missing
+     * WindowExtension helper (EV-0235), so calibration keeps the mapping correct across Vivecraft
+     * builds/window scales. Falls back to 1.0 when the probe is not measurable.
+     */
+    private void calibrateM7GuiCursorScale() {
+        int winW = Math.max(1, this.mc.getWindow().getScreenWidth());
+        int winH = Math.max(1, this.mc.getWindow().getScreenHeight());
+        if (this.m7CursorCalibrated && winW == this.m7CursorCalibWinW
+            && winH == this.m7CursorCalibWinH) {
+            return;
+        }
+        this.m7CursorCalibrated = false;
+        double probeX = winW * 0.5D;
+        double probeY = winH * 0.5D;
+        try {
+            InputSimulator.setMousePos(probeX, probeY);
+            double readX = this.mc.mouseHandler.xpos();
+            double readY = this.mc.mouseHandler.ypos();
+            double sx = readX / probeX;
+            double sy = readY / probeY;
+            if (Double.isFinite(sx) && Double.isFinite(sy) && sx > 0.05D && sx < 20.0D
+                && sy > 0.05D && sy < 20.0D) {
+                this.m7CursorScaleX = sx;
+                this.m7CursorScaleY = sy;
+                this.m7CursorCalibrated = true;
+                System.out.printf(
+                    "[VRMC-M7] cursor scale probe=(%.1f,%.1f) readback=(%.1f,%.1f) scale=(%.3f,%.3f)%n",
+                    probeX, probeY, readX, readY, sx, sy);
+            } else {
+                System.out.printf(
+                    "[VRMC-M7][WARN] cursor scale probe unusable readback=(%.1f,%.1f); using 1.0%n",
+                    readX, readY);
+            }
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M7][WARN] cursor scale probe failed: " + t);
+        }
+        this.m7CursorCalibWinW = winW;
+        this.m7CursorCalibWinH = winH;
     }
 
     private void updateM7GuiCursorImpl() {
@@ -1206,6 +1263,10 @@ public class VisionVR extends MCVR {
             GuiHandler.GUI_POS_ROOM, GuiHandler.GUI_ROTATION_ROOM, GuiHandler.GUI_SCALE, aspect);
         int winW = this.mc.getWindow().getScreenWidth();
         int winH = this.mc.getWindow().getScreenHeight();
+        if (!this.m7CursorCalibrated || winW != this.m7CursorCalibWinW
+            || winH != this.m7CursorCalibWinH) {
+            calibrateM7GuiCursorScale();
+        }
         if (uv == null) {
             // Ray misses the GUI plane: keep the cursor centred until the first real hit rather than
             // leaving it in the top-left default.
@@ -1221,8 +1282,10 @@ public class VisionVR extends MCVR {
             return;
         }
         this.m7GuiHadValidUv = true;
-        double mx = uv.x * (double) winW;
-        double my = uv.y * (double) winH;
+        // Divide the runtime onMove scale out so the stored MouseHandler position is uv*win; the
+        // renderer/click mapping (xpos * guiScaledWidth / screenWidth) then lands on uv.
+        double mx = uv.x * (double) winW / this.m7CursorScaleX;
+        double my = uv.y * (double) winH / this.m7CursorScaleY;
         if (this.m7GuiCursorLogCount < 3) {
             this.m7GuiCursorLogCount++;
             System.out.printf("[VRMC-M7] head cursor uv=(%.4f,%.4f) screenPx=(%d,%d) mouse=(%.1f,%.1f) screen=%s%n",
@@ -1233,9 +1296,10 @@ public class VisionVR extends MCVR {
         if ((this.m7GuiDebugFrameCount++ % 300) == 0) {
             System.out.printf(
                 "[VRMC-M7] cursor diag uv=(%.4f,%.4f) mouse=(%.1f,%.1f) readback=(%.1f,%.1f) "
-                    + "win=(%d,%d) fb=(%d,%d) gui=(%d,%d) scale=%.2f plane=(%.2f,%.2f,%.2f) "
-                    + "head=(%.2f,%.2f,%.2f) dir=(%.2f,%.2f,%.2f)%n",
+                    + "cursorScale=(%.3f,%.3f) win=(%d,%d) fb=(%d,%d) gui=(%d,%d) guiScale=%.2f "
+                    + "plane=(%.2f,%.2f,%.2f) head=(%.2f,%.2f,%.2f) dir=(%.2f,%.2f,%.2f)%n",
                 uv.x, uv.y, mx, my, this.mc.mouseHandler.xpos(), this.mc.mouseHandler.ypos(),
+                this.m7CursorScaleX, this.m7CursorScaleY,
                 winW, winH, this.mc.getWindow().getWidth(), this.mc.getWindow().getHeight(),
                 this.mc.getWindow().getGuiScaledWidth(), this.mc.getWindow().getGuiScaledHeight(),
                 GuiHandler.GUI_SCALE, GuiHandler.GUI_POS_ROOM.x(), GuiHandler.GUI_POS_ROOM.y(),
