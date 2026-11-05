@@ -71,9 +71,12 @@
   (a valid hit is never overwritten by a miss). On this Vivecraft/visionOS runtime the MouseHandlerVRMixin
   scales onMove arguments by GUI_WIDTH/actualWindowSize while VR is running, so a raw uv*screenWidth write
   lands at half position and clicks miss; the provider measures that factor with a one-time probe write +
-  MouseHandler read-back when a screen opens and divides every cursor write by it (EV-0242). While a GUI is
-  open the provider logs a rate-limited `cursor diag` line with uv/mouse/read-back/cursorScale/window-
-  framebuffer-GUI sizes/plane/head/dir so the on-device mapping can be verified from the log (EV-0239/0242).
+  MouseHandler read-back when a screen opens and divides every cursor write by it. The probe is keyed on
+  `VRState.VR_RUNNING` and window size: the onMove scale only applies in VR, so the provider re-probes on
+  the flat↔VR transition (the window does not resize when the immersive space opens) and re-centres with
+  the new scale (EV-0242/0243). While a GUI is open the provider logs a rate-limited `cursor diag` line
+  with uv/mouse/read-back/cursorScale/vr/window-framebuffer-GUI sizes/plane/head/dir so the on-device
+  mapping can be verified from the log (EV-0239/0242/0243).
 - Climb uses the Vivecraft climb context plus the geometry heuristic; no climbable-block raycast.
 - Bow/eat context probes are reflective and fail closed to "not held"; verify on device and use
   `m7.context=off` if a device API drift disables the context.

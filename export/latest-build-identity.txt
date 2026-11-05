@@ -1,14 +1,14 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-04 (host time; provider-only update on top of the installed app bundle)
-source commit: 419f7f9 + working-tree fixes EV-0239 (cursor centring) and EV-0242 (cursor onMove scale calibration)
+source commit: 419f7f9 + working-tree fixes EV-0239 (cursor centring), EV-0242 (onMove scale probe), EV-0243 (VR-state re-probe)
 app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent; app bundle unchanged by the provider-only push)
 app path at staging: /tmp/VRMC-native-checklist-summary.app (installed app bundle from the prior staging; not rebuilt here)
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS at the prior staging; app bundle not re-signed in this provider-only push)
-provider jar sha256: 069ea6411b3f9a6b5580a385b277d2bc85c3d8301390f02fe26f41a44031bd04
-provider bytes: 121974
+provider jar sha256: 4c9174392ea9d7e10e1905b13bda13a3a598b6a46d873830578fb8a7c3beece5
+provider bytes: 122089
 gesture mode: m7
-provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar (round-trip sha256 PASS, EV-0242)
+provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar (round-trip sha256 PASS, EV-0243)
 device launch: NOT RUN (devicectl app launch fails with "Failed to allocate RSD device"; relaunch is operator-side); device visual cursor/click retest pending
-crash-guard state: Documents/vrmc-crash-count.txt set to -3 as temporary headroom for the relaunch (each unclean shell start +1; clean destroy-complete resets it to 0)
-note: previous installed jars: fdce66d4.../121326 B (EV-0239), d2c8a8d9.../120666 B (EV-0238)
+crash-guard state: Documents/vrmc-crash-count.txt is -3 (temporary headroom for the relaunch; each unclean shell start +1; clean destroy-complete resets it to 0)
+note: previous installed jars: 069ea641.../121974 B (EV-0242), fdce66d4.../121326 B (EV-0239), d2c8a8d9.../120666 B (EV-0238)

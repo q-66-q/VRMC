@@ -14,6 +14,7 @@ import org.joml.Vector2fc;
 import org.joml.Vector3f;
 import org.vivecraft.client.VivecraftVRMod;
 import org.vivecraft.client_vr.ClientDataHolderVR;
+import org.vivecraft.client_vr.VRState;
 import org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler;
 import org.vivecraft.client_vr.settings.AutoCalibration;
 import org.vivecraft.client_vr.gameplay.screenhandlers.KeyboardHandler;
@@ -183,6 +184,8 @@ public class VisionVR extends MCVR {
     private boolean m7CursorCalibrated;
     private int m7CursorCalibWinW = -1;
     private int m7CursorCalibWinH = -1;
+    /** VR-state the probe was measured in: the onMove scale only applies while VR_RUNNING. */
+    private boolean m7CursorCalibVrRunning;
     private long m7LastScreenCloseNs;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
@@ -1220,8 +1223,9 @@ public class VisionVR extends MCVR {
     private void calibrateM7GuiCursorScale() {
         int winW = Math.max(1, this.mc.getWindow().getScreenWidth());
         int winH = Math.max(1, this.mc.getWindow().getScreenHeight());
+        boolean vrRunning = VRState.VR_RUNNING;
         if (this.m7CursorCalibrated && winW == this.m7CursorCalibWinW
-            && winH == this.m7CursorCalibWinH) {
+            && winH == this.m7CursorCalibWinH && vrRunning == this.m7CursorCalibVrRunning) {
             return;
         }
         this.m7CursorCalibrated = false;
@@ -1251,6 +1255,7 @@ public class VisionVR extends MCVR {
         }
         this.m7CursorCalibWinW = winW;
         this.m7CursorCalibWinH = winH;
+        this.m7CursorCalibVrRunning = VRState.VR_RUNNING;
     }
 
     private void updateM7GuiCursorImpl() {
@@ -1263,8 +1268,12 @@ public class VisionVR extends MCVR {
             GuiHandler.GUI_POS_ROOM, GuiHandler.GUI_ROTATION_ROOM, GuiHandler.GUI_SCALE, aspect);
         int winW = this.mc.getWindow().getScreenWidth();
         int winH = this.mc.getWindow().getScreenHeight();
+        boolean vrRunning = VRState.VR_RUNNING;
         if (!this.m7CursorCalibrated || winW != this.m7CursorCalibWinW
-            || winH != this.m7CursorCalibWinH) {
+            || winH != this.m7CursorCalibWinH || vrRunning != this.m7CursorCalibVrRunning) {
+            // The onMove scale only applies while VR is running; re-probe on the flat<->VR
+            // transition and re-centre on the next miss with the new scale.
+            this.m7GuiHadValidUv = false;
             calibrateM7GuiCursorScale();
         }
         if (uv == null) {
@@ -1296,10 +1305,10 @@ public class VisionVR extends MCVR {
         if ((this.m7GuiDebugFrameCount++ % 300) == 0) {
             System.out.printf(
                 "[VRMC-M7] cursor diag uv=(%.4f,%.4f) mouse=(%.1f,%.1f) readback=(%.1f,%.1f) "
-                    + "cursorScale=(%.3f,%.3f) win=(%d,%d) fb=(%d,%d) gui=(%d,%d) guiScale=%.2f "
-                    + "plane=(%.2f,%.2f,%.2f) head=(%.2f,%.2f,%.2f) dir=(%.2f,%.2f,%.2f)%n",
+                    + "cursorScale=(%.3f,%.3f) vr=%b win=(%d,%d) fb=(%d,%d) gui=(%d,%d) "
+                    + "guiScale=%.2f plane=(%.2f,%.2f,%.2f) head=(%.2f,%.2f,%.2f) dir=(%.2f,%.2f,%.2f)%n",
                 uv.x, uv.y, mx, my, this.mc.mouseHandler.xpos(), this.mc.mouseHandler.ypos(),
-                this.m7CursorScaleX, this.m7CursorScaleY,
+                this.m7CursorScaleX, this.m7CursorScaleY, VRState.VR_RUNNING,
                 winW, winH, this.mc.getWindow().getWidth(), this.mc.getWindow().getHeight(),
                 this.mc.getWindow().getGuiScaledWidth(), this.mc.getWindow().getGuiScaledHeight(),
                 GuiHandler.GUI_SCALE, GuiHandler.GUI_POS_ROOM.x(), GuiHandler.GUI_POS_ROOM.y(),
