@@ -187,6 +187,9 @@ public class VisionVR extends MCVR {
     /** VR-state the probe was measured in: the onMove scale only applies while VR_RUNNING. */
     private boolean m7CursorCalibVrRunning;
     private long m7LastScreenCloseNs;
+    /** M7 GUI click edge state: dispatched directly through vanilla MouseHandler (not the VR binding). */
+    private boolean m7GuiClickPressed;
+    private int m7GuiClickLogCount;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
     private int poseLogFrames;
@@ -1764,7 +1767,7 @@ public class VisionVR extends MCVR {
         setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, this.m7Gesture.teleportHeld());
         setM7Action(VisionInput.KEY_HOTBAR_NEXT, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarNext());
         setM7Action(VisionInput.KEY_HOTBAR_PREV, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarPrev());
-        setM7Action(VisionInput.KEY_GUI_LEFT_CLICK, VisionInput.HAND_RIGHT, this.m7Gesture.guiClick());
+        applyM7GuiClick(gui);
         setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_LEFT, this.m7Gesture.climbGrabLeft());
         setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_RIGHT, this.m7Gesture.climbGrabRight());
         setM7Action(VisionInput.KEY_CLIMBEY_JUMP, VisionInput.HAND_NONE, this.m7Gesture.climbJump());
@@ -1792,7 +1795,39 @@ public class VisionVR extends MCVR {
         writeDigital(action, slot, true, state, origin);
     }
 
+    /**
+     * M7 GUI left click. Vivecraft's own guiLeftClick binding is consumed in
+     * GuiHandler.processBindingsGui(), but that path only clicks when CONTROLLER_MOUSE_* is valid, and
+     * the M7 head-ray cursor owns the cursor (GuiHandler.processGui is cancelled by the mixin), so the
+     * binding never fires. Dispatch the click directly through the vanilla mouse handler instead: the
+     * cursor has already been positioned by updateM7GuiCursor() this frame, so Screen.mouseClicked()
+     * receives the head-ray coordinate.
+     */
+    private void applyM7GuiClick(boolean gui) {
+        boolean want = gui && this.m7Gesture.guiClick();
+        if (want && !this.m7GuiClickPressed) {
+            this.m7GuiClickPressed = true;
+            InputSimulator.pressMouse(MOUSE_BUTTON_LEFT);
+            if (this.m7GuiClickLogCount < 5) {
+                this.m7GuiClickLogCount++;
+                System.out.printf(
+                    "[VRMC-M7] gui click press mouse=(%.1f,%.1f) grabbed=%b screen=%s%n",
+                    this.mc.mouseHandler.xpos(), this.mc.mouseHandler.ypos(),
+                    this.mc.mouseHandler.isMouseGrabbed(),
+                    this.mc.gui.screen() == null ? "none"
+                        : this.mc.gui.screen().getClass().getSimpleName());
+            }
+        } else if (!want && this.m7GuiClickPressed) {
+            this.m7GuiClickPressed = false;
+            InputSimulator.releaseMouse(MOUSE_BUTTON_LEFT);
+        }
+    }
+
     private void releaseM7Actions() {
+        if (this.m7GuiClickPressed) {
+            this.m7GuiClickPressed = false;
+            InputSimulator.releaseMouse(MOUSE_BUTTON_LEFT);
+        }
         for (String name : new String[]{VisionInput.KEY_ATTACK, VisionInput.KEY_USE,
             VisionInput.KEY_INVENTORY, VisionInput.KEY_INGAME_MENU, VisionInput.KEY_JUMP,
             VisionInput.KEY_SNEAK, VisionInput.KEY_TELEPORT, VisionInput.KEY_HOTBAR_NEXT,

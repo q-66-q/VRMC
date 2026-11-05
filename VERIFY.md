@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0244`.
+**Next evidence ID:** `EV-0246`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -5968,6 +5968,60 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Artifacts:** evidence/EV-0243/diagnosis.txt (4dd5efde232f); evidence/EV-0243/push.log (c2e5b9c1345d); evidence/EV-0243/integrity.log (6c48e79fee4b); evidence/EV-0243/vrstate-tests.log (6dadba67ebff); evidence/EV-0243/ev0243-build-a.log (4d665404366b); evidence/EV-0243/ev0243-build-b.log (477f3df6efac)
 
 **Limitations:** EV-0242s probe calibration could run while the game was still in its flat window (VR_RUNNING=false), where the runtime onMove scale is 1.0; the window does not resize when the immersive space opens, so the stale 1.0 calibration would persist into VR and the half-position cursor bug would remain. Re-probe on flat<->VR transitions (and window changes), clear the valid-uv latch so the cursor re-centres with the new scale, and log vr= in the cursor diag. Suite ALL PASS; jar 4c917439.../122,089 B two-build identical; pushed/integrity PASS. Device visual retest NOT RUN (relaunch required); crash-count headroom still -3.
+
+### EV-0244 — M7 GUI pinch click swallowed by cancelled GuiHandler.processGui: direct vanilla mouse dispatch fix
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-04T22:41:55-10:00 |
+| Commit | `6b833c254dc6689cd8432c04eccbe927e5bdf872` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Reproduce: cursor calibration correct in the next immersive session but GUI does not react to 18 guiLeftClick action pulses
+2. Trace guiLeftClick to GuiHandler.processBindingsGui and its CONTROLLER_MOUSE_* / mouseValid gate
+3. Identify that GuiHandler.processGui (the only writer of CONTROLLER_MOUSE_*) is cancelled by the M7 head-cursor mixin
+4. Dispatch the M7 GUI click directly via InputSimulator.pressMouse/releaseMouse on the engine pulse edge; log stored mouse + screen
+5. Provider suite + two independent builds; push/integrity; crash-count headroom for the relaunch
+
+**Expected:** One right pinch in a GUI produces one vanilla Screen.mouseClicked at the aimed GUI pixel; the proof log shows gui click press with the calibrated stored position
+
+**Actual:** Root cause proven from the device action/status logs; direct-dispatch fix built/pushed/integrity-PASS (71d08da4.../122,375 B), suite ALL PASS. Device visual retest NOT RUN (one operator relaunch).
+
+**Artifacts:** evidence/EV-0244/diagnosis.txt (d7b7410ff6ec); evidence/EV-0244/latestlog-no-click-dispatch.txt (e9c88ca885f6); evidence/EV-0244/shell-immersive.log (3a8aa45ecfc6); evidence/EV-0244/status.json (1da9c5b9c486); evidence/EV-0244/click-tests.log (b4e1b606abd3); evidence/EV-0244/ev0244-build-a.log (1aab58220c4c); evidence/EV-0244/ev0244-build-b.log (eaceb1959f79); evidence/EV-0244/push.log (eb9cf1eb16e1); evidence/EV-0244/integrity.log (66bdebd2677b); evidence/EV-0244/vrmc-crash-count-headroom.txt (615bdd17c255)
+
+**Limitations:** EV-0243s calibrated cursor is proven correct in the next immersive session (scale 0.5, readback = uv*win, vr=true), but GUI pinch clicks still did nothing although the log shows 18 guiLeftClick action pulses. Root cause: the M7 dispatch wrote Vivecrafts guiLeftClick VRInputAction, which GuiHandler.processBindingsGui only turns into a mouse press when CONTROLLER_MOUSE_* is valid; those fields are only updated in GuiHandler.processGui(), which our mixin cancels to own the head-ray cursor, so every click is swallowed. Fix: dispatch the click directly through InputSimulator.pressMouse/releaseMouse on the engine guiClick edge (cursor already positioned that frame), with a proof log line; release on pulse end/tracking loss. Suite ALL PASS; 71d08da4/122375 B two-build identical; pushed/integrity PASS; crash headroom -3. Device visual retest NOT RUN.
+
+### EV-0245 — Installed Vivecraft 26.2-1.3.15 runtime audit: cursor onMove scale, swallowed-click gate, API availability
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-04T22:43:31-10:00 |
+| Commit | `6b833c254dc6689cd8432c04eccbe927e5bdf872` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Copy the installed vivecraft-26.2-1.3.15-fabric.jar from D1 and hash it
+2. javap the runtime InputSimulator/WindowExtension/VRState/GuiHandler/MCVR/ClientDataHolderVR surface used by the provider
+3. Inspect bytecode of MouseHandlerVRMixin onMove scaling and GuiHandler.processBindingsGui click gating
+4. Confirm the access widener is shipped (MouseHandler.onButton call is widened)
+5. Check no provider call site still uses WindowExtension.getActualWindowSize
+
+**Expected:** All Vivecraft APIs used by the M7 cursor/click fixes exist and behave like the fix assumes in the actually-installed 1.3.15 runtime
+
+**Actual:** Audit passes: scale 0.5 formula, swallowed-click gate and InputSimulator/VRState availability all confirm the diagnosis and the compatibility of the fixes with the installed jar. Behavioural device retest still NOT RUN.
+
+**Artifacts:** evidence/EV-0245/audit.txt (02c3a19db5cc); evidence/EV-0245/installed-vivecraft-jar.sha256 (48a16d0f079d); evidence/EV-0245/fabric.mod.json (c7ed7359e064); evidence/EV-0245/MANIFEST.MF (b273a193369b); evidence/EV-0245/javap-InputSimulator.txt (dd84cc4e128b); evidence/EV-0245/javap-WindowExtension.txt (00b29423ab44); evidence/EV-0245/javap-VRState.txt (912a2fe47c8c); evidence/EV-0245/javap-GuiHandler-fields.txt (cd66a1520a7e); evidence/EV-0245/javap-MCVR.txt (0edd97d328eb); evidence/EV-0245/javap-ClientDataHolderVR.txt (3dc12fe29e7b); evidence/EV-0245/bytecode-GuiHandler.processBindingsGui.txt (d8f19350d0a3); evidence/EV-0245/bytecode-MouseHandlerVRMixin.modifyX.txt (cd3aad94bee1); evidence/EV-0245/accesswidener-presence.txt (ac6e42b3d98c)
+
+**Limitations:** Pulled the installed Vivecraft mod from D1 (sha256 e63aeed1..., 6,685,183 B, version 26.2-1.3.15) and audited the bytecode of the APIs used by the new M7 cursor/click fixes, because the provider compiles against newer repo sources (the EV-0235 class of failure). Confirmed: WindowExtension 1.3.15 only has getActualScreenWidth/Height (no getActualWindowSize -> probe calibration is right); MouseHandlerVRMixin scales onMove by GUI_WIDTH/actualScreenWidth = 0.5 (matches measured probe); processBindingsGui requires CONTROLLER_MOUSE_* which only processGui writes (cancelled by our mixin -> swallowed clicks); InputSimulator.pressMouse/releaseMouse exist and the jar ships an access widener making MouseHandler.onButton accessible, so direct click dispatch is runtime-legal; VRState.VR_RUNNING and GuiHandler/ClientDataHolder/MCVR members used by the provider are present. Host/device-artifact audit only; visual retest still required.
 
 ## 7. Status dashboard
 

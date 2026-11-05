@@ -66,7 +66,13 @@
   PASS; pre-push installed jar was `cf3ef0a0…`). The app could not be relaunched for testing at push time
   (`devicectl` RSD allocation error), so behaviour, real ARKit hand jitter at 90 Hz, the item-context
   probe, GUI-cursor click mapping and hand tracking dropouts remain device-unknown; operator A/B required.
-- M7 GUI remains head-ray + right-pinch click (no true eye hover, no drag-and-hold inventory).
+- M7 GUI remains head-ray + right-pinch click (no true eye hover, no drag-and-hold inventory). The
+  click is dispatched directly through `InputSimulator.pressMouse/releaseMouse` on the engine pulse edge:
+  Vivecraft's own `guiLeftClick` binding is swallowed because `GuiHandler.processBindingsGui` gates it on
+  `CONTROLLER_MOUSE_*` (written only by `processGui`, which the M7 head-cursor mixin cancels). The installed
+  Vivecraft 26.2-1.3.15 runtime was bytecode-audited (EV-0245) to confirm the APIs used by the cursor/click
+  fixes exist there (WindowExtension has no getActualWindowSize, onMove scale 0.5, pressMouse present +
+  access widener).
 - GUI cursor is centred when a screen opens and kept centred while the head ray misses the GUI plane
   (a valid hit is never overwritten by a miss). On this Vivecraft/visionOS runtime the MouseHandlerVRMixin
   scales onMove arguments by GUI_WIDTH/actualWindowSize while VR is running, so a raw uv*screenWidth write
