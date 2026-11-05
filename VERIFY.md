@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0241`.
+**Next evidence ID:** `EV-0242`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -5890,6 +5890,32 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Operator reported the game did not enter the immersive space after the EV-0239 relaunch. Device logs show the shell crash guard counted two consecutive unclean VR-session shutdowns (app force-quit during the push/restart cycles) and suppressed the automatic immersive open: "CRASH-GUARD ... count=2", "safe mode enabled ... automatic VR open suppressed", then SAFE MODE at VRMCGameStarted. This is shell safe-mode behaviour, not a provider/M7 defect. Reset the on-device crash counter to 0 (read-back verified) so the next launch auto-opens again; the running shell needs a manual Enter VR / Clear crash safe mode for this session. Remote devicectl relaunch remains unavailable (RSD allocation). Provider jar fdce66d4 unchanged.
 
+### EV-0241 — D1 immersive still closed: crash-guard double-start mechanism + second counter reset
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-04T22:26:48-10:00 |
+| Commit | `b88cb51611e36c00cdc7ca73c4f50c5ed3c56c78` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Compare vrmc-shell.prev.log (launch #1) and vrmc-shell.log (launch #2) to reconstruct the count 0->1->2 sequence
+2. Read the crash count and last shutdown.log lines to confirm the unclean-increment mechanism
+3. Reset Documents/vrmc-crash-count.txt to 0 and verify the read-back
+4. Document the clean-shutdown recovery path and the known rapid-relaunch hazard
+
+**Expected:** Single app launch after the reset allows the automatic immersive open; a clean game shutdown permanently resets the guard
+
+**Actual:** Mechanism identified; counter reset to 0 (read-back 0). Robust recovery needs the operator to quit Minecraft via its menu (clean destroy-complete) and/or reinstall a shell with crash-guard debounce. No provider change (jar fdce66d4 unchanged).
+
+**Artifacts:** evidence/EV-0241/diagnosis.txt (e520ba3c535e); evidence/EV-0241/shell-launch1.log (1eb167a08ea2); evidence/EV-0241/shell-launch2.log (a060b3e71a5a); evidence/EV-0241/shutdown.log (dd47791c7eb0); evidence/EV-0241/latestlog.txt (6e0f9ffb92ca); evidence/EV-0241/vrmc-crash-count.txt (5feceb66ffc8)
+
+**Limitations:** After the EV-0240 counter reset, the app restarted its shell twice within 26 s (22:23:35 and 22:24:01 HST). Each start evaluates the crash guard against the last unclean shutdown.log line, so the count went 0 -> 1 -> 2 and safe mode suppressed the automatic immersive open again. Not a provider/M7 fault and not operator error; shell-lifecycle interaction. Reset count to 0 again (read-back 0); single launch will auto-open. Robust fix is a clean game shutdown (destroy-complete) via the in-game Quit Game menu, or in-session Enter VR / Clear crash safe mode. A shell-side debounce is a candidate permanent fix but needs an app rebuild.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6175,3 +6201,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-03 | **EV-0238 (`PARTIAL`, device push): EV-0237 provider installed on D1** — pushed `d2c8a8d9…` (120,666 B) to `Documents/instances/default/mods/vrmc-provider.jar`; devicectl round-trip sha256 PASS and read-only device integrity PASS. Read-back before the push showed the actually-installed jar was `cf3ef0a0…` (110,857 B; a previous unrecorded post-EV-0236 push), correcting the earlier "installed remains EV-0236" claim. App relaunch for the operator A/B was **NOT RUN**: `devicectl device process launch` failed twice with "Failed to allocate RSD device" and the running game process is from the earlier session. Gesture A/B remains NOT RUN (operator required); rollback `gesture.mode=m4` unchanged. Next ID `EV-0239`. |
 | 2026-11-04 | **EV-0239 (`PARTIAL`, host+device-push): M7 GUI cursor centre-on-open + diagnostics** — operator feedback: GUI cursor appears in the top-left of the view, not the middle. Device log analysis: the cursor is only positioned after a successful head-ray/GUI-plane intersection, so until then the mouse handler keeps its top-left default. Fix: centre the cursor when a GUI screen opens, keep it centred while the head ray misses (a valid hit is never overwritten), and log a rate-limited cursor diag (uv/mouse/read-back/window/framebuffer/GUI sizes/plane/head/dir). Provider suite ALL PASS; `fdce66d4…`/121,326 B two-build identical; pushed to D1 and integrity PASS. **Device visual retest NOT RUN** (app relaunch is operator-side); diagnostics will make the next session's cursor mapping verifiable. Next ID `EV-0240`. |
 | 2026-11-04 | **EV-0240 (`PARTIAL`, device state): "game did not enter immersive" = shell crash-guard safe mode** — after the EV-0239 relaunch the app stayed in its flat window. Device logs (vrmc-shell.log) show the shell crash guard counted two consecutive unclean VR-session shutdowns from the push/restart cycles ("CRASH-GUARD ... count=2", "safe mode enabled ... automatic VR open suppressed", then SAFE MODE at VRMCGameStarted); latestlog shows displayViews=0/flat title screen. This is shell safe-mode behaviour, not a provider/M7 defect: manual Enter VR is intentionally allowed. Reset `Documents/vrmc-crash-count.txt` to 0 on D1 (read-back 0) so the next launch auto-opens again; the already-running shell needs the operator to tap Enter VR / Clear crash safe mode for this session. Quit the game via its menu (so the provider writes `destroy-complete`) instead of force-quitting. No provider change; jar remains `fdce66d4…`. Next ID `EV-0241`. |
+| 2026-11-04 | **EV-0241 (`PARTIAL`, device state): immersive still closed — crash-guard double-start mechanism** — after the EV-0240 reset the app started its shell twice within 26 s (22:23:35 and 22:24:01 HST; `vrmc-shell.prev.log` + `vrmc-shell.log`). The crash guard evaluates once per shell launch against the last (unclean, `event=init`) shutdown.log line, so the count went 0→1 (safe mode off) then 1→2 (safe mode on → automatic VR open suppressed again). Not a provider/M7 fault and not operator error. Crash counter reset to 0 again (read-back 0): a single launch allows the automatic open; the robust recovery is a clean game shutdown via Minecraft's own **Quit Game** menu (writes `destroy-complete`, permanently resets the counter) or the in-session **Clear crash safe mode / Enter VR** overlay controls. Candidate permanent fix (not implemented): shell-side debounce of crash-guard increments across rapid starts of the same app session — needs an app rebuild. Jar unchanged (`fdce66d4…`). Next ID `EV-0242`. |

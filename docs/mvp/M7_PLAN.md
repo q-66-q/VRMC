@@ -57,6 +57,18 @@ A/B. Rebuild order after A/B pass:
 - **2026-11-02 and 2026-11-04 recurrences (EV-0240):** force-quitting the app while a VR session was
   live during provider push/restart cycles incremented the count (2 → safe mode each time). The crash
   count was reset to 0 on D1 after each occurrence (read-back verified).
+- **Double-start hazard (EV-0241):** the guard evaluates once per shell process launch. Two shell starts
+  within 26 s (observed 2026-11-04 22:23:35 and 22:24:01 HST, scene relaunch) turn one unclean shutdown
+  into count=2 and re-enable safe mode even right after a counter reset. Until the shell is rebuilt with
+  a debounce, recover with a clean game shutdown (below) or the in-window **Clear crash safe mode** +
+  **Enter VR** controls; do not tap the app icon repeatedly while a launch is starting.
+- **Temporary testing mitigation attempt (2026-11-04):** we tried to give the next launch extra headroom
+  by setting the on-device `vrmc-crash-count.txt` to `-3` (each unclean shell start increments by one,
+  so scene double-starts would stay below the safe-mode threshold). The transfer failed
+  (`CoreDeviceError 7000: connection to the remote device is no longer valid`; read-back still 0), so the
+  device remains at count 0. A single launch is therefore safe (0→1, no safe mode); two rapid launches
+  would re-enable safe mode. The negative-count trick is device state only, not a code change, and must
+  never be kept beyond testing; the first clean shutdown (`destroy-complete`) resets the count normally.
 - Resolution/operator habit: quit the game via its own menu so the provider writes
   `event=destroy-complete` (clean shutdown resets the count); if the window shows safe mode, tap
   **Enter VR** (or **Clear crash safe mode**) instead of force-quitting; a normal app relaunch after the
