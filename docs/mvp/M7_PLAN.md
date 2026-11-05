@@ -50,11 +50,17 @@ A/B. Rebuild order after A/B pass:
 
 ## Crash-guard precondition
 
-- The first M7 launch attempt was blocked by the shell crash guard (count=2) from previous unclean exits:
-  automatic VR open was suppressed, so the game never entered immersive even though the M7 provider
-  initialized. This is not an M7 failure.
-- Resolution: exit the app, restart VRMC; use **Enter VR** if the guard is still active, and quit the
-  game cleanly (`destroy-complete`) so the count resets. Crash count was reset to 0 on 2026-11-02.
+- The automatic immersive open is suppressed after **two consecutive unclean VR-session shutdowns**
+  (shell crash guard, `vrmc-safe-mode.flag` + `vrmc-crash-count.txt`): the game stays in its flat
+  window and latestlog shows `displayViews=0`. This is not an M7 failure; manual **Enter VR** still
+  works, and the window shows **Clear crash safe mode** when the guard is active.
+- **2026-11-02 and 2026-11-04 recurrences (EV-0240):** force-quitting the app while a VR session was
+  live during provider push/restart cycles incremented the count (2 → safe mode each time). The crash
+  count was reset to 0 on D1 after each occurrence (read-back verified).
+- Resolution/operator habit: quit the game via its own menu so the provider writes
+  `event=destroy-complete` (clean shutdown resets the count); if the window shows safe mode, tap
+  **Enter VR** (or **Clear crash safe mode**) instead of force-quitting; a normal app relaunch after the
+  counter reset restores the automatic open.
 
 ## Device A/B order
 

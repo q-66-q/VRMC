@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0240`.
+**Next evidence ID:** `EV-0241`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -5864,6 +5864,32 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 **Artifacts:** evidence/EV-0239/push.log (f26dfacf69d3); evidence/EV-0239/integrity.log (0bc6f370de17); evidence/EV-0239/cursor-tests.log (dfd9b1adf1df); evidence/EV-0239/build-a.log (44fea2c5b2b0); evidence/EV-0239/build-b.log (773727fa0119)
 
 **Limitations:** Operator feedback: GUI cursor appears in the top-left of the view instead of the middle. Host analysis of the device log showed the cursor was only positioned after a successful head-ray/GUI-plane intersection; until then MouseHandler keeps its default (0,0). Fix: centre the cursor when a GUI screen opens and keep it centred while the ray misses (never overwrite a valid hit), plus a rate-limited diag line (uv, mouse, read-back, window/framebuffer/GUI sizes, plane, head, dir). Provider suite ALL PASS; two-build reproducible; pushed/integrity PASS. Visual retest on D1 NOT RUN yet (needs app relaunch + operator observation).
+### EV-0240 — D1 immersive did not open: crash-guard safe mode diagnosis + counter reset (no code change)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-04T19:26:57-10:00 |
+| Commit | `6293928fe29487be43364aa23f62b395184bd3bb` |
+| Dirty state | clean |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Pull device diagnostics after the report (shell/latestlog/shutdown/status/crash-count)
+2. Trace automatic immersive open suppression to the shell crash-guard safe mode (count=2, unclean prior sessions)
+3. Reset Documents/vrmc-crash-count.txt to 0 on the device and verify the read-back
+4. Archive the safe-mode evidence and document the clean-shutdown requirement (destroy-complete)
+
+**Expected:** Automatic immersive open restored on the next app launch; manual Enter VR available immediately
+
+**Actual:** Root cause identified and documented; crash counter reset to 0 (read-back 0). Running session still needs manual Enter VR. No provider code change; device visual cursor/gesture retest still pending.
+
+**Artifacts:** evidence/EV-0240/diagnosis.txt (fe03a010569d); evidence/EV-0240/Documents_vrmc-shell.log (25d3abd40a33); evidence/EV-0240/Documents_latestlog.txt (604d09883841); evidence/EV-0240/Documents_instances_default_vrmc-shutdown.log (7b57f9a49cbe); evidence/EV-0240/Documents_instances_default_vrmc-status.json (818fd704ecaa); evidence/EV-0240/crash-count-after-reset.txt (5feceb66ffc8); evidence/EV-0240/safe-mode-flag-still-present.txt (8b3369944dd2)
+
+**Limitations:** Operator reported the game did not enter the immersive space after the EV-0239 relaunch. Device logs show the shell crash guard counted two consecutive unclean VR-session shutdowns (app force-quit during the push/restart cycles) and suppressed the automatic immersive open: "CRASH-GUARD ... count=2", "safe mode enabled ... automatic VR open suppressed", then SAFE MODE at VRMCGameStarted. This is shell safe-mode behaviour, not a provider/M7 defect. Reset the on-device crash counter to 0 (read-back verified) so the next launch auto-opens again; the running shell needs a manual Enter VR / Clear crash safe mode for this session. Remote devicectl relaunch remains unavailable (RSD allocation). Provider jar fdce66d4 unchanged.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6148,3 +6174,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-03 | **EV-0237 (`PARTIAL`, host): M7 data-driven gesture accuracy iteration + replay gate** — all 14 accepted Gesture Lab datasets (~9.5k samples) analysed by two independent scripts/reports (HANDS: pinch/fist/attack/hotbar/eat/bow/climb/walk/menu/inventory/teleport; HEAD: jump/sneak/head-frame/pitch/negatives; the top-level IDLE recording is the MENU twin — there is no true idle capture). Re-fitted `VisionM7Gesture`: pinch/fist Schmitt hysteresis, head-frame geometry, windowed speeds, dt-corrected head baseline + adapt band, press/peak gates, hotbar delayed single-vs-double decision, item context (bow, food/drink) and Vivecraft climb context via fail-safe probes (`m7.context=auto|off`). Added replay tooling: `scripts/m7_lab_fixture.py`, `M7LabReplay.java`, independent `scripts/m7_eval_replay.py` evaluator with per-action recall/precision/coverage/false gates, one-command `scripts/m7_lab_replay.sh`. Host: full provider suite ALL PASS including **m7-gesture 73 synthetic checks** and **m7-fuzz 200k frames / 0 violations**; literal replay gate **20/24 rows** and evaluator-v2 **primary gate 22/24 rows** (rate-matched 90 Hz pulse GT + bounded-latency-aware held scoring; baseline 12/24; context suppression 9/9). Residual literal rows: hotbar precision 0.83 vs 0.85, attack precision 0.66 vs 0.80, walk false-active 0.18 vs 0.10, eat false-active 0.25 vs 0.15; residual primary rows: hotbar recall 0.75 and attack recall 0.77/precision 0.71 — all root-caused in `M7_ACCURACY_ITERATION.md`; no threshold was loosened to hide them. Provider jar `d2c8a8d9…` (120,666 bytes), two-build reproducible. **Device A/B NOT RUN**: the installed D1 provider remains EV-0236 and no device behaviour is claimed for this engine revision. Next ID `EV-0238`. |
 | 2026-11-03 | **EV-0238 (`PARTIAL`, device push): EV-0237 provider installed on D1** — pushed `d2c8a8d9…` (120,666 B) to `Documents/instances/default/mods/vrmc-provider.jar`; devicectl round-trip sha256 PASS and read-only device integrity PASS. Read-back before the push showed the actually-installed jar was `cf3ef0a0…` (110,857 B; a previous unrecorded post-EV-0236 push), correcting the earlier "installed remains EV-0236" claim. App relaunch for the operator A/B was **NOT RUN**: `devicectl device process launch` failed twice with "Failed to allocate RSD device" and the running game process is from the earlier session. Gesture A/B remains NOT RUN (operator required); rollback `gesture.mode=m4` unchanged. Next ID `EV-0239`. |
 | 2026-11-04 | **EV-0239 (`PARTIAL`, host+device-push): M7 GUI cursor centre-on-open + diagnostics** — operator feedback: GUI cursor appears in the top-left of the view, not the middle. Device log analysis: the cursor is only positioned after a successful head-ray/GUI-plane intersection, so until then the mouse handler keeps its top-left default. Fix: centre the cursor when a GUI screen opens, keep it centred while the head ray misses (a valid hit is never overwritten), and log a rate-limited cursor diag (uv/mouse/read-back/window/framebuffer/GUI sizes/plane/head/dir). Provider suite ALL PASS; `fdce66d4…`/121,326 B two-build identical; pushed to D1 and integrity PASS. **Device visual retest NOT RUN** (app relaunch is operator-side); diagnostics will make the next session's cursor mapping verifiable. Next ID `EV-0240`. |
+| 2026-11-04 | **EV-0240 (`PARTIAL`, device state): "game did not enter immersive" = shell crash-guard safe mode** — after the EV-0239 relaunch the app stayed in its flat window. Device logs (vrmc-shell.log) show the shell crash guard counted two consecutive unclean VR-session shutdowns from the push/restart cycles ("CRASH-GUARD ... count=2", "safe mode enabled ... automatic VR open suppressed", then SAFE MODE at VRMCGameStarted); latestlog shows displayViews=0/flat title screen. This is shell safe-mode behaviour, not a provider/M7 defect: manual Enter VR is intentionally allowed. Reset `Documents/vrmc-crash-count.txt` to 0 on D1 (read-back 0) so the next launch auto-opens again; the already-running shell needs the operator to tap Enter VR / Clear crash safe mode for this session. Quit the game via its menu (so the provider writes `destroy-complete`) instead of force-quitting. No provider change; jar remains `fdce66d4…`. Next ID `EV-0241`. |
