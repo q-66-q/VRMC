@@ -208,6 +208,7 @@ public class VisionVR extends MCVR {
     private long m7TouchHotbarLastSelectNs;
     private int m7TouchHotbarLogCount;
     private boolean m7TouchHotbarArmedLogged;
+    private int m7TouchHotbarWarnCount;
     /** Reflective hotbar selection: LocalPlayer.getInventory() is @Nullable-annotated in MC 26.2 and the
      * jspecify annotation class is not on the provider compile classpath, so resolve it reflectively. */
     private java.lang.reflect.Method m7InventoryMethod;
@@ -1013,7 +1014,14 @@ public class VisionVR extends MCVR {
             this.updateAim();
             if (this.m7Mode) {
                 this.updateM7GuiCursor();
-                this.updateM7TouchHotbar();
+                try {
+                    this.updateM7TouchHotbar();
+                } catch (Throwable t) {
+                    // A HUD-touch failure (e.g. a runtime/GUI race) must never crash the render thread.
+                    if (this.m7TouchHotbarWarnCount++ < 3) {
+                        System.out.println("[VRMC-M7][WARN] touch hotbar update failed: " + t);
+                    }
+                }
             }
             this.processInputs();
             this.hmdSampling();

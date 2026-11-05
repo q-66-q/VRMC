@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0247`.
+**Next evidence ID:** `EV-0248`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6051,6 +6051,31 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Operator request: tap on the inventory bar to select. Implemented provider-side direct touch selection in M7: mirrors Vivecraft InteractiveHotbarModules rendered bar geometry from GuiHandler GUI_RENDER_*/GUI_OFFSET_LOCAL/GUI_SCALE_APPLIED statics and uses the right index fingertip; selects slot when within 6 cm of the bar, same slot dwelled >=60 ms with <3 cm drift, 300 ms cooldown; guarded off in GUI/seated/HEAD-HUD/untracked/stale; inventory access reflective (jspecify annotations absent from compile classpath). Installed Vivecraft 26.2-1.3.15 bytecode audited: geometry fields, vrTouchHotbar/vrHudLockMode, InteractiveHotbarModule math all present. Suite ALL PASS; 747ed2ab.../124,561 B two-build identical; pushed/integrity PASS; crash headroom -3. Device tap test NOT RUN.
 
+### EV-0247 — Fail-safe wrapper around the direct touch-hotbar poll path (EV-0246 follow-up, jar refresh)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T06:29:50-10:00 |
+| Commit | `bbd1d9cf05282f636dc015fcfce27b8244e14a08` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Review the EV-0246 poll-path call for unguarded failure modes
+2. Wrap updateM7TouchHotbar() in try/catch with bounded WARN logging (render-thread safety)
+3. Provider suite + two independent builds; push/integrity; confirm crash headroom
+
+**Expected:** No touch-hotbar failure can crash the render thread; behaviour identical otherwise
+
+**Actual:** Wrapper added; suite ALL PASS; jar 0ee811fd.../124,629 B two-build identical; pushed/integrity PASS; crash count -3. Device tap test NOT RUN.
+
+**Artifacts:** evidence/EV-0247/failsafe-note.txt (81f3483e0485); evidence/EV-0247/hotbar-failsafe-tests.log (4bb6cc0eaf95); evidence/EV-0247/ev0247-build-a.log (c5b0ffb1caaa); evidence/EV-0247/ev0247-build-b.log (bf2b3d009bc0); evidence/EV-0247/push.log (345f255bf265); evidence/EV-0247/integrity.log (9f96d733dc2d)
+
+**Limitations:** EV-0246 touch-hotbar runs on the render thread in VisionVR.poll; all reads are guarded but a Throwable must never crash the frame (EV-0235 lesson), so the call is wrapped in try/catch with a bounded warning log. Behaviour and geometry unchanged; same guards/diagnostics. Suite ALL PASS; final jar 0ee811fd.../124,629 B two-build identical; pushed/integrity PASS; crash headroom -3. Device tap test NOT RUN.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6339,3 +6364,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-04 | **EV-0241 (`PARTIAL`, device state): immersive still closed — crash-guard double-start mechanism** — after the EV-0240 reset the app started its shell twice within 26 s (22:23:35 and 22:24:01 HST; `vrmc-shell.prev.log` + `vrmc-shell.log`). The crash guard evaluates once per shell launch against the last (unclean, `event=init`) shutdown.log line, so the count went 0→1 (safe mode off) then 1→2 (safe mode on → automatic VR open suppressed again). Not a provider/M7 fault and not operator error. Crash counter reset to 0 again (read-back 0): a single launch allows the automatic open; the robust recovery is a clean game shutdown via Minecraft's own **Quit Game** menu (writes `destroy-complete`, permanently resets the counter) or the in-session **Clear crash safe mode / Enter VR** overlay controls. Candidate permanent fix (not implemented): shell-side debounce of crash-guard increments across rapid starts of the same app session — needs an app rebuild. Jar unchanged (`fdce66d4…`). Next ID `EV-0242`. |
 | 2026-11-04 | **EV-0243 (`PARTIAL`, host+device-push): VR-state-aware cursor calibration** — EV-0242's one-time probe could measure scale 1.0 while the game was still in its flat window (`VR_RUNNING=false`; the runtime onMove scale only applies in VR), and the window does not resize when the immersive space opens, so the stale calibration would persist into VR and the half-position cursor bug would remain. Calibration now keys on `VRState.VR_RUNNING` (re-probe on flat↔VR and window-size changes), clears the valid-uv latch so the cursor re-centres with the new scale, and logs `vr=` in the cursor diag. Suite ALL PASS; `4c917439…`/122,089 B two-build identical; pushed/integrity PASS; crash-count headroom `-3` on D1. **Device visual retest NOT RUN** (one operator relaunch). Next ID `EV-0244`. |
 | 2026-11-05 | **EV-0246 (`PARTIAL`, host+device-push): M7 direct touch-hotbar selection** — operator clarified that "tap on the inventory bar to select" means tapping the rendered HUD hotbar itself, not cycling with air index taps. Implemented provider-side touch selection mirroring the installed `InteractiveHotbarModule` bar geometry (`GUI_RENDER_POS_ROOM/ROTATION_ROOM`, `GUI_OFFSET_LOCAL`, `GUI_SCALE_APPLIED/MAX`): right index fingertip within 6 cm of the bar, same slot dwelled ≥60 ms with <3 cm drift, 300 ms cooldown → `Inventory.setSelectedSlot` (reflective access; jspecify @Nullable absent from the compile classpath). Guarded off in GUI/seated/HEAD-HUD/untracked/stale; air index-tap cycling kept as fallback. Installed Vivecraft 26.2-1.3.15 bytecode audited for every field/method used. Suite ALL PASS; `747ed2ab…`/124,561 B two-build identical; pushed/integrity PASS; crash headroom -3. **Device tap test NOT RUN.** Next ID `EV-0247`. |
+| 2026-11-05 | **EV-0247 (`PARTIAL`, host+device-push): fail-safe wrapper around the direct touch-hotbar path** — EV-0246's `updateM7TouchHotbar()` runs on the render thread from `VisionVR.poll()`; all its reads are guarded but a Throwable must never crash the frame (EV-0235 lesson), so the call is now wrapped in try/catch with a bounded WARN log. Behaviour/geometry/diagnostics unchanged; air index-tap cycling remains the fallback. Suite ALL PASS; final jar `0ee811fd…`/124,629 B two-build identical; pushed/integrity PASS; crash headroom -3. **Device tap test NOT RUN.** Next ID `EV-0248`. |
