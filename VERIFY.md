@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0246`.
+**Next evidence ID:** `EV-0247`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6023,6 +6023,34 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Pulled the installed Vivecraft mod from D1 (sha256 e63aeed1..., 6,685,183 B, version 26.2-1.3.15) and audited the bytecode of the APIs used by the new M7 cursor/click fixes, because the provider compiles against newer repo sources (the EV-0235 class of failure). Confirmed: WindowExtension 1.3.15 only has getActualScreenWidth/Height (no getActualWindowSize -> probe calibration is right); MouseHandlerVRMixin scales onMove by GUI_WIDTH/actualScreenWidth = 0.5 (matches measured probe); processBindingsGui requires CONTROLLER_MOUSE_* which only processGui writes (cancelled by our mixin -> swallowed clicks); InputSimulator.pressMouse/releaseMouse exist and the jar ships an access widener making MouseHandler.onButton accessible, so direct click dispatch is runtime-legal; VRState.VR_RUNNING and GuiHandler/ClientDataHolder/MCVR members used by the provider are present. Host/device-artifact audit only; visual retest still required.
 
+### EV-0246 — M7 direct touch-hotbar selection: tap the HUD inventory bar to select a slot
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T06:28:28-10:00 |
+| Commit | `a03f2e0697034c0f0bdf4a3a69e765bc4e2aacce` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Read the operator request: select hotbar slot by tapping the rendered inventory bar
+2. Mirror the installed InteractiveHotbarModule bar geometry (GUI_RENDER_POS_ROOM/ROTATION_ROOM, GUI_OFFSET_LOCAL, GUI_SCALE_APPLIED/MAX)
+3. Use the right index fingertip with 6 cm proximity, 60 ms same-slot dwell, 3 cm drift limit and 300 ms cooldown; set Inventory selected slot reflectively
+4. Guard off in GUI/seated/HEAD-HUD/untracked/stale; keep index-tap cycling as fallback
+5. Bytecode-audit the installed Vivecraft 26.2-1.3.15 jar for the statics/math/API used
+6. Provider suite + two independent builds; push/integrity; crash-count headroom for the relaunch
+
+**Expected:** Tapping the rendered HUD hotbar with the right index finger selects that slot; the log shows armed geometry, hover and select lines
+
+**Actual:** Feature built/pushed/integrity-PASS (747ed2ab.../124,561 B), suite ALL PASS, installed-runtime audit passes. Device tap test NOT RUN (operator relaunch required).
+
+**Artifacts:** evidence/EV-0246/feature-note.txt (b541d139a668); evidence/EV-0246/hotbar-tests.log (7ef36d5bf585); evidence/EV-0246/ev0246-build-a.log (15ff65e33622); evidence/EV-0246/ev0246-build-b.log (cf53d09b8113); evidence/EV-0246/push.log (0167c5bb4fc9); evidence/EV-0246/integrity.log (687ac49bf45c); evidence/EV-0246/javap-installed-GuiHandler-HUD-statics.txt (b1c3b6253ac3); evidence/EV-0246/javap-installed-VRSettings-hotbar.txt (d6c03daeff19); evidence/EV-0246/javap-installed-InteractiveHotbarModule.txt (4613acc209ab); evidence/EV-0246/bytecode-InteractiveHotbarModule.getHotbarStart.txt (066c62f40ed8); evidence/EV-0246/bytecode-InteractiveHotbarModule.getHotbarEnd.txt (cf359b076efc); evidence/EV-0246/bytecode-InteractiveHotbarModule.isActive-head.txt (3b1b37c2cea1); evidence/EV-0246/bytecode-InteractiveHotbarModule.onPress-head.txt (676599a3a7fc); evidence/EV-0246/vrmc-crash-count-headroom.txt (615bdd17c255)
+
+**Limitations:** Operator request: tap on the inventory bar to select. Implemented provider-side direct touch selection in M7: mirrors Vivecraft InteractiveHotbarModules rendered bar geometry from GuiHandler GUI_RENDER_*/GUI_OFFSET_LOCAL/GUI_SCALE_APPLIED statics and uses the right index fingertip; selects slot when within 6 cm of the bar, same slot dwelled >=60 ms with <3 cm drift, 300 ms cooldown; guarded off in GUI/seated/HEAD-HUD/untracked/stale; inventory access reflective (jspecify annotations absent from compile classpath). Installed Vivecraft 26.2-1.3.15 bytecode audited: geometry fields, vrTouchHotbar/vrHudLockMode, InteractiveHotbarModule math all present. Suite ALL PASS; 747ed2ab.../124,561 B two-build identical; pushed/integrity PASS; crash headroom -3. Device tap test NOT RUN.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6310,3 +6338,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-04 | **EV-0240 (`PARTIAL`, device state): "game did not enter immersive" = shell crash-guard safe mode** — after the EV-0239 relaunch the app stayed in its flat window. Device logs (vrmc-shell.log) show the shell crash guard counted two consecutive unclean VR-session shutdowns from the push/restart cycles ("CRASH-GUARD ... count=2", "safe mode enabled ... automatic VR open suppressed", then SAFE MODE at VRMCGameStarted); latestlog shows displayViews=0/flat title screen. This is shell safe-mode behaviour, not a provider/M7 defect: manual Enter VR is intentionally allowed. Reset `Documents/vrmc-crash-count.txt` to 0 on D1 (read-back 0) so the next launch auto-opens again; the already-running shell needs the operator to tap Enter VR / Clear crash safe mode for this session. Quit the game via its menu (so the provider writes `destroy-complete`) instead of force-quitting. No provider change; jar remains `fdce66d4…`. Next ID `EV-0241`. |
 | 2026-11-04 | **EV-0241 (`PARTIAL`, device state): immersive still closed — crash-guard double-start mechanism** — after the EV-0240 reset the app started its shell twice within 26 s (22:23:35 and 22:24:01 HST; `vrmc-shell.prev.log` + `vrmc-shell.log`). The crash guard evaluates once per shell launch against the last (unclean, `event=init`) shutdown.log line, so the count went 0→1 (safe mode off) then 1→2 (safe mode on → automatic VR open suppressed again). Not a provider/M7 fault and not operator error. Crash counter reset to 0 again (read-back 0): a single launch allows the automatic open; the robust recovery is a clean game shutdown via Minecraft's own **Quit Game** menu (writes `destroy-complete`, permanently resets the counter) or the in-session **Clear crash safe mode / Enter VR** overlay controls. Candidate permanent fix (not implemented): shell-side debounce of crash-guard increments across rapid starts of the same app session — needs an app rebuild. Jar unchanged (`fdce66d4…`). Next ID `EV-0242`. |
 | 2026-11-04 | **EV-0243 (`PARTIAL`, host+device-push): VR-state-aware cursor calibration** — EV-0242's one-time probe could measure scale 1.0 while the game was still in its flat window (`VR_RUNNING=false`; the runtime onMove scale only applies in VR), and the window does not resize when the immersive space opens, so the stale calibration would persist into VR and the half-position cursor bug would remain. Calibration now keys on `VRState.VR_RUNNING` (re-probe on flat↔VR and window-size changes), clears the valid-uv latch so the cursor re-centres with the new scale, and logs `vr=` in the cursor diag. Suite ALL PASS; `4c917439…`/122,089 B two-build identical; pushed/integrity PASS; crash-count headroom `-3` on D1. **Device visual retest NOT RUN** (one operator relaunch). Next ID `EV-0244`. |
+| 2026-11-05 | **EV-0246 (`PARTIAL`, host+device-push): M7 direct touch-hotbar selection** — operator clarified that "tap on the inventory bar to select" means tapping the rendered HUD hotbar itself, not cycling with air index taps. Implemented provider-side touch selection mirroring the installed `InteractiveHotbarModule` bar geometry (`GUI_RENDER_POS_ROOM/ROTATION_ROOM`, `GUI_OFFSET_LOCAL`, `GUI_SCALE_APPLIED/MAX`): right index fingertip within 6 cm of the bar, same slot dwelled ≥60 ms with <3 cm drift, 300 ms cooldown → `Inventory.setSelectedSlot` (reflective access; jspecify @Nullable absent from the compile classpath). Guarded off in GUI/seated/HEAD-HUD/untracked/stale; air index-tap cycling kept as fallback. Installed Vivecraft 26.2-1.3.15 bytecode audited for every field/method used. Suite ALL PASS; `747ed2ab…`/124,561 B two-build identical; pushed/integrity PASS; crash headroom -3. **Device tap test NOT RUN.** Next ID `EV-0247`. |

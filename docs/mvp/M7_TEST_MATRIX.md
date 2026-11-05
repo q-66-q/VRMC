@@ -92,6 +92,10 @@ These are synthetic/recorded-data checks; none is device evidence.
 | 72 | null joints fail closed | safety |
 | 73 | NaN pinch for one untracked hand does not break the other hand | safety |
 
+Device-only M7 behaviours (not part of the 73 host checks, verified on D1): GUI head-ray cursor position
+and right-pinch click (EV-0239/EV-0242/EV-0243/EV-0244), and direct touch-hotbar selection on the
+rendered inventory bar (EV-0246; the provider logs `touch hotbar armed/hover/select` lines).
+
 ## Replay gate (latest host run, evaluator v2)
 
 `scripts/m7_lab_replay.sh` reports both variants from one fresh run:

@@ -38,9 +38,12 @@ the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand 
 - **Head-rise jump / head-lower sneak** can false-trigger from looking up/down or from recentering.
   Use vertical displacement relative to a slowly adapting baseline + velocity, with hysteresis and a
   "sitting/lying" fallback. Do not map pitch to jump/sneak.
-- **"Right hand tap to select items"** is underspecified for a hotbar that is fixed to the HUD. Chosen
-  interpretation: a quick right-wrist tap cycles the hotbar (single next, double previous). If the
-  operator meant tapping a world-space hotbar item, that needs a follow-up design.
+- **"Right hand tap to select items" (resolved 2026-11-05, EV-0246):** the operator meant tapping the
+  rendered HUD inventory bar itself. M7 now selects the touched slot directly: the right index fingertip
+  within 6 cm of the wrist-HUD bar, the same slot held for >= 60 ms with < 3 cm drift and a 300 ms
+  cooldown (guarded off in GUI/seated/HEAD-HUD/untracked/stale input). The air index-tap cycling
+  (single next / double previous) remains as a fallback; no world-space hotbar item is spawned and the
+  selection uses `Inventory.setSelectedSlot` (vanilla lazy carried-item packet path unchanged).
 - **Climbing with alternating arms** needs a climb action held while the hand is closed/gripping; the
   existing Vivecraft climb action expects grab enable/disable. Drive it per-hand from grip above head
   plus alternating pull, and release when the hand opens.
@@ -66,7 +69,8 @@ the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand 
 7. Short right pinch: place/select. Held right pinch: break/mine (after a 350 ms threshold), release stops.
 8. Left pinch hold: teleport aim; release commits.
 8. Right pinch: place block/interact at reticle.
-9. Right-wrist tap: hotbar next/previous.
+9. Right-wrist tap: hotbar next/previous. Tapping the rendered HUD inventory bar with the right index
+   fingertip selects that slot directly (touch-hotbar, EV-0246).
 10. Both-fist tap: inventory.
 11. Left-fist tap: Escape.
 12. Idle: release all.
@@ -112,6 +116,12 @@ Every value below is the constant implemented in `VisionM7Gesture` and scored by
   (120 ms window < 0.45 m/s) and index ≥ 1.35× the middle-finger tip speed; 320 ms delayed single-tap
   decision → next; a second tap 500–650 ms later → previous (one pulse per physical tap, the tap's
   return motion is ignored). No hotbar during walk/bow/eat/climb/GUI or within 1.5 s of a pinch.
+- **Direct touch-hotbar (EV-0246):** when the HUD is wrist/hand-locked (`vrHudLockMode != HEAD`,
+  `vrTouchHotbar` on, HUD rendered), the right index fingertip within 6 cm of the rendered bar selects
+  the slot under it after a 60 ms same-slot dwell (<3 cm drift) and 300 ms cooldown. This mirrors
+  Vivecraft's own `InteractiveHotbarModule` bar geometry (`GUI_RENDER_POS_ROOM`,
+  `GUI_RENDER_ROTATION_ROOM`, `GUI_OFFSET_LOCAL`, `GUI_SCALE_APPLIED/MAX`); the air index-tap cycling
+  above remains as the fallback.
 
 ## 6. Gesture Lab app (separate visionOS app)
 

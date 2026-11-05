@@ -17,6 +17,7 @@ import org.vivecraft.client_vr.ClientDataHolderVR;
 import org.vivecraft.client_vr.VRState;
 import org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler;
 import org.vivecraft.client_vr.settings.AutoCalibration;
+import org.vivecraft.client_vr.settings.VRSettings;
 import org.vivecraft.client_vr.gameplay.screenhandlers.KeyboardHandler;
 import org.vivecraft.client_vr.gameplay.screenhandlers.RadialHandler;
 import org.vivecraft.client_vr.provider.ControllerType;
@@ -190,6 +191,30 @@ public class VisionVR extends MCVR {
     /** M7 GUI click edge state: dispatched directly through vanilla MouseHandler (not the VR binding). */
     private boolean m7GuiClickPressed;
     private int m7GuiClickLogCount;
+    // Direct touch-hotbar: touch/tap the rendered HUD hotbar bar with the right index fingertip to
+    // select that slot (replaces asking the operator to cycle with index taps when the bar is at hand).
+    private static final float M7_TOUCH_HOTBAR_MAX_DIST = 0.06F;
+    private static final float M7_TOUCH_HOTBAR_MAX_DRIFT = 0.03F;
+    private static final long M7_TOUCH_HOTBAR_DWELL_NS = 60_000_000L;
+    private static final long M7_TOUCH_HOTBAR_COOLDOWN_NS = 300_000_000L;
+    private final Vector3f m7HotbarStart = new Vector3f();
+    private final Vector3f m7HotbarLine = new Vector3f();
+    private final Vector3f m7HotbarDelta = new Vector3f();
+    private final Vector3f m7HotbarCross = new Vector3f();
+    private final Vector3f m7HotbarTip = new Vector3f();
+    private final Vector3f m7HotbarDwellStart = new Vector3f();
+    private int m7TouchHotbarSlot = -1;
+    private long m7TouchHotbarSinceNs;
+    private long m7TouchHotbarLastSelectNs;
+    private int m7TouchHotbarLogCount;
+    private boolean m7TouchHotbarArmedLogged;
+    /** Reflective hotbar selection: LocalPlayer.getInventory() is @Nullable-annotated in MC 26.2 and the
+     * jspecify annotation class is not on the provider compile classpath, so resolve it reflectively. */
+    private java.lang.reflect.Method m7InventoryMethod;
+    private java.lang.reflect.Method m7GetSelectedSlotMethod;
+    private java.lang.reflect.Method m7SetSelectedSlotMethod;
+    private boolean m7InventoryReflectionTried;
+    private int m7InventoryReflectionWarnCount;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
     private int poseLogFrames;
@@ -988,6 +1013,7 @@ public class VisionVR extends MCVR {
             this.updateAim();
             if (this.m7Mode) {
                 this.updateM7GuiCursor();
+                this.updateM7TouchHotbar();
             }
             this.processInputs();
             this.hmdSampling();
@@ -1317,6 +1343,159 @@ public class VisionVR extends MCVR {
                 GuiHandler.GUI_SCALE, GuiHandler.GUI_POS_ROOM.x(), GuiHandler.GUI_POS_ROOM.y(),
                 GuiHandler.GUI_POS_ROOM.z(), this.m7GuiOrigin.x(), this.m7GuiOrigin.y(),
                 this.m7GuiOrigin.z(), this.m7GuiDir.x(), this.m7GuiDir.y(), this.m7GuiDir.z());
+        }
+    }
+
+    private boolean resolveM7InventoryReflection() {
+        if (this.m7InventoryReflectionTried) {
+            return this.m7InventoryMethod != null && this.m7GetSelectedSlotMethod != null
+                && this.m7SetSelectedSlotMethod != null;
+        }
+        this.m7InventoryReflectionTried = true;
+        try {
+            Class<?> playerClass = net.minecraft.world.entity.player.Player.class;
+            Class<?> inventoryClass = Class.forName("net.minecraft.world.entity.player.Inventory");
+            this.m7InventoryMethod = playerClass.getMethod("getInventory");
+            this.m7GetSelectedSlotMethod = inventoryClass.getMethod("getSelectedSlot");
+            this.m7SetSelectedSlotMethod = inventoryClass.getMethod("setSelectedSlot", int.class);
+            System.out.println("[VRMC-M7] touch hotbar inventory access resolved reflectively");
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M7][WARN] touch hotbar inventory reflection failed: " + t);
+            this.m7InventoryMethod = null;
+            this.m7GetSelectedSlotMethod = null;
+            this.m7SetSelectedSlotMethod = null;
+        }
+        return this.m7InventoryMethod != null && this.m7GetSelectedSlotMethod != null
+            && this.m7SetSelectedSlotMethod != null;
+    }
+
+    /**
+     * Direct touch-hotbar (operator request: "tap on the inventory bar to select"). Vivecraft renders
+     * the HUD on the offhand/wrist by default; its own interactive-hotbar module maps the main-hand
+     * controller position onto the hotbar bar and selects on a physical trigger press. M7 has no
+     * trigger, so this mirrors the module's bar geometry and selects when the right index fingertip
+     * touches the bar and dwells briefly (a deliberate tap), never while a GUI is open or seated.
+     */
+    private void updateM7TouchHotbar() {
+        if (!this.m7Mode || this.mc.player == null || this.mc.gui.screen() != null
+            || this.visionInput == null || this.dh.vrSettings == null
+            || this.dh.vrSettings.seated
+            || this.dh.vrSettings.vrHudLockMode == VRSettings.HUDLock.HEAD
+            || !this.dh.vrSettings.vrTouchHotbar
+            || !GuiHandler.HUD_POPUP
+            || GuiHandler.GUI_RENDER_POS_ROOM == null
+            || GuiHandler.GUI_RENDER_ROTATION_ROOM == null
+            || GuiHandler.GUI_OFFSET_LOCAL == null
+            || GuiHandler.GUI_SCALE_FACTOR_MAX <= 0
+            || !this.visionInput.isInputHealthy() || this.visionInput.isStale()
+            || !this.visionInput.isHandTracked(VisionInput.HAND_RIGHT)) {
+            this.m7TouchHotbarSlot = -1;
+            return;
+        }
+        long nowNs = System.nanoTime();
+        float scale = GuiHandler.GUI_SCALE_APPLIED
+            * (float) this.mc.getWindow().getGuiScale() / (float) GuiHandler.GUI_SCALE_FACTOR_MAX;
+        if (!(scale > 0.0F) || !Float.isFinite(scale)) {
+            this.m7TouchHotbarSlot = -1;
+            return;
+        }
+        // Bar geometry, exactly the installed InteractiveHotbarModule's getHotbarStart/getHotbarEnd.
+        this.m7HotbarStart.set(GuiHandler.GUI_OFFSET_LOCAL)
+            .add(-0.32F * scale, -0.38F * scale, 0.0F);
+        GuiHandler.GUI_RENDER_ROTATION_ROOM.transformDirection(this.m7HotbarStart);
+        this.m7HotbarStart.add(GuiHandler.GUI_RENDER_POS_ROOM);
+        // MathUtils.LEFT in this Vivecraft is +X; the bar spans 0.64*scale along it.
+        this.m7HotbarLine.set(1.0F, 0.0F, 0.0F);
+        GuiHandler.GUI_RENDER_ROTATION_ROOM.transformDirection(this.m7HotbarLine)
+            .mul(0.64F * scale);
+        float lineLen2 = this.m7HotbarLine.lengthSquared();
+        if (!(lineLen2 > 1.0E-8F)) {
+            this.m7TouchHotbarSlot = -1;
+            return;
+        }
+        float[] joints = this.visionInput.joints(VisionInput.HAND_RIGHT);
+        int tip = 9 * 3; // VisionHandPose.JOINT_INDEX_TIP
+        this.m7HotbarTip.set(joints[tip], joints[tip + 1], joints[tip + 2]);
+        if (!this.m7HotbarTip.isFinite()) {
+            this.m7TouchHotbarSlot = -1;
+            return;
+        }
+        if (!this.m7TouchHotbarArmedLogged) {
+            this.m7TouchHotbarArmedLogged = true;
+            System.out.printf(
+                "[VRMC-M7] touch hotbar armed barStart=(%.2f,%.2f,%.2f) barLine=(%.2f,%.2f,%.2f) "
+                    + "scale=%.2f hud=%s%n",
+                this.m7HotbarStart.x, this.m7HotbarStart.y, this.m7HotbarStart.z,
+                this.m7HotbarLine.x, this.m7HotbarLine.y, this.m7HotbarLine.z, scale,
+                this.dh.vrSettings.vrHudLockMode);
+        }
+        // Closest point on the segment and slot index; distance to the infinite bar line.
+        this.m7HotbarDelta.set(this.m7HotbarStart).sub(this.m7HotbarTip);
+        this.m7HotbarCross.set(this.m7HotbarDelta).cross(this.m7HotbarLine);
+        float dist = this.m7HotbarCross.length() / (float) Math.sqrt(lineLen2);
+        float along = -this.m7HotbarDelta.dot(this.m7HotbarLine) / lineLen2; // 0=start, 1=end
+        int slot = -1;
+        if (Float.isFinite(dist) && Float.isFinite(along)
+            && dist <= M7_TOUCH_HOTBAR_MAX_DIST && along >= -0.06F && along < 1.06F) {
+            slot = (int) Math.floor(along * 9.0F);
+            if (slot < 0 || slot > 8) {
+                slot = -1;
+            }
+        }
+        if (slot < 0) {
+            this.m7TouchHotbarSlot = -1;
+            return;
+        }
+        if (this.m7TouchHotbarSlot != slot) {
+            this.m7TouchHotbarSlot = slot;
+            this.m7TouchHotbarSinceNs = nowNs;
+            this.m7HotbarDwellStart.set(this.m7HotbarTip);
+            this.m7TouchHotbarLogCount++;
+            if (this.m7TouchHotbarLogCount <= 5) {
+                System.out.printf(
+                    "[VRMC-M7] touch hotbar hover slot=%d dist=%.3f along=%.3f%n",
+                    slot, dist, along);
+            }
+            return;
+        }
+        if (nowNs - this.m7TouchHotbarSinceNs < M7_TOUCH_HOTBAR_DWELL_NS) {
+            return;
+        }
+        if (nowNs - this.m7TouchHotbarLastSelectNs < M7_TOUCH_HOTBAR_COOLDOWN_NS) {
+            return;
+        }
+        if (this.m7HotbarTip.distance(this.m7HotbarDwellStart) > M7_TOUCH_HOTBAR_MAX_DRIFT) {
+            // Hand is sliding along the bar; do not machine-gun through slots.
+            this.m7TouchHotbarSinceNs = nowNs;
+            this.m7HotbarDwellStart.set(this.m7HotbarTip);
+            return;
+        }
+        if (!this.resolveM7InventoryReflection()) {
+            return;
+        }
+        int current;
+        try {
+            Object inventory = this.m7InventoryMethod.invoke(this.mc.player);
+            if (inventory == null) {
+                return;
+            }
+            current = (Integer) this.m7GetSelectedSlotMethod.invoke(inventory);
+            if (current == slot) {
+                return;
+            }
+            this.m7SetSelectedSlotMethod.invoke(inventory, slot);
+        } catch (Throwable t) {
+            if (this.m7InventoryReflectionWarnCount++ < 3) {
+                System.out.println("[VRMC-M7][WARN] touch hotbar inventory access failed: " + t);
+            }
+            return;
+        }
+        this.m7TouchHotbarLastSelectNs = nowNs;
+        this.m7TouchHotbarLogCount++;
+        if (this.m7TouchHotbarLogCount <= 20) {
+            System.out.printf(
+                "[VRMC-M7] touch hotbar select slot=%d (was %d) dist=%.3f along=%.3f%n",
+                slot, current, dist, along);
         }
     }
 

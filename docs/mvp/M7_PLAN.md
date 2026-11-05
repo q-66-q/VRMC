@@ -87,7 +87,7 @@ A/B. Rebuild order after A/B pass:
 | 5 | teleport | hold/release |
 | 6 | attack | swing recognition |
 | 7 | jump/sneak | head displacement |
-| 8 | hotbar | tap vs swing |
+| 8 | hotbar | tap vs swing; direct tap on the rendered HUD bar selects the touched slot (EV-0246, device-only) |
 | 9 | bow/eat | 0.55 m / 0.28 m spatial thresholds |
 | 10 | climb | heuristic false-trigger rate |
 
