@@ -192,7 +192,12 @@ Device (D1, NOT RUN; one operator session):
   change stays at 0.016 (anti-halo clamp), and the centre gain (1.27) exceeds the corner gain (1.00) —
   the foveal taper works. Under a **real rasterization rate map** (the device combination) the same
   pass keeps centre gain **1.26×** vs corner **1.01×** with mean change 0.018: sharpening survives
-  foveation and still tapers off in the periphery (probe now 14/14 checks). The simulator `render` scenario runs the real shader/pipeline end-to-end
+  foveation and still tapers off in the periphery (probe now 14/14 checks).
+- A5d quality ladder (host Metal, EV-0287): the same upscale path measured against a 1920×1080
+  reference — **0.4× eye target is ~8 dB below 0.5×** (so raising provider resolution is the dominant
+  sharpness lever), foveated sharpening costs **≤0.5 dB PSNR** while gaining **3–12 % edge acutance**
+  (more at aggressive upscales), and the pass is a byte-identical no-op at scale 1.0. 7/7 probe checks;
+  run in the fast self-check. The simulator `render` scenario runs the real shader/pipeline end-to-end
   (`foveated sharpening: auto strength=0.45 … upscale=3.75`, `sharpen=0.45` in the cadence summary) and
   still matches the known pattern. **PASS (host Metal + simulator)** — *not device visual evidence*.
 - (robustness) the pull classifier also reads `vrmc-status.json`'s M8 `render` summary and pacing

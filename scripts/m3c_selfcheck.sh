@@ -39,6 +39,18 @@ else
   fi
 fi
 
+step "1d/7 M8 quality-ladder host probe (upscale PSNR/acutance ladder)"
+if "$ROOT/runtime/probes/m8-quality-ladder/run.sh" > /tmp/vrmc-selfcheck-quality-ladder.log 2>&1; then
+  echo "[selfcheck] PASS: M8QualityLadder"
+else
+  rc=$?
+  if [ "$rc" = "2" ]; then
+    echo "[selfcheck] SKIP: M8QualityLadder (no Metal device)"
+  else
+    echo "[selfcheck] FAIL: M8QualityLadder"; fail=1
+  fi
+fi
+
 step "2/7 display-view frustum math"
 run "DisplayViewsTest" "$ROOT/scripts/test_display_views.sh"
 

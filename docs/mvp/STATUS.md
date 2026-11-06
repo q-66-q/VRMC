@@ -352,3 +352,13 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   exit code. Verified on a synthetic PASS fixture (all report sections, trace rows=2, exit 0), a
   simulator PARTIAL pull, and the evidence path (bundle created from the fixture and removed to keep
   TEST DATA out of the evidence set). No rendering code changed; **device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0287: **Upscale quality ladder (host Metal PASS).** New probe
+  `runtime/probes/m8-quality-ladder`: a 1920x1080 reference is box-downsampled to eye-target scales
+  0.4/0.5/0.625/0.75/1.0 and upscaled back with the compositor flat vs fovea-weighted sharp shader at
+  the exact auto strength. Numbers: 0.4x eye target is ~8 dB worse than 0.5x (provider resolution is
+  the dominant sharpness lever); sharpening gains 3-12 % edge acutance for <=0.51 dB PSNR cost (more
+  at aggressive upscales); at scale 1.0 strength is 0 and the pass is byte-identical (99 dB). 7/7
+  checks; wired into `scripts/m3c_selfcheck.sh --fast` (9 PASS rows). It documents the sharpening
+  trade for the device A/B (sharpening for the sub-native 120 Hz case; SSAA for 90 Hz image quality).
+  **Device A6–A9 still NOT RUN.**
