@@ -362,3 +362,13 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   checks; wired into `scripts/m3c_selfcheck.sh --fast` (9 PASS rows). It documents the sharpening
   trade for the device A/B (sharpening for the sub-native 120 Hz case; SSAA for 90 Hz image quality).
   **Device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0288: **Generated device tuning guide + 300 s all-knobs soak (PASS).**
+  `scripts/m8_tuning_guide.py` regenerates `docs/mvp/M8_TUNING.md` from the measured host quality
+  ladder: the PSNR/acutance table per eye-target scale, device-class pixel budgets (3660×3200 per eye,
+  with/without SSAA 1.44 — e.g. 0.5× → 1830×1600 eye, 2196×1920 world, 8.43 MP both eyes) and the
+  concrete 120 Hz-first vs 90 Hz-quality command lines. The host harness `SOAK_SECONDS` now re-copies
+  the frame trace after the soak (the pre-soak copy only showed warm-up). A **300 s** all-knobs soak
+  (`TARGET_HZ=120 CONTENT_FIRST=on SUPERSAMPLE=1.44`) passed: **resizes=6, M8-exceptions=0**, final
+  eyeTarget 2752×2408 at scale 0.75/target 120, **166-window** post-soak trace; fast self-check PASS
+  (9 rows). **Device A6–A9 still NOT RUN.**

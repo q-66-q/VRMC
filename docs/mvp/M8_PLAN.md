@@ -197,7 +197,9 @@ Device (D1, NOT RUN; one operator session):
   reference — **0.4× eye target is ~8 dB below 0.5×** (so raising provider resolution is the dominant
   sharpness lever), foveated sharpening costs **≤0.5 dB PSNR** while gaining **3–12 % edge acutance**
   (more at aggressive upscales), and the pass is a byte-identical no-op at scale 1.0. 7/7 probe checks;
-  run in the fast self-check. The simulator `render` scenario runs the real shader/pipeline end-to-end
+  run in the fast self-check. The generated `docs/mvp/M8_TUNING.md` (scripts/m8_tuning_guide.py) turns
+  the same ladder into device-class pixel budgets (3660×3200 per eye, with/without SSAA) and the
+  concrete device A/B command lines. The simulator `render` scenario runs the real shader/pipeline end-to-end
   (`foveated sharpening: auto strength=0.45 … upscale=3.75`, `sharpen=0.45` in the cadence summary) and
   still matches the known pattern. **PASS (host Metal + simulator)** — *not device visual evidence*.
 - (robustness) the pull classifier also reads `vrmc-status.json`'s M8 `render` summary and pacing

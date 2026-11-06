@@ -19,7 +19,8 @@ This is a **development/sideload** project, not an App Store submission.
   The compositor's foveation sampling path is validated on host Metal against a real rasterization
   rate map plus its M8.6 foveated-sharpening upscale metrics and the combined foveated-drawable +
   sharpening pass ([probe](runtime/probes/m8-foveation/README.md)) and by an upscale quality ladder
-  ([probe](runtime/probes/m8-quality-ladder/README.md): PSNR/acutance per eye-target scale),
+  ([probe](runtime/probes/m8-quality-ladder/README.md): PSNR/acutance per eye-target scale), with a generated
+  device tuning guide ([`M8_TUNING.md`](docs/mvp/M8_TUNING.md): budgets + A/B commands),
   and the provider's display-feedback → eye-target resize path is validated in a real Minecraft client
   ([host Fabric harness](docs/mvp/M8_HOST_HARNESS.md)), including the resize texture-lifetime safety
   and the compositor's resize grace (no test-pattern flash during an eye-target rebuild; simulator

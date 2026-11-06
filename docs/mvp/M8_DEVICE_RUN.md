@@ -153,6 +153,8 @@ When a knob is set back to its default, prefer the explicit value (`--max-qualit
 Sharpening is an acutance trade, not a free win: the host quality ladder (EV-0287) measures ≤0.5 dB PSNR
 cost for 3–12 % edge-acutance gain (more at aggressive upscales); the pass is a no-op at scale 1.0. Use
 it for the 120 Hz/sub-native case; use `--world-supersample` when image quality at 90 Hz matters more.
+The generated [`M8_TUNING.md`](M8_TUNING.md) combines that ladder with device-class pixel budgets and
+concrete A/B command lines; regenerate it with `scripts/m8_tuning_guide.py`.
 
 Interpretation:
 

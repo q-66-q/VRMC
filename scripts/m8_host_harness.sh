@@ -262,6 +262,11 @@ if [ -n "$RESIZE_LINE" ]; then
       say "soak expected at least one eye-target resize"
       PASS=0
     fi
+    # Re-copy the trace after the soak: it gains one row per auto-policy window (~2 s), so the
+    # pre-soak copy would only show warm-up.
+    TRACE_ROWS=$(tail -n +2 "$TRACE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+    cp -f "$TRACE_FILE" "$OUT/vrmc-m8-trace.csv" 2>/dev/null || true
+    say "soak frame trace: rows=$TRACE_ROWS (copied to OUT)"
   fi
   say "M8 renderer resize path: $([ "$PASS" = "1" ] && echo PASS || echo FAIL)"
 else
