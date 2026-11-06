@@ -1,14 +1,16 @@
 VRMC development sideload package (not final release sign-off)
-generated: 2026-11-05T21:05:47-1000
-source_commit=27c5461b2666eaf0a821857efc39ce05bd594471
+generated: 2026-11-05T21:38:54-1000
+source_commit=c7bd981ad8f59bb7d4021dd6c565c5714a621561
 app_tree_sha256=a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb
 app_tree_hash_method=path-independent bundle-relative files (scripts/app_tree_sha256.sh)
 provider_sha256=4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351
 zip_path=/tmp/VRMC-dev-release.zip
-zip_bytes=206567578
-zip_sha256=ab58ff0ba1cfd3a7960e61c06489798c550782abd395973a82afb24f00d2c106
+zip_bytes=206567700
+zip_sha256=0fa384d9a40e1a3b001799d6d3b376ddb1de67a09d4b201abaa99236a45ca764
 package_verify=PASS (scripts/m6_verify_release_package.sh)
 package_freshness=PASS (m6_check_release_current.sh)
 device_integrity=provider hash matches installed D1
 reproducibility=provider two-build hash PASS
-acceptance_gate=NOT READY (21/22 explicit PASS; remaining AC-1 first-run world)
+acceptance_gate=READY (22/22 explicit PASS; script m6_release_ready.sh)
+release_ready=PASS
+known_issues=bow visual orientation parallel to hand (EV-0263, non-blocking); fresh install requires manual Vivecraft/provider jar restore (launcher auto-provisioning gap)

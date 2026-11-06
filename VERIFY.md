@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0266`.
+**Next evidence ID:** `EV-0267`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6492,6 +6492,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Fresh install required manual Vivecraft/provider jars; launcher auto-provisioning gap recorded.
 
+### EV-0266 — RELEASE READY: development package, 22/22 acceptance
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T21:38:54-10:00 |
+| Commit | `c7bd981ad8f59bb7d4021dd6c565c5714a621561` |
+| Dirty state | xport/install-metrics-dev.txt, export/release-package-dev.txt |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. rebuild clean package after AC-1 pass; verify manifest/app/provider; run release gate
+
+**Expected:** release-ready gate green
+
+**Actual:** 22/22 acceptance PASS; package verifier/freshness PASS; m6_release_ready RESULT: RELEASE READY.
+
+**Artifacts:** evidence/EV-0266/release-package-dev.txt (e168052acea8); evidence/EV-0266/m6-ready-final.log (ec2c98b52299); evidence/EV-0266/m6-verify-final.log (e0ea71cbd85a); evidence/EV-0266/summary.log (0295fab6d36e)
+
+**Limitations:** Development/sideload package; not App Store. Caveats: K3 waiver, manual mod restore on fresh install, bow visual known bug.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6799,3 +6822,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-05 | **EV-0263 (`PARTIAL`): bow visual orientation accepted known bug** — 90° local-forward roll did not fix the bow lying parallel to the hand. Bow draw/fire works; operator says leave as a bug and continue. Non-blocking known issue; follow-up needs an item-only/model transform. Next ID `EV-0264`. |
 | 2026-11-05 | **EV-0264 (`PARTIAL`): AC-1 cold reinstall complete** — uninstalled/reinstalled D1 app; cold install 23.66 s, app data container empty. K6 PASS; AC-6 operator sign-off + host legal checks PASS. AC-1 first-run/JIT/create-world still pending. Next ID `EV-0265`. |
 | 2026-11-05 | **EV-0265 (`DEVICE PASS`): AC-1 fresh install → world** — clean uninstall/reinstall (23.66 s), empty app data; operator restored Vivecraft 26.2-1.3.15 + provider into fresh instance, launched with JIT, entered immersive and played a world. 21 mods loaded, clean `destroy-complete`, no exceptions, p50 8.34 ms/p95 9.21 ms missed90=0. Caveat: manual mod restore required; launcher auto-provisioning is a known gap. Acceptance 22/22. Next ID `EV-0266`. |
+| 2026-11-05 | **EV-0266 (`PASS`): RELEASE READY development package** — rebuilt clean package with current app/provider; package verifier and freshness PASS; `m6_release_ready.sh --zip /tmp/VRMC-dev-release.zip` => **RELEASE READY**, 22/22 acceptance rows. zip bytes=206,567,700 sha256=`0fa384d9…`; app `a4663e16…`, provider `4e92b306…`. Caveats: K3 latency rig waived; AC-1 required manual Vivecraft/provider restore; bow visual known bug EV-0263. Next ID `EV-0267`. |

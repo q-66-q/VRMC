@@ -1,5 +1,5 @@
-VRMC install metrics (host measurement; device cold-install duration not yet measured)
-generated: 2026-11-05T21:05:47-1000
+VRMC install metrics (host measurement; cold install timing on D1: 23.66 s)
+generated: 2026-11-05T21:38:54-1000
 app_path=/tmp/VRMC-native-checklist-summary.app
 app_bytes=584007680
 app_files=485
@@ -7,5 +7,6 @@ app_macho_files=169
 provider_bytes=127258
 provider_sha256=4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351
 package_path=/tmp/VRMC-dev-release.zip
-package_bytes=206567578
-package_sha256=ab58ff0ba1cfd3a7960e61c06489798c550782abd395973a82afb24f00d2c106
+package_bytes=206567700
+package_sha256=0fa384d9a40e1a3b001799d6d3b376ddb1de67a09d4b201abaa99236a45ca764
+cold_install_seconds=23.66
