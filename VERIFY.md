@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0260`.
+**Next evidence ID:** `EV-0264`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6354,6 +6354,98 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Artifacts:** evidence/EV-0259/shutdown-193645.log (6b46009dce8c); evidence/EV-0259/m6_soak_harness.sh (f7ca62c6b603); evidence/EV-0259/summary.log (d1b60d93c10f); evidence/EV-0259/game-193822.log (a8cd07c8fe96); evidence/EV-0259/shell-193822.log (448004b9fec2); evidence/EV-0259/status-193801.json (080b463b3d26)
 
+### EV-0260 — Reduced 10-min soak accepted PASS by operator waiver
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T19:51:27-10:00 |
+| Commit | `966eee8f17b9ab7ff056556402f2ef8402bbac6e` |
+| Dirty state | ocs/mvp/M6_DEVICE_RUN.md, docs/mvp/M7_ENGINE.md, docs/mvp/STATUS.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionM7Gesture.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/tests/dev/vrmc/provider/VisionM7GestureTest.java, export/soak-10min-20261105-192524/, export/soak-10min-20261105-192816/ |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. operator accepted reduced 10-min soak and stated relaunches are not defects
+
+**Expected:** reduce soak to 10 min without blocking acceptance
+
+**Actual:** operator waiver recorded; AC-5/K4 PASS with reduced-duration/relaunch caveat; harness tightened for future
+
+**Artifacts:** evidence/EV-0260/summary.log (0041848394ef)
+
+**Limitations:** Not a clean continuous session artifact; explicit operator waiver.
+
+### EV-0261 — M7 bow open-hand draw + menu-hand gray box aligned to hand
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T19:51:35-10:00 |
+| Commit | `966eee8f17b9ab7ff056556402f2ef8402bbac6e` |
+| Dirty state | ERIFY.md, docs/mvp/M6_DEVICE_RUN.md, docs/mvp/M7_ENGINE.md, docs/mvp/STATUS.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionM7Gesture.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/tests/dev/vrmc/provider/VisionM7GestureTest.java, export/soak-10min-20261105-192524/, export/soak-10min-20261105-192816/ |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. allow bow draw without fists; shift menu-hand controller pose to fingertip; tests/build/repro/push/integrity
+
+**Expected:** host PASS; device retest
+
+**Actual:** suite ALL PASS (m7-gesture 74 checks); provider fac54efa… pushed/integrity PASS; device behavior NOT RUN.
+
+**Artifacts:** evidence/EV-0261/VisionM7Gesture.java (25cc2883cbb2); evidence/EV-0261/VisionVR.java (340ce3aa4103); evidence/EV-0261/VisionM7GestureTest.java (4eaaeb6b5e73); evidence/EV-0261/m7-tests35.log (8bc032f729bf); evidence/EV-0261/m7-repro13.log (582bdb931c60); evidence/EV-0261/m7-integrity12.log (3f4544328577); evidence/EV-0261/latest-build-identity.txt (9f246541d2f1); evidence/EV-0261/summary.log (2817c8917751)
+
+**Limitations:** Menu-hand shift 0.18m local -Z while GUI open; device visual verification pending.
+
+### EV-0262 — M7 bow perpendicular to hand (90deg local-forward roll)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T20:58:16-10:00 |
+| Commit | `0dd7bce180a365f1affbcc9179fd0ad0271cecea` |
+| Dirty state | ERIFY.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionM7ItemContext.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, export/soak-10min-20261105-192524/, export/soak-10min-20261105-192816/ |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. detect bow-holding hand; roll controller pose 90deg local Z; build/test/push/integrity
+
+**Expected:** bow appears perpendicular; host PASS
+
+**Actual:** suite ALL PASS; provider 4e92b306… pushed/integrity PASS; device visual NOT RUN.
+
+**Artifacts:** evidence/EV-0262/VisionVR.java (b9035d9fdf21); evidence/EV-0262/VisionM7ItemContext.java (57eb46e70658); evidence/EV-0262/m7-tests36.log (c9b4b04dc68a); evidence/EV-0262/m7-repro14.log (47371b175f22); evidence/EV-0262/m7-integrity13.log (00f18cf56e5a); evidence/EV-0262/latest-build-identity.txt (4c17db264142); evidence/EV-0262/summary.log (4d8eb734f6be)
+
+**Limitations:** 90deg around local forward; flip sign if visual is wrong. Device retest pending.
+
+### EV-0263 — Known bug: bow visual orientation parallel to hand (accepted, non-blocking)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T21:03:35-10:00 |
+| Commit | `9b16ab703acfd214436c551dc827ba2147e5b2b0` |
+| Dirty state | ERIFY.md, export/soak-10min-20261105-192524/, export/soak-10min-20261105-192816/ |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. operator retest of 90deg roll; accept as known bug and continue
+
+**Expected:** bow perpendicular to hand
+
+**Actual:** still parallel; bow draw/fire works; operator says leave as bug and continue
+
+**Artifacts:** evidence/EV-0263/summary.log (617f3cc2ff4c)
+
+**Limitations:** Accepted non-blocking known issue; follow-up item-only bow transform.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6655,3 +6747,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-05 | **EV-0257 (`DEVICE PASS`): M7 scope close** — operator: no teleport; all other M7 actions pass (menu/GUI, movement, inventory, short-pinch attack/place/use, hold-break, hotbar, jump/sneak, bow, eat, climb). Teleport removed from scope. Latest log clean (`destroy-complete`, no exceptions), diag p50 8.34 ms/p95 9.15–9.27 ms, missed90 0–1. Remaining: M5/M6 gates and hand-tracking dropouts. Next ID `EV-0258`. |
 | 2026-11-05 | **EV-0258 (`PASS`, operator-attested): M5 acceptance** — operator states M5 launcher/settings/immersive/comfort/save-reload/diagnostics loop was tested previously and waived a fresh current-build run. Recorded as operator-attested PASS (not a new device run); M5 matrix/docs updated to current M7 mapping with teleport descoped. Latest EV-0257 logs corroborate clean session. **M6 AC/K remain NOT RUN.** Next ID `EV-0259`. |
 | 2026-11-05 | **EV-0259 (`PARTIAL`): 10-min soak attempt not a clean pass; harness false positive fixed** — monitor reported PASS but shutdown journal had multiple `init` events and no `destroy-complete`; game JVM relaunched ~19:32/19:34/19:36 and immersive ended at 19:30:46 with CreativeModeInventoryScreen open. No new crash report/hs_err; cause unproven. Harness now snapshots the journal baseline and requires exactly one init + final `destroy-complete`. **AC-5/K4 NOT passed; one continuous run or root-cause needed.** Next ID `EV-0260`. |
+| 2026-11-05 | **EV-0260 (`PASS`, operator waiver): reduced 10-min soak accepted** — operator accepted 10-minute soak as sufficient and confirmed repeated relaunches were not defects. AC-5/K4 marked PASS under explicit reduced-duration/relaunch waiver; harness now enforces fresh one-init/final-destroy for future runs. Next ID `EV-0261`. |
+| 2026-11-05 | **EV-0261 (`PARTIAL`): bow open-hand draw + menu-hand alignment** — bow draw no longer requires both fists when a bow is held; both tracked hands held apart draw, fist-started draws still fire on fist release, open-hand draws fire by bringing hands together. Menu-hand controller pose shifted local -0.18 m while GUI open so Vivecraft's +Z gray box covers the hand. Suite ALL PASS (m7-gesture 74 checks); provider `fac54efa…`/127,015 B pushed/integrity PASS. **Device retest pending.** Next ID `EV-0262`. |
+| 2026-11-05 | **EV-0262 (`PARTIAL`): bow perpendicular to hand** — 90° roll around local forward for the bow-holding hand; `VisionM7ItemContext` now reports main/off bow mask. Suite ALL PASS (m7 74 checks); provider `4e92b306…`/127,258 B pushed/integrity PASS. **Device visual retest pending**; flip to -90 if axis is wrong. Next ID `EV-0263`. |
+| 2026-11-05 | **EV-0263 (`PARTIAL`): bow visual orientation accepted known bug** — 90° local-forward roll did not fix the bow lying parallel to the hand. Bow draw/fire works; operator says leave as a bug and continue. Non-blocking known issue; follow-up needs an item-only/model transform. Next ID `EV-0264`. |

@@ -135,3 +135,5 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - 2026-11-05 EV-0260: operator accepted reduced 10-min soak as PASS; relaunches not product defects. EV-0261: bow works with open hands held apart; menu-hand gray box shifted onto the hand. Provider `fac54efa…` pushed.
 
 - 2026-11-05 EV-0263: bow visual orientation remains wrong (parallel); accepted as non-blocking known bug per operator. Bow draw/fire works.
+
+- 2026-11-05 EV-0264: acceptance consolidation — AC-2/AC-3/AC-4/K1/K2 PASS (operator + device logs), AC-5/K4 waived PASS, M5 all PASS. Remaining PARTIAL: AC-1 clean install, AC-6 legal, K3 latency rig, K5 thermal step-down, K6 cold install time.

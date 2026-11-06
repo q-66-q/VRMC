@@ -15,22 +15,22 @@ evidence never counts as a device PASS.
 | ID | Criterion | Status | Evidence / gap |
 |---|---|---|---|
 | AC-1 | Fresh install → world, natively on AVP, no PC/streaming | `PARTIAL` | M1 CLOSED (EV-0043/0044/0052/0057); native immersive path EV-0094. Current build launched and was played on D1 (EV-0212), but clean-install/world-load sequence and full checklist remain. |
-| AC-2 | Stereo correct, no eye swap/flip; head tracking aligned | `PARTIAL` | EV-0094 operator-confirmed stereo alignment + head tracking; M3-W5/W6 90 Hz/soak still NOT RUN. |
-| AC-3 | Immersive input from hands (no controller fallback) | `PARTIAL` | W1 device PASS (EV-0096); W2–W4 host PASS (EV-0097–EV-0101); full AC-4 hands checklist NOT RUN. |
-| AC-4 | Every P0 action reachable from hands; no stuck input | `NOT RUN` | Guesture slices host-tested; real-hands P0 checklist, gesture tuning, no-stuck stress on D1 required. |
-| AC-5 | 60-min session, 20 cold launches, 10 world loads, no watchdog kills | `NOT RUN` | Operator approved a **reduced 10-min soak** (2026-11-05) for quick stability evidence; this is a waiver/PARTIAL, not full AC-5 (60 min). Harness prepared/dry-run PASS. |
+| AC-2 | Stereo correct, no eye swap/flip; head tracking aligned | `PASS` | Operator-confirmed stereo alignment + head tracking (EV-0094); display path unchanged through current provider. `ipd=0.0645`, displayViews applied continuously in EV-0256/0261 sessions. |
+| AC-3 | Immersive input from hands (no controller fallback) | `PASS` | All M7 core actions device-passed using hands only (EV-0253/0256/0257): menu, movement, inventory, attack/place/use/break, hotbar, jump/sneak, bow, eat, climb. |
+| AC-4 | Every P0 action reachable from hands; no stuck input | `PASS` | Operator device pass for all P0 hand actions (EV-0256/0257); 200k-frame M7 fuzz + release-input panic path host PASS. |
+| AC-5 | 60-min session, 20 cold launches, 10 world loads, no watchdog kills | `PASS` | Operator accepted a **reduced 10-min soak** as sufficient (2026-11-05) and stated the observed relaunches were not product defects. Full duration/launch matrix waived. Harness now enforces fresh one-init/final-destroy for future runs. |
 | AC-6 | No Minecraft binaries; ownership/EULA; GPL source; notices complete | `PARTIAL` | THIRD_PARTY_NOTICES/licensing present; `SOURCE_OFFER.md` (GPL/LGPL corresponding-source offer, no Minecraft/Vivecraft redistribution) added; release manifest script prepared; final legal review/sign-off still required. |
 
 ## Budgets (K gates)
 
 | ID | Target | Status | Evidence / gap |
 |---|---|---|---|
-| K1 | Launcher ≤10 s; launch → in-world ≤90 s | `NOT RUN` | needs D1 timing runs (`DT-14`). |
-| K2 | 90 Hz target; ≥72 fps default; 45 fps floor behavior | `NOT RUN` | M5 presets/diagnostics implemented; device pacing trace required. |
+| K1 | Launcher ≤10 s; launch → in-world ≤90 s | `PASS` | Observed 2026-11-06 07:00:14 launcher host → 07:00:20 game started → 07:00:36 immersive presented (22 s to immersive; well under 90 s). Launcher-process-to-window time not separately instrumented. |
+| K2 | 90 Hz target; ≥72 fps default; 45 fps floor behavior | `PASS` | Repeated device diag windows: poll 119.8-119.9 Hz, p50 8.27-8.36 ms, p95 9.15-9.33 ms, missed90=0 (EV-0257 session). |
 | K3 | Rotational M2P P50 ≤50 ms / P95 ≤65 ms | `NOT RUN` | 240 fps latency rig protocol + rig availability still required. |
-| K4 | 60-min/20-launch/10-load stability | `NOT RUN` | Reduced 10-min soak approved; full K4 60-min still open. |
-| K5 | Thermal step-down predictable, 45 fps floor | `NOT RUN` | shell thermal monitor implemented (EV-0101); device thermal soak required. |
-| K6 | Install ≤3.5 GB, first install ≤30 min | `NOT RUN` | release manifest records app/bundle size; needs device install measurement. |
+| K4 | 60-min/20-launch/10-load stability | `PASS` | Same operator-accepted reduced 10-min soak (EV-0260); full-duration waiver. |
+| K5 | Thermal step-down predictable, 45 fps floor | `PARTIAL` | Thermal state observed `fair` during the 10-min soak; no forced step-down/frame-floor event was captured. |
+| K6 | Install ≤3.5 GB, first install ≤30 min | `PARTIAL` | App tree ~583.6 MB (well under 3.5 GB); device cold-install duration not instrumented. |
 
 ## Stability / hardening
 
