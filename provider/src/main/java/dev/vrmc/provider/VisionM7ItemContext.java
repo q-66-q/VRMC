@@ -88,6 +88,19 @@ final class VisionM7ItemContext {
         return item != null && item == bowItem;
     }
 
+    /** 1 = bow in main hand, 2 = bow in off hand, 3 = both (bitmask used for bow render roll). */
+    static int bowHands(Object player) {
+        if (player == null || !init(player.getClass())) return 0;
+        try {
+            int mask = 0;
+            if (isBow(playerMainHand.invoke(player))) mask |= 1;
+            if (isBow(playerOffHand.invoke(player))) mask |= 2;
+            return mask;
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
     private static boolean isBlock(Object stack) throws ReflectiveOperationException {
         Object item = item(stack);
         return item != null && blockItemClass != null && blockItemClass.isInstance(item);

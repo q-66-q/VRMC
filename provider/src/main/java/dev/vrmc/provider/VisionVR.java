@@ -164,6 +164,7 @@ public class VisionVR extends MCVR {
     private boolean m7ContextAuto = true;
     /** Item-context probe result throttled to a few Hz (held item changes are not fast). */
     private int m7ItemContextFrame;
+    private int m7BowHandMask;
     private int m7ItemContextBits;
     private final Vector3f m7GuiOrigin = new Vector3f();
     private final Vector3f m7GuiDir = new Vector3f();
@@ -178,6 +179,8 @@ public class VisionVR extends MCVR {
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     /** Menu-hand gray box correction: our pose forward is -Z, while Vivecraft's gray box grows +Z. */
     private static final float M7_MENU_HAND_SHIFT_M = 0.18F;
+    /** Bow model roll relative to our finger-aim hand pose (degrees around local forward). */
+    private static final float M7_BOW_ROLL_DEG = 90.0F;
     private int m7GuiCursorLogCount;
     /** GUI-cursor session state: center once when a screen opens, then head-ray tracking. */
     private boolean m7GuiScreenOpen;
@@ -943,6 +946,7 @@ public class VisionVR extends MCVR {
         }
         if ((this.m7ItemContextFrame++ % 6) == 0) {
             this.m7ItemContextBits = VisionM7ItemContext.flags(this.mc.player);
+            this.m7BowHandMask = VisionM7ItemContext.bowHands(this.mc.player);
         }
         if ((this.m7ItemContextBits & 1) != 0) ctx |= VisionM7Gesture.CTX_BOW_HELD;
         if ((this.m7ItemContextBits & 2) != 0) ctx |= VisionM7Gesture.CTX_EDIBLE_HELD;
@@ -1214,6 +1218,14 @@ public class VisionVR extends MCVR {
                     VisionHandPose.gazeFallback(this.hmdPose, hand == VisionInput.HAND_RIGHT,
                         this.controllerPose[c]);
                 }
+            }
+            // Bow grip: our controller local +Z is the back of the hand; the vanilla bow model is
+            // authored for a controller roll that lands parallel to the fingers here. Roll the
+            // bow-holding hand(s) 90 deg around local forward so the bow crosses the hand.
+            boolean bowHand = (hand == VisionInput.HAND_LEFT && (this.m7BowHandMask & 2) != 0)
+                || (hand == VisionInput.HAND_RIGHT && (this.m7BowHandMask & 1) != 0);
+            if (bowHand) {
+                this.controllerPose[c].rotateZ((float) Math.toRadians(M7_BOW_ROLL_DEG));
             }
             // Menu hands: Vivecraft's gray box grows along local +Z, but this hand pose uses
             // -Z as forward (R*(0,0,-1)=aim). Shift the menu-hand origin to the fingertip along

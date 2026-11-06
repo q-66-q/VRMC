@@ -107,3 +107,5 @@ provider logs `[VRMC-M7] gesture mode=...` and `[VRMC-M7] engine thresholds ... 
   no longer required. Release by opening a fist if the draw started with fists, or by bringing the
   hands together. The menu-hand gray box is translated to the fingertip along local -Z so it covers
   the hand instead of floating behind the wrist.
+
+- **Bow orientation (EV-0262):** the bow-holding hand is rolled 90° around local forward so the bow is perpendicular to the hand rather than lying parallel; flip the sign if the visual axis is reversed.
