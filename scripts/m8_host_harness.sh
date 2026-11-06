@@ -111,6 +111,16 @@ if [ -n "${TARGET_HZ:-}" ]; then
 else
   rm -f "$RUNDIR/vrmc-target-hz.txt"
 fi
+# Optional M8 content-first knob (CONTENT_FIRST=on|off): the provider must log the mode it read.
+if [ -n "${CONTENT_FIRST:-}" ]; then
+  case "$CONTENT_FIRST" in
+    on|off) printf '%s\n' "$CONTENT_FIRST" > "$RUNDIR/vrmc-content-first.txt"
+            say "content-first knob: $CONTENT_FIRST -> $RUNDIR/vrmc-content-first.txt" ;;
+    *) say "ERROR: CONTENT_FIRST must be on or off (got '$CONTENT_FIRST')"; exit 2 ;;
+  esac
+else
+  rm -f "$RUNDIR/vrmc-content-first.txt"
+fi
 rm -f "$RUNDIR/logs/latest.log"
 say "run dir: $RUNDIR (Vivecraft vrEnabled=true)"
 
@@ -142,9 +152,10 @@ if [ -n "$RESIZE_LINE" ]; then
   HANDSHAKE=$(grep -m1 'VR Provider supplied texture resolution: 1832 x 1600' "$LATEST" || true)
   STATE=$(grep -m1 '\[VRMC-M8\] render state' "$LATEST" || true)
   TARGET=$(grep -m1 '\[VRMC-M8\] target cadence:' "$LATEST" || true)
+  CONTENT=$(grep -m1 '\[VRMC-M8\] content governor:' "$LATEST" || true)
   ERRORS=$(grep -cE '\[VRMC-M8\].*(ERROR|Exception)' "$LATEST" || true)
   echo "=== evidence lines ===" | tee -a "$LOG"
-  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET"; do
+  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET" "$CONTENT"; do
     [ -n "$line" ] && echo "  $line" | tee -a "$LOG"
   done
   if [ -n "$INIT" ] && [ -n "$RESIZE_LINE" ] && [ -n "$NEW_TARGET" ] && [ -n "$HANDSHAKE" ]; then
@@ -152,6 +163,10 @@ if [ -n "$RESIZE_LINE" ]; then
   fi
   if [ -n "${TARGET_HZ:-}" ] && [ "$TARGET_HZ" != "auto" ] && [ -z "$TARGET" ]; then
     say "target-cadence knob was set but no '[VRMC-M8] target cadence:' line appeared"
+    PASS=0
+  fi
+  if [ -n "${CONTENT_FIRST:-}" ] && [ -z "$CONTENT" ]; then
+    say "content-first knob was set but no '[VRMC-M8] content governor:' line appeared"
     PASS=0
   fi
   say "M8 renderer resize path: $([ "$PASS" = "1" ] && echo PASS || echo FAIL)"

@@ -199,7 +199,8 @@ def parse_provider(text):
     states = list(re.finditer(r"\[VRMC-M8\] render state frame=\d+ eyeTarget=(\d+)x(\d+) "
                               r"logical=(\d+)x(\d+) drawable=(\d+)x(\d+) foveation=(\d) "
                               r"rateMaps=(\d+) displayHz=([0-9.]+)"
-                              r"(?: target=(\d+)\(([^)]+)\))?", text))
+                              r"(?: target=(\d+)\(([^)]+)\))?"
+                              r"(?: contentFirst=(\d+)\((\d+)\))?", text))
     if states:
         s = states[-1]
         info["state_line"] = {
@@ -210,6 +211,8 @@ def parse_provider(text):
             "display_hz": float(s.group(9)),
             "target_hz": int(s.group(10)) if s.group(10) is not None else 0,
             "target_source": s.group(11) if s.group(11) is not None else "",
+            "content_first": int(s.group(12)) if s.group(12) is not None else 0,
+            "content_reductions": int(s.group(13)) if s.group(13) is not None else 0,
         }
     diags = list(re.finditer(r"\[VRMC-M5\] diag: (.+)", text))
     if diags:
@@ -453,10 +456,16 @@ def main():
         print(f"  display: logical L={geom['left_w']}x{geom['left_h']} R={geom['right_w']}x"
               f"{geom['right_h']} physical={geom['physical_w']}x{geom['physical_h']} "
               f"foveation={geom['foveation']} rateMaps={geom['rate_maps']} quality={geom['quality']}")
-    target = provider.get("state_line", {}).get("eye_target") if provider.get("state_line") else None
+    state = provider.get("state_line") or {}
+    target = state.get("eye_target")
     if target:
+        extra = ""
+        if state.get("target_hz"):
+            extra += "  target=%d(%s)" % (state["target_hz"], state.get("target_source", ""))
+        if state.get("content_first"):
+            extra += "  contentFirst=on(%d)" % state.get("content_reductions", 0)
         print(f"  provider eye target: {target[0]}x{target[1]}  resizes={len(provider.get('resizes', []))}"
-              f"  scale={provider.get('state_line', {}).get('logical')}")
+              f"  scale={state.get('logical')}{extra}")
     if status_render:
         print(f"  vrmc-status.json render: eyeTarget={status_render.get('eyeTarget', '?')} "
               f"displayLogical={status_render.get('displayLogical', '?')} "

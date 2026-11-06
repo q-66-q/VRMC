@@ -266,3 +266,14 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   real Minecraft Fabric harness run with `TARGET_HZ=100` (`target cadence: 100 Hz (file)…`, resize
   path unaffected); provider jar `144d47a7…` (137,501 B, two-build reproducible). **Device A6–A9 still
   NOT RUN.**
+
+- 2026-11-05 EV-0279: **M8 content-first governor (host PASS).** New opt-in game-dir knob
+  `vrmc-content-first.txt` (`off` default, live): when the target cadence (e.g. 120 Hz via
+  `vrmc-target-hz.txt`) is missed for two consecutive windows, the provider now cuts **scene cost
+  first** — render distance, then simulation distance, then a second render step (min 6 chunks, one
+  step per window, max 3 per session) — and only then lowers the 4K-class eye-target resolution. The
+  policy is bounded, logged (`content governor: on/off (file)`, each reduction) and reported in render
+  state (`contentFirst=on(N)`); `--content-first on|off` tunes it live from the Mac (push script now
+  34 self-test checks). Verified with 65 policy unit checks, a real Minecraft Fabric harness run
+  (`CONTENT_FIRST=on TARGET_HZ=120`, resize path unaffected), classifier 5/5 and the fast self-check;
+  provider jar `5d418fd1…` (139,750 B, two-build reproducible). **Device A6–A9 still NOT RUN.**

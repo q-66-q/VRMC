@@ -6,6 +6,7 @@
 #   --runtime-quality  Documents/vrmc-render-quality.txt          (compositor; fixed/auto, next launch)
 #   --eye-scale        Documents/instances/default/vrmc-eye-scale.txt (provider; live, re-read ~600 frames)
 #   --target-hz        Documents/instances/default/vrmc-target-hz.txt (provider; auto|90|96|100|120, live ~300 frames)
+#   --content-first    Documents/instances/default/vrmc-content-first.txt (provider; on|off, live ~300 frames)
 #   --sharpening       Documents/vrmc-sharpening.txt              (compositor; auto|off|0.05..1.0, live ~300 frames)
 #   --foveation-off    Documents/vrmc-foveation-off.flag          (A/B: uniform rasterization)
 #
@@ -19,6 +20,7 @@
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --max-quality 0.75 --runtime-quality auto
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --sharpening auto|off|0.45
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --target-hz auto|90|96|100|120
+#   DEVICE=<udid> scripts/push_m8_render_config.sh --content-first on|off
 #   scripts/push_m8_render_config.sh --print --eye-scale auto        # no device contact
 #   scripts/push_m8_render_config.sh --self-test                     # offline validation only
 #
@@ -57,6 +59,9 @@ validate_sharpening() {
 validate_target_hz() {
   case "$1" in auto) return 0 ;; esac
   awk -v v="$1" 'BEGIN { exit !(v ~ /^[0-9]+$/ && v >= 60 && v <= 120) }'
+}
+validate_content_first() {
+  case "$1" in on|off) return 0 ;; *) return 1 ;; esac
 }
 
 max_quality_content() {
@@ -114,7 +119,11 @@ self_test() {
   t "target-hz 59 rejected" 1 validate_target_hz 59
   t "target-hz text rejected" 1 validate_target_hz fast
   t2 "target-hz content auto" auto "$(target_hz_content auto)"
-  [ "$fails" = "0" ] && { echo "[m8config] SELF-TEST PASS (30 checks)"; return 0; }
+  t "content-first on accepted" 0 validate_content_first on
+  t "content-first off accepted" 0 validate_content_first off
+  t "content-first true rejected" 1 validate_content_first true
+  t "content-first 1 rejected" 1 validate_content_first 1
+  [ "$fails" = "0" ] && { echo "[m8config] SELF-TEST PASS (34 checks)"; return 0; }
   echo "[m8config] SELF-TEST FAIL ($fails)"; return 1
 }
 
@@ -138,6 +147,10 @@ while [ "$#" -gt 0 ]; do
       v="${2:-}"; [ -n "$v" ] || die "--target-hz needs a value"
       validate_target_hz "$v" || die "invalid --target-hz '$v' (auto|60..120)"
       PUSH_FILES+=("$(target_hz_content "$v")|$GAME_DIR/vrmc-target-hz.txt"); shift 2 ;;
+    --content-first)
+      v="${2:-}"; [ -n "$v" ] || die "--content-first needs a value"
+      validate_content_first "$v" || die "invalid --content-first '$v' (on|off)"
+      PUSH_FILES+=("$v|$GAME_DIR/vrmc-content-first.txt"); shift 2 ;;
     --sharpening)
       v="${2:-}"; [ -n "$v" ] || die "--sharpening needs a value"
       validate_sharpening "$v" || die "invalid --sharpening '$v' (auto|off|0.05..1.0)"

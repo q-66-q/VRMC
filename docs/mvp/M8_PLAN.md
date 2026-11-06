@@ -100,6 +100,13 @@ view centre (the fovea) and tapers off in the periphery, and is soft-clamped to 
 to limit halos. It is compositing-only work (no game cost), controlled live by
 `Documents/vrmc-sharpening.txt` (`auto` default / `off` / fixed strength).
 
+When the target cadence cannot be met, the default policy lowers the eye-target resolution. With
+`Documents/instances/default/vrmc-content-first.txt` = `on` (default off) the provider instead cuts
+**scene cost first** — render distance, then simulation distance, then a second render-distance step
+(two consecutive struggling windows, one step per window, at most three per session, never below the
+6-chunk minimums) — and only then lowers the eye-target resolution. That preserves the 4K-class image
+while making frames cheaper, which is the right trade for the "4K at 120 Hz" objective.
+
 The auto eye-scale policy normally aims at the cadence the compositor measured, so at 90 Hz it would
 fill the 11.1 ms budget rather than pursuing 120 Hz. `Documents/instances/default/vrmc-target-hz.txt`
 lets the operator aim at a higher rate (`auto` default, or 60..120 Hz): the provider then holds frames

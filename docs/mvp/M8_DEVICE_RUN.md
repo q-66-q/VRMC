@@ -114,6 +114,7 @@ Files (push with `devicectl device copy to`, relaunch as noted):
 | `vrmc-render-quality.txt` | `Documents/` (compositor) | `auto` or 0.0–1.0 (pins runtime quality) | next compositor start (relaunch) |
 | `vrmc-max-render-quality.txt` | `Documents/` (shell) | 0.05–1.0 (memory upper bound) | next immersive open |
 | `vrmc-target-hz.txt` | game dir (`Documents/instances/default/`) (provider) | `auto` (default; follow measured display) or 60..120 Hz to aim the auto eye-scale policy at a higher cadence (e.g. 120 while the system reports 90); achievement is still measured | live (~300 frames) |
+| `vrmc-content-first.txt` | game dir (`Documents/instances/default/`) (provider) | `off` (default) or `on`: when struggling, cut render/simulation distance before eye-target resolution | live (~300 frames) |
 | `vrmc-sharpening.txt` | `Documents/` (compositor) | `auto` (default; fovea-weighted CAS-lite when the provider renders below the logical size), `off` (plain bilinear), or a fixed strength 0.05..1.0 | live (~300 frames) |
 | `vrmc-foveation-off.flag` | `Documents/` (shell) | A/B: uniform rasterization (one-way on device: an app-data reset or `vrmc-clear-diagnostics.flag` restores foveation) | next immersive open |
 
@@ -124,6 +125,7 @@ scripts/push_m8_render_config.sh --eye-scale 0.5            # live tuning
 scripts/push_m8_render_config.sh --runtime-quality auto      # next launch
 scripts/push_m8_render_config.sh --max-quality 0.75          # next immersive open
 scripts/push_m8_render_config.sh --target-hz 120            # live: aim the auto policy at 120 Hz (A8 pursuit)
+scripts/push_m8_render_config.sh --content-first on         # live: keep eye resolution, cut scene cost first
 scripts/push_m8_render_config.sh --sharpening 0.45           # live: foveated sharpening strength
 scripts/push_m8_render_config.sh --print --eye-scale auto    # offline preview
 scripts/push_m8_render_config.sh --self-test                 # offline validation

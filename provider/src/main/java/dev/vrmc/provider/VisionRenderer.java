@@ -90,6 +90,9 @@ public class VisionRenderer extends VRRenderer {
     private int targetHzOverride = 0;
     private String targetHzSource = "auto(display)";
     private long lastTargetHzReadFrame = -1000L;
+    /** Opt-in M8 content-first governor (game dir vrmc-content-first.txt): cut scene cost before resolution. */
+    private final VisionContentGovernor contentGovernor = new VisionContentGovernor();
+    private long lastContentFirstReadFrame = -1000L;
     /** Frame index when the world level became non-null (-1 = no level yet); drives resize gating. */
     private long levelLoadedFrame = -1L;
     private boolean loggedM8State;
@@ -345,12 +348,13 @@ public class VisionRenderer extends VRRenderer {
             System.out.println(String.format(java.util.Locale.ROOT,
                 "[VRMC-M8] render state frame=%d eyeTarget=%dx%d logical=%dx%d drawable=%dx%d "
                     + "foveation=%d rateMaps=%d displayHz=%.1f target=%d(%s) quality=%.2f/%.2f "
-                    + "scale=%.2f(%s) resizes=%d",
+                    + "scale=%.2f(%s) resizes=%d contentFirst=%d(%d)",
                 this.frameIndex, this.currentEyeWidth, this.currentEyeHeight,
                 rs.leftLogicalWidth, rs.leftLogicalHeight, rs.drawableWidth, rs.drawableHeight,
                 rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz, this.targetHzOverride,
                 this.targetHzSource, rs.renderQuality, rs.maxRenderQuality, this.eyeScale,
-                this.eyeScaleSource, this.eyeResizeCount));
+                this.eyeScaleSource, this.eyeResizeCount,
+                this.contentGovernor.enabled() ? 1 : 0, this.contentGovernor.reductions()));
         } else if (!this.loggedM8State) {
             this.loggedM8State = true;
             System.out.println("[VRMC-M8] render state: no display feedback yet (compositor immersive "
@@ -553,6 +557,7 @@ public class VisionRenderer extends VRRenderer {
         }
         maybeReadEyeScale();
         maybeReadTargetHz();
+        maybeReadContentFirst();
         maybeAdaptEyeScale(settings);
         maybeResizeEyeTargets(settings);
     }
@@ -648,6 +653,44 @@ public class VisionRenderer extends VRRenderer {
         }
     }
 
+    /**
+     * Re-read the content-first knob every ~300 frames (game dir vrmc-content-first.txt = on|off).
+     * Enabled: struggling windows reduce render/simulation distance before the eye-target resolution.
+     * Disabled (default): the previous behaviour (reduce the eye-target resolution).
+     */
+    private void maybeReadContentFirst() {
+        if (this.frameIndex - this.lastContentFirstReadFrame < 300L) return;
+        this.lastContentFirstReadFrame = this.frameIndex;
+        String value = "off";
+        try {
+            java.io.File gameDir = Minecraft.getInstance().gameDirectory;
+            if (gameDir != null) {
+                java.io.File knob = new java.io.File(gameDir, "vrmc-content-first.txt");
+                if (knob.isFile()) {
+                    String text = java.nio.file.Files.readString(knob.toPath()).trim();
+                    if (!text.isEmpty()) value = text;
+                }
+            }
+        } catch (RuntimeException | java.io.IOException ignored) {
+            // keep the current mode when the knob file is unreadable
+        }
+        int parsed = VisionContentGovernor.parse(value);
+        if (parsed < 0) {
+            System.out.println("[VRMC-M8] content governor: ignoring invalid value '" + value
+                + "' (expected on or off)");
+            return;
+        }
+        boolean next = parsed == 1;
+        if (next != this.contentGovernor.enabled()) {
+            this.contentGovernor.setEnabled(next);
+            System.out.println(next
+                ? "[VRMC-M8] content governor: on (file) - struggling windows reduce render/simulation "
+                    + "distance before the eye-target resolution"
+                : "[VRMC-M8] content governor: off (file) - struggling windows reduce the eye-target "
+                    + "resolution");
+        }
+    }
+
     /** M8 target cadence override (0 = auto/follow measured display); exposed for the status JSON. */
     public int targetHzOverride() { return this.targetHzOverride; }
 
@@ -670,6 +713,37 @@ public class VisionRenderer extends VRRenderer {
             || stats.p50Ms > targetMs * 1.25;
         final boolean headroom = stats.missedTargetFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
         final float previous = this.eyeScale;
+        // M8 content-first: prefer cutting scene cost over cutting the eye-target resolution. Runs on
+        // every window (it also resets its streak on non-struggling windows); null = no content change.
+        int renderDistance = -1;
+        int simulationDistance = -1;
+        try {
+            renderDistance = Minecraft.getInstance().options.renderDistance().get();
+            simulationDistance = Minecraft.getInstance().options.simulationDistance().get();
+        } catch (RuntimeException | LinkageError ignored) {
+            // options unavailable: the governor simply finds no room and the resolution policy applies
+        }
+        int[] contentReduction = this.contentGovernor.decide(struggling, renderDistance, simulationDistance);
+        if (contentReduction != null) {
+            try {
+                Minecraft.getInstance().options.renderDistance().set(contentReduction[0]);
+                Minecraft.getInstance().options.simulationDistance().set(contentReduction[1]);
+                System.out.println(String.format(java.util.Locale.ROOT,
+                    "[VRMC-M8] content governor: renderDistance %d->%d simulationDistance %d->%d "
+                        + "(keeps eye target %dx%d; target=%.2fms %s; p50=%.2fms missed=%d/%d; "
+                        + "reductions=%d/%d)",
+                    renderDistance, contentReduction[0], simulationDistance, contentReduction[1],
+                    this.currentEyeWidth, this.currentEyeHeight, targetMs, this.targetHzSource,
+                    stats.p50Ms, stats.missedTargetFrames, stats.samples,
+                    this.contentGovernor.reductions(), VisionContentGovernor.MAX_REDUCTIONS));
+            } catch (RuntimeException | LinkageError applyError) {
+                System.out.println("[VRMC-M8][WARN] content governor could not apply the distance "
+                    + "reduction: " + applyError);
+            }
+            this.headroomWindows = 0;
+            this.raiseHoldWindows = 3;
+            return;
+        }
         if (struggling) {
             this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale,
                 stats.missedTargetFrames, stats.samples, stats.p50Ms, targetMs);

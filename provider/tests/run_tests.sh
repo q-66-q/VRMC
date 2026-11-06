@@ -156,7 +156,9 @@ if "$JAVAC" -d "$T/renderclasses" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionRenderSettings.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionRenderSettingsTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionFrameStatsTest.java" \
-     "$ROOT/provider/tests/dev/vrmc/provider/VisionTargetCadenceTest.java"; then
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionTargetCadenceTest.java" \
+     "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionContentGovernor.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionContentGovernorTest.java"; then
   if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsTest > "$T/m8-render.log" 2>&1 \
      && grep -q "\[m8-render-test\] PASS" "$T/m8-render.log"; then
     echo "[provider-tests] m8-render: PASS (render feedback layout/parse + eye-target scale policy)"
@@ -177,6 +179,13 @@ if "$JAVAC" -d "$T/renderclasses" \
     grep -E "\[m8-target-test\] [0-9]+ checks" "$T/m8-target.log"
   else
     cat "$T/m8-target.log"; fail "m8-target-cadence"
+  fi
+  if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionContentGovernorTest > "$T/m8-content.log" 2>&1 \
+     && grep -q "\[m8-content-first-test\] PASS" "$T/m8-content.log"; then
+    echo "[provider-tests] m8-content-first: PASS (render/sim reduction policy before resolution)"
+    grep -E "\[m8-content-first-test\] [0-9]+ checks" "$T/m8-content.log"
+  else
+    cat "$T/m8-content.log"; fail "m8-content-first"
   fi
 else
   fail "m8-render-compile"

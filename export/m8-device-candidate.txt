@@ -16,8 +16,8 @@ bundle_id=dev.vrmc.vrmc
 version=1.2.0
 framework_sha256=d53e148a49a7b2204a640de54a070ac61c35d64361c23ae499585beed2cabb45
 bridge_sha256=ce11bac2b057f80d8b662449d3bb1ee252a953f4ed853fdce944ec9fa026a726
-provider_jar_sha256=144d47a7731a67eecc92f2cc7826a1d9a61a771cb15965a8600c0baf9ec01d7a
-provider_jar_bytes=137501
+provider_jar_sha256=5d418fd16aed4dcb3fafa4b7da3cd53b25ca817339f1ac6b8045fc842016ae1b
+provider_jar_bytes=139750
 codesign=codesign --verify --deep --strict PASS (169 Mach-O + 6 nested frameworks signed, Apple Development identity, profile provisions D1)
 m8_content=foveation layer configuration + "foveation rate map"/"display geometry"/"render feedback
   published"/"foveated sharpening:"/"eyes absent: reusing the last sampled eye frame" compositor
