@@ -394,6 +394,36 @@ static VRMCQualityControl readQualityControl(float maxQuality) {
     return control;
 }
 
+// M8 foveated sharpening control: Documents/vrmc-sharpening.txt = "auto" (default), "off"/"0"
+// (disable) or a fixed strength 0.05..1.0. Re-read every ~300 frames so the on-device tuning script
+// (scripts/push_m8_render_config.sh) can A/B it live. Default "auto" sharpens only when the provider
+// renders below the logical view size (the normal 120 Hz case) and tapers off towards the periphery.
+typedef struct {
+    BOOL enabled;
+    BOOL autoMode;
+    float strength;   /* fixed strength when autoMode == NO, clamped to [0.05, 1.0] */
+} VRMCSharpenControl;
+
+static VRMCSharpenControl readSharpenControl(void) {
+    VRMCSharpenControl control;
+    control.enabled = YES;
+    control.autoMode = YES;
+    control.strength = 0.0f;
+    NSString *text = readDocumentText(@"vrmc-sharpening.txt");
+    if (text == nil || text.length == 0) return control;
+    if ([text caseInsensitiveCompare:@"off"] == NSOrderedSame || text.floatValue == 0.0f) {
+        control.enabled = NO;
+        return control;
+    }
+    if ([text caseInsensitiveCompare:@"auto"] == NSOrderedSame) return control;
+    float value = text.floatValue;
+    if (value >= 0.05f && value <= 1.0f) {
+        control.autoMode = NO;
+        control.strength = value;
+    }
+    return control;
+}
+
 /// Apply a runtime render quality (visionOS 26+). Returns YES when the value was applied.
 static BOOL applyRenderQuality(cp_layer_renderer_t lr, float quality, const char *reason) {
     const float clamped = MAX(0.0f, MIN(1.0f, quality));
@@ -825,6 +855,32 @@ static NSString *const kShaderSource =
      "  float f = 1.0 - clamp(vig, 0.0, 0.95) * smoothstep(0.55, 1.0, r);\n"
      "  return float4(c.rgb * f, 1.0);\n"
      "}\n"
+     // M8 foveated sharpening (CAS-lite): used when the provider renders below the display's logical
+     // view size (the normal case when holding 120 Hz at a 4K-class drawable), so the flat bilinear
+     // upscale is sharpened back towards display resolution. Strength is highest at the view centre
+     // (the fovea) and tapers off in the periphery, where the hardware foveation already gives fewer
+     // physical pixels. Edge protection (soft clamp to the local neighbourhood + small headroom)
+     // limits halos. Optional comfort vignette is folded into the same pass.
+     "struct FlatFx { float strength; float vignette; float texelW; float texelH; };\n"
+     "fragment float4 fmain_flat_sharp(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
+     "                                 sampler s [[sampler(0)]], constant FlatFx &fx [[buffer(3)]]) {\n"
+     "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.8,0.1), 1.0);\n"
+     "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
+     "  float3 c = tex.sample(s, uv).rgb;\n"
+     "  float3 n = tex.sample(s, uv + float2(0.0, -fx.texelH)).rgb;\n"
+     "  float3 sN = tex.sample(s, uv + float2(0.0, fx.texelH)).rgb;\n"
+     "  float3 w = tex.sample(s, uv + float2(-fx.texelW, 0.0)).rgb;\n"
+     "  float3 e = tex.sample(s, uv + float2(fx.texelW, 0.0)).rgb;\n"
+     "  float3 blur = (n + sN + w + e) * 0.25;\n"
+     "  float3 lo = min(min(c, n), min(sN, min(w, e)));\n"
+     "  float3 hi = max(max(c, n), max(sN, max(w, e)));\n"
+     "  float r = length(in.ndc);\n"
+     "  float foveal = 1.0 - smoothstep(0.50, 1.10, r);\n"
+     "  float3 sharp = c + (c - blur) * (fx.strength * foveal);\n"
+     "  sharp = clamp(sharp, lo - 0.06, hi + 0.06);\n"
+     "  float vig = 1.0 - clamp(fx.vignette, 0.0, 0.95) * smoothstep(0.55, 1.0, r);\n"
+     "  return float4(clamp(sharp, 0.0, 1.0) * vig, 1.0);\n"
+     "}\n"
      "fragment float4 fmain_reproj(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                             sampler s [[sampler(0)]], constant ViewParams &vp [[buffer(0)]]) {\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.9,0.1,0.1), 1.0);\n"
@@ -1023,12 +1079,21 @@ static void scheduleProviderTextureStats(id<MTLCommandQueue> queue, id<MTLTextur
 //     cp_drawable_get_rasterization_rate_map_count instead of blindly using the texture index.
 // -------------------------------------------------------------------------------------------
 
+/// M8 foveated sharpening uniforms (matches the FlatFx struct in kShaderSource).
+typedef struct {
+    float strength;
+    float vignette;
+    float texelW;
+    float texelH;
+} VRMCFlatFx;
+
 typedef struct {
     id<MTLRenderPipelineState> reproj;
     id<MTLRenderPipelineState> flat;
     id<MTLRenderPipelineState> test;
     id<MTLRenderPipelineState> proof;
     id<MTLRenderPipelineState> flatVignette;
+    id<MTLRenderPipelineState> flatSharp;
     MTLPixelFormat colorFormat;
     MTLPixelFormat depthFormat;
     BOOL valid;
@@ -1041,6 +1106,7 @@ static BOOL buildPipelines(id<MTLDevice> device, VRMCPipelines *out, MTLPixelFor
     out->test = nil;
     out->proof = nil;
     out->flatVignette = nil;
+    out->flatSharp = nil;
     out->valid = NO;
     out->colorFormat = colorFormat;
     out->depthFormat = depthFormat;
@@ -1074,11 +1140,15 @@ static BOOL buildPipelines(id<MTLDevice> device, VRMCPipelines *out, MTLPixelFor
     pd.fragmentFunction = [library newFunctionWithName:@"fmain_flat_vignette"];
     out->flatVignette = [device newRenderPipelineStateWithDescriptor:pd error:&err];
     if (out->flatVignette == nil) compLog("flat vignette pipeline failed: %s", err.description.UTF8String);
+    err = nil;
+    pd.fragmentFunction = [library newFunctionWithName:@"fmain_flat_sharp"];
+    out->flatSharp = [device newRenderPipelineStateWithDescriptor:pd error:&err];
+    if (out->flatSharp == nil) compLog("flat sharpen pipeline failed: %s", err.description.UTF8String);
     out->valid = (out->reproj != nil || out->flat != nil || out->test != nil);
-    compLog("pipelines color=%lu depth=%lu reproj=%d flat=%d test=%d proof=%d flatVignette=%d",
+    compLog("pipelines color=%lu depth=%lu reproj=%d flat=%d test=%d proof=%d flatVignette=%d flatSharp=%d",
             (unsigned long)colorFormat, (unsigned long)depthFormat,
             out->reproj != nil, out->flat != nil, out->test != nil, out->proof != nil,
-            out->flatVignette != nil);
+            out->flatVignette != nil, out->flatSharp != nil);
     return out->valid;
 }
 
@@ -1725,6 +1795,11 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     BOOL loggedRateMaps = NO;
     BOOL loggedRenderFeedback = NO;
     BOOL loggedLogicalSizes = NO;
+    // M8 foveated sharpening state (see readSharpenControl): re-read periodically for live A/B.
+    VRMCSharpenControl sharpenControl = readSharpenControl();
+    float lastLoggedSharpenStrength = -1.0f;
+    float currentSharpenStrength = 0.0f;
+    BOOL loggedSharpen = NO;
 
     // M4-W1 input state. One preallocated snapshot per frame (no per-frame allocation) and one
     // rate-limited log counter per concern; never dump joint arrays every frame. The synthetic-flag
@@ -1752,6 +1827,11 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             // the immersive space opens (auto-open on game start). Retry symbol resolution.
             if (gEyeFn == NULL && (frameCount % 30) == 0) {
                 resolveBridge();
+            }
+            // M8 sharpening lives in compositing (not the game): re-read its Documents knob
+            // periodically so it can be A/B'd on device without a rebuild.
+            if ((frameCount % 300) == 0) {
+                sharpenControl = readSharpenControl();
             }
             cp_frame_start_update(frame);
             cp_frame_end_update(frame);
@@ -2104,12 +2184,12 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         reportedQuality = maxRenderQuality;
                     }
                     compLog("render feedback: displayHz=%.1f presentHz=%.1f p50=%.2fms p95=%.2fms "
-                            "repeats=%d/%d quality=%.2f logical L=%ux%u R=%ux%u physical=%lux%lu "
-                            "foveation=%d rateMaps=%zu published=%llu errors=%llu",
+                            "repeats=%d/%d quality=%.2f sharpen=%.2f logical L=%ux%u R=%ux%u "
+                            "physical=%lux%lu foveation=%d rateMaps=%zu published=%llu errors=%llu",
                             (double)presentStats.displayHz, presentHz,
                             (double)presentStats.p50Ms, (double)presentStats.p95Ms,
                             presentStats.repeats, presentStats.count,
-                            (double)reportedQuality,
+                            (double)reportedQuality, (double)currentSharpenStrength,
                             logicalW[leftView], logicalH[leftView],
                             logicalW[leftView == 0 ? 1 : 0], logicalH[leftView == 0 ? 1 : 0],
                             (unsigned long)physicalW, (unsigned long)physicalH,
@@ -2650,12 +2730,49 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     if (viewport.width > 0 && viewport.height > 0) [enc setViewport:viewport];
                     if (depthState != nil) [enc setDepthStencilState:depthState];
                     if (!clearProbe) {
+                        // M8 foveated sharpening: when the provider eye texture is smaller than the
+                        // drawable's logical view (the normal case when the game is held below the
+                        // display's 4K-class resolution for 120 Hz), the flat bilinear upscale is
+                        // sharpened with a fovea-weighted CAS-lite pass instead of plain bilinear.
+                        float sharpenStrength = 0.0f;
+                        float sharpenTexelW = 0.0f;
+                        float sharpenTexelH = 0.0f;
+                        if (useFlat && !testPatternNow && sharpenControl.enabled &&
+                            pipes.flatSharp != nil && haveEyes && eyesPtr != NULL) {
+                            const uint32_t eyeW = isLeftEye ? eyesPtr->left_width : eyesPtr->right_width;
+                            const uint32_t eyeH = isLeftEye ? eyesPtr->left_height : eyesPtr->right_height;
+                            if (eyeW > 0 && eyeH > 0 && viewport.width > 0 && viewport.height > 0) {
+                                const double upscale = MAX(viewport.width / (double)eyeW,
+                                                           viewport.height / (double)eyeH);
+                                if (upscale > 1.02) {
+                                    sharpenStrength = sharpenControl.autoMode
+                                        ? (float)MIN(0.45, (upscale - 1.0) * 0.35)
+                                        : MIN(1.0f, sharpenControl.strength);
+                                    sharpenTexelW = (float)(1.0 / (double)eyeW);
+                                    sharpenTexelH = (float)(1.0 / (double)eyeH);
+                                    if (!loggedSharpen ||
+                                        fabsf(sharpenStrength - lastLoggedSharpenStrength) > 0.02f) {
+                                        loggedSharpen = YES;
+                                        lastLoggedSharpenStrength = sharpenStrength;
+                                        compLog("foveated sharpening: %s strength=%.2f provider=%ux%u "
+                                                "viewport=%.0fx%.0f upscale=%.2f vignette=%.2f "
+                                                "(fovea-weighted CAS-lite; Documents/vrmc-sharpening.txt=%s)",
+                                                sharpenControl.autoMode ? "auto" : "fixed",
+                                                (double)sharpenStrength, eyeW, eyeH, viewport.width,
+                                                viewport.height, upscale, (double)vignetteStrength,
+                                                sharpenControl.autoMode ? "auto" : "fixed");
+                                    }
+                                }
+                            }
+                        }
                         id<MTLRenderPipelineState> chosen = nil;
                         if (testPatternNow) chosen = pipes.test;
                         else if (useFlat) {
-                            chosen = (vignetteStrength > 0.0f && pipes.flatVignette != nil)
+                            if (sharpenStrength > 0.001f) chosen = pipes.flatSharp;
+                            else chosen = (vignetteStrength > 0.0f && pipes.flatVignette != nil)
                                 ? pipes.flatVignette : pipes.flat;
                         } else chosen = pipes.reproj;
+                        currentSharpenStrength = (chosen == pipes.flatSharp) ? sharpenStrength : 0.0f;
                         if (chosen != nil) {
                             [enc setRenderPipelineState:chosen];
                             if (!testPatternNow) {
@@ -2674,6 +2791,16 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 if (tex != nil) {
                                     [enc setFragmentTexture:tex atIndex:0];
                                     [enc setFragmentSamplerState:sampler atIndex:0];
+                                    if (chosen == pipes.flatSharp) {
+                                        // Fovea-weighted CAS-lite parameters (buffer 3 matches the
+                                        // FlatFx struct in kShaderSource).
+                                        VRMCFlatFx fx;
+                                        fx.strength = sharpenStrength;
+                                        fx.vignette = vignetteStrength;
+                                        fx.texelW = sharpenTexelW;
+                                        fx.texelH = sharpenTexelH;
+                                        [enc setFragmentBytes:&fx length:sizeof(fx) atIndex:3];
+                                    }
                                     if (!useFlat) {
                                         VRMCViewParams params;
                                         params.invProjection = simd_inverse(

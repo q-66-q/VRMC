@@ -93,6 +93,13 @@ at ~1832x1600 per eye (2.8x the pixels of the accepted 1024² target) and ramps 
 while the display cadence is held. This is the direct fix for the upscale blur/jaggedness; the display
 path at the same time is foveated and at maximum render quality.
 
+When the provider has to render below the logical size (the normal case for 120 Hz at a 4K-class
+drawable), the compositor's flat sampling pass switches to **M8.6 foveated sharpening**: a CAS-lite
+5-tap filter whose strength scales with the upscale ratio (auto, capped 0.45), is weighted towards the
+view centre (the fovea) and tapers off in the periphery, and is soft-clamped to the local neighbourhood
+to limit halos. It is compositing-only work (no game cost), controlled live by
+`Documents/vrmc-sharpening.txt` (`auto` default / `off` / fixed strength).
+
 ### Honest limitation
 
 The provider renders a **uniform** eye image. CompositorServices foveation reduces the **system's**
@@ -114,6 +121,7 @@ Minecraft's own fill cost. Therefore:
 | M8.2 | Bridge render-feedback channel: `vrmc_render_settings` (68 B) + `vrmc_shared_publish_render_settings`/`acquire` + JNI `nativePollRenderSettings`; C static-assert layout; C concurrency test; Java layout/parse/policy test; fake-provider capture; simulator harness scenario `render`. | DONE (host/sim) |
 | M8.3 | Compositor: foveation/quality/rate-map logging, presentation-cadence statistics, render-quality control (fixed from `vrmc-render-quality.txt`; `auto` opt-in via content "auto"/`vrmc-quality-auto.flag`), `minimumFrameRepeatCount=0`, per-frame render-feedback publication. | DONE (host/sim) |
 | M8.4 | Provider: poll render feedback, adaptive eye scale, eye-target resize + logs, actual-size eye submission, frame-stats target-interval scoring (90/120 Hz). | DONE (host compile+tests) |
+| M8.6 | Compositor foveated sharpening (CAS-lite, fovea-weighted, anti-halo clamp) for the sub-native provider render that 120 Hz at a 4K-class drawable implies; `Documents/vrmc-sharpening.txt` (auto/off/fixed), cadence-summary `sharpen=…`; host Metal probe upscale metrics; simulator regression. | DONE (host/sim) |
 | M8.5 | Device verification on D1 (physical device unavailable during implementation): foveation/rate maps present, logical per-eye resolution at max quality, provider eye target/resizes, measured displayHz, frame pacing, operator visual report. | **TOOLING READY, DEVICE NOT RUN** — one-command classifier `scripts/m8_device_check.sh` (+ host test) and operator runbook [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md) |
 
 ## 5. Acceptance
@@ -149,6 +157,12 @@ Host/simulator (this change):
   the menu-room branch only*.
 
 Device (D1, NOT RUN; one operator session):
+- A5c compositor foveated sharpening (host Metal probe + simulator): 4× upscale of a low-resolution
+  checkerboard with the sharp shader raises edge acutance **1.17×** vs bilinear, mean absolute luma
+  change stays at 0.016 (anti-halo clamp), and the centre gain (1.27) exceeds the corner gain (1.00) —
+  the foveal taper works. The simulator `render` scenario runs the real shader/pipeline end-to-end
+  (`foveated sharpening: auto strength=0.45 … upscale=3.75`, `sharpen=0.45` in the cadence summary) and
+  still matches the known pattern. **PASS (host Metal + simulator)** — *not device visual evidence*.
 - A6 `vrmc-compositor.log` shows `layer configuration ... foveation=1 ... maxRenderQuality=1.00` and
   `foveation rate map ...` geometry (screen vs physical size) — foveated rendering actually active.
 - A7 `display geometry: logical L=...` reports the max-quality per-eye view (expected ~4K-class);
@@ -165,10 +179,14 @@ Device (D1, NOT RUN; one operator session):
    to the visionOS MoltenVK build, or a split foveal/peripheral pass inside the provider, so the game
    renders fewer peripheral pixels instead of relying on adaptive uniform resolution. Requires a
    vendor build change (new artifact, ADR + licensing review).
-2. **Provider-side sharpening/anti-aliasing** in the compositor sampling pass (foveal CAS/unsharp) to
-   further reduce upscale softness when the game renders below the foveal logical size.
+2. **Provider-side sharpening/anti-aliasing** — superseded by M8.6: foveated sharpening now runs in the
+   compositor sampling pass (M8_PLAN §4 M8.6, host probe EV-0273); deeper options are temporal upscaling
+   / TAA (§6.4).
 3. **Dynamic per-eye resolution** if the display views become asymmetric (currently both eyes share one
    target size in Vivecraft).
+4. **Temporal upscaling / TAA** in the compositor (history + reprojection) to raise the foveal image
+   further when the provider has to run well below the logical size for 120 Hz; the M8 sharpening pass
+   is the first (single-frame) step.
 4. **Temporal reprojection / depth export** so the compositor can reproject game frames for cadence
    headroom at 120 Hz.
 
@@ -202,6 +220,10 @@ Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
   sampling math keeps the logical UV mapping under a 0.5/1.0 foveated rate map, and the physical-size
   viewport negative control fails exactly as predicted. Device eye-tracked foveation, optics and cadence
   remain device-only (A6–A9).
+
+- **M8.6 sharpening** was validated objectively on host Metal (edge acutance, anti-halo bound,
+  foveal weighting) and end-to-end in the simulator; the device visual judgement (halos? comfort?) is
+  part of the operator statement in A9, with `vrmc-sharpening.txt=off` as the immediate rollback.
 
 ## 9. Risks
 

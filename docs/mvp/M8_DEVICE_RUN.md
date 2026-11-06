@@ -79,8 +79,9 @@ Host GL only; it does not replace the device rows.
 | A9 | Pacing/regressions: no render-feedback publication failures, no command-buffer failures, provider p95 within 1.5× the measured cadence budget | `[VRMC-M5] diag: … p95Ms=… missedTarget=… targetHz=…` |
 
 **Required operator statement for full evidence:** whether the image looked **less blurry/jagged**
-than the pre-M8 build (the old build upscaled 1024² into ~1888×1792), and whether 90→120 Hz felt
-smooth. A/PASS visual statement + A6–A9 PASS is the M8 device acceptance.
+than the pre-M8 build (the old build upscaled 1024² into ~1888×1792), whether 90→120 Hz felt smooth,
+and whether foveated sharpening produced halos/edge artefacts (A/B with `--sharpening off`). A PASS
+visual statement + A6–A9 PASS is the M8 device acceptance.
 
 ## 4. Tuning / A-B if a row is PARTIAL
 
@@ -91,6 +92,7 @@ Files (push with `devicectl device copy to`, relaunch as noted):
 | `vrmc-eye-scale.txt` | game dir (`Documents/instances/default/`) | `auto` (default), or a number 0.25–1.0 | live, re-read every ~600 frames |
 | `vrmc-render-quality.txt` | `Documents/` (compositor) | `auto` or 0.0–1.0 (pins runtime quality) | next compositor start (relaunch) |
 | `vrmc-max-render-quality.txt` | `Documents/` (shell) | 0.05–1.0 (memory upper bound) | next immersive open |
+| `vrmc-sharpening.txt` | `Documents/` (compositor) | `auto` (default; fovea-weighted CAS-lite when the provider renders below the logical size), `off` (plain bilinear), or a fixed strength 0.05..1.0 | live (~300 frames) |
 | `vrmc-foveation-off.flag` | `Documents/` (shell) | A/B: uniform rasterization (one-way on device: an app-data reset or `vrmc-clear-diagnostics.flag` restores foveation) | next immersive open |
 
 One command for all of the above (no relaunch required for eye scale):
@@ -99,6 +101,7 @@ One command for all of the above (no relaunch required for eye scale):
 scripts/push_m8_render_config.sh --eye-scale 0.5            # live tuning
 scripts/push_m8_render_config.sh --runtime-quality auto      # next launch
 scripts/push_m8_render_config.sh --max-quality 0.75          # next immersive open
+scripts/push_m8_render_config.sh --sharpening 0.45           # live: foveated sharpening strength
 scripts/push_m8_render_config.sh --print --eye-scale auto    # offline preview
 scripts/push_m8_render_config.sh --self-test                 # offline validation
 ```

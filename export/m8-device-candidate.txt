@@ -1,45 +1,48 @@
-# M8 device-candidate build (foveated 4K/120 rendering) — host-built, NOT device-verified
+# M8 device-candidate build (foveated 4K/120 rendering + foveated sharpening) — host-built, NOT device-verified
 #
-# Build date: 2026-11-05 (HST) / 2026-11-06T09:10Z
-# Git: see repo HEAD at build (M8 work: EV-0268/0269/0270 + this candidate)
+# Build date: 2026-11-06T09:22Z (HST 2026-11-05 23:22)
+# Git: see repo HEAD at build (M8 work: EV-0268/0269/0270/0271/0272 + M8.6 sharpening/EV-0273)
 # Staged app: /tmp/VRMC-native-m8.app   (NOT installed; device D1 unavailable at build time)
 #
 # WHAT THIS IS
 #   The release-ready Amethyst app tree with the M8 native shell framework (foveated rendering layer
-#   configuration + render-feedback compositor) and the M8 native bridge dylib (68-byte
-#   vrmc_render_settings channel + JNI nativePollRenderSettings). The matching M8 provider jar is a
-#   separate artifact (see below) and must be copied into the instance mods/ directory.
+#   configuration + render-feedback compositor + M8.6 foveated sharpening) and the M8 native bridge
+#   dylib (68-byte vrmc_render_settings channel + JNI nativePollRenderSettings). The matching M8
+#   provider jar is a separate artifact (see below) and must be copied into the instance mods/.
 #
 # ARTIFACT IDENTITY (verified in this build)
-app_tree_sha256=aea4bd4f7b146b7014ef35f5bad1e31bd75fbf84603d178a01b052f8e4e172ee
+app_tree_sha256=53184ffe81f5ee04e187b9eaefc56e28f4f3700431876fa0175668718b810264
 bundle_id=dev.vrmc.vrmc
 version=1.2.0
-framework_sha256=7d1d00fd0aeb18789b944a99c592ac96e2d62e191c4d3faa2fd6ddfdd0b7903a
-bridge_sha256=c550663c1ded473cff8507194d47c2bc4e87e9be061ea881382522da597b01d4
+framework_sha256=b1f48c2f89ad2bb13793dbb6a23c2e20f249f072d82b4ab5f81ba40e3f700f30
+bridge_sha256=a4baa95d78ae1c147bec068b7ca43d89cca929de631f44e201991705fa8857c2
 provider_jar_sha256=cd80b753cbb78f742b8954752aeaa5e09e3e4828ec2245f9a0c86af93ed0b049
 provider_jar_bytes=136067
 codesign=codesign --verify --deep --strict PASS (169 Mach-O + 6 nested frameworks signed, Apple Development identity, profile provisions D1)
-m8_content=bridge exports _vrmc_shared_publish_render_settings/_vrmc_shared_acquire_render_settings/
-  _Java_dev_vrmc_provider_bridge_VrmcBridge_nativePollRenderSettings; shell framework contains the
-  "layer config: supportsFoveation=", "foveation rate map view", "display geometry: logical" and
-  "render feedback published:" log strings.
-# Device install attempt at build time: CoreDeviceError 4016 "device is not able to fulfill the
-# requested usage assertion requirements" (D1 unavailable/unlocked state) => NOT RUN.
+m8_content=foveation layer configuration + "foveation rate map"/"display geometry"/"render feedback
+  published"/"foveated sharpening:" compositor strings present (flatSharp pipeline built), bridge
+  exports _vrmc_shared_publish_render_settings/_vrmc_shared_acquire_render_settings/
+  _Java_dev_vrmc_provider_bridge_VrmcBridge_nativePollRenderSettings.
+# Device install attempt at build time (previous candidate): CoreDeviceError 4016 "device is not able
+# to fulfill the requested usage assertion requirements" (D1 unavailable) => NOT RUN.
 #
 # DEPLOY (when D1 is available and unlocked)
 #   1. DEVICE=<D1-UDID> scripts/install_device.sh /tmp/VRMC-native-m8.app dev.vrmc.vrmc
 #   2. DEVICE=... scripts/push_provider_jar.sh /tmp/vrmc-provider-build/vrmc-provider.jar
-#      (plus Vivecraft 26.2-1.3.15 in Document/instances/default/mods/ — user-provided, not redistributed)
-#   3. Launch with StikDebug JIT, enter immersive, play 3-5 min, quit cleanly.
+#      (plus Vivecraft 26.2-1.3.15 in Documents/instances/default/mods/ — user-provided, not redistributed)
+#   3. Launch with StikDebug JIT, enter immersive, play 3-5 min (include a menu and distant geometry),
+#      quit cleanly.
 #   4. scripts/m8_device_check.sh   (A6-A9 classifier; docs/mvp/M8_DEVICE_RUN.md)
 #
 # TUNING WITHOUT RELAUNCH (device available)
 #   scripts/push_m8_render_config.sh --eye-scale 0.5          # provider eye target scale, live (600 frames)
+#   scripts/push_m8_render_config.sh --sharpening off          # disable foveated sharpening (live ~300 frames)
+#   scripts/push_m8_render_config.sh --sharpening 0.45         # pin sharpening strength (live)
 #   scripts/push_m8_render_config.sh --runtime-quality auto    # compositor quality policy, next launch
 #   scripts/push_m8_render_config.sh --max-quality 0.75        # drawable memory/quality ceiling, next immersive open
 #   scripts/push_m8_render_config.sh --print --eye-scale auto  # offline preview of the devicectl commands
 #
 # ROLLBACK
-#   scripts/push_m8_render_config.sh --max-quality default --runtime-quality default --eye-scale auto
+#   scripts/push_m8_render_config.sh --max-quality default --runtime-quality default --eye-scale auto #     --sharpening auto
 #   (foveation is ON by default; the vrmc-foveation-off.flag A/B is one-way on device — an app-data
 #    reset / vrmc-clear-diagnostics.flag restores the default.)

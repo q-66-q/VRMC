@@ -246,7 +246,8 @@ def main():
                   f"quality={last[11]:.2f}/{last[12]:.2f} displayHz={last[13]:.1f} frame={last[14]:.2f}ms")
             log_ok = ("render feedback published:" in text and "display geometry: logical L=" in text
                       and "render quality:" in text and "frame pacing: minimumFrameRepeatCount=0" in text
-                      and "foveation:" in text and "layer configuration colorFormat=" in text)
+                      and "foveation:" in text and "layer configuration colorFormat=" in text
+                      and "sharpen=" in text)
             print(f"{'compositor render log lines':32s} {('seen' if log_ok else 'missing'):24s} {'seen':8s} {'PASS' if log_ok else 'FAIL'}")
             if not log_ok: failures += 1
             no_errors = "render feedback publish FAILED" not in text

@@ -17,8 +17,9 @@ This is a **development/sideload** project, not an App Store submission.
   rendering pipeline have no device acceptance yet. Device verification is a one-command classify:
   `scripts/m8_device_check.sh` (runbook [`docs/mvp/M8_DEVICE_RUN.md`](docs/mvp/M8_DEVICE_RUN.md)).
   The compositor's foveation sampling path is validated on host Metal against a real rasterization
-  rate map ([probe](runtime/probes/m8-foveation/README.md)), and the provider's display-feedback →
-  eye-target resize path is validated in a real Minecraft client ([host Fabric harness](docs/mvp/M8_HOST_HARNESS.md));
+  rate map plus its M8.6 foveated-sharpening upscale metrics ([probe](runtime/probes/m8-foveation/README.md)),
+  and the provider's display-feedback → eye-target resize path is validated in a real Minecraft client
+  ([host Fabric harness](docs/mvp/M8_HOST_HARNESS.md));
   a signed M8 device candidate is staged and ready to install
   ([`export/m8-device-candidate.txt`](export/m8-device-candidate.txt)), with device eye-tracked
   foveation and cadence still unverified.

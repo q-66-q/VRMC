@@ -26,6 +26,23 @@ hardcode viewport sizes). The device log already prints the viewport and the phy
 side by side (`view N attachments` + `foveation rate map` lines), so the first D1 M8 session verifies
 the convention end-to-end; this probe verifies that the shader/pass behaviour is correct for it.
 
+## M8.6 foveated-sharpening upscale test
+
+The probe also renders a **480×270 checkerboard upscaled 4×** to 1920×1080 twice — plain bilinear
+(`fmain_flat`) and the compositor's fovea-weighted CAS-lite (`fmain_flat_sharp`, strength 0.45,
+texel = source pixels) — and measures the decoded images:
+
+| Metric | Result (Apple M4 Pro) | Meaning |
+|---|---|---|
+| Edge acutance ratio (sharp / bilinear) | **1.17×** | the upscale is genuinely sharpened, not just resampled |
+| Mean absolute luma change | **0.0158** (bound 0.15) | anti-halo/clamp keeps the correction bounded |
+| Centre edge gain vs corner edge gain | **1.27× vs 1.00×** | the foveal taper works: periphery is not over-sharpened |
+
+The shader code in this probe mirrors `VRMCCompositor.mm`'s `FlatFx`/`fmain_flat_sharp`; the simulator
+`render` scenario then runs the real pipeline end-to-end (`foveated sharpening: auto strength=0.45 …
+upscale=3.75`, `sharpen=0.45`). Device visual judgement (halos/comfort) is part of the operator
+statement in [M8_DEVICE_RUN.md](../docs/mvp/M8_DEVICE_RUN.md), with `vrmc-sharpening.txt=off` as rollback.
+
 ## Run
 
 ```bash

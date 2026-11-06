@@ -104,9 +104,12 @@ def parse_compositor(text):
             "quality": float(m.group(9)),
         }
     info["feedback_publishes"] = len(re.findall(r"render feedback published: logical L=", text))
+    # The summary line gained "sharpen=<x>" in M8 round 4; accept both the old and new layouts so a
+    # previously pulled log still classifies.
     feedback = list(re.finditer(
         r"render feedback: displayHz=([0-9.]+) presentHz=([0-9.]+) p50=([0-9.]+)ms p95=([0-9.]+)ms "
-        r"repeats=(\d+)/(\d+) quality=([0-9.]+|nan) logical L=(\d+)x(\d+) R=(\d+)x(\d+) "
+        r"repeats=(\d+)/(\d+) quality=([0-9.]+|nan)(?: sharpen=([0-9.]+|nan))? "
+        r"logical L=(\d+)x(\d+) R=(\d+)x(\d+) "
         r"physical=(\d+)x(\d+) foveation=(\d) rateMaps=(\d+) published=(\d+) errors=(\d+)", text))
     if feedback:
         f = feedback[-1]
@@ -114,11 +117,12 @@ def parse_compositor(text):
             "display_hz": float(f.group(1)), "present_hz": float(f.group(2)),
             "p50": float(f.group(3)), "p95": float(f.group(4)),
             "repeats": int(f.group(5)), "samples": int(f.group(6)),
-            "logical_left": (int(f.group(8)), int(f.group(9))),
-            "logical_right": (int(f.group(10)), int(f.group(11))),
-            "physical": (int(f.group(12)), int(f.group(13))),
-            "foveation": int(f.group(14)), "rate_maps": int(f.group(15)),
-            "published": int(f.group(16)), "errors": int(f.group(17)),
+            "sharpen": float(f.group(8)) if f.group(8) not in (None, "nan") else 0.0,
+            "logical_left": (int(f.group(9)), int(f.group(10))),
+            "logical_right": (int(f.group(11)), int(f.group(12))),
+            "physical": (int(f.group(13)), int(f.group(14))),
+            "foveation": int(f.group(15)), "rate_maps": int(f.group(16)),
+            "published": int(f.group(17)), "errors": int(f.group(18)),
         }
     info["publish_failed"] = len(re.findall(r"render feedback publish FAILED", text))
     info["buffer_failed"] = len(re.findall(r"command buffer FAILED", text))
@@ -128,7 +132,7 @@ def parse_compositor(text):
 def parse_shell(text):
     info = {"supports_foveation": None, "chosen_foveation": None, "max_quality": None, "layout": None}
     m = re.search(r"layer config: supportsFoveation=(\w+) defaultRenderQuality=([-0-9.naN]+) "
-                  r"qualitySupported=(\w+) maxRenderQuality=([0-9.]+)", text)
+                  r"qualitySupported=(\w+) maxRenderQuality=([0-9.]+|system-default)", text)
     if m:
         info["supports_foveation"] = m.group(1) == "true"
         info["max_quality"] = m.group(4)
@@ -351,7 +355,8 @@ def main():
         print(f"  provider eye target: {target[0]}x{target[1]}  resizes={len(provider.get('resizes', []))}"
               f"  scale={provider.get('state_line', {}).get('logical')}")
     if hz:
-        print(f"  measured display cadence: {hz:.1f} Hz")
+        sharpen = comp.get("last_feedback", {}).get("sharpen", 0.0) if comp.get("last_feedback") else 0.0
+        print(f"  measured display cadence: {hz:.1f} Hz  foveated sharpening: {sharpen:.2f}")
     statuses = [a6, a7, a8, a9]
     if all(s == "PASS" for s in statuses):
         print("[m8-device] RESULT: PASS (A6-A9)")

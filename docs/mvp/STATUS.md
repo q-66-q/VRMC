@@ -202,3 +202,15 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   `Reinit Render` path and ramps the auto eye scale (0.60 → 2200×1928, 0.70 → 2568×2248) at the
   240-frame cadence with **0 M8 exceptions**. This de-risks the provider part of device row A7 (host
   desktop GL, fabricated feedback, menu room only — **not** device/Vulkan/optics evidence).
+
+- 2026-11-05 EV-0273: **M8.6 foveated sharpening for sub-native 4K/120 rendering (host Metal + sim
+  PASS).** When the provider renders below the display's logical per-eye size (the normal 120 Hz case),
+  the compositor's flat sampling pass now applies a CAS-lite, fovea-weighted 5-tap sharpening pass
+  (`fmain_flat_sharp`, auto strength from the upscale ratio capped 0.45, anti-halo clamp, periphery
+  tapered) controlled live by `Documents/vrmc-sharpening.txt` (`auto`/`off`/fixed) and reported as
+  `sharpen=` in the cadence summary. Host Metal probe on a 4× upscale: edge acutance **1.17×**, mean
+  absolute change 0.0158 (bounded), centre gain **1.27×** vs corner **1.00×** (foveal taper) — 10/10
+  checks. Simulator `render` scenario PASS with the real sharpening pipeline active (47 publications;
+  known pattern unchanged). Push script gained `--sharpening` (21 self-test checks); self-check PASS;
+  **device candidate rebuilt and signed** (tree `53184ffe…`, framework `b1f48c2f…`, provider
+  `cd80b753…`). **Device A6–A9 still NOT RUN (D1 unavailable)**; device halo/comfort judgement remains.

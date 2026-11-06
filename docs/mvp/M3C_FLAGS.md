@@ -89,12 +89,13 @@ Design and acceptance: [M8_PLAN.md](M8_PLAN.md). All are optional; the defaults 
 | `vrmc-render-quality.txt` | Documents/ (compositor) | Content `auto` = adaptive runtime quality from measured presentation cadence; a number 0.0..1.0 pins the runtime render quality (clamped to the configured maximum). Absent = fixed at the configured maximum. Read at compositor start. |
 | `vrmc-quality-auto.flag` | Documents/ (compositor) | Same as `vrmc-render-quality.txt=auto` when the txt file is absent. |
 | `vrmc-eye-scale.txt` | Minecraft game dir (`Documents/instances/default/`) | Provider eye-target scale relative to the display's logical per-eye size: `auto` (default; adaptive 0.25..1.0 from the provider's own frame pacing vs the measured display cadence) or a number 0.25..1.0 (fixed; no resizes). Re-read every ~600 frames, so on-device tuning needs no relaunch. `-Dvrmc.eyeScale=` is the JVM-arg fallback. |
+| `vrmc-sharpening.txt` | Documents/ (compositor) | M8 foveated sharpening (CAS-lite) applied when the provider eye texture is smaller than the drawable's logical view: `auto` (default; strength scales with the upscale ratio, capped 0.45, fovea-weighted), `off` (plain bilinear), or a fixed strength 0.05..1.0. Re-read every ~300 frames (live). Logged as `foveated sharpening: …` and `sharpen=…` in the cadence summary. |
 
 Expected M8 log lines: shell `layer config: supportsFoveation=... defaultRenderQuality=... maxRenderQuality=... supportedLayouts=...`
 and `layer config: layout=... foveation=...`; compositor `layer configuration ... foveation=... maxRenderQuality=...`
 → `render quality: ...` → `frame pacing: minimumFrameRepeatCount=0 ...` → `foveation: ENABLED ...` or
 `foveation: disabled (...)` → `foveation rate map ...` → `render feedback published: logical L=... R=...`
-→ `display geometry: logical L=... physical drawable=...` → periodic `render feedback: displayHz=...
-presentHz=... p50=... p95=... repeats=...`; provider `[VRMC-M8] render settings: logical L=... displayHz=...
+→ `display geometry: logical L=... physical drawable=...` → `foveated sharpening: ...` (when upscaling)
+→ periodic `render feedback: displayHz=... presentHz=... p50=... p95=... repeats=... sharpen=...`; provider `[VRMC-M8] render settings: logical L=... displayHz=...
 ` → `[VRMC-M8] eye target resize #N: ...`. The simulator plumbing scenario is
 `runtime/probes/m3c-provider-sim/run.sh render`.
