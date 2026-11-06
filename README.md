@@ -1,92 +1,148 @@
 # VRMC — Minecraft VR on Apple Vision Pro
 
-VRMC runs **Minecraft: Java Edition 26.2 + Fabric + the real Vivecraft mod** natively on Apple
-Vision Pro, with head-tracked stereo and hand-tracked input (PSVR2 controllers are P1, post-MVP)
-when present. No PC, no streaming.
+VRMC runs **Minecraft: Java Edition 26.2 + Fabric + the real Vivecraft mod natively on Apple
+Vision Pro**, with head-tracked stereo and ARKit hand-tracked input. There is no PC and no
+streaming.
 
-> **Latest build:** current M4/M5/M6 development build installed on D1 (app tree `a4663e16…` (path-independent), provider jar `e9f97a60…`; behavior NOT RUN — see EV-0113).\n\n> **Status: M3 visual acceptance PASS (EV-0094); M4-W1 immersive input PASSED ON DEVICE (EV-0096); M4-W2–W4, M5 first slice + recenter chord + launcher settings panel/command channel and M6 offline groundwork host/build PASS (EV-0097…EV-0204); device gates still NOT RUN.**
-> The launcher, JVM/JIT runtime, Minecraft 26.2 + Fabric + Vivecraft and the VRMC provider (LGPL) run
-> end-to-end on Apple Vision Pro. The black-immersive root cause was found and fixed (drawable
-> depth-clear value; EV-0093), and the immersive path passed on-device acceptance: the stereo/alignment
-> pattern displays and a JIT game run renders the Vivecraft menu world in the immersive space with
-> stereo aligned and head tracking (EV-0094). M4-W1 adds the ABI v3 ARKit hand-input channel, a
-> hands-only pinch/fist gesture slice and the immersive GUI/menu + attack/use/teleport bindings; the
-> on-device session passed both the synthetic plumbing step and **real hands** (authorization allowed,
-> continuous tracking, game controllable from the immersive scene — operator: “It ran very well!”,
-> EV-0096). Open items: a reproducible shutdown-only JVM SIGSEGV to triage, the full hands P0
-> checklist/locomotion, and the W2 work requested by the operator (gaze highlight + pinch selection,
-> smoothly tracked hands). Window chrome, re-entry, GPU-sync device run and pacing/soak remain open.
-> Status claims are governed by [`VERIFY.md`](VERIFY.md); the operating manual is
-> [`AGENT.md`](AGENT.md), the current plans are
-> [`docs/mvp/M3C_PLAN.md`](docs/mvp/M3C_PLAN.md) and [`docs/mvp/M4_PLAN.md`](docs/mvp/M4_PLAN.md),
-> and the input design/ABI contract is
-> [`docs/analysis/immersive-input.md`](docs/analysis/immersive-input.md).
+This is a **development/sideload** project, not an App Store submission.
 
-## What is decided
+## Current status
 
-- **Runtime:** on-device JVM with JIT, Amethyst-derived (GPL-3.0), sideload distribution.
-- **Pinned stack:** Minecraft **26.2** (Java 25, LWJGL 3.4.1, experimental Vulkan), Fabric
-  **0.19.3**, Vivecraft **26.2-1.3.15**.
-- **Graphics:** MC "Prefer Vulkan" → MoltenVK → Metal. Fallback: GL/LTW → ANGLE.
-- **VR integration:** an LGPL companion mod Mixins Vivecraft's provider selection and implements
-  `MCVR`/`VRRenderer` for CompositorServices; Vivecraft stays unmodified unless S3 proves Mixin
-  injection unstable.
-- **Input:** hands-only MVP (ARKit 27-joint tracking + gestures). PSVR2 Sense is P1, post-MVP — not claimed as MVP input parity.
-- **Evidence:** every `PASS` needs an entry in [`VERIFY.md`](VERIFY.md) §6. Simulator is never
-  evidence for hands, stereo optics, thermals, or latency.
+- **M7 hand-input mapping: device PASS**
+- **M5/M6 acceptance: 22/22 rows PASS** ([`docs/mvp/M6_ACCEPTANCE.md`](docs/mvp/M6_ACCEPTANCE.md))
+- **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)
+- Current provider: `4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351`
+  (127,258 bytes)
+- Current app tree: `a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb`
+- Current development package:
+  `sha256 0fa384d9a40e1a3b001799d6d3b376ddb1de67a09d4b201abaa99236a45ca764`,
+  206,567,700 bytes. See [`export/release-package-dev.txt`](export/release-package-dev.txt).
 
-## Quick start (M0 tooling)
+Evidence authority: [`VERIFY.md`](VERIFY.md). Navigation summary:
+[`docs/mvp/STATUS.md`](docs/mvp/STATUS.md).
+
+## What works
+
+### Interaction (M7)
+
+- **Look/head ray** drives the IDE cursor; cursor sits slightly below view centre for bottom-row
+  selection.
+- **Short right pinch** — GUI left-click; in world: attack an entity, or place/use on a block.
+- **Hold right pinch (≥350 ms)** — break/mine; release stops.
+- **Left pinch hold + move left hand** — player-relative movement (forward/back + strafe).
+- **Left fist tap** — open/close menu.
+- **Both-fist tap** — inventory; **right pinch** picks up/places stacks.
+- **Right-hand swing** — alternate attack.
+- **Head rise/lower** — jump/sneak.
+- **Hotbar** — touch the rendered bar with the right index fingertip; air index tap fallback.
+- **Both hands apart (bow held)** — draw; release by opening the back fist or bringing hands
+  together to fire.
+- **Right hand near head** — eat/drink; alternating closed hands — climb.
+
+Teleport was **descoped** by the operator. Bow draw/fire works, but the bow **visual orientation**
+is a known non-blocking bug (it renders parallel to the hand; see EV-0263).
+
+### Runtime
+
+- Native visionOS shell + CompositorServices immersive presentation
+- On-device JVM with JIT (StikDebug), Minecraft 26.2, Fabric, Vivecraft
+- LGPL VRMC provider mod (M7 gesture engine + Vivecraft integration)
+- ABI v3 bridge: hand tracking, eye handoff, display views, immersive input
+- Crash guard, clean-shutdown journal, diagnostics bundle, comfort/settings/acceptance checklist
+
+## Stack
+
+| Component | Version |
+|---|---|
+| Minecraft Java | 26.2 |
+| Java runtime | 25.0.4 (bundled) |
+| Fabric loader | 0.20.1 on the tested instance (pin in [`versions.env`](versions.env)) |
+| Vivecraft | 26.2-1.3.15 |
+| visionOS | 27.x |
+
+Pins are in [`versions.env`](versions.env). Third-party reference sources and vendor build trees
+are intentionally not committed.
+
+## Install / run
+
+VRMC is a sideloaded development app. A provisioning profile that matches the target Apple Vision
+Pro is required; the app must be signed for that device.
+
+1. Install the app (or unpack the development package).
+2. Open **StikDebug**, enable JIT for the app, then launch VRMC.
+3. The launcher creates the Minecraft/Fabric instance.
+4. **Fresh-install gap:** the launcher does not yet auto-provision Vivecraft or the VRMC provider.
+   Copy both jars into the instance:
+
+   ```
+   Documents/instances/default/mods/vivecraft-26.2-1.3.15-fabric.jar
+   Documents/instances/default/mods/vrmc-provider.jar
+   ```
+
+   The provider jar is included in the development package. Vivecraft is **not redistributed**;
+   obtain it from the Vivecraft project and verify:
+   `e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb`.
+
+5. Launch the Fabric instance, create/load a world, and enter immersive mode.
+
+The installed app on D1 is currently in a **clean, freshly-installed state** (no account, worlds,
+mods, logs or test data).
+
+## Build / test
+
+The repository contains source, docs, scripts and release metadata. Third-party reference trees,
+vendor builds and staged app artifacts were removed to keep the repo clean; restore/fetch those
+external inputs before rebuilding.
 
 ```bash
-./scripts/check_versions.sh      # toolchain + reference pin check (read-only)
-./scripts/bootstrap.sh           # local dirs + checks + next steps
-./scripts/log_evidence.sh --title "example" --dry-run
+scripts/build_provider.sh              # provider mod jar
+scripts/build_shell.sh                 # native visionOS shell
+scripts/build_bridge.sh                # ABI v3 bridge
+provider/tests/run_tests.sh            # host provider suite
+scripts/m6_release_check.sh            # release/licensing/source checks
+scripts/m6_release_ready.sh --zip …    # full host + acceptance gate
 ```
 
-Build/test commands (implemented):
+Host tests are **not** device evidence. Device-only claims are recorded in
+[`VERIFY.md`](VERIFY.md).
 
-```bash
-scripts/build_shell.sh                  # visionOS SwiftUI shell framework (CompositorServices)
-MODE=both scripts/build_bridge.sh       # ABI v3 VRMC bridge dylib (device + host)
-OUT_DIR=/tmp/vrmc-provider-build scripts/build_provider.sh   # Vivecraft provider mod jar
-scripts/m3c_selfcheck.sh                # presentation + input host/simulator one-command suite
-scripts/m4_input_selfcheck.sh           # immersive-input ABI/gesture/fixture/simulator suite
-```
-
-Device staging and the M4 input runbook: [`docs/mvp/M4_DEVICE_RUN.md`](docs/mvp/M4_DEVICE_RUN.md).
-
-## Layout
+## Repository layout
 
 | Path | Purpose |
 |---|---|
-| `AGENT.md` | Operating manual: architecture, hardness register, spikes, milestones, rules |
-| `VERIFY.md` | Acceptance criteria, test suites, evidence log |
-| `docs/adr/` | Architecture decision records |
-| `docs/mvp/` | MVP scope, spike procedures, acceptance guide |
-| `scripts/` | Tooling (version check, bootstrap, evidence logging) |
-| `launcher/` | visionOS launcher app (Amethyst-derived, GPL-3.0; build/stage scripts in `scripts/`) |
-| `runtime/` | native visionOS SwiftUI shell + CompositorServices compositor (`runtime/native-shell/`) and probes |
-| `provider/` | Vivecraft companion mod, LGPL-3.0 (provider + M4-W1 gesture engine) |
-| `bridge/` | Native VR bridge, C/ObjC++ (ABI v3: tracking, eye handoff, display views, immersive input) |
-| `docs/analysis/` | Design/root-cause dossiers (incl. `immersive-input.md`, M4-W1 ABI contract) |
-| `versions.env` | Single source of truth for pins |
+| [`AGENT.md`](AGENT.md) | Operating manual, architecture, milestone rules |
+| [`VERIFY.md`](VERIFY.md) | Requirements, test suites, evidence log |
+| [`docs/mvp/`](docs/mvp/) | MVP plans, acceptance, device runbooks |
+| [`provider/`](provider/) | LGPL-3.0 Vivecraft companion mod + M7 gesture engine |
+| [`runtime/`](runtime/) | visionOS shell, CompositorServices compositor, probes |
+| [`bridge/`](bridge/) | Native VR bridge (ABI v3) |
+| [`scripts/`](scripts/) | Build, test, release and diagnostics tooling |
+| [`assets/`](assets/) | Branding and Vulkan headers |
+| [`export/`](export/) | Tracked summaries, release metadata, acceptance readiness |
+| [`evidence/`](evidence/) | Local acceptance evidence bundles referenced by `VERIFY.md` |
 
-Third-party reference sources (`Amethyst-iOS-main/`, `VivecraftMod-Multiloader-26.2/`) are
-git-ignored and never committed.
+## Known issues
+
+- Bow visual model orientation (parallel to hand) — accepted non-blocking bug.
+- Fresh install requires manual Vivecraft/provider jar restore; launcher auto-provisioning is the
+  next engineering priority.
+- Hand tracking can drop when hands are outside the ARKit camera view; actions release safely.
+- K3 latency-rig gate and the full 60-minute soak were explicitly waived/covered by a reduced
+  10-minute operator-accepted soak.
+- This is a development/sideload package, not App Store distribution.
 
 ## Licensing
 
-- VRMC application code: **GPL-3.0** (see [`LICENSE`](LICENSE)), because it derives from
-  Amethyst (GPL-3.0).
-- `provider/` (Vivecraft integration): **LGPL-3.0** (see [`provider/LICENSE`](provider/LICENSE)),
-  distributed as a separate, replaceable artifact with source.
+- VRMC application code: **GPL-3.0** ([`LICENSE`](LICENSE)), derived from Amethyst.
+- `provider/`: **LGPL-3.0** ([`provider/LICENSE`](provider/LICENSE)), distributed as a separate,
+  replaceable artifact with source.
 - Minecraft is proprietary; users must own it. No Minecraft binaries or assets are distributed.
 - Vivecraft is installed by the user and used unmodified.
-- See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+- See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md),
+  [`SOURCE_OFFER.md`](SOURCE_OFFER.md) and [`PRIVACY.md`](PRIVACY.md).
 
 ## Safety
 
-VR can cause discomfort. VRMC ships comfort settings (vignette, snap turn, teleport, seated mode),
-makes exit/recenter reachable at all times, and does not treat comfort as optional polish.
-
-VRMC is not affiliated with Mojang, Microsoft, Vivecraft, Valve, Sony, or Apple.
+VR can cause discomfort. VRMC provides comfort settings (vignette, snap/smooth turn, seated mode)
+and keeps exit/recenter reachable. VRMC is not affiliated with Mojang, Microsoft, Vivecraft, Valve,
+Sony, or Apple.
