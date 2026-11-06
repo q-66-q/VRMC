@@ -1,13 +1,14 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-05 (host time)
-source commit: M7 short-pinch context vs hold-break (regenerate from a clean release commit)
+source commit: M7 bow open-hand draw + menu-hand alignment (regenerate from a clean release commit)
 app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
 app path at staging: /tmp/VRMC-native-checklist-summary.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: 683efdd3d21f0cbda23eabc2b803d5fd2d3a5af6d360cc23feef79b3c5dcb610
-provider bytes: 126922
+provider jar sha256: fac54efa28a590e2bb84921a5d15559ec47e32ca61707e2a3b44b15af3857dde
+provider bytes: 127015
 gesture mode: m7
-right pinch: short = attack entity / place / use; hold >=350ms = break
+bow: both hands apart draw with bow held; fists optional; release back fist or move hands together to fire
+menu hand: gray box shifted to fingertip/local -Z so it covers the hand
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)

@@ -102,3 +102,8 @@ provider logs `[VRMC-M7] gesture mode=...` and `[VRMC-M7] engine thresholds ... 
   constant strafe from the hand's natural lateral offset. The stick now captures a neutral along/right
   origin on pinch engage, uses deltas from it, fixes the right-basis sign, and disables teleport dispatch
   on the movement pinch. Teleport needs a dedicated gesture.
+
+- **Bow draw (EV-0261):** with a bow held, both tracked hands held apart draw the bow; fists are
+  no longer required. Release by opening a fist if the draw started with fists, or by bringing the
+  hands together. The menu-hand gray box is translated to the fingertip along local -Z so it covers
+  the hand instead of floating behind the wrist.

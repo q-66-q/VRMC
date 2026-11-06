@@ -176,6 +176,8 @@ public class VisionVR extends MCVR {
     private long m7ShortAttackUntilNs;
     private long m7ShortUseUntilNs;
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
+    /** Menu-hand gray box correction: our pose forward is -Z, while Vivecraft's gray box grows +Z. */
+    private static final float M7_MENU_HAND_SHIFT_M = 0.18F;
     private int m7GuiCursorLogCount;
     /** GUI-cursor session state: center once when a screen opens, then head-ray tracking. */
     private boolean m7GuiScreenOpen;
@@ -1212,6 +1214,12 @@ public class VisionVR extends MCVR {
                     VisionHandPose.gazeFallback(this.hmdPose, hand == VisionInput.HAND_RIGHT,
                         this.controllerPose[c]);
                 }
+            }
+            // Menu hands: Vivecraft's gray box grows along local +Z, but this hand pose uses
+            // -Z as forward (R*(0,0,-1)=aim). Shift the menu-hand origin to the fingertip along
+            // local -Z so the gray box covers the hand instead of floating behind the wrist.
+            if (this.mc.gui.screen() != null) {
+                this.controllerPose[c].translate(0.0F, 0.0F, -M7_MENU_HAND_SHIFT_M);
             }
             // M5 seated parity (opt-in): when seated with no tracked hand, the HMD-aim fallback pose
             // may drive the controller/GUI pointer. Input actions still require real gestures.

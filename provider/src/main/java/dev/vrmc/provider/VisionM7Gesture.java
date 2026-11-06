@@ -306,6 +306,7 @@ public final class VisionM7Gesture {
 
     // ---- bow ----
     private boolean bowActive;
+    private boolean bowDrawnFromFists;
     private long bowSepSinceNs;
     private long bowStartNs;
     private long bowFireUntilNs;
@@ -583,8 +584,9 @@ public final class VisionM7Gesture {
             // Draw hysteresis: keep while projected separation stays above the off threshold and the
             // hands stay in front at chest height. Releasing the held use (any exit) fires the arrow,
             // matching Minecraft's hold-to-draw semantics and all 16 recorded draw cycles.
-            boolean drawStillHeld = bowAllowed && !gui && !seated && both
-                && bothTrackedGrace && absSepFwd > BOW_SEPARATION_OFF
+            boolean handsOk = this.bowDrawnFromFists ? both : bothTrackedGrace;
+            boolean drawStillHeld = bowAllowed && !gui && !seated && handsOk
+                && absSepFwd > BOW_SEPARATION_OFF
                 && maxUp > BOW_MIN_MAX_UP - 0.10F;
             if (!drawStillHeld) {
                 // A draw must have been armed for at least half the arm time before an exit fires;
@@ -596,13 +598,15 @@ public final class VisionM7Gesture {
                     this.lastBowFireNs = nowNs;
                 }
                 this.bowActive = false;
+        this.bowDrawnFromFists = false;
                 this.lastBowExitNs = nowNs;
             }
-        } else if (bowAllowed && !gui && !seated && both
+        } else if (bowAllowed && !gui && !seated && bothTracked
             && absSepFwd > BOW_SEPARATION && maxUp > BOW_MIN_MAX_UP) {
             if (this.bowSepSinceNs == 0L) this.bowSepSinceNs = nowNs;
             if (nowNs - this.bowSepSinceNs >= BOW_ARM_NS) {
                 this.bowActive = true;
+                this.bowDrawnFromFists = both;
                 this.bowStartNs = nowNs;
             }
         } else if (!this.bowActive

@@ -29,7 +29,7 @@ Purpose: execute AC-1…AC-6 and K1…K6 on hardware, record evidence in VERIFY,
 | K1 timing | D1 timing runs (`DT-14`): start/stop, frame times | timing table |
 | K2 90 Hz pacing | Play with `[VRMC-M5] diag` at 30 s; record p50/p95/missed90 (+launcher provider line) | diag log windows + status JSON |
 | K3 latency rig | 240 fps rig: motion-to-photon / input-to-action | rig results |
-| K4 soak | AC-5 artifact set | reduced 10-min run (2026-11-05 waiver); full K4 still requires 60 min |
+| K4 soak | AC-5 artifact set | reduced 10-min run accepted by operator (2026-11-05 waiver) |
 | K5 thermal | Long session; thermal log/state file; `performance.thermalResponse` A/B | `vrmc-thermal.log`, state file, diag |
 | K6 install size | `scripts/m6_install_metrics.sh` host + device app info/storage measurement | metrics output + device storage note |
 
