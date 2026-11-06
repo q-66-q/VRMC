@@ -9,6 +9,10 @@
 # Evidence artifacts (manifests are described in VERIFY.md; binaries stay local)
 /evidence/
 
+# Durable device-session package (built by scripts/m8_device_package.sh; binaries stay local)
+/export/m8-device-package/
+/export/m8-device-package.zip
+
 # Build outputs and packaging
 /.build/
 /artifacts/

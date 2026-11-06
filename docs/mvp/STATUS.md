@@ -321,3 +321,12 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   0.90, resizes=8); an earlier heavier-load run showed 2 resizes, 0 exceptions, scale 0.50→0.40.
   Provider suite ALL PASS (jar `2242c116…`, 142,529 B, two-build reproducible); push self-test 41
   checks; classifier 5/5; fast self-check PASS. **Device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0284: **Durable device-session handoff package (PASS).** The M8 candidate no longer
+  depends on volatile `/tmp` artifacts: `scripts/m8_device_package.sh` validates the staged app +
+  provider jar against `export/m8-device-candidate.txt` (codesign deep/strict, app-tree sha
+  `6773acf1…`, provider `2242c116…`) and copies them into `export/m8-device-package/` with
+  `SHA256SUMS`, an operator README and optional zip (`export/m8-device-package.zip`, 206,132,020 B,
+  sha256 `6df778e6…`, `unzip -t` clean). A one-page `docs/mvp/M8_DEVICE_HANDOFF.md` captures the
+  proven-vs-unproven state, the one-command finish procedure, what to record, and the known fallbacks.
+  No rendering code changed; **device A6–A9 still NOT RUN.**

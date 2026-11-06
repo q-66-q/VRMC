@@ -27,9 +27,11 @@ This is a **development/sideload** project, not an App Store submission.
   target by cutting scene cost first (`vrmc-content-first.txt`) and a startup super-sampling knob for
   jagged edges (`vrmc-world-supersample.txt`, SSAA — Minecraft 26.2 has no MSAA); a signed M8 device
   candidate is staged and ready to install
-  ([`export/m8-device-candidate.txt`](export/m8-device-candidate.txt)); the next device session is
-  one command each way (`scripts/m8_device_session.sh prepare` / `collect`), with device
-  eye-tracked foveation and cadence still unverified.
+  ([`export/m8-device-candidate.txt`](export/m8-device-candidate.txt)), and a durable handoff package
+  (app + provider jar + checksums, `scripts/m8_device_package.sh`) plus
+  [`M8_DEVICE_HANDOFF.md`](docs/mvp/M8_DEVICE_HANDOFF.md) capture everything needed to finish on the
+  headset; the next device session is one command each way (`scripts/m8_device_session.sh prepare` /
+  `collect`), with device eye-tracked foveation and cadence still unverified.
 - Current provider: `4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351`
   (127,258 bytes)
 - Current app tree: `a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb`

@@ -47,6 +47,19 @@ It runs the real provider in a real Minecraft client with fake 3660×3200 / 120 
 must log `1024x1024 -> 1832x1600` and `resizes=1` (see [M8_HOST_HARNESS.md](M8_HOST_HARNESS.md)).
 Host GL only; it does not replace the device rows.
 
+## 1b. Durable handoff package
+
+The staged artifacts live in `/tmp` (volatile). Build a workspace copy with checksums before a device
+session or before handing the project to an operator:
+
+```bash
+scripts/m8_device_package.sh --check      # validate app codesign + hashes vs the candidate manifest
+scripts/m8_device_package.sh             # write export/m8-device-package/ (+ README, SHA256SUMS)
+scripts/m8_device_package.sh --replace --zip   # rebuild + zip export/m8-device-package.zip
+```
+
+State/handoff summary: [`M8_DEVICE_HANDOFF.md`](M8_DEVICE_HANDOFF.md).
+
 ## 2. First run (defaults) — one command, then the operator checklist
 
 With the staged candidate in place, `scripts/m8_device_session.sh` wraps artifact validation,
