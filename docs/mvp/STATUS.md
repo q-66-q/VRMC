@@ -301,3 +301,12 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   supersample checks; jar `c055dabf…`, 142,286 B, two-build reproducible); `--world-supersample` push
   knob (41 self-test checks); classifier 5/5; M3c fast self-check PASS. **Device A6–A9 still NOT RUN**;
   device jaggedness/comfort remain operator-judged at 90 Hz vs 120 Hz.
+
+- 2026-11-06 EV-0282: **Combined foveated drawable + sharpening validated (host Metal PASS).** The
+  last untested interaction in the compositor path — fovea-weighted sharpening while the drawable is
+  foveated — is now covered: a 480×270 frame is upscaled 4× into a 1920×1080 logical viewport backed
+  by a **real rasterization rate map** (physical 1488×848) and compared bilinear vs CAS-lite. The
+  probe is **14/14 checks**: combined centre gain **1.26×** vs corner **1.01×** (the foveal taper
+  survives the rate map) and mean absolute change 0.018 (anti-halo bound 0.15). Fast M3c self-check
+  PASS. **Device A6–A9 still NOT RUN**; the interaction is validated on host Metal with a synthetic
+  rate map, not device optics.

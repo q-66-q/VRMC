@@ -390,6 +390,59 @@ int main(void) {
             free(sharpPx);
         }
 
+        // ---- M8 combined pass: fovea-weighted sharpening UNDER a real rasterization rate map ----
+        // The exact device combination: the provider frame is sharpened while the drawable is foveated.
+        // The rate-mapped target must be the physical extent while the viewport is the logical (screen)
+        // size; the sharpening taps stay in provider texels and the foveal taper is in drawable NDC, so
+        // the centre gain must survive the rate map and the periphery must stay unsharpened.
+        MTLTextureDescriptor *fovDesc =
+            [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                               width:physicalSize.width
+                                                              height:physicalSize.height
+                                                            mipmapped:NO];
+        fovDesc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+        fovDesc.storageMode = MTLStorageModeShared;
+        id<MTLTexture> plainFovTarget = [device newTextureWithDescriptor:fovDesc];
+        id<MTLTexture> sharpFovTarget = [device newTextureWithDescriptor:fovDesc];
+        BOOL okFovPlain = renderSampledPass(device, queue, lowTex, plainFovTarget, rateMap,
+                                            screenSize, @"fmain_flat", NULL, 0, nil);
+        BOOL okFovSharp = renderSampledPass(device, queue, lowTex, sharpFovTarget, rateMap,
+                                            screenSize, @"fmain_flat_sharp", &fx, sizeof(fx), nil);
+        check("foveated + sharpened upscale encodes (plain + sharp)", okFovPlain && okFovSharp,
+              "render encoder/command buffer with the rate map");
+        if (okFovPlain && okFovSharp) {
+            const NSUInteger fovW = physicalSize.width, fovH = physicalSize.height;
+            uint8_t *plainFovPx = readTexture(device, queue, plainFovTarget);
+            uint8_t *sharpFovPx = readTexture(device, queue, sharpFovTarget);
+            const double centrePlain = gradientEnergy(plainFovPx, fovW, fovH, 0.35, 0.35, 0.65, 0.65);
+            const double centreSharp = gradientEnergy(sharpFovPx, fovW, fovH, 0.35, 0.35, 0.65, 0.65);
+            const double fovBoxes[4][4] = {{0.02, 0.02, 0.16, 0.16}, {0.84, 0.02, 0.98, 0.16},
+                                           {0.02, 0.84, 0.16, 0.98}, {0.84, 0.84, 0.98, 0.98}};
+            double cornerPlain = 0.0, cornerSharp = 0.0;
+            for (int b = 0; b < 4; b++) {
+                cornerPlain += gradientEnergy(plainFovPx, fovW, fovH, fovBoxes[b][0], fovBoxes[b][1],
+                                              fovBoxes[b][2], fovBoxes[b][3]);
+                cornerSharp += gradientEnergy(sharpFovPx, fovW, fovH, fovBoxes[b][0], fovBoxes[b][1],
+                                              fovBoxes[b][2], fovBoxes[b][3]);
+            }
+            cornerPlain /= 4.0;
+            cornerSharp /= 4.0;
+            const double centreGain = centrePlain > 0.0 ? centreSharp / centrePlain : 0.0;
+            const double cornerGain = cornerPlain > 0.0 ? cornerSharp / cornerPlain : 0.0;
+            printf("[m8-foveation-probe] foveated sharpen: centreGain=%.2f cornerGain=%.2f\n",
+                   centreGain, cornerGain);
+            check("foveated sharpening keeps the centre acutance gain", centreGain >= 1.05,
+                  "expected >= 1.05x the bilinear centre edge energy under the rate map");
+            check("foveated sharpening taper survives the rate map", centreGain >= cornerGain + 0.02,
+                  "the periphery must be sharpened less than the fovea");
+            const double fovMad = meanAbsDiff(plainFovPx, sharpFovPx, fovW * fovH);
+            printf("[m8-foveation-probe] foveated sharpen: meanAbsDiff=%.4f (anti-halo bound 0.15)\n", fovMad);
+            check("foveated sharpening correction is bounded", fovMad <= 0.15,
+                  "mean absolute luma change too large");
+            free(plainFovPx);
+            free(sharpFovPx);
+        }
+
         printf("[m8-foveation-probe] %d checks, %d failed\n", gChecks, gFailures);
         printf(gFailures == 0 ? "[m8-foveation-probe] RESULT: PASS\n"
                               : "[m8-foveation-probe] RESULT: FAIL\n");

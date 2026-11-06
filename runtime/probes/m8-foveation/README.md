@@ -37,6 +37,8 @@ texel = source pixels) — and measures the decoded images:
 | Edge acutance ratio (sharp / bilinear) | **1.17×** | the upscale is genuinely sharpened, not just resampled |
 | Mean absolute luma change | **0.0158** (bound 0.15) | anti-halo/clamp keeps the correction bounded |
 | Centre edge gain vs corner edge gain | **1.27× vs 1.00×** | the foveal taper works: periphery is not over-sharpened |
+| Combined = foveated drawable (real rate map) + sharpening: centre / corner gain | **1.26× / 1.01×** | the device combination works: sharpening survives the rasterization rate map, centre sharpened, periphery not |
+| Combined foveated sharpening mean absolute change | **0.0180** (bound 0.15) | correction stays bounded under the rate map |
 
 The shader code in this probe mirrors `VRMCCompositor.mm`'s `FlatFx`/`fmain_flat_sharp`; the simulator
 `render` scenario then runs the real pipeline end-to-end (`foveated sharpening: auto strength=0.45 …

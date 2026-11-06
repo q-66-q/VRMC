@@ -190,7 +190,9 @@ Device (D1, NOT RUN; one operator session):
 - A5c compositor foveated sharpening (host Metal probe + simulator): 4× upscale of a low-resolution
   checkerboard with the sharp shader raises edge acutance **1.17×** vs bilinear, mean absolute luma
   change stays at 0.016 (anti-halo clamp), and the centre gain (1.27) exceeds the corner gain (1.00) —
-  the foveal taper works. The simulator `render` scenario runs the real shader/pipeline end-to-end
+  the foveal taper works. Under a **real rasterization rate map** (the device combination) the same
+  pass keeps centre gain **1.26×** vs corner **1.01×** with mean change 0.018: sharpening survives
+  foveation and still tapers off in the periphery (probe now 14/14 checks). The simulator `render` scenario runs the real shader/pipeline end-to-end
   (`foveated sharpening: auto strength=0.45 … upscale=3.75`, `sharpen=0.45` in the cadence summary) and
   still matches the known pattern. **PASS (host Metal + simulator)** — *not device visual evidence*.
 - (robustness) the pull classifier also reads `vrmc-status.json`'s M8 `render` summary and pacing
