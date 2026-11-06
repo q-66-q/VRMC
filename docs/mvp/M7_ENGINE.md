@@ -41,7 +41,7 @@
 | jump / sneak | dt-corrected head baseline (τ = 2 s) frozen outside a 0.10 m dead-band; jump = 0.10 m rise + 0.35 m/s windowed velocity, 0.7 s cooldown; sneak = 0.12 m drop latched 0.5 s, released below 0.05 m for 250 ms; steep look-down (pitch < ~-46°) gates both; landing after a jump cannot sneak |
 | climb | Vivecraft climb context + closed hand above the chest (up > -0.10 m in context mode); grab latches until the hand opens or the pull passes -0.50 m; jump chord = both hands pulling down within 250 ms |
 | GUI | **right pinch = left mouse button**; press-and-hold keeps LMB down for long press/drag; release lifts. Head-ray cursor sits 8% below centre. Left-fist tap closes the screen; world gestures suppressed. |
-| world pinch (one action) | **contextual:** block item held + crosshair on a block → place/use; otherwise → attack/break (held pinch continues mining; creative instant break). Right swing remains an alternate attack. |
+| world pinch | **short pinch** = attack when the crosshair is on an entity, otherwise place/use; **hold >=350 ms** = break/mine (creative instant break); release stops. Short pinch never breaks a block. Hotbar touch/air selection is suppressed during and 500 ms after these actions. |
 
 ## Replay gate status (2026-11-03, evaluator v2)
 

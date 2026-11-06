@@ -170,6 +170,11 @@ public class VisionVR extends MCVR {
     private int m7GuiWarnCount;
     private long m7PlacePulseUntilNs;
     private long m7LastRightActionNs;
+    private boolean m7RightPinchPrev;
+    private long m7RightPinchStartNs;
+    private boolean m7HeldBreak;
+    private long m7ShortAttackUntilNs;
+    private long m7ShortUseUntilNs;
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     private int m7GuiCursorLogCount;
     /** GUI-cursor session state: center once when a screen opens, then head-ray tracking. */
@@ -1418,6 +1423,12 @@ public class VisionVR extends MCVR {
             return;
         }
         long nowNs = System.nanoTime();
+        if (this.m7Gesture.rightPinchHeld() || this.m7Gesture.attack()
+            || this.m7Gesture.breakHeld() || nowNs < this.m7PlacePulseUntilNs
+            || nowNs - this.m7LastRightActionNs < 500_000_000L) {
+            this.m7TouchHotbarSlot = -1;
+            return;
+        }
         float scale = GuiHandler.GUI_SCALE_APPLIED
             * (float) this.mc.getWindow().getGuiScale() / (float) GuiHandler.GUI_SCALE_FACTOR_MAX;
         if (!(scale > 0.0F) || !Float.isFinite(scale)) {
@@ -1949,7 +1960,16 @@ public class VisionVR extends MCVR {
         }
     }
 
-    /** True when the current crosshair hit is a block (context for one-pinch place/break). */
+    /** True when the current crosshair hit is an entity (short pinch attacks; hold breaks blocks). */
+    private boolean m7TargetIsEntity() {
+        try {
+            return this.mc.crosshairPickEntity != null;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** True when the current crosshair hit is a block (context for one-pinch place/use). */
     private boolean m7TargetIsBlock() {
         try {
             return this.mc.hitResult != null
@@ -1964,8 +1984,37 @@ public class VisionVR extends MCVR {
         boolean seated = this.dh.vrSettings.seated;
         applyM7Locomotion();
         boolean moving = this.m7LocomotionEngaged;
-        boolean use = this.m7Gesture.place() || this.m7Gesture.eat() || this.m7Gesture.bowDraw();
-        boolean attack = this.m7Gesture.attack();
+        boolean rightPinchHeld = this.m7Gesture.rightPinchHeld();
+        long actionNow = System.nanoTime();
+        boolean targetEntity = !gui && !seated && this.m7TargetIsEntity();
+        boolean targetBlock = !gui && !seated && this.m7TargetIsBlock();
+        if (rightPinchHeld && !this.m7RightPinchPrev) {
+            this.m7RightPinchStartNs = actionNow;
+        }
+        long rightPinchDuration = rightPinchHeld ? actionNow - this.m7RightPinchStartNs : 0L;
+        this.m7HeldBreak = !gui && !seated && rightPinchHeld
+            && rightPinchDuration >= 350_000_000L;
+        if (!rightPinchHeld && this.m7RightPinchPrev) {
+            long releasedDuration = actionNow - this.m7RightPinchStartNs;
+            if (!gui && !seated && releasedDuration > 0L && releasedDuration < 350_000_000L) {
+                // Short pinch never breaks a block: on an entity it attacks, on a block/air it
+                // places/uses; hold >=350 ms is break/mine.
+                if (targetEntity) {
+                    this.m7ShortAttackUntilNs = actionNow + 80_000_000L;
+                } else {
+                    this.m7ShortUseUntilNs = actionNow + 80_000_000L;
+                }
+            }
+        }
+        this.m7RightPinchPrev = rightPinchHeld;
+        boolean use = (actionNow < this.m7ShortUseUntilNs)
+            || this.m7Gesture.eat() || this.m7Gesture.bowDraw();
+        boolean attack = (actionNow < this.m7ShortAttackUntilNs)
+            || this.m7HeldBreak
+            || (this.m7Gesture.attack() && !this.m7Gesture.breakHeld());
+        if (!gui && !seated && (rightPinchHeld || attack || use)) {
+            this.m7LastRightActionNs = actionNow;
+        }
         setM7Action(VisionInput.KEY_ATTACK, VisionInput.HAND_RIGHT, attack);
         setM7Action(VisionInput.KEY_USE, VisionInput.HAND_RIGHT, use);
         setM7Action(VisionInput.KEY_INVENTORY, VisionInput.HAND_NONE, this.m7Gesture.inventory());
@@ -2122,6 +2171,11 @@ public class VisionVR extends MCVR {
 
     private void releaseM7Actions() {
         this.zeroM7Locomotion();
+        this.m7RightPinchPrev = false;
+        this.m7HeldBreak = false;
+        this.m7ShortAttackUntilNs = 0L;
+        this.m7ShortUseUntilNs = 0L;
+        this.m7RightPinchStartNs = 0L;
         if (this.m7GuiClickPressed) {
             this.m7GuiClickPressed = false;
             InputSimulator.releaseMouse(MOUSE_BUTTON_LEFT);

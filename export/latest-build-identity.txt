@@ -1,14 +1,13 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-05 (host time)
-source commit: M7 one-pinch context/hotbar/sensitivity (regenerate from a clean release commit)
+source commit: M7 short-pinch context vs hold-break (regenerate from a clean release commit)
 app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
 app path at staging: /tmp/VRMC-native-checklist-summary.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: 475b7dda29306775ea4141fb4b52320efb87b5b3d3349f0dcab5dcc4f4ddf19d
-provider bytes: 126314
+provider jar sha256: 683efdd3d21f0cbda23eabc2b803d5fd2d3a5af6d360cc23feef79b3c5dcb610
+provider bytes: 126922
 gesture mode: m7
-right pinch: contextual one-pinch (block held + block target -> place; otherwise attack/break); faster debounce 20ms/arm 60ms
-hotbar: touch/air selection suppressed during/after right actions
+right pinch: short = attack entity / place / use; hold >=350ms = break
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)
