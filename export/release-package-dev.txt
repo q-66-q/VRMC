@@ -11,4 +11,4 @@ package_verify=PASS (scripts/m6_verify_release_package.sh)
 package_freshness=PASS (m6_check_release_current.sh)
 device_integrity=provider hash matches installed D1
 reproducibility=provider two-build hash PASS
-acceptance_gate=NOT READY (17/22 explicit PASS; remaining AC-1/AC-6/K3/K5/K6)
+acceptance_gate=NOT READY (21/22 explicit PASS; remaining AC-1 first-run world)
