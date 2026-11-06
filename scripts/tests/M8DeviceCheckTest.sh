@@ -92,7 +92,7 @@ cat > "$T/status-only/vrmc-status.json" <<'EOF'
   "frameP50Ms": 8.36,
   "frameP95Ms": 9.26,
   "missed90Frames": 0,
-  "render": "eyeTarget=3664x3200 displayLogical=3660x3200 drawable=2412x2108 foveation=1 rateMaps=2 displayHz=120.0 scale=1.00(auto) resizes=4 valid=1"
+  "render": "eyeTarget=3664x3200 displayLogical=3660x3200 drawable=2412x2108 foveation=1 rateMaps=2 displayHz=120.0 target=120(120Hz(file)) scale=1.00(auto) resizes=4 valid=1"
 }
 EOF
 out=$("$ROOT/scripts/m8_device_check.sh" --from "$T/status-only" 2>&1); rc=$?

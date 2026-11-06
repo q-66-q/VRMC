@@ -97,6 +97,20 @@ cat > "$RUNDIR/config/vivecraft-client-config.json" <<'EOF'
   "stereoProviderPluginID": "OPENVR"
 }
 EOF
+# Optional M8 target-cadence knob: TARGET_HZ=auto|60..120 writes the game-dir file the provider
+# re-reads every ~300 frames, so the harness can prove the override is honoured in a real client.
+if [ -n "${TARGET_HZ:-}" ]; then
+  case "$TARGET_HZ" in
+    auto) ;;
+    *[!0-9]*) say "ERROR: TARGET_HZ must be auto or 60..120 (got '$TARGET_HZ')"; exit 2 ;;
+    *) [ "$TARGET_HZ" -ge 60 ] && [ "$TARGET_HZ" -le 120 ] \
+         || { say "ERROR: TARGET_HZ must be 60..120 (got '$TARGET_HZ')"; exit 2; } ;;
+  esac
+  printf '%s\n' "$TARGET_HZ" > "$RUNDIR/vrmc-target-hz.txt"
+  say "target cadence knob: $TARGET_HZ -> $RUNDIR/vrmc-target-hz.txt"
+else
+  rm -f "$RUNDIR/vrmc-target-hz.txt"
+fi
 rm -f "$RUNDIR/logs/latest.log"
 say "run dir: $RUNDIR (Vivecraft vrEnabled=true)"
 
@@ -127,13 +141,18 @@ if [ -n "$RESIZE_LINE" ]; then
   NEW_TARGET=$(grep -m1 '\[VRMC-M2\] eye target L 1832x1600' "$LATEST" || true)
   HANDSHAKE=$(grep -m1 'VR Provider supplied texture resolution: 1832 x 1600' "$LATEST" || true)
   STATE=$(grep -m1 '\[VRMC-M8\] render state' "$LATEST" || true)
+  TARGET=$(grep -m1 '\[VRMC-M8\] target cadence:' "$LATEST" || true)
   ERRORS=$(grep -cE '\[VRMC-M8\].*(ERROR|Exception)' "$LATEST" || true)
   echo "=== evidence lines ===" | tee -a "$LOG"
-  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE"; do
+  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET"; do
     [ -n "$line" ] && echo "  $line" | tee -a "$LOG"
   done
   if [ -n "$INIT" ] && [ -n "$RESIZE_LINE" ] && [ -n "$NEW_TARGET" ] && [ -n "$HANDSHAKE" ]; then
     PASS=1
+  fi
+  if [ -n "${TARGET_HZ:-}" ] && [ "$TARGET_HZ" != "auto" ] && [ -z "$TARGET" ]; then
+    say "target-cadence knob was set but no '[VRMC-M8] target cadence:' line appeared"
+    PASS=0
   fi
   say "M8 renderer resize path: $([ "$PASS" = "1" ] && echo PASS || echo FAIL)"
 else
@@ -151,7 +170,9 @@ fi
 cp -f "$LATEST" "$OUT/latest.log" 2>/dev/null || true
 say "harness log: $LOG ; minecraft log: $OUT/latest.log"
 if [ "$PASS" = "1" ]; then
-  say "RESULT: PASS (host GL: provider resized 1024x1024 -> 1832x1600 from fake 3660x3200 foveated display feedback; NOT device evidence)"
+  KNOB_NOTE=""
+if [ -n "${TARGET_HZ:-}" ]; then KNOB_NOTE="; target-cadence knob $TARGET_HZ honoured"; fi
+say "RESULT: PASS (host GL: provider resized 1024x1024 -> 1832x1600 from fake 3660x3200 foveated display feedback$KNOB_NOTE; NOT device evidence)"
   exit 0
 fi
 say "RESULT: FAIL"

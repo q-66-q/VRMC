@@ -155,7 +155,8 @@ if "$JAVAC" -d "$T/renderclasses" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionFrameStats.java" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionRenderSettings.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionRenderSettingsTest.java" \
-     "$ROOT/provider/tests/dev/vrmc/provider/VisionFrameStatsTest.java"; then
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionFrameStatsTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionTargetCadenceTest.java"; then
   if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsTest > "$T/m8-render.log" 2>&1 \
      && grep -q "\[m8-render-test\] PASS" "$T/m8-render.log"; then
     echo "[provider-tests] m8-render: PASS (render feedback layout/parse + eye-target scale policy)"
@@ -169,6 +170,13 @@ if "$JAVAC" -d "$T/renderclasses" \
     grep -E "\[m5-frame-stats-test\] [0-9]+ checks" "$T/m8-frame.log"
   else
     cat "$T/m8-frame.log"; fail "m8-frame-stats"
+  fi
+  if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionTargetCadenceTest > "$T/m8-target.log" 2>&1 \
+     && grep -q "\[m8-target-test\] PASS" "$T/m8-target.log"; then
+    echo "[provider-tests] m8-target-cadence: PASS (auto|90..120 Hz knob + frame-budget intervals)"
+    grep -E "\[m8-target-test\] [0-9]+ checks" "$T/m8-target.log"
+  else
+    cat "$T/m8-target.log"; fail "m8-target-cadence"
   fi
 else
   fail "m8-render-compile"

@@ -5,6 +5,7 @@
 #   --max-quality      Documents/vrmc-max-render-quality.txt      (shell; upper bound, next immersive open)
 #   --runtime-quality  Documents/vrmc-render-quality.txt          (compositor; fixed/auto, next launch)
 #   --eye-scale        Documents/instances/default/vrmc-eye-scale.txt (provider; live, re-read ~600 frames)
+#   --target-hz        Documents/instances/default/vrmc-target-hz.txt (provider; auto|90|96|100|120, live ~300 frames)
 #   --sharpening       Documents/vrmc-sharpening.txt              (compositor; auto|off|0.05..1.0, live ~300 frames)
 #   --foveation-off    Documents/vrmc-foveation-off.flag          (A/B: uniform rasterization)
 #
@@ -17,6 +18,7 @@
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --eye-scale 0.5
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --max-quality 0.75 --runtime-quality auto
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --sharpening auto|off|0.45
+#   DEVICE=<udid> scripts/push_m8_render_config.sh --target-hz auto|90|96|100|120
 #   scripts/push_m8_render_config.sh --print --eye-scale auto        # no device contact
 #   scripts/push_m8_render_config.sh --self-test                     # offline validation only
 #
@@ -52,6 +54,10 @@ validate_sharpening() {
   case "$1" in auto|off) return 0 ;; esac
   awk -v v="$1" 'BEGIN { exit !(v ~ /^[0-9]+([.][0-9]+)?$/ && v >= 0.05 && v <= 1.0) }'
 }
+validate_target_hz() {
+  case "$1" in auto) return 0 ;; esac
+  awk -v v="$1" 'BEGIN { exit !(v ~ /^[0-9]+$/ && v >= 60 && v <= 120) }'
+}
 
 max_quality_content() {
   case "$1" in default) echo "1.0" ;; *) echo "$1" ;; esac
@@ -64,6 +70,9 @@ eye_scale_content() {
 }
 sharpening_content() {
   echo "$1"
+}
+target_hz_content() {
+  case "$1" in auto) echo "auto" ;; *) echo "$1" ;; esac
 }
 
 # ---- --self-test: offline assertions, no device -------------------------------------------------
@@ -96,7 +105,16 @@ self_test() {
   c=$(eye_scale_content auto);        [ "$c" = "auto" ] || { echo "  FAIL eye-scale auto content"; fails=$((fails+1)); }
   t2() { local name="$1" expected="$2" actual="$3"; if [ "$expected" = "$actual" ]; then echo "  PASS $name"; else echo "  FAIL $name ($actual != $expected)"; fails=$((fails+1)); fi; }
   t2 "sharpening content" auto "$(sharpening_content auto)"
-  [ "$fails" = "0" ] && { echo "[m8config] SELF-TEST PASS (21 checks)"; return 0; }
+  t "target-hz auto accepted" 0 validate_target_hz auto
+  t "target-hz 90 accepted" 0 validate_target_hz 90
+  t "target-hz 96 accepted" 0 validate_target_hz 96
+  t "target-hz 100 accepted" 0 validate_target_hz 100
+  t "target-hz 120 accepted" 0 validate_target_hz 120
+  t "target-hz 121 rejected" 1 validate_target_hz 121
+  t "target-hz 59 rejected" 1 validate_target_hz 59
+  t "target-hz text rejected" 1 validate_target_hz fast
+  t2 "target-hz content auto" auto "$(target_hz_content auto)"
+  [ "$fails" = "0" ] && { echo "[m8config] SELF-TEST PASS (30 checks)"; return 0; }
   echo "[m8config] SELF-TEST FAIL ($fails)"; return 1
 }
 
@@ -116,6 +134,10 @@ while [ "$#" -gt 0 ]; do
       v="${2:-}"; [ -n "$v" ] || die "--eye-scale needs a value"
       validate_eye_scale "$v" || die "invalid --eye-scale '$v' (auto|0.25..1.0)"
       PUSH_FILES+=("$(eye_scale_content "$v")|$GAME_DIR/vrmc-eye-scale.txt"); shift 2 ;;
+    --target-hz)
+      v="${2:-}"; [ -n "$v" ] || die "--target-hz needs a value"
+      validate_target_hz "$v" || die "invalid --target-hz '$v' (auto|60..120)"
+      PUSH_FILES+=("$(target_hz_content "$v")|$GAME_DIR/vrmc-target-hz.txt"); shift 2 ;;
     --sharpening)
       v="${2:-}"; [ -n "$v" ] || die "--sharpening needs a value"
       validate_sharpening "$v" || die "invalid --sharpening '$v' (auto|off|0.05..1.0)"

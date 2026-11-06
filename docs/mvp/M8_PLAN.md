@@ -100,6 +100,13 @@ view centre (the fovea) and tapers off in the periphery, and is soft-clamped to 
 to limit halos. It is compositing-only work (no game cost), controlled live by
 `Documents/vrmc-sharpening.txt` (`auto` default / `off` / fixed strength).
 
+The auto eye-scale policy normally aims at the cadence the compositor measured, so at 90 Hz it would
+fill the 11.1 ms budget rather than pursuing 120 Hz. `Documents/instances/default/vrmc-target-hz.txt`
+lets the operator aim at a higher rate (`auto` default, or 60..120 Hz): the provider then holds frames
+inside the shorter deadline (8.33 ms at 120 Hz) and the system can promote the display; the achieved
+rate is still measured (never assumed). Target-cadence overrides are logged and reported in the status
+JSON and the device checker.
+
 During an eye-target resize the provider clears the shared eye frame before rebuilding (safety, see
 §8). The compositor keeps its last sampled MTLTexture pair retained and **reuses it for up to 30
 frames** of the gap, so a resize presents one stale frame instead of flashing the procedural test
@@ -209,7 +216,7 @@ Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
 3. Pull and classify in one command: `scripts/m8_device_session.sh collect` (wraps
    `scripts/m8_device_check.sh`; exit 0 PASS / 2 PARTIAL / 3 NOT RUN / 4 FAIL). It checks A6
    (foveation/rate maps), A7 (4K-class logical size + provider eye targets), A8 (measured 90/120 Hz
-   cadence, sharpening state), A9 (pacing/regressions).
+   cadence, sharpening state, target-cadence override), A9 (pacing/regressions).
 4. Record the result + operator visual statement as a new `VERIFY.md` §6 evidence id (hashed bundle
    via `scripts/log_evidence.sh`).
 5. Tuning/A-B and rollback knobs: see M8_DEVICE_RUN.md §4/§6.

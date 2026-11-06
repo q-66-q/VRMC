@@ -66,6 +66,14 @@ def parse_status_document(directory):
     return document, render
 
 
+def parse_target(value):
+    """'120(120Hz(file))' -> (120, '120Hz(file)'); '0(auto(display))' -> (0, 'auto(display)')."""
+    match = re.fullmatch(r"(\d+)\((.+)\)", str(value or ""))
+    if not match:
+        return (0, "")
+    return (int(match.group(1)), match.group(2))
+
+
 def parse_size(value):
     """'3660x3200' -> (3660, 3200); None if malformed."""
     match = re.fullmatch(r"(\d+)x(\d+)", str(value or ""))
@@ -190,7 +198,8 @@ def parse_provider(text):
         })
     states = list(re.finditer(r"\[VRMC-M8\] render state frame=\d+ eyeTarget=(\d+)x(\d+) "
                               r"logical=(\d+)x(\d+) drawable=(\d+)x(\d+) foveation=(\d) "
-                              r"rateMaps=(\d+) displayHz=([0-9.]+)", text))
+                              r"rateMaps=(\d+) displayHz=([0-9.]+)"
+                              r"(?: target=(\d+)\(([^)]+)\))?", text))
     if states:
         s = states[-1]
         info["state_line"] = {
@@ -199,6 +208,8 @@ def parse_provider(text):
             "drawable": (int(s.group(5)), int(s.group(6))),
             "foveation": int(s.group(7)), "rate_maps": int(s.group(8)),
             "display_hz": float(s.group(9)),
+            "target_hz": int(s.group(10)) if s.group(10) is not None else 0,
+            "target_source": s.group(11) if s.group(11) is not None else "",
         }
     diags = list(re.finditer(r"\[VRMC-M5\] diag: (.+)", text))
     if diags:
@@ -335,6 +346,14 @@ def check_a8(comp, status_render):
         reasons.append("repeated frames %d/%d (%.0f%%)" % (repeats, samples, ratio * 100.0))
     else:
         reasons.append("repeated frames %d/%d" % (repeats, samples))
+    # Operator target-cadence override (M8 vrmc-target-hz.txt): informational - the achieved rate is
+    # the measured display cadence above, never the requested target.
+    target_hz, target_source = parse_target(status_render.get("target", ""))
+    state = comp.get("last_feedback", {}).get("target_hz")
+    if not target_hz and state:
+        target_hz = state
+    if target_hz:
+        reasons.append("target cadence %d Hz (%s)" % (target_hz, target_source or "override"))
     return status, reasons, hz
 
 
@@ -444,6 +463,7 @@ def main():
               f"foveation={status_render.get('foveation', '?')} "
               f"rateMaps={status_render.get('rateMaps', '?')} "
               f"displayHz={status_render.get('displayHz', '?')} "
+              f"target={status_render.get('target', '?')} "
               f"resizes={status_render.get('resizes', '?')}")
     if hz:
         sharpen = comp.get("last_feedback", {}).get("sharpen", 0.0) if comp.get("last_feedback") else 0.0

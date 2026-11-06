@@ -417,10 +417,11 @@ public class VisionVR extends MCVR {
             VisionRenderSettings rs = statusRenderer.renderSettingsSnapshot();
             renderSummary = String.format(java.util.Locale.ROOT,
                 "eyeTarget=%dx%d displayLogical=%dx%d drawable=%dx%d foveation=%d rateMaps=%d "
-                    + "displayHz=%.1f scale=%.2f(%s) resizes=%d valid=%d",
+                    + "displayHz=%.1f target=%d(%s) scale=%.2f(%s) resizes=%d valid=%d",
                 statusRenderer.renderEyeTargetWidth(), statusRenderer.renderEyeTargetHeight(),
                 rs.leftLogicalWidth, rs.leftLogicalHeight, rs.drawableWidth, rs.drawableHeight,
                 rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz,
+                statusRenderer.targetHzOverride(), statusRenderer.targetHzSource(),
                 statusRenderer.eyeScaleValue(), statusRenderer.eyeScaleIsAuto() ? "auto" : "fixed",
                 statusRenderer.eyeResizeCount(), rs.valid ? 1 : 0);
         }

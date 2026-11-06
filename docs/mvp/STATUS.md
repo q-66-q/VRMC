@@ -254,3 +254,15 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   reuse → expiry → recovery ordered, compositor survived, final known pattern PASS; `render`
   regression PASS. The device candidate was rebuilt with the new framework (tree `6773acf1…`,
   framework `d53e148a…`, provider `e9a08c52…`, codesign PASS). **Device A6–A9 still NOT RUN.**
+
+- 2026-11-05 EV-0278: **M8 target-cadence override — pursue 120 Hz explicitly (host PASS).** New
+  game-dir knob `vrmc-target-hz.txt` (`auto` default, or 60..120 Hz, re-read live): the auto
+  eye-scale policy now aims at the configured frame deadline (e.g. 8.33 ms for 120 Hz) instead of only
+  the cadence the compositor measured (90/96/100/120 chosen by the system), so the provider can keep
+  frames inside the shorter deadline and the system may promote the display. The achieved rate is still
+  measured and reported (compositor `displayHz`), never assumed; the target is logged, in render state
+  and in `vrmc-status.json`, and the device checker reports it without using it for classification.
+  Verified with 27 new provider checks, `--target-hz` in the push script (30 self-test checks), and a
+  real Minecraft Fabric harness run with `TARGET_HZ=100` (`target cadence: 100 Hz (file)…`, resize
+  path unaffected); provider jar `144d47a7…` (137,501 B, two-build reproducible). **Device A6–A9 still
+  NOT RUN.**

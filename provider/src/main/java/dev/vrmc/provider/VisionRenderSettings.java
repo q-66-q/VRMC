@@ -201,6 +201,40 @@ public final class VisionRenderSettings {
     }
 
     /**
+     * M8 target-cadence knob ({"auto"} or a supported Hz value): the auto eye-scale policy normally
+     * aims at the cadence the compositor measured (90/96/100/120 Hz, chosen by the system). The
+     * override lets the operator aim at a higher rate instead (e.g. set 120 while the system still
+     * reports 90) so the provider keeps frames inside the shorter deadline and the system can promote
+     * the display; if the device cannot hold it, the eye scale settles lower. Returns 0 for "auto"
+     * (follow the measured display), a positive Hz value for an override, or -1 for invalid input.
+     */
+    public static final int MIN_TARGET_HZ = 60;
+    public static final int MAX_TARGET_HZ = 120;
+
+    public static int parseTargetHz(String text) {
+        if (text == null) return 0;
+        String value = text.trim();
+        if (value.isEmpty() || value.equalsIgnoreCase("auto")) return 0;
+        try {
+            int hz = Integer.parseInt(value);
+            return (hz >= MIN_TARGET_HZ && hz <= MAX_TARGET_HZ) ? hz : -1;
+        } catch (NumberFormatException malformed) {
+            return -1;
+        }
+    }
+
+    /**
+     * Frame interval used by the auto eye-scale policy: the operator override when one is configured,
+     * otherwise the cadence the compositor measured (with the usual fallback when it is not finite).
+     */
+    public static double targetIntervalMsFor(float displayHz, int overrideHz) {
+        if (overrideHz >= MIN_TARGET_HZ && overrideHz <= MAX_TARGET_HZ) {
+            return 1000.0 / (double)overrideHz;
+        }
+        return targetIntervalMs(displayHz);
+    }
+
+    /**
      * Auto render-scale decision from the provider's own measured frame pacing. One step per call,
      * with hysteresis: drop when repeated frames / slow p50; raise only with clear headroom. Pure and
      * deterministic so the host test can exhaustively check the bounds and monotonic behaviour.

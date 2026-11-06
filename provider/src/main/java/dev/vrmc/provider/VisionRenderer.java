@@ -86,6 +86,10 @@ public class VisionRenderer extends VRRenderer {
     private int eyeResizeCount;
     private long lastEyeResizeFrame = -1000L;
     private long lastEyeScaleReadFrame = -1000L;
+    /** M8 target cadence override (game dir vrmc-target-hz.txt): 0 = follow measured, else 60..120 Hz. */
+    private int targetHzOverride = 0;
+    private String targetHzSource = "auto(display)";
+    private long lastTargetHzReadFrame = -1000L;
     /** Frame index when the world level became non-null (-1 = no level yet); drives resize gating. */
     private long levelLoadedFrame = -1L;
     private boolean loggedM8State;
@@ -340,12 +344,13 @@ public class VisionRenderer extends VRRenderer {
         if (rs.valid) {
             System.out.println(String.format(java.util.Locale.ROOT,
                 "[VRMC-M8] render state frame=%d eyeTarget=%dx%d logical=%dx%d drawable=%dx%d "
-                    + "foveation=%d rateMaps=%d displayHz=%.1f quality=%.2f/%.2f scale=%.2f(%s) "
-                    + "resizes=%d",
+                    + "foveation=%d rateMaps=%d displayHz=%.1f target=%d(%s) quality=%.2f/%.2f "
+                    + "scale=%.2f(%s) resizes=%d",
                 this.frameIndex, this.currentEyeWidth, this.currentEyeHeight,
                 rs.leftLogicalWidth, rs.leftLogicalHeight, rs.drawableWidth, rs.drawableHeight,
-                rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz, rs.renderQuality,
-                rs.maxRenderQuality, this.eyeScale, this.eyeScaleSource, this.eyeResizeCount));
+                rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz, this.targetHzOverride,
+                this.targetHzSource, rs.renderQuality, rs.maxRenderQuality, this.eyeScale,
+                this.eyeScaleSource, this.eyeResizeCount));
         } else if (!this.loggedM8State) {
             this.loggedM8State = true;
             System.out.println("[VRMC-M8] render state: no display feedback yet (compositor immersive "
@@ -547,6 +552,7 @@ public class VisionRenderer extends VRRenderer {
             System.out.println("[VRMC-M8] " + settings.describe());
         }
         maybeReadEyeScale();
+        maybeReadTargetHz();
         maybeAdaptEyeScale(settings);
         maybeResizeEyeTargets(settings);
     }
@@ -600,13 +606,64 @@ public class VisionRenderer extends VRRenderer {
     }
 
     /**
+     * Re-read the target-cadence knob every ~300 frames (the operator may push it while playing).
+     * "auto" (default) follows the display cadence the compositor measured; 90/96/100/120 lets the
+     * operator aim at a higher rate so the provider keeps frames inside the shorter deadline and the
+     * system can promote the display (if the device cannot hold it, the eye scale settles lower).
+     */
+    private void maybeReadTargetHz() {
+        if (this.frameIndex - this.lastTargetHzReadFrame < 300L) return;
+        this.lastTargetHzReadFrame = this.frameIndex;
+        String value = "auto";
+        try {
+            java.io.File gameDir = Minecraft.getInstance().gameDirectory;
+            if (gameDir != null) {
+                java.io.File knob = new java.io.File(gameDir, "vrmc-target-hz.txt");
+                if (knob.isFile()) {
+                    String text = java.nio.file.Files.readString(knob.toPath()).trim();
+                    if (!text.isEmpty()) value = text;
+                }
+            }
+        } catch (RuntimeException | java.io.IOException ignored) {
+            // keep the current target when the knob file is unreadable
+        }
+        int parsed = VisionRenderSettings.parseTargetHz(value);
+        if (parsed < 0) {
+            System.out.println("[VRMC-M8] target cadence: ignoring invalid value '" + value
+                + "' (expected auto or " + VisionRenderSettings.MIN_TARGET_HZ + ".."
+                + VisionRenderSettings.MAX_TARGET_HZ + " Hz)");
+            return;
+        }
+        if (parsed != this.targetHzOverride) {
+            this.targetHzOverride = parsed;
+            this.targetHzSource = parsed > 0 ? (parsed + "Hz(file)") : "auto(display)";
+            if (parsed > 0) {
+                System.out.println(String.format(java.util.Locale.ROOT,
+                    "[VRMC-M8] target cadence: %d Hz (file) - auto eye scale now aims at %.2f ms frames "
+                        + "instead of the measured display cadence", parsed, 1000.0 / parsed));
+            } else {
+                System.out.println("[VRMC-M8] target cadence: auto (file) - following the measured "
+                    + "display cadence");
+            }
+        }
+    }
+
+    /** M8 target cadence override (0 = auto/follow measured display); exposed for the status JSON. */
+    public int targetHzOverride() { return this.targetHzOverride; }
+
+    /** Human-readable target cadence source ("auto(display)" or "120Hz(file)"). */
+    public String targetHzSource() { return this.targetHzSource; }
+
+    /**
      * Auto eye-scale adaptation from the renderer's own frame pacing against the display cadence the
-     * compositor measured. Steps are small and gated: one down-step on misses/slow p50, up only after
-     * consecutive headroom windows and never immediately after a drop.
+     * compositor measured (or the operator's target-cadence override). Steps are small and gated: one
+     * down-step on misses/slow p50, up only after consecutive headroom windows and never immediately
+     * after a drop.
      */
     private void maybeAdaptEyeScale(VisionRenderSettings settings) {
         if (!this.eyeScaleAuto || this.frameIndex == 0L || (this.frameIndex % 240L) != 0L) return;
-        final double targetMs = VisionRenderSettings.targetIntervalMs(settings.displayHz);
+        final double targetMs = VisionRenderSettings.targetIntervalMsFor(settings.displayHz,
+            this.targetHzOverride);
         VisionFrameStats.Snapshot stats = this.renderFrameStats.snapshotAndReset(targetMs);
         if (stats.samples <= 0) return;
         final boolean struggling = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
@@ -633,9 +690,10 @@ public class VisionRenderer extends VRRenderer {
         }
         if (Math.abs(this.eyeScale - previous) > 1.0e-3f) {
             System.out.println(String.format(java.util.Locale.ROOT,
-                "[VRMC-M8] eye scale auto: %.2f -> %.2f (displayHz=%.1f target=%.2fms p50=%.2fms "
+                "[VRMC-M8] eye scale auto: %.2f -> %.2f (displayHz=%.1f target=%.2fms %s p50=%.2fms "
                     + "p95=%.2fms missed=%d/%d)", previous, this.eyeScale, settings.displayHz,
-                targetMs, stats.p50Ms, stats.p95Ms, stats.missed90HzFrames, stats.samples));
+                targetMs, this.targetHzSource, stats.p50Ms, stats.p95Ms,
+                stats.missed90HzFrames, stats.samples));
         }
     }
 

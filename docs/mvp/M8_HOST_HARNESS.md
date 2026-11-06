@@ -43,6 +43,8 @@ Requirements (none committed to the repo):
 
 ```bash
 VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 scripts/m8_host_harness.sh
+# optional M8 target-cadence knob exercised in the same real client (provider re-reads it every ~300 frames):
+VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 TARGET_HZ=100 scripts/m8_host_harness.sh
 # options: --timeout <seconds> (default 240), --keep-running (leave the dev client up)
 ```
 
