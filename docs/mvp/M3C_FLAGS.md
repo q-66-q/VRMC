@@ -76,3 +76,25 @@ scripts/m3c_pull_and_check.sh --from <dir>       # analyse an existing pull
 
 Device procedure for the immersive input work: [M4_DEVICE_RUN.md](M4_DEVICE_RUN.md). Design/ABI:
 [docs/analysis/immersive-input.md](../analysis/immersive-input.md).
+
+## M8 foveated rendering / 4K/120 flags (2026-11-05)
+
+Design and acceptance: [M8_PLAN.md](M8_PLAN.md). All are optional; the defaults are the M8 feature path
+(foveation on when supported, max render quality 1.0, auto eye scale).
+
+| Flag / file | Where | Effect |
+|---|---|---|
+| `vrmc-foveation-off.flag` | Documents/ (shell) | A/B: do not request CompositorServices foveation even when the layer supports it (falls back to uniform rasterization). Read once when the immersive layer is configured. |
+| `vrmc-max-render-quality.txt` | Documents/ (shell) | Content a number 0.05..1.0: pins `LayerRenderer.Configuration.maxRenderQuality` (upper bound for drawable resolution **and** allocated memory). Absent = 1.0 (device maximum). Read when the immersive layer is configured. |
+| `vrmc-render-quality.txt` | Documents/ (compositor) | Content `auto` = adaptive runtime quality from measured presentation cadence; a number 0.0..1.0 pins the runtime render quality (clamped to the configured maximum). Absent = fixed at the configured maximum. Read at compositor start. |
+| `vrmc-quality-auto.flag` | Documents/ (compositor) | Same as `vrmc-render-quality.txt=auto` when the txt file is absent. |
+| `vrmc-eye-scale.txt` | Minecraft game dir (`Documents/instances/default/`) | Provider eye-target scale relative to the display's logical per-eye size: `auto` (default; adaptive 0.25..1.0 from the provider's own frame pacing vs the measured display cadence) or a number 0.25..1.0 (fixed; no resizes). Re-read every ~600 frames, so on-device tuning needs no relaunch. `-Dvrmc.eyeScale=` is the JVM-arg fallback. |
+
+Expected M8 log lines: shell `layer config: supportsFoveation=... defaultRenderQuality=... maxRenderQuality=... supportedLayouts=...`
+and `layer config: layout=... foveation=...`; compositor `layer configuration ... foveation=... maxRenderQuality=...`
+→ `render quality: ...` → `frame pacing: minimumFrameRepeatCount=0 ...` → `foveation: ENABLED ...` or
+`foveation: disabled (...)` → `foveation rate map ...` → `render feedback published: logical L=... R=...`
+→ `display geometry: logical L=... physical drawable=...` → periodic `render feedback: displayHz=...
+presentHz=... p50=... p95=... repeats=...`; provider `[VRMC-M8] render settings: logical L=... displayHz=...
+` → `[VRMC-M8] eye target resize #N: ...`. The simulator plumbing scenario is
+`runtime/probes/m3c-provider-sim/run.sh render`.

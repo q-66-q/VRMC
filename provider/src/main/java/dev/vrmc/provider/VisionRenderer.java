@@ -36,8 +36,13 @@ import dev.vrmc.provider.bridge.VrmcBridge;
  * image of the current frame (GPU completion is the bridge's job, not the Java side's).
  */
 public class VisionRenderer extends VRRenderer {
-    private static final int EYE_WIDTH = Integer.getInteger("vrmc.eyeWidth", 1024);
-    private static final int EYE_HEIGHT = Integer.getInteger("vrmc.eyeHeight", 1024);
+    /**
+     * M8 default per-eye render target before the compositor's display feedback arrives. The old M2
+     * renderer used this as a fixed size forever; it is now only the bring-up/fallback size, and the
+     * compositor's logical display geometry (plus the eye-scale policy below) drives the real size.
+     */
+    private static final int DEFAULT_EYE_WIDTH = Integer.getInteger("vrmc.eyeWidth", 1024);
+    private static final int DEFAULT_EYE_HEIGHT = Integer.getInteger("vrmc.eyeHeight", 1024);
     /** Half of the (square) per-eye render FOV, in radians. Vision Pro's per-eye FOV fits inside 110°. */
     private static final float EYE_HALF_FOV_RAD =
         0.5F * Mth.DEG_TO_RAD * Float.parseFloat(System.getProperty("vrmc.eyeFovDeg", "110"));
@@ -51,6 +56,36 @@ public class VisionRenderer extends VRRenderer {
     private static final int CAPTURE_MAX = Integer.getInteger("vrmc.captureMax", 3);
     /** Per-frame render-state diagnostics interval (0 disables). Mirrors the tracking-frame cadence. */
     private static final int DIAG_EVERY = Integer.getInteger("vrmc.diagEvery", 300);
+    /**
+     * M8 render feedback: the compositor publishes the display's LOGICAL per-eye size (the size that
+     * maps 1:1 to displayed pixels in the fovea), the physical foveated drawable extent and the
+     * measured display cadence. The provider renders its stereo eye targets at
+     * logical size x eyeScale and adapts eyeScale to hold the display cadence. This is what replaces
+     * the fixed 1024x1024 upscaled to the headset viewport (the visible softness/jaggedness).
+     *
+     * <p>Eye-scale knob: {@code -Dvrmc.eyeScale=auto|0.25..1.0} or the game-directory file
+     * {@code vrmc-eye-scale.txt} (same content; re-read every ~600 frames so on-device tuning needs no
+     * rebuild/relaunch). "auto" (default) starts at AUTO_INITIAL_SCALE and steps 0.05 up / 0.10 down
+     * every ~240 frames from the renderer's own frame pacing against the measured display interval.
+     */
+    private final java.nio.ByteBuffer renderSettingsBuffer =
+        java.nio.ByteBuffer.allocateDirect(VrmcBridge.RENDER_SETTINGS_BYTES).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+    private final VisionFrameStats renderFrameStats = new VisionFrameStats(240);
+    private long lastFrameNanos;
+    private VisionRenderSettings renderSettings = VisionRenderSettings.none();
+    private boolean loggedRenderSettings;
+    private boolean loggedNoRenderSettings;
+    private int renderSettingsErrors;
+    private boolean eyeScaleAuto = true;
+    private float eyeScale = VisionRenderSettings.AUTO_INITIAL_SCALE;
+    private String eyeScaleSource = "auto(default)";
+    private int headroomWindows;
+    private int raiseHoldWindows;
+    private int currentEyeWidth = DEFAULT_EYE_WIDTH;
+    private int currentEyeHeight = DEFAULT_EYE_HEIGHT;
+    private int eyeResizeCount;
+    private long lastEyeResizeFrame = -1000L;
+    private long lastEyeScaleReadFrame = -1000L;
     private long frameIndex;
     private boolean polled;
     private boolean loggedNoHandle;
@@ -91,9 +126,10 @@ public class VisionRenderer extends VRRenderer {
     @Override
     public Vector2ic getRenderTextureSizes() {
         if (this.resolution == null) {
-            this.resolution = new Vector2i(EYE_WIDTH, EYE_HEIGHT);
+            this.resolution = new Vector2i(this.currentEyeWidth, this.currentEyeHeight);
             this.ss = -1.0F;
-            System.out.println("[VRMC-M2] render texture size " + EYE_WIDTH + "x" + EYE_HEIGHT);
+            System.out.println("[VRMC-M8] render texture size " + this.currentEyeWidth + "x"
+                + this.currentEyeHeight + " (default until the compositor reports display geometry)");
         }
         return this.resolution;
     }
@@ -133,6 +169,13 @@ public class VisionRenderer extends VRRenderer {
 
     @Override
     public void createRenderTexture(int width, int height) {
+        this.currentEyeWidth = width;
+        this.currentEyeHeight = height;
+        this.resolution = new Vector2i(width, height);
+        System.out.println("[VRMC-M8] creating eye targets " + width + "x" + height + " (scale="
+            + String.format(java.util.Locale.ROOT, "%.2f", this.eyeScale) + " source="
+            + this.eyeScaleSource + " displayLogical=" + this.renderSettings.leftLogicalWidth + "x"
+            + this.renderSettings.leftLogicalHeight + " resizes=" + this.eyeResizeCount + ")");
         for (int i = 0; i < 2; i++) {
             this.framebufferEye[i] = VRTextureTarget.builder((i == 0 ? "L" : "R") + " Eye")
                 .withSize(width, height)
@@ -145,6 +188,9 @@ public class VisionRenderer extends VRRenderer {
 
     @Override
     public void endFrame() {
+        final long frameNanos = System.nanoTime();
+        if (this.lastFrameNanos != 0L) this.renderFrameStats.record(frameNanos - this.lastFrameNanos);
+        this.lastFrameNanos = frameNanos;
         if (this.framebufferEye[0] == null || this.framebufferEye[1] == null) {
             return;
         }
@@ -162,7 +208,11 @@ public class VisionRenderer extends VRRenderer {
             }
             this.lastLeftHandle = lt;
             this.lastRightHandle = rt;
-            int rc = submitEyes(lt, rt);
+            // Report the ACTUAL current eye-target size (not the pending resize target): a resize only
+            // takes effect on the next render-target reinit, so one frame may still submit the old size.
+            final int eyeWidth = this.framebufferEye[0].width;
+            final int eyeHeight = this.framebufferEye[0].height;
+            int rc = submitEyes(lt, rt, eyeWidth, eyeHeight);
             if (rc != 0) {
                 VRSettings.LOGGER.warn("VRMC: submitEyes failed rc={}", rc);
             }
@@ -176,6 +226,7 @@ public class VisionRenderer extends VRRenderer {
         this.polled = false;
         maybeLogDiag();
         maybeCaptureEyeTargets();
+        pollRenderSettings();
         this.frameIndex++;
     }
 
@@ -368,7 +419,7 @@ public class VisionRenderer extends VRRenderer {
      * ({@code submitEyesSynced}) so the compositor can wait on the exact GPU frame before sampling; any
      * problem falls back to the unsynchronized {@code submitEyes} call for that frame and logs once.
      */
-    private int submitEyes(long lt, long rt) {
+    private int submitEyes(long lt, long rt, int eyeWidth, int eyeHeight) {
         long syncEvent = 0L;
         long syncValue = 0L;
         GpuEyeSync sync = this.gpuSync;
@@ -381,8 +432,8 @@ public class VisionRenderer extends VRRenderer {
         }
         if (syncEvent != 0L) {
             try {
-                int rc = VrmcBridge.submitEyesSynced(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT,
-                    EYE_HALF_FOV_RAD, syncEvent, syncValue);
+                int rc = VrmcBridge.submitEyesSynced(lt, rt, (int) this.frameIndex, eyeWidth,
+                    eyeHeight, EYE_HALF_FOV_RAD, syncEvent, syncValue);
                 if (!this.loggedSyncedSubmit) {
                     this.loggedSyncedSubmit = true;
                     System.out.printf(
@@ -398,8 +449,175 @@ public class VisionRenderer extends VRRenderer {
                 this.gpuSync = null;
             }
         }
-        return VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, EYE_WIDTH, EYE_HEIGHT,
+        return VrmcBridge.submitEyes(lt, rt, (int) this.frameIndex, eyeWidth, eyeHeight,
             EYE_HALF_FOV_RAD);
+    }
+
+    /**
+     * M8: poll the compositor's render feedback once per rendered frame (cheap direct-buffer copy, no
+     * allocation on the happy path), adapt the eye scale and resize the stereo eye targets when the
+     * display geometry changed. Fail-safe: an old bridge without the symbol, a short buffer or an
+     * unpublished payload keeps the current target and never throws into the render loop.
+     */
+    private void pollRenderSettings() {
+        int rc;
+        try {
+            rc = VrmcBridge.pollRenderSettings(this.renderSettingsBuffer);
+        } catch (UnsatisfiedLinkError oldBridge) {
+            if (!this.loggedNoRenderSettings) {
+                this.loggedNoRenderSettings = true;
+                System.out.println("[VRMC-M8] bridge dylib has no render feedback (nativePollRenderSettings): "
+                    + "keeping the default " + this.currentEyeWidth + "x" + this.currentEyeHeight
+                    + " eye target; presentation/eye submission unaffected");
+            }
+            return;
+        } catch (RuntimeException bridgeError) {
+            if (this.renderSettingsErrors++ == 0) {
+                System.out.println("[VRMC-M8] render feedback poll failed (" + bridgeError
+                    + "); keeping the current eye target");
+            }
+            return;
+        }
+        if (rc != 0) {
+            if (this.renderSettingsErrors++ == 0) {
+                System.out.println("[VRMC-M8] render feedback poll rc=" + rc
+                    + "; keeping the current eye target");
+            }
+            return;
+        }
+        VisionRenderSettings settings = VisionRenderSettings.parse(this.renderSettingsBuffer);
+        if (!settings.valid) {
+            if (!this.loggedNoRenderSettings) {
+                this.loggedNoRenderSettings = true;
+                System.out.println("[VRMC-M8] render settings: none published yet (compositor immersive "
+                    + "layer not up or old bridge); keeping " + this.currentEyeWidth + "x"
+                    + this.currentEyeHeight + " eye target");
+            }
+            return;
+        }
+        this.renderSettings = settings;
+        if (!this.loggedRenderSettings) {
+            this.loggedRenderSettings = true;
+            System.out.println("[VRMC-M8] " + settings.describe());
+        }
+        maybeReadEyeScale();
+        maybeAdaptEyeScale(settings);
+        maybeResizeEyeTargets(settings);
+    }
+
+    /** Re-read the eye-scale knob (system property or game-dir file) every ~600 frames. */
+    private void maybeReadEyeScale() {
+        if (this.frameIndex - this.lastEyeScaleReadFrame < 600L) return;
+        this.lastEyeScaleReadFrame = this.frameIndex;
+        String value = System.getProperty("vrmc.eyeScale", "");
+        try {
+            java.io.File gameDir = Minecraft.getInstance().gameDirectory;
+            if (gameDir != null) {
+                java.io.File knob = new java.io.File(gameDir, "vrmc-eye-scale.txt");
+                if (knob.isFile()) {
+                    String text = java.nio.file.Files.readString(knob.toPath()).trim();
+                    if (!text.isEmpty()) value = text;
+                }
+            }
+        } catch (RuntimeException | java.io.IOException ignored) {
+            // keep the property/default when the knob file is unreadable
+        }
+        if (value == null || value.isEmpty()) value = "auto";
+        if (value.equalsIgnoreCase("auto")) {
+            if (!this.eyeScaleAuto) {
+                this.eyeScaleAuto = true;
+                this.eyeScale = VisionRenderSettings.AUTO_INITIAL_SCALE;
+                this.eyeScaleSource = "auto(file)";
+                System.out.println("[VRMC-M8] eye scale: auto (start "
+                    + String.format(java.util.Locale.ROOT, "%.2f", this.eyeScale) + ")");
+            }
+            return;
+        }
+        try {
+            float parsed = Float.parseFloat(value);
+            if (parsed >= VisionRenderSettings.MIN_SCALE && parsed <= VisionRenderSettings.MAX_SCALE) {
+                if (this.eyeScaleAuto || Math.abs(parsed - this.eyeScale) > 1.0e-3f) {
+                    System.out.println("[VRMC-M8] eye scale: fixed " + String.format(java.util.Locale.ROOT,
+                        "%.2f", parsed) + " (was " + this.eyeScaleSource + ")");
+                }
+                this.eyeScaleAuto = false;
+                this.eyeScale = parsed;
+                this.eyeScaleSource = "fixed(file)";
+            } else {
+                System.out.println("[VRMC-M8] eye scale: ignoring out-of-range value '" + value
+                    + "' (expected auto or " + VisionRenderSettings.MIN_SCALE + ".."
+                    + VisionRenderSettings.MAX_SCALE + ")");
+            }
+        } catch (NumberFormatException malformed) {
+            System.out.println("[VRMC-M8] eye scale: ignoring unparsable value '" + value + "'");
+        }
+    }
+
+    /**
+     * Auto eye-scale adaptation from the renderer's own frame pacing against the display cadence the
+     * compositor measured. Steps are small and gated: one down-step on misses/slow p50, up only after
+     * consecutive headroom windows and never immediately after a drop.
+     */
+    private void maybeAdaptEyeScale(VisionRenderSettings settings) {
+        if (!this.eyeScaleAuto || this.frameIndex == 0L || (this.frameIndex % 240L) != 0L) return;
+        final double targetMs = VisionRenderSettings.targetIntervalMs(settings.displayHz);
+        VisionFrameStats.Snapshot stats = this.renderFrameStats.snapshotAndReset(targetMs);
+        if (stats.samples <= 0) return;
+        final boolean struggling = stats.missed90HzFrames >= Math.max(3, stats.samples / 10)
+            || stats.p50Ms > targetMs * 1.25;
+        final boolean headroom = stats.missed90HzFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
+        final float previous = this.eyeScale;
+        if (struggling) {
+            this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale, stats.missed90HzFrames,
+                stats.samples, stats.p50Ms, targetMs);
+            this.headroomWindows = 0;
+            this.raiseHoldWindows = 3;
+        } else if (this.raiseHoldWindows > 0) {
+            this.raiseHoldWindows--;
+        } else if (headroom) {
+            this.headroomWindows++;
+            if (this.headroomWindows >= 2) {
+                this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale, 0, stats.samples,
+                    stats.p50Ms, targetMs);
+                this.headroomWindows = 0;
+                this.raiseHoldWindows = 1;
+            }
+        } else {
+            this.headroomWindows = 0;
+        }
+        if (Math.abs(this.eyeScale - previous) > 1.0e-3f) {
+            System.out.println(String.format(java.util.Locale.ROOT,
+                "[VRMC-M8] eye scale auto: %.2f -> %.2f (displayHz=%.1f target=%.2fms p50=%.2fms "
+                    + "p95=%.2fms missed=%d/%d)", previous, this.eyeScale, settings.displayHz,
+                targetMs, stats.p50Ms, stats.p95Ms, stats.missed90HzFrames, stats.samples));
+        }
+    }
+
+    /** Resize the stereo eye targets to the current logical display size x eye scale. */
+    private void maybeResizeEyeTargets(VisionRenderSettings settings) {
+        int[] target = VisionRenderSettings.eyeTarget(settings, this.eyeScale);
+        if (target == null) return;
+        if (!VisionRenderSettings.isChangeSignificant(this.currentEyeWidth, this.currentEyeHeight,
+            target[0], target[1])) {
+            return;
+        }
+        // A resize destroys/recreates both eye VkImages and rebuilds every render target; do it at most
+        // every 240 frames (~2 s at 120 Hz) and never during the first 60 frames of a session.
+        if (this.frameIndex < 60L || this.frameIndex - this.lastEyeResizeFrame < 240L) return;
+        final int oldWidth = this.currentEyeWidth;
+        final int oldHeight = this.currentEyeHeight;
+        this.lastEyeResizeFrame = this.frameIndex;
+        this.currentEyeWidth = target[0];
+        this.currentEyeHeight = target[1];
+        this.resolution = new Vector2i(target[0], target[1]);
+        this.eyeResizeCount++;
+        System.out.println(String.format(java.util.Locale.ROOT,
+            "[VRMC-M8] eye target resize #%d: %dx%d -> %dx%d (logical=%dx%d scale=%.2f %s; "
+                + "displayHz=%.1f quality=%.2f/%.2f)",
+            this.eyeResizeCount, oldWidth, oldHeight, target[0], target[1],
+            settings.leftLogicalWidth, settings.leftLogicalHeight, this.eyeScale, this.eyeScaleSource,
+            settings.displayHz, settings.renderQuality, settings.maxRenderQuality));
+        reinitFrameBuffers("VRMC M8 eye target " + target[0] + "x" + target[1]);
     }
 
     @Override

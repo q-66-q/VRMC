@@ -1,19 +1,45 @@
 /*
  * Host concurrency test for the additive native-shared channels written after ABI v3:
- * display views, gaze mailbox, game-stopping signal and tracking override.
+ * display views, gaze mailbox, game-stopping signal, tracking override and the M8 render-feedback
+ * channel (compositor -> provider display geometry/cadence).
  *
- * One writer thread publishes display views/gaze/tracking/game-stopping while one reader thread
- * consumes them; checks generation monotonicity, payload sanity, gaze consumption and no crashes.
- * Also run under ThreadSanitizer by bridge/tests/run_tests.sh: any data race is fatal.
+ * One writer thread publishes display views/gaze/tracking/game-stopping/render settings while one
+ * reader thread consumes them; checks generation monotonicity, payload sanity, gaze consumption,
+ * render-settings round-trip/validation and no crashes. Also run under ThreadSanitizer by
+ * bridge/tests/run_tests.sh: any data race is fatal.
  */
 #include "vrmc_abi.h"
 #include "vrmc_native_shared.h"
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+/* M8 render-feedback wire layout: the Java side mirrors these exact sizes/offsets
+ * (provider/tests/.../VisionRenderSettingsTest.java + VrmcBridge.RS_OFF_*), so a field reorder here
+ * that is not propagated breaks the build instead of silently mis-sizing the provider's eye targets. */
+_Static_assert(VRMC_RENDER_SETTINGS_VERSION == 1u, "render settings version must stay 1");
+_Static_assert(sizeof(vrmc_render_settings) == 68, "vrmc_render_settings must stay 68 bytes");
+_Static_assert(offsetof(vrmc_render_settings, version) == 0, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, valid) == 4, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, frame_index) == 8, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, foveation_enabled) == 12, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, rate_map_count) == 16, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, left_logical_width) == 20, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, left_logical_height) == 24, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, right_logical_width) == 28, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, right_logical_height) == 32, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, drawable_width) == 36, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, drawable_height) == 40, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, render_quality) == 44, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, max_render_quality) == 48, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, display_hz) == 52, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, frame_time_ms) == 56, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, provider_eye_width) == 60, "render settings offsets");
+_Static_assert(offsetof(vrmc_render_settings, provider_eye_height) == 64, "render settings offsets");
 
 #define PUBLISHES 20000
 static _Atomic int g_failures;
@@ -57,6 +83,26 @@ static void *writer(void *arg) {
         t.ipd_m = 0.064f;
         if (i % 7 == 0) vrmc_shared_clear_tracking();
         else if (vrmc_shared_set_tracking(&t) != 0) fail("set tracking rc", i, 0);
+
+        /* M8 render feedback: compositor-style publication of display geometry/cadence. */
+        vrmc_render_settings rs;
+        memset(&rs, 0, sizeof(rs));
+        rs.version = VRMC_RENDER_SETTINGS_VERSION;
+        rs.valid = 1;
+        rs.frame_index = (uint32_t)i;
+        rs.foveation_enabled = (i & 1) ? 1u : 0u;
+        rs.rate_map_count = rs.foveation_enabled ? 2u : 0u;
+        rs.left_logical_width = 3660u;
+        rs.left_logical_height = 3200u;
+        rs.right_logical_width = 3660u;
+        rs.right_logical_height = 3200u;
+        rs.drawable_width = 2412u;
+        rs.drawable_height = 2108u;
+        rs.render_quality = 0.25f + (float)(i % 4) * 0.25f;
+        rs.max_render_quality = 1.0f;
+        rs.display_hz = (i & 1) ? 120.0f : 90.0f;
+        rs.frame_time_ms = 1000.0f / rs.display_hz;
+        if (vrmc_shared_publish_render_settings(&rs) != 0) fail("publish render settings rc", i, 0);
     }
     atomic_store(&g_done, 1);
     return NULL;
@@ -97,6 +143,30 @@ static void *reader(void *arg) {
         int trc = vrmc_get_tracking(&t, (uint64_t)polls);
         if (trc != 0) fail("get tracking rc", trc, 0);
         if (t.ipd_m < 0.05f || t.ipd_m > 0.1f) fail("tracking ipd out of range", (long)(t.ipd_m * 1e6f), 0);
+
+        vrmc_render_settings rs;
+        int rsrc = vrmc_shared_acquire_render_settings(&rs);
+        if (rsrc != 0) fail("acquire render settings rc", rsrc, 0);
+        if (rs.valid != 0 && rs.valid != 1) fail("render settings valid not boolean", (long)rs.valid, 0);
+        if (rs.version != VRMC_RENDER_SETTINGS_VERSION) fail("render settings version", (long)rs.version, 0);
+        if (rs.valid) {
+            if (rs.left_logical_width != 3660u || rs.left_logical_height != 3200u ||
+                rs.right_logical_width != 3660u || rs.right_logical_height != 3200u) {
+                fail("render settings logical size torn", (long)rs.left_logical_width, (long)rs.left_logical_height);
+            }
+            if (!(rs.render_quality >= 0.0f && rs.render_quality <= 1.0f) ||
+                !(rs.max_render_quality >= rs.render_quality)) {
+                fail("render settings quality out of range",
+                     (long)(rs.render_quality * 1000.0f), (long)(rs.max_render_quality * 1000.0f));
+            }
+            if (!(rs.display_hz == 90.0f || rs.display_hz == 120.0f)) {
+                fail("render settings cadence torn", (long)(rs.display_hz * 10.0f), 0);
+            }
+            if ((rs.foveation_enabled == 1u) != (rs.rate_map_count == 2u)) {
+                fail("render settings foveation/rate-map mismatch",
+                     (long)rs.foveation_enabled, (long)rs.rate_map_count);
+            }
+        }
         polls++;
         if (polls % 1000 == 0) usleep(100);
     }
@@ -117,6 +187,14 @@ int main(void) {
     vrmc_display_views dv;
     if (vrmc_shared_get_display_views(&dv) == 0) fail("final display generation", 0, 0);
     if (atomic_load(&g_gaze_consumed) <= 0) fail("no gaze events consumed", 0, 0);
+    // M8 render feedback: the last publication is retained (same lifetime rule as display views; it is
+    // deliberately NOT cleared by vrmc_init so a compositor publication made before the JVM starts
+    // survives the provider handshake).
+    vrmc_render_settings rs;
+    if (vrmc_shared_acquire_render_settings(&rs) != 0 || rs.valid != 1 ||
+        rs.frame_index != (uint32_t)(PUBLISHES - 1)) {
+        fail("final render settings publication", (long)rs.valid, (long)rs.frame_index);
+    }
 
     int failures = atomic_load(&g_failures);
     printf("[bridge-shared-test] publishes=%d gazeConsumed=%d failures=%d\n",

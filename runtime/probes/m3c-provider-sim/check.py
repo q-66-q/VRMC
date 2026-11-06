@@ -13,6 +13,11 @@ Scenarios:
       framing, right-pinch threshold crossings (below pinchOn / above pinchOff), left-fist ratio
       crossings (below fistOn / above fistOff), and a final zeroed release frame (valid_mask=0), with
       no compositor input errors. Plumbing evidence only - NOT hands evidence.
+  --require-render   : M8 render-feedback scenario. The real compositor must publish display geometry
+      + cadence through the native-shared channel (render-capture.txt: >=3 valid payloads with sane
+      logical/physical sizes, quality, cadence) and log the layer configuration, foveation state,
+      fixed runtime quality, minimumFrameRepeatCount=0 and the render-feedback summary lines.
+      Plumbing evidence only - simulator display sizes/rates are NOT device optics/refresh evidence.
 
 Every scenario also requires the shell log to show the immersive scene foreground-active.
 
@@ -47,6 +52,27 @@ def parse_input_capture(path):
                 raise SystemExit(f"malformed input capture line {line_no}: {line}")
     return records
 
+def parse_render_capture(path):
+    """Return render-feedback payloads as tuples; raises SystemExit on malformed lines."""
+    records = []
+    with open(path, "r", errors="replace") as handle:
+        for line_no, line in enumerate(handle, 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(",")
+            if len(parts) != 15:
+                raise SystemExit(f"malformed render capture line {line_no} ({len(parts)} fields): {line}")
+            try:
+                records.append((int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3]),
+                                int(parts[4]), int(parts[5]), int(parts[6]), int(parts[7]),
+                                int(parts[8]), int(parts[9]), int(parts[10]),
+                                float(parts[11]), float(parts[12]), float(parts[13]),
+                                float(parts[14])))
+            except ValueError:
+                raise SystemExit(f"malformed render capture line {line_no}: {line}")
+    return records
+
 def load_rgba64(path):
     data = open(path, "rb").read()
     if len(data) != 64 * 64 * 4:
@@ -71,6 +97,7 @@ def main():
     reentry = "--reentry" in args
     pattern = "--pattern" in args
     require_input = "--require-input" in args
+    require_render = "--require-render" in args
 
     raw = os.path.join(out, "drawable-L.raw")
     if not os.path.exists(raw):
@@ -191,6 +218,40 @@ def main():
             err_ok = not errors_seen
             print(f"{'no compositor input errors':32s} {(str(errors_seen) if errors_seen else 'none'):24s} {'none':8s} {'PASS' if err_ok else 'FAIL'}")
             if not err_ok: failures += 1
+    if require_render:
+        # M8: the REAL compositor published display geometry + cadence to the provider channel. The
+        # fake provider captured every payload; assert the wire shape and the compositor log evidence.
+        capture_path = os.path.join(out, "render-capture.txt")
+        rows = parse_render_capture(capture_path) if os.path.exists(capture_path) else []
+        if not rows:
+            print(f"{'render feedback capture':32s} {'missing/empty':24s} {'>=3':8s} FAIL")
+            failures += 1
+        else:
+            count_ok = len(rows) >= 3
+            print(f"{'render feedback publishes':32s} {str(len(rows)):24s} {'>=3':8s} {'PASS' if count_ok else 'FAIL'}")
+            if not count_ok: failures += 1
+            shape_ok = all(
+                r[2] == 1 and r[3] >= 64 and r[4] >= 64 and r[5] >= 64 and r[6] >= 64
+                and 0.0 <= r[11] <= 1.0 and 0.0 <= r[12] <= 1.0 and r[12] >= r[11] - 1e-3
+                and r[13] >= 0.0 and r[14] >= 0.0 and r[9] in (0, 1)
+                for r in rows)
+            print(f"{'render payload shape/quality':32s} {('sane' if shape_ok else 'bad'):24s} {'sane':8s} {'PASS' if shape_ok else 'FAIL'}")
+            if not shape_ok: failures += 1
+            monotonic = all(rows[i][0] < rows[i + 1][0] for i in range(len(rows) - 1))
+            print(f"{'publish counter monotonic':32s} {('yes' if monotonic else 'no'):24s} {'yes':8s} {'PASS' if monotonic else 'FAIL'}")
+            if not monotonic: failures += 1
+            last = rows[-1]
+            print(f"  render feedback: logical L={last[3]}x{last[4]} R={last[5]}x{last[6]} "
+                  f"drawable={last[7]}x{last[8]} foveation={last[9]} rateMaps={last[10]} "
+                  f"quality={last[11]:.2f}/{last[12]:.2f} displayHz={last[13]:.1f} frame={last[14]:.2f}ms")
+            log_ok = ("render feedback published:" in text and "display geometry: logical L=" in text
+                      and "render quality:" in text and "frame pacing: minimumFrameRepeatCount=0" in text
+                      and "foveation:" in text and "layer configuration colorFormat=" in text)
+            print(f"{'compositor render log lines':32s} {('seen' if log_ok else 'missing'):24s} {'seen':8s} {'PASS' if log_ok else 'FAIL'}")
+            if not log_ok: failures += 1
+            no_errors = "render feedback publish FAILED" not in text
+            print(f"{'no render-feedback errors':32s} {('none' if no_errors else 'seen'):24s} {'none':8s} {'PASS' if no_errors else 'FAIL'}")
+            if not no_errors: failures += 1
     active_ok = "CPSceneSessionRoleImmersiveSpaceApplication:fgActive" in stext
     print(f"{'immersive scene fgActive':32s} {('seen' if active_ok else 'missing'):24s} {'seen':8s} {'PASS' if active_ok else 'FAIL'}")
     if not active_ok: failures += 1
@@ -202,6 +263,7 @@ def main():
     if require_parking: detail += " + window parking"
     if reentry: detail += " + background/foreground re-entry"
     if require_input: detail += " + synthetic-hand input publication/release (plumbing only, NOT hands evidence)"
+    if require_render: detail += " + M8 render feedback display-geometry/cadence publication (plumbing only)"
     print("[provider-sim] PASS: " + detail)
     return 0
 

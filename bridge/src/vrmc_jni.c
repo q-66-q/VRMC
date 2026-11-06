@@ -194,3 +194,20 @@ JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativeFrameTimin
     if (rc == 0) memcpy(dst, &t, sizeof(t));
     return (jint)rc;
 }
+
+/* M8: poll the compositor's render feedback (logical per-eye display size at the current render
+ * quality, physical foveated drawable extent, foveation/rate-map state, measured display cadence)
+ * into a preallocated direct ByteBuffer (VrmcBridge.RENDER_SETTINGS_BYTES). Return codes: -4 null
+ * buffer, -5 not a direct buffer, -6 short buffer; otherwise the native-shared acquire result, whose
+ * payload has valid=0 until the compositor publishes (never an error). */
+JNIEXPORT jint JNICALL Java_dev_vrmc_provider_bridge_VrmcBridge_nativePollRenderSettings(JNIEnv *env, jclass clazz, jobject buf) {
+    if (buf == NULL) return -4;
+    void *dst = (*env)->GetDirectBufferAddress(env, buf);
+    if (dst == NULL) return -5;
+    jlong capacity = (*env)->GetDirectBufferCapacity(env, buf);
+    if (capacity < (jlong)sizeof(vrmc_render_settings)) return -6;
+    vrmc_render_settings settings;
+    int32_t rc = vrmc_shared_acquire_render_settings(&settings);
+    if (rc == 0) memcpy(dst, &settings, sizeof(settings));
+    return (jint)rc;
+}

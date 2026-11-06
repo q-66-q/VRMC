@@ -7,9 +7,12 @@ import java.util.Arrays;
  * a 90 Hz missed-frame count. Pure Java, allocation-free on the record path (one sort per report).
  *
  * <p>The provider poll runs once per rendered frame, so interval stats are a useful proxy for frame
- * pacing when the compositor/renderer do not expose GPU timestamps to Java. A "missed 90 Hz frame" is
- * an interval longer than 1.5 × 11.111 ms; that is a deliberately simple, documented threshold rather
- * than a claim of rendered-frame drops.
+ * pacing when the compositor/renderer do not expose GPU timestamps to Java. A "missed frame" is an
+ * interval longer than 1.5 x the target interval; that is a deliberately simple, documented threshold
+ * rather than a claim of rendered-frame drops. M8 render feedback added the target-interval overload
+ * (the display may be 90 or 120 Hz): snapshotAndReset() keeps the original 90 Hz default for the
+ * existing status/JSON consumers, snapshotAndReset(targetIntervalMs) scores against the measured
+ * display cadence.
  */
 public final class VisionFrameStats {
     public static final double NINETY_HZ_MS = 1000.0 / 90.0;
@@ -28,10 +31,20 @@ public final class VisionFrameStats {
         if (this.count < this.samples.length) this.count++;
     }
 
+    /** Original M5 behaviour: score missed frames against a 90 Hz display. */
     public Snapshot snapshotAndReset() {
+        return snapshotAndReset(NINETY_HZ_MS);
+    }
+
+    /**
+     * Snapshot scored against an arbitrary target frame interval (M8: the measured display cadence,
+     * e.g. 8.333 ms at 120 Hz; non-positive/NaN falls back to the 90 Hz default).
+     */
+    public Snapshot snapshotAndReset(double targetIntervalMs) {
+        final double targetMs = targetIntervalMs > 0.0 && !Double.isNaN(targetIntervalMs)
+            ? targetIntervalMs : NINETY_HZ_MS;
         if (this.count == 0) {
-            Snapshot empty = new Snapshot(0, 0.0, 0.0, 0.0, 0);
-            return empty;
+            return new Snapshot(0, 0.0, 0.0, 0.0, 0, 0);
         }
         long[] copy = Arrays.copyOf(this.samples, this.count);
         Arrays.sort(copy);
@@ -39,14 +52,15 @@ public final class VisionFrameStats {
         int missed = 0;
         for (long v : copy) {
             meanMs += v * 1.0E-6;
-            if (v > NINETY_HZ_MS * 1.5 * 1.0E6) missed++;
+            if (v > targetMs * 1.5 * 1.0E6) missed++;
         }
         meanMs /= copy.length;
         double p50 = copy[(int) Math.floor((copy.length - 1) * 0.50)] * 1.0E-6;
         double p95 = copy[(int) Math.floor((copy.length - 1) * 0.95)] * 1.0E-6;
         double max = copy[copy.length - 1] * 1.0E-6;
+        final int sampleCount = copy.length;
         reset();
-        return new Snapshot(meanMs, p50, p95, max, missed);
+        return new Snapshot(meanMs, p50, p95, max, missed, sampleCount);
     }
 
     public void reset() {
@@ -61,14 +75,19 @@ public final class VisionFrameStats {
         public final double p50Ms;
         public final double p95Ms;
         public final double maxMs;
+        /** Named for the original 90 Hz consumer; counts intervals over 1.5x the TARGET interval. */
         public final int missed90HzFrames;
+        /** Number of intervals in this snapshot (0 for an empty window). */
+        public final int samples;
 
-        Snapshot(double meanMs, double p50Ms, double p95Ms, double maxMs, int missed90HzFrames) {
+        Snapshot(double meanMs, double p50Ms, double p95Ms, double maxMs, int missed90HzFrames,
+                 int samples) {
             this.meanMs = meanMs;
             this.p50Ms = p50Ms;
             this.p95Ms = p95Ms;
             this.maxMs = maxMs;
             this.missed90HzFrames = missed90HzFrames;
+            this.samples = samples;
         }
     }
 }

@@ -189,6 +189,35 @@ run_input() {
   python3 "$HERE/check.py" "$case_dir" --require-input || overall=1
 }
 
+run_render() {
+  # M8: foveated rendering + dynamic render quality feedback. The real compositor must publish the
+  # layer's logical per-eye size at the current render quality, the physical foveated drawable extent,
+  # the foveation/rate-map state and the measured display cadence through the native-shared channel
+  # (fake provider records it in render-capture.txt). Simulator parameters are plumbing evidence only.
+  local case_dir="$OUT/case-render"
+  rm -rf "$case_dir"; mkdir -p "$case_dir"
+  xcrun simctl uninstall "$SIM" "$BUNDLE" 2>/dev/null || true
+  xcrun simctl install "$SIM" "$APP"
+  local DATA; DATA=$(xcrun simctl get_app_container "$SIM" "$BUNDLE" data)
+  mkdir -p "$DATA/Documents"
+  echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
+  echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
+  xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'VRMCCompositorRunning generation=' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'render feedback published:' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'display geometry: logical L=' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'render feedback: displayHz=' 60 || true
+  sleep 2
+  xcrun simctl io "$SIM" screenshot "$case_dir/screenshot.png" >/dev/null 2>&1 || true
+  cp "$DATA/Documents/vrmc-compositor.log"   "$case_dir/compositor.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-shell.log"        "$case_dir/shell.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-render-capture.txt" "$case_dir/render-capture.txt" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw"   "$case_dir/drawable-L.raw" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw.meta" "$case_dir/drawable-L.raw.meta" 2>/dev/null || true
+  echo "---- scenario: render (M8 foveated render feedback) ----"
+  python3 "$HERE/check.py" "$case_dir" --require-render --require-parking || overall=1
+}
+
 run_gaze() {
   local case_dir="$OUT/case-gaze"
   rm -rf "$case_dir"; mkdir -p "$case_dir"
@@ -219,7 +248,7 @@ run_gaze() {
   fi
 }
 
-ALL_SCENARIOS=(flat sync hidepark nopark pattern reentry input gaze)
+ALL_SCENARIOS=(flat sync hidepark nopark pattern reentry input gaze render)
 if [ "$#" -gt 0 ]; then
   SCENARIOS=("$@")
 else
@@ -235,6 +264,7 @@ for scenario in "${SCENARIOS[@]}"; do
     reentry)  run_reentry ;;
     input)    run_input ;;
     gaze)     run_gaze ;;
+    render)   run_render ;;
     *)
       echo "[provider-sim] unknown scenario '$scenario' (known: ${ALL_SCENARIOS[*]})"
       exit 2

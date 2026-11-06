@@ -370,6 +370,61 @@ uint64_t vrmc_shared_input_sequence(void) {
     return seq;
 }
 
+/* ------------------------------------------------------------------------------------------- */
+/* M8 render feedback channel (vrmc_native_shared.h "Render feedback" section).                  */
+/* ------------------------------------------------------------------------------------------- */
+
+static pthread_mutex_t g_render_settings_mutex = PTHREAD_MUTEX_INITIALIZER;
+static vrmc_render_settings g_render_settings;
+static int g_has_render_settings = 0;
+
+/* Publish one render-feedback payload (compositor thread only). Allowed before vrmc_init: the
+ * immersive layer can run before the JVM provider initializes. Malformed payloads fail closed so a
+ * units/size bug cannot silently size the provider's eye targets wrong. */
+int32_t vrmc_shared_publish_render_settings(const vrmc_render_settings *settings) {
+    if (settings == NULL) return set_error("bad render settings payload");
+    if (settings->version != VRMC_RENDER_SETTINGS_VERSION) {
+        return set_error("render settings version mismatch");
+    }
+    if (settings->valid > 1u) return set_error("render settings valid is not boolean");
+    if (settings->valid != 0) {
+        if (settings->left_logical_width < 64u || settings->left_logical_height < 64u ||
+            settings->right_logical_width < 64u || settings->right_logical_height < 64u ||
+            settings->left_logical_width > 16384u || settings->left_logical_height > 16384u ||
+            settings->right_logical_width > 16384u || settings->right_logical_height > 16384u) {
+            return set_error("render settings logical size out of range");
+        }
+        if (!(settings->render_quality >= 0.0f && settings->render_quality <= 1.0f) ||
+            !(settings->max_render_quality >= 0.0f && settings->max_render_quality <= 1.0f) ||
+            settings->render_quality > settings->max_render_quality + 1.0e-3f) {
+            return set_error("render settings quality out of range");
+        }
+        if (!(settings->display_hz >= 0.0f && settings->display_hz <= 240.0f) ||
+            !(settings->frame_time_ms >= 0.0f && settings->frame_time_ms <= 1000.0f)) {
+            return set_error("render settings cadence out of range");
+        }
+    }
+    pthread_mutex_lock(&g_render_settings_mutex);
+    g_render_settings = *settings;
+    g_has_render_settings = 1;
+    pthread_mutex_unlock(&g_render_settings_mutex);
+    return 0;
+}
+
+/* Acquire the latest render feedback (provider render thread through JNI nativePollRenderSettings).
+ * Before the first publish this returns 0 with a zeroed payload whose version is
+ * VRMC_RENDER_SETTINGS_VERSION and valid = 0 ("no display feedback yet", not an error): the
+ * provider keeps its current eye target size until the compositor reports the display geometry. */
+int32_t vrmc_shared_acquire_render_settings(vrmc_render_settings *out) {
+    if (out == NULL) return set_error("bad render settings output");
+    memset(out, 0, sizeof(*out));
+    out->version = VRMC_RENDER_SETTINGS_VERSION;
+    pthread_mutex_lock(&g_render_settings_mutex);
+    if (g_has_render_settings) *out = g_render_settings;
+    pthread_mutex_unlock(&g_render_settings_mutex);
+    return 0;
+}
+
 typedef void (*PFN_vrmc_vkGetMTLTextureMVK)(uint64_t image, void **out_texture);
 
 static PFN_vrmc_vkGetMTLTextureMVK resolve_get_mtl_texture(void) {
@@ -576,12 +631,71 @@ int main(void) {
         printf("release snapshot not published\n"); return 37;
     }
     if (vrmc_shared_input_sequence() != 2) { printf("input sequence after release != 2\n"); return 38; }
+    /* M8 render feedback: safe zero payload before publish, validation, round-trip, no reset by init. */
+    vrmc_render_settings rs;
+    memset(&rs, 0xAA, sizeof(rs));
+    if (vrmc_shared_acquire_render_settings(&rs) != 0) {
+        printf("acquire render settings before publish failed: %s\n", vrmc_last_error()); return 39;
+    }
+    if (rs.valid != 0 || rs.version != VRMC_RENDER_SETTINGS_VERSION) {
+        printf("pre-publish render settings not zeroed/invalid (valid=%u version=%u)\n",
+               rs.valid, rs.version); return 40;
+    }
+    vrmc_render_settings rpub;
+    memset(&rpub, 0, sizeof(rpub));
+    rpub.version = VRMC_RENDER_SETTINGS_VERSION;
+    rpub.valid = 1;
+    rpub.frame_index = 77;
+    rpub.foveation_enabled = 1;
+    rpub.rate_map_count = 2;
+    rpub.left_logical_width = 3660; rpub.left_logical_height = 3200;
+    rpub.right_logical_width = 3660; rpub.right_logical_height = 3200;
+    rpub.drawable_width = 2412; rpub.drawable_height = 2108;
+    rpub.render_quality = 0.75f;
+    rpub.max_render_quality = 1.0f;
+    rpub.display_hz = 120.0f;
+    rpub.frame_time_ms = 8.3f;
+    if (vrmc_shared_publish_render_settings(&rpub) != 0) {
+        printf("publish render settings failed: %s\n", vrmc_last_error()); return 41;
+    }
+    memset(&rs, 0, sizeof(rs));
+    if (vrmc_shared_acquire_render_settings(&rs) != 0 || memcmp(&rs, &rpub, sizeof(rs)) != 0) {
+        printf("render settings round-trip mismatch\n"); return 42;
+    }
+    vrmc_render_settings rbad = rpub;
+    rbad.version = 99u;
+    if (vrmc_shared_publish_render_settings(&rbad) == 0) {
+        printf("render settings with a bad version must be rejected\n"); return 43;
+    }
+    rbad = rpub;
+    rbad.render_quality = 1.5f;
+    if (vrmc_shared_publish_render_settings(&rbad) == 0) {
+        printf("render settings with an out-of-range quality must be rejected\n"); return 44;
+    }
+    rbad = rpub;
+    rbad.left_logical_width = 0u;
+    if (vrmc_shared_publish_render_settings(&rbad) == 0) {
+        printf("render settings with a zero logical size must be rejected\n"); return 45;
+    }
+    if (vrmc_shared_publish_render_settings(NULL) == 0) {
+        printf("render settings NULL payload must be rejected\n"); return 46;
+    }
+    /* init must NOT drop the channel (the compositor can publish before the JVM starts). */
+    if (vrmc_init("{\"abi\":3,\"eyes\":2,\"hands\":2,\"input\":1}",
+                  strlen("{\"abi\":3,\"eyes\":2,\"hands\":2,\"input\":1}")) != 0) {
+        printf("re-init failed: %s\n", vrmc_last_error()); return 47;
+    }
+    memset(&rs, 0, sizeof(rs));
+    if (vrmc_shared_acquire_render_settings(&rs) != 0 || rs.valid != 1 ||
+        rs.display_hz != 120.0f || rs.left_logical_width != 3660u) {
+        printf("render settings lost across vrmc_init\n"); return 48;
+    }
     printf("[vrmc-stub-test] ok version=%d frames=%llu ipd=%.3f shared_left=0x%llx display_gen=%u "
-           "publish_seq=%llu texture_gen=%u input_seq=%llu\n",
+           "publish_seq=%llu texture_gen=%u input_seq=%llu render_valid=%u render_hz=%.1f\n",
            vrmc_abi_version(), (unsigned long long)ft.frame_index, t.ipd_m,
            (unsigned long long)shared.left_texture, gen1,
            (unsigned long long)frame.publish_sequence, frame.texture_generation,
-           (unsigned long long)vrmc_shared_input_sequence());
+           (unsigned long long)vrmc_shared_input_sequence(), rs.valid, (double)rs.display_hz);
     return 0;
 }
 #endif

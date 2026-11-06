@@ -11,6 +11,10 @@ This is a **development/sideload** project, not an App Store submission.
 - **M7 hand-input mapping: device PASS**
 - **M5/M6 acceptance: 22/22 rows PASS** ([`docs/mvp/M6_ACCEPTANCE.md`](docs/mvp/M6_ACCEPTANCE.md))
 - **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)
+- **M8 foveated 4K/120 rendering: host/simulator PASS; device NOT RUN** —
+  [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md). The hashes/package below describe the **last
+  release-ready build (pre-M8)**; the M8 provider jar (`4db9d202…`, 134,537 B, reproducible) and the
+  rendering pipeline have no device acceptance yet.
 - Current provider: `4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351`
   (127,258 bytes)
 - Current app tree: `a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb`
@@ -123,6 +127,12 @@ Host tests are **not** device evidence. Device-only claims are recorded in
 
 ## Known issues
 
+- **M8 rendering is not device-verified yet:** foveation is requested when the layer supports it and
+  the display path is configured for maximum render quality; the provider sizes its eye targets from
+  the compositor's logical display feedback (adaptive scale). Whether a session presents at 120 Hz is
+  measured on device (`displayHz=` in `vrmc-compositor.log`), not claimed. Engine-side foveation is
+  deferred because the shipped MoltenVK has no `VK_KHR_fragment_shading_rate`; see
+  [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md).
 - Bow visual model orientation (parallel to hand) — accepted non-blocking bug.
 - Fresh install requires manual Vivecraft/provider jar restore; launcher auto-provisioning is the
   next engineering priority.

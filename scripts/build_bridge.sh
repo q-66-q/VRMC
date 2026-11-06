@@ -72,11 +72,13 @@ verify_dylib() { # verify_dylib <path> <expected-platform> <expected-minos>
              _vrmc_shared_set_display_views _vrmc_shared_get_display_views \
              _vrmc_poll_input _vrmc_shared_publish_input _vrmc_shared_acquire_input \
              _vrmc_shared_input_sequence \
+             _vrmc_shared_publish_render_settings _vrmc_shared_acquire_render_settings \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeInit \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeAbiVersion \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyes \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeSubmitEyesSynced \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativePollInput \
+             _Java_dev_vrmc_provider_bridge_VrmcBridge_nativePollRenderSettings \
              _Java_dev_vrmc_provider_bridge_VrmcBridge_nativeExportMTLTexture; do
     nm -gU "$lib" 2>/dev/null | awk "{print \$3}" | grep -qx "$sym" || die "missing exported symbol $sym"
   done

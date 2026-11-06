@@ -1,6 +1,7 @@
 # VRMC current status & handoff (development build)
 
-Updated: 2026-11-03 (host time; M7 data-driven accuracy iteration EV-0237; device A/B pending).
+Updated: 2026-11-05 (host time; M8 foveated 4K/120 rendering implemented — host/simulator verified,
+device verification NOT RUN; M7 M6 release-ready evidence unchanged).
 Authority remains [`VERIFY.md`](../../VERIFY.md) and the per-round evidence bundles; this page is a
 navigation summary.
 
@@ -31,6 +32,7 @@ navigation summary.
 | M4 hands input | W1 device PASS (EV-0096); W2–W5 host PASS; device tuning/AC-4 NOT RUN |
 | M5 settings/comfort/diagnostics | **PASS (operator-attested prior session, EV-0258)**; M6 AC/K NOT RUN |
 | M6 hardening/release | host hardening/release gates PASS; device AC/K gates NOT RUN |
+| M8 foveated 4K/120 rendering | **host/simulator PASS** (foveation + max render quality layer config, render-feedback bridge channel, adaptive provider eye targets); **device NOT RUN** — [M8_PLAN.md](M8_PLAN.md) |
 
 ## Implemented feature summary
 
@@ -145,3 +147,17 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - 2026-11-05 EV-0266: **RELEASE READY** development package (22/22 acceptance). zip `0fa384d9…` 206,567,700 bytes; app `a4663e16…`, provider `4e92b306…`. Caveats: K3 waived; fresh install needs manual Vivecraft/provider restore; bow visual known bug.
 
 - 2026-11-05 EV-0267: device application cleaned for handoff — app uninstalled/reinstalled; `Documents` and `tmp` containers empty (0 files); only system `Library/Caches`+`Preferences` remain. Test worlds, accounts, mods/provider, crash reports, tuning/status/config/logs removed. Release package/evidence remain outside the app.
+
+- 2026-11-05 EV-0268: **M8 foveated 4K/120 rendering implemented (host/simulator)**. Root cause of
+  the operator's "resolution too low + jaggedness": the provider rendered a fixed **1024x1024** eye
+  target into a ~1888x1792 per-eye drawable (~1.84x upscale), and the layer had foveation disabled at
+  the default render quality. M8: the shell requests foveation when the layer supports it, sets
+  `maxRenderQuality=1.0` (default) and the compositor starts its runtime quality there; the compositor
+  logs foveation/rate-map geometry, measures display cadence and publishes a new 68-byte
+  `vrmc_render_settings` native-shared payload; the provider sizes its stereo eye targets from the
+  display's logical per-eye size with an adaptive `eyeScale` (auto default, file/JVM knob) and resizes
+  with hysteresis. "4K in both eyes" is now the display-path target (max render quality + foveation);
+  "120 Hz" is measured/targeted (`minimumFrameRepeatCount=0`, `displayHz=` log) because there is no
+  public CompositorServices refresh-rate selector. Engine-side foveation is deferred
+  (MoltenVK 1.4.3 has no `VK_KHR_fragment_shading_rate`). Bridge/provider host suites PASS; simulator
+  `render` scenario PASS (plumbing only). **Device A6–A9 NOT RUN (D1 unavailable).**

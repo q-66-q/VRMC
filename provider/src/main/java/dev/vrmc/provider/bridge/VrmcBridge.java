@@ -29,6 +29,33 @@ public final class VrmcBridge {
     /** Per-eye tangents(4) + eye-to-head matrix(16) for both eyes + ipd. */
     public static final int DISPLAY_VIEWS_BYTES = (4 + 16 + 4 + 16 + 1) * 4;
 
+    // ---- vrmc_render_settings (M8 native-shared channel; no Java ABI bump) --------------------
+    /**
+     * M8 render feedback published by the compositor (native-shared channel, NOT part of the Java
+     * vrmc_abi.h struct contract): per-eye LOGICAL display size at the current render quality, the
+     * PHYSICAL foveated drawable extent, foveation/rate-map state, the current/max render quality and
+     * the measured display cadence. The provider sizes its stereo eye targets from this instead of a
+     * hardcoded 1024x1024. sizeof(vrmc_render_settings) = 68 (all fields 4 bytes, little-endian).
+     */
+    public static final int RENDER_SETTINGS_BYTES = 68;
+    public static final int RS_OFF_VERSION = 0;            /* u32 */
+    public static final int RS_OFF_VALID = 4;              /* u32: 1 = fields valid */
+    public static final int RS_OFF_FRAME_INDEX = 8;        /* u32 compositor frame */
+    public static final int RS_OFF_FOVEATION = 12;         /* u32: 1 = rate maps active */
+    public static final int RS_OFF_RATE_MAP_COUNT = 16;    /* u32 */
+    public static final int RS_OFF_LEFT_LOGICAL_W = 20;    /* u32 per-eye logical size (display px) */
+    public static final int RS_OFF_LEFT_LOGICAL_H = 24;
+    public static final int RS_OFF_RIGHT_LOGICAL_W = 28;
+    public static final int RS_OFF_RIGHT_LOGICAL_H = 32;
+    public static final int RS_OFF_DRAWABLE_W = 36;        /* u32 physical drawable extent */
+    public static final int RS_OFF_DRAWABLE_H = 40;
+    public static final int RS_OFF_RENDER_QUALITY = 44;    /* f32 current runtime quality [0,1] */
+    public static final int RS_OFF_MAX_RENDER_QUALITY = 48;/* f32 configured maximum [0,1] */
+    public static final int RS_OFF_DISPLAY_HZ = 52;        /* f32 measured display cadence */
+    public static final int RS_OFF_FRAME_TIME_MS = 56;     /* f32 measured app frame interval */
+    public static final int RS_OFF_PROVIDER_EYE_W = 60;    /* u32 compositor recommendation (0=derive) */
+    public static final int RS_OFF_PROVIDER_EYE_H = 64;
+
     // ---- vrmc_input_state (ABI v3, M4-W1) ----------------------------------------------------
     /** sizeof(vrmc_input_state), 8-byte aligned: 16 + 2 * 368. */
     public static final int INPUT_BYTES = 752;
@@ -107,6 +134,14 @@ public final class VrmcBridge {
      */
     public static native int nativePollInput(ByteBuffer out);
 
+    /**
+     * M8: copy the compositor's latest render feedback into the direct buffer (capacity must be at
+     * least {@link #RENDER_SETTINGS_BYTES}). Returns 0 on success; the payload's valid flag is 0 until
+     * the compositor publishes (never an error). Fails closed (-4/-5/-6) on a null/non-direct/short
+     * buffer. Never allocates.
+     */
+    public static native int nativePollRenderSettings(ByteBuffer out);
+
     public static int abiVersion() { return nativeAbiVersion(); }
     public static int init(String capsJson) { return nativeInit(capsJson); }
     public static String lastError() { return nativeLastError(); }
@@ -152,4 +187,6 @@ public final class VrmcBridge {
     public static final int GAZE_KIND_INDIRECT_PINCH = 1;
     /** ABI v3: poll the latest published hand/input snapshot (see {@link #nativePollInput(ByteBuffer)}). */
     public static int pollInput(ByteBuffer out) { return nativePollInput(out); }
+    /** M8: poll the compositor's render feedback (see {@link #nativePollRenderSettings(ByteBuffer)}). */
+    public static int pollRenderSettings(ByteBuffer out) { return nativePollRenderSettings(out); }
 }

@@ -147,6 +147,33 @@ else
   echo "[provider-tests] vulkan-host-test: SKIP (needs LWJGL 3.4.1 + MoltenVK macOS SDK; see MVK_LIB)"
 fi
 
+# --- 4b. M8 render feedback + eye-target policy (pure Java, no game classes) ---------------------
+step "m8-render-test"
+mkdir -p "$T/renderclasses"
+if "$JAVAC" -d "$T/renderclasses" \
+     "$ROOT/provider/src/main/java/dev/vrmc/provider/bridge/VrmcBridge.java" \
+     "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionFrameStats.java" \
+     "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionRenderSettings.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionRenderSettingsTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionFrameStatsTest.java"; then
+  if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsTest > "$T/m8-render.log" 2>&1 \
+     && grep -q "\[m8-render-test\] PASS" "$T/m8-render.log"; then
+    echo "[provider-tests] m8-render: PASS (render feedback layout/parse + eye-target scale policy)"
+    grep -E "\[m8-render-test\] [0-9]+ checks" "$T/m8-render.log"
+  else
+    cat "$T/m8-render.log"; fail "m8-render"
+  fi
+  if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionFrameStatsTest > "$T/m8-frame.log" 2>&1 \
+     && grep -q "\[m5-frame-stats-test\] PASS" "$T/m8-frame.log"; then
+    echo "[provider-tests] m8-frame-stats: PASS (90 Hz default + 120 Hz target-interval scoring)"
+    grep -E "\[m5-frame-stats-test\] [0-9]+ checks" "$T/m8-frame.log"
+  else
+    cat "$T/m8-frame.log"; fail "m8-frame-stats"
+  fi
+else
+  fail "m8-render-compile"
+fi
+
 # --- 5. M4-W1 immersive input: layout + gesture engine + pose (+ cross-language fixture) ---------
 step "m4-input-tests"
 mkdir -p "$T/m4classes"

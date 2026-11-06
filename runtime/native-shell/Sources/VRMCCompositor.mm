@@ -90,6 +90,9 @@ typedef uint64_t (*input_sequence_fn)(void);
 typedef int32_t (*game_stopping_fn)(void);
 typedef void (*clear_game_stopping_fn)(void);
 typedef int32_t (*publish_gaze_fn)(const vrmc_gaze_event *);
+// M8 render feedback: compositor -> provider display geometry/cadence (additive native-shared
+// channel). Optional: an old bridge without the symbol keeps the compositor running (one log line).
+typedef int32_t (*publish_render_settings_fn)(const vrmc_render_settings *);
 static eye_targets_fn gEyeFn;
 static acquire_eyes_fn gAcquireFn;
 static set_tracking_fn gTrackFn;
@@ -99,6 +102,7 @@ static input_sequence_fn gInputSequenceFn;
 static game_stopping_fn gGameStoppingFn;
 static clear_game_stopping_fn gClearGameStoppingFn;
 static publish_gaze_fn gPublishGazeFn;
+static publish_render_settings_fn gPublishRenderSettingsFn;
 static std::atomic<int> gGameStoppedPosted{0};
 // Each immersive session (CompositorLayer callback) gets a generation. A stop request applies to the
 // generation that is current when it is made, so a late stop cannot kill the next session and a stale
@@ -203,10 +207,17 @@ static void resolveBridge(void) {
         gGameStoppingFn = (game_stopping_fn)dlsym(h, "vrmc_shared_game_stopping");
         gClearGameStoppingFn = (clear_game_stopping_fn)dlsym(h, "vrmc_shared_clear_game_stopping");
         gPublishGazeFn = (publish_gaze_fn)dlsym(h, "vrmc_shared_publish_gaze_event");
+        gPublishRenderSettingsFn =
+            (publish_render_settings_fn)dlsym(h, "vrmc_shared_publish_render_settings");
         compLog("bridge resolved handle=%p eye=%p tracking=%p displayViews=%p acquireEyes=%p "
-                "publishInput=%p inputSeq=%p gameStopping=%p",
+                "publishInput=%p inputSeq=%p gameStopping=%p publishRenderSettings=%p",
                 h, gEyeFn, gTrackFn, gDisplayViewsFn, gAcquireFn, gInputPublishFn, gInputSequenceFn,
-                gGameStoppingFn);
+                gGameStoppingFn, gPublishRenderSettingsFn);
+        if (gPublishRenderSettingsFn == NULL) {
+            compLog("render feedback: bridge dylib has no vrmc_shared_publish_render_settings "
+                    "(old bridge?); the provider keeps its own eye-target sizing, presentation "
+                    "unaffected");
+        }
         if (gInputPublishFn == NULL) {
             // Fail safe on an old bridge: log once and keep presenting. The provider sees no fresh
             // snapshots and releases everything (its stale-input timer), so this can never stick input.
@@ -254,6 +265,142 @@ static BOOL documentFlag(NSString *name) {
     NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *path = [docs.firstObject stringByAppendingPathComponent:name];
     return [[NSFileManager defaultManager] fileExistsAtPath:path] ? YES : NO;
+}
+
+// -------------------------------------------------------------------------------------------
+// M8: foveated 4K/120 render feedback.
+//
+// The CompositorServices layer is the only side that knows what the display actually asks for.
+// Rather than hardcoding a target (the old M2 provider rendered 1024x1024 per eye regardless of the
+// panel), the compositor measures and publishes it through the additive native-shared channel
+// (vrmc_render_settings -> vrmc_shared_publish_render_settings):
+//
+//  - per-eye LOGICAL view size at the current render quality (the size that maps 1:1 to displayed
+//    pixels in the fovea; with foveation the PHYSICAL drawable is smaller and the system expands the
+//    high-density centre back to the logical size);
+//  - foveation / rasterization-rate-map state and the physical drawable extent;
+//  - the current/configured render quality;
+//  - measured display cadence from consecutive presentation times (display_hz) and the app frame
+//    interval EWMA (frame_time_ms).
+//
+// Dynamic render quality (visionOS 26+): the layer has a configured MAX render quality; the app may
+// move the runtime quality inside [0, max] and the system transitions resolution over time. The
+// default here is the configured maximum ("4K both eyes" on a device whose panel supports it). The
+// optional auto mode (Documents/vrmc-render-quality.txt = "auto" or vrmc-quality-auto.flag) lowers
+// quality when measured presentation cadence shows repeated frames and raises it again with
+// headroom. A numeric content in vrmc-render-quality.txt pins a fixed runtime quality for A/B.
+// -------------------------------------------------------------------------------------------
+
+#define VRMC_PRESENT_WINDOW 240
+
+typedef struct {
+    double intervalsMs[VRMC_PRESENT_WINDOW];
+    int count;
+    int writeIndex;
+    double lastPresentationMs;   /* 0 = no previous presentation time yet */
+    double baseMs;               /* median interval: the cadence the display actually presents at */
+    double p50Ms;
+    double p95Ms;
+    double meanMs;
+    int repeats;                 /* intervals >= 1.5x the median: a frame repeated on display */
+    double displayHz;            /* 1000 / p50 (0 = unknown) */
+} VRMCPresentationStats;
+
+static void presentationStatsReset(VRMCPresentationStats *stats) {
+    memset(stats, 0, sizeof(*stats));
+}
+
+static void presentationStatsRecord(VRMCPresentationStats *stats, CFTimeInterval presentationSeconds) {
+    if (!isfinite(presentationSeconds)) return;
+    const double ms = presentationSeconds * 1000.0;
+    if (stats->lastPresentationMs > 0.0) {
+        const double interval = ms - stats->lastPresentationMs;
+        if (interval > 0.5 && interval < 200.0) {
+            stats->intervalsMs[stats->writeIndex] = interval;
+            stats->writeIndex = (stats->writeIndex + 1) % VRMC_PRESENT_WINDOW;
+            if (stats->count < VRMC_PRESENT_WINDOW) stats->count++;
+        }
+    }
+    stats->lastPresentationMs = ms;
+}
+
+/// Sort a copy of the window and compute median/p95/mean/repeats. Cheap enough for a summary every
+/// ~120 frames; never called per frame.
+static void presentationStatsSummarize(VRMCPresentationStats *stats) {
+    if (stats->count <= 0) {
+        stats->baseMs = stats->p50Ms = stats->p95Ms = stats->meanMs = stats->displayHz = 0.0;
+        stats->repeats = 0;
+        return;
+    }
+    double copy[VRMC_PRESENT_WINDOW];
+    memcpy(copy, stats->intervalsMs, sizeof(double) * (size_t)stats->count);
+    for (int i = 0; i < stats->count; i++) {
+        for (int j = i + 1; j < stats->count; j++) {
+            if (copy[j] < copy[i]) { double t = copy[i]; copy[i] = copy[j]; copy[j] = t; }
+        }
+    }
+    double sum = 0.0;
+    for (int i = 0; i < stats->count; i++) sum += copy[i];
+    stats->meanMs = sum / (double)stats->count;
+    stats->p50Ms = copy[(int)((double)(stats->count - 1) * 0.50)];
+    stats->p95Ms = copy[(int)((double)(stats->count - 1) * 0.95)];
+    stats->baseMs = stats->p50Ms;
+    stats->displayHz = stats->baseMs > 0.0 ? 1000.0 / stats->baseMs : 0.0;
+    int repeats = 0;
+    for (int i = 0; i < stats->count; i++) {
+        if (copy[i] > stats->baseMs * 1.5) repeats++;
+    }
+    stats->repeats = repeats;
+}
+
+/// Read a Documents text file; returns nil if absent. Caller gets the trimmed content ("" for an
+/// empty flag file). Used by the M8 render-quality override/auto controls.
+static NSString *readDocumentText(NSString *name) {
+    NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *path = [docs.firstObject stringByAppendingPathComponent:name];
+    NSString *raw = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    if (raw == nil) return nil;
+    return [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+
+typedef struct {
+    BOOL autoMode;        /* adjust runtime quality from measured presentation cadence */
+    float fixedQuality;   /* used when autoMode == NO; in [0, maxQuality] */
+} VRMCQualityControl;
+
+/// Parse the runtime render-quality override. Absent file => fixed at maxQuality. Content "auto"
+/// (case-insensitive) or Documents/vrmc-quality-auto.flag => adaptive mode starting from a
+/// conservative quality. Numeric content pins that value (clamped to [0.1, maxQuality]); a flag file
+/// with unparsable content falls back to the fixed maximum (never fails the render loop).
+static VRMCQualityControl readQualityControl(float maxQuality) {
+    VRMCQualityControl control;
+    control.autoMode = NO;
+    control.fixedQuality = maxQuality > 0.0f ? maxQuality : 1.0f;
+    NSString *text = readDocumentText(@"vrmc-render-quality.txt");
+    if (text != nil && text.length > 0) {
+        if ([text caseInsensitiveCompare:@"auto"] == NSOrderedSame) {
+            control.autoMode = YES;
+            control.fixedQuality = MIN(maxQuality, 0.75f);
+        } else {
+            float value = text.floatValue;
+            if (value >= 0.0f && value <= 1.0f) {
+                control.fixedQuality = MAX(0.1f, MIN(value, maxQuality));
+            }
+        }
+    } else if (documentFlag(@"vrmc-quality-auto.flag")) {
+        control.autoMode = YES;
+        control.fixedQuality = maxQuality > 0.0f ? MIN(maxQuality, 0.75f) : 0.75f;
+    }
+    return control;
+}
+
+/// Apply a runtime render quality (visionOS 26+). Returns YES when the value was applied.
+static BOOL applyRenderQuality(cp_layer_renderer_t lr, float quality, const char *reason) {
+    const float clamped = MAX(0.0f, MIN(1.0f, quality));
+    cp_layer_renderer_set_render_quality(lr, (cp_render_quality_t)clamped);
+    const float applied = (float)cp_layer_renderer_get_render_quality(lr);
+    compLog("render quality %.2f applied (requested %.2f, %s)", (double)applied, (double)clamped, reason);
+    return YES;
 }
 
 // -------------------------------------------------------------------------------------------
@@ -1457,10 +1604,64 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
         MTLPixelFormat color = cp_layer_renderer_configuration_get_color_format(configuration);
         if (color != MTLPixelFormatInvalid) configuredColor = color;
         configuredDepth = cp_layer_renderer_configuration_get_depth_format(configuration);
-        compLog("layer configuration colorFormat=%lu depthFormat=%lu foveation=%d layout=%d",
+        compLog("layer configuration colorFormat=%lu depthFormat=%lu foveation=%d layout=%d "
+                "maxRenderQuality=%.2f",
                 (unsigned long)configuredColor, (unsigned long)configuredDepth,
                 (int)cp_layer_renderer_configuration_get_foveation_enabled(configuration),
-                (int)cp_layer_renderer_configuration_get_layout(configuration));
+                (int)cp_layer_renderer_configuration_get_layout(configuration),
+                (double)cp_layer_renderer_configuration_get_max_render_quality(configuration));
+    }
+    // M8: foveation + dynamic render quality. maxRenderQuality is the configured upper bound
+    // (ShellLayerConfiguration sets it); runtime quality starts there unless a Documents override
+    // says otherwise.
+    const BOOL configuredFoveation = configuration != nullptr
+        ? (BOOL)cp_layer_renderer_configuration_get_foveation_enabled(configuration) : NO;
+    // Sanitize: a runtime that does not support dynamic render quality may report NaN (observed on
+    // the visionOS 27.0 simulator). Never feed NaN into the quality controller / layer API.
+    float configuredMaxQuality = configuration != nullptr
+        ? (float)cp_layer_renderer_configuration_get_max_render_quality(configuration) : 0.0f;
+    if (!isfinite(configuredMaxQuality) || configuredMaxQuality <= 0.0f) configuredMaxQuality = 1.0f;
+    const float maxRenderQuality = MAX(0.1f, MIN(1.0f, configuredMaxQuality));
+    const BOOL qualityControlSupported = configuration != nullptr &&
+        isfinite((float)cp_layer_renderer_configuration_get_max_render_quality(configuration)) &&
+        cp_layer_renderer_configuration_get_max_render_quality(configuration) > 0.0f;
+    VRMCQualityControl qualityControl = readQualityControl(maxRenderQuality);
+    NSString *qualityOverride = readDocumentText(@"vrmc-render-quality.txt");
+    if (!qualityControlSupported) {
+        compLog("render quality: layer does not support dynamic render quality (system default); the "
+                "controller stays at the default and only reports drawable sizes");
+        qualityControl.autoMode = NO;
+    } else if (qualityControl.autoMode) {
+        compLog("render quality: auto mode (max=%.2f start=%.2f; Documents/vrmc-render-quality.txt=auto "
+                "or vrmc-quality-auto.flag)", (double)maxRenderQuality,
+                (double)qualityControl.fixedQuality);
+    } else {
+        compLog("render quality: fixed %.2f (max=%.2f; Documents/vrmc-render-quality.txt=%s)",
+                (double)qualityControl.fixedQuality, (double)maxRenderQuality,
+                qualityOverride != nil ? "override" : "absent");
+    }
+    if (qualityControlSupported) {
+        applyRenderQuality(lr, qualityControl.fixedQuality,
+                           qualityControl.autoMode ? "auto-mode start" : "configured");
+    } else {
+        compLog("render quality: current runtime quality %.2f (system-managed)",
+                (double)cp_layer_renderer_get_render_quality(lr));
+    }
+    // 0 = present every display frame (no frame repetition). The system picks the display cadence;
+    // this only forbids the layer from repeating our frames, so a sustained app can present at the
+    // display's native rate (e.g. 120 Hz on a Vision Pro whose panel supports it) instead of being
+    // held at 90 Hz by a repeat count.
+    cp_layer_renderer_set_minimum_frame_repeat_count(lr, 0);
+    compLog("frame pacing: minimumFrameRepeatCount=%d (0 = present every display frame; the "
+            "system picks the display cadence and the M8 render feedback reports the measured one)",
+            cp_layer_renderer_get_minimum_frame_repeat_count(lr));
+    if (configuredFoveation) {
+        compLog("foveation: ENABLED in the layer configuration; drawables provide rasterization rate "
+                "maps and a reduced physical texture, and the high-density centre is presented at the "
+                "logical view resolution");
+    } else {
+        compLog("foveation: disabled (capabilities reported no foveation support, or "
+                "Documents/vrmc-foveation-off.flag); uniform rasterization at the drawable resolution");
     }
     VRMCPipelines pipes;
     buildPipelines(device, &pipes, configuredColor, configuredDepth);
@@ -1513,6 +1714,17 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     size_t lastLoggedDrawableCount = 0;
     int nilColorViews = 0;
     float ipd = 0.064f;
+
+    // M8 render feedback: measured display cadence + published display geometry.
+    VRMCPresentationStats presentStats;
+    presentationStatsReset(&presentStats);
+    float currentRenderQuality = qualityControl.fixedQuality;
+    int lastQualityAdjustFrame = 0;
+    uint64_t publishedRenderSettings = 0;
+    uint64_t publishedRenderSettingsErrors = 0;
+    BOOL loggedRateMaps = NO;
+    BOOL loggedRenderFeedback = NO;
+    BOOL loggedLogicalSizes = NO;
 
     // M4-W1 input state. One preallocated snapshot per frame (no per-frame allocation) and one
     // rate-limited log counter per concern; never dump joint arrays every frame. The synthetic-flag
@@ -1727,6 +1939,207 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 pl.x, pl.y, pl.z,
                                 dv.right_tangents[0], dv.right_tangents[1], dv.right_tangents[2], dv.right_tangents[3],
                                 pr.x, pr.y, pr.z, dv.ipd_m);
+                    }
+                }
+            }
+
+            // ---------------------- M8: render feedback (display geometry + cadence) ----------------------
+            // Publish what the display asks for (per-eye logical size at the current render quality,
+            // physical foveated drawable extent, foveation/rate-map state, measured display cadence)
+            // through the additive native-shared channel; the provider sizes its stereo eye textures
+            // from it. Also logs the foveation rate-map geometry and drives the optional auto quality
+            // controller. Runs once per frame on the built_in drawable.
+            {
+                presentationStatsRecord(&presentStats, cp_time_to_cf_time_interval(presentation));
+                uint32_t logicalW[2] = {0, 0};
+                uint32_t logicalH[2] = {0, 0};
+                uint32_t physicalW = 0;
+                uint32_t physicalH = 0;
+                const size_t rateMapCount = cp_drawable_get_rasterization_rate_map_count(mainDrawable);
+                const size_t textureCount = cp_drawable_get_texture_count(mainDrawable);
+                for (int i = 0; i < views && i < 2; i++) {
+                    cp_view_t view = cp_drawable_get_view(mainDrawable, (size_t)i);
+                    cp_view_texture_map_t map = cp_view_get_view_texture_map(view);
+                    MTLViewport viewport = cp_view_texture_map_get_viewport(map);
+                    size_t texIndex = cp_view_texture_map_get_texture_index(map);
+                    if (texIndex >= textureCount) texIndex = ((size_t)i < textureCount) ? (size_t)i : 0;
+                    id<MTLTexture> colorTex = cp_drawable_get_color_texture(mainDrawable, texIndex);
+                    if (colorTex != nil && physicalW == 0) {
+                        physicalW = (uint32_t)colorTex.width;
+                        physicalH = (uint32_t)colorTex.height;
+                    }
+                    NSUInteger logicalWidth = viewport.width > 0.0 ? (NSUInteger)llround(viewport.width) : 0;
+                    NSUInteger logicalHeight = viewport.height > 0.0 ? (NSUInteger)llround(viewport.height) : 0;
+                    id<MTLRasterizationRateMap> rateMap = nil;
+                    if (rateMapCount > 0) {
+                        size_t rateMapIndex = texIndex < rateMapCount ? texIndex
+                            : (((size_t)i < rateMapCount) ? (size_t)i : 0);
+                        rateMap = cp_drawable_get_rasterization_rate_map(mainDrawable, rateMapIndex);
+                        if (rateMap != nil) {
+                            MTLSize screen = rateMap.screenSize;
+                            logicalWidth = screen.width;
+                            logicalHeight = screen.height;
+                        }
+                    }
+                    logicalW[i] = (uint32_t)logicalWidth;
+                    logicalH[i] = (uint32_t)logicalHeight;
+                    if (!loggedRateMaps && rateMap != nil) {
+                        loggedRateMaps = YES;
+                        MTLSize screen = rateMap.screenSize;
+                        MTLSize physical = [rateMap physicalSizeForLayer:0];
+                        MTLCoordinate2D fovealCentre = [rateMap
+                            mapScreenToPhysicalCoordinates:MTLCoordinate2DMake((double)screen.width * 0.5,
+                                                                              (double)screen.height * 0.5)
+                                                  forLayer:0];
+                        compLog("foveation rate map view %d (%s): screen=%lux%lu physical=%lux%lu "
+                                "layerCount=%lu fovealCentrePhysical=(%.2f,%.2f) fovealScale=(%.3f,%.3f) "
+                                "drawable=%lux%lu viewport=(%.0f,%.0f,%.0f,%.0f) rateMaps=%zu",
+                                i, i == leftView ? "left" : "right",
+                                (unsigned long)screen.width, (unsigned long)screen.height,
+                                (unsigned long)physical.width, (unsigned long)physical.height,
+                                (unsigned long)rateMap.layerCount,
+                                (double)fovealCentre.x, (double)fovealCentre.y,
+                                screen.width > 0 ? (double)fovealCentre.x / ((double)screen.width * 0.5) : 0.0,
+                                screen.height > 0 ? (double)fovealCentre.y / ((double)screen.height * 0.5) : 0.0,
+                                (unsigned long)physicalW, (unsigned long)physicalH,
+                                viewport.originX, viewport.originY, viewport.width, viewport.height,
+                                rateMapCount);
+                    }
+                }
+                // A mono drawable (visionOS simulator) has one view; mirror its logical size into the
+                // right-eye slot so the native-shared render feedback can still be exercised and
+                // verified off-device. Device drawables always have two views.
+                if (views == 1 && logicalW[0] > 0 && logicalW[1] == 0) {
+                    logicalW[1] = logicalW[0];
+                    logicalH[1] = logicalH[0];
+                    static int loggedMonoFeedback = 0;
+                    if (!loggedMonoFeedback) {
+                        loggedMonoFeedback = 1;
+                        compLog("render feedback: mono drawable (1 view, simulator); right logical size "
+                                "mirrored from left (%ux%u) for channel verification - device builds "
+                                "publish both eyes", logicalW[0], logicalH[0]);
+                    }
+                }
+                if (!loggedLogicalSizes && views >= 1 && logicalW[0] > 0) {
+                    loggedLogicalSizes = YES;
+                    compLog("display geometry: logical L=%ux%u R=%ux%u physical drawable=%ux%u "
+                            "foveation=%d rateMaps=%zu renderQuality=%.2f (provider eye targets should "
+                            "track the logical size; foveation reduces physical memory/compositor cost, "
+                            "not the provider's own render cost)",
+                            logicalW[leftView], logicalH[leftView],
+                            logicalW[leftView == 0 ? 1 : 0], logicalH[leftView == 0 ? 1 : 0],
+                            physicalW, physicalH, (int)configuredFoveation, rateMapCount,
+                            (double)cp_layer_renderer_get_render_quality(lr));
+                }
+                if (gPublishRenderSettingsFn != NULL && views >= 1 && logicalW[0] > 0) {
+                    static uint32_t lastPubLW = 0, lastPubLH = 0, lastPubRW = 0, lastPubRH = 0;
+                    static float lastPubQuality = -1.0f;
+                    const uint32_t leftIndex = (uint32_t)leftView;
+                    const uint32_t rightIndex = (leftView == 0) ? 1u : 0u;
+                    const BOOL geometryChanged = logicalW[leftIndex] != lastPubLW ||
+                        logicalH[leftIndex] != lastPubLH || logicalW[rightIndex] != lastPubRW ||
+                        logicalH[rightIndex] != lastPubRH;
+                    // The runtime quality is NaN on runtimes without dynamic render quality support;
+                    // publish a well-defined value (the configured maximum) instead of failing the
+                    // bridge-side validation.
+                    float reportedQuality = (float)cp_layer_renderer_get_render_quality(lr);
+                    if (!isfinite(reportedQuality) || reportedQuality < 0.0f || reportedQuality > 1.0f) {
+                        reportedQuality = maxRenderQuality;
+                    }
+                    if (frameCount < 3 || geometryChanged || (frameCount % 10) == 0 ||
+                        fabsf(reportedQuality - lastPubQuality) > 0.001f) {
+                        presentationStatsSummarize(&presentStats);
+                        vrmc_render_settings rs;
+                        memset(&rs, 0, sizeof(rs));
+                        rs.version = VRMC_RENDER_SETTINGS_VERSION;
+                        rs.valid = 1;
+                        rs.frame_index = (uint32_t)frameCount;
+                        rs.foveation_enabled = configuredFoveation ? 1u : 0u;
+                        rs.rate_map_count = (uint32_t)rateMapCount;
+                        rs.left_logical_width = logicalW[leftIndex];
+                        rs.left_logical_height = logicalH[leftIndex];
+                        rs.right_logical_width = logicalW[rightIndex];
+                        rs.right_logical_height = logicalH[rightIndex];
+                        rs.drawable_width = physicalW;
+                        rs.drawable_height = physicalH;
+                        rs.render_quality = reportedQuality;
+                        rs.max_render_quality = maxRenderQuality;
+                        rs.display_hz = (float)presentStats.displayHz;
+                        rs.frame_time_ms = (float)presentStats.meanMs;
+                        rs.provider_eye_width = 0;
+                        rs.provider_eye_height = 0;
+                        const int32_t publishResult = gPublishRenderSettingsFn(&rs);
+                        if (publishResult == 0) {
+                            publishedRenderSettings++;
+                            lastPubLW = logicalW[leftIndex];
+                            lastPubLH = logicalH[leftIndex];
+                            lastPubRW = logicalW[rightIndex];
+                            lastPubRH = logicalH[rightIndex];
+                            lastPubQuality = reportedQuality;
+                            if (!loggedRenderFeedback) {
+                                loggedRenderFeedback = YES;
+                                compLog("render feedback published: logical L=%ux%u R=%ux%u "
+                                        "physical=%ux%u foveation=%d rateMaps=%zu quality=%.2f "
+                                        "displayHz=%.1f frame=%.2fms",
+                                        lastPubLW, lastPubLH, lastPubRW, lastPubRH,
+                                        physicalW, physicalH, (int)configuredFoveation,
+                                        rateMapCount, (double)reportedQuality,
+                                        (double)presentStats.displayHz, (double)presentStats.meanMs);
+                            }
+                        } else {
+                            publishedRenderSettingsErrors++;
+                            if (publishedRenderSettingsErrors == 1) {
+                                compLog("render feedback publish FAILED rc=%d; the provider keeps its "
+                                        "own eye-target sizing (bridge-side validation error)", publishResult);
+                            }
+                        }
+                    }
+                }
+                // Rate-limited cadence/quality summary + optional auto quality adjustment.
+                if (frameCount > 0 && (frameCount % 120) == 0) {
+                    presentationStatsSummarize(&presentStats);
+                    const double presentHz = presentStats.meanMs > 0.0 ? 1000.0 / presentStats.meanMs : 0.0;
+                    float reportedQuality = (float)cp_layer_renderer_get_render_quality(lr);
+                    if (!isfinite(reportedQuality) || reportedQuality < 0.0f || reportedQuality > 1.0f) {
+                        reportedQuality = maxRenderQuality;
+                    }
+                    compLog("render feedback: displayHz=%.1f presentHz=%.1f p50=%.2fms p95=%.2fms "
+                            "repeats=%d/%d quality=%.2f logical L=%ux%u R=%ux%u physical=%lux%lu "
+                            "foveation=%d rateMaps=%zu published=%llu errors=%llu",
+                            (double)presentStats.displayHz, presentHz,
+                            (double)presentStats.p50Ms, (double)presentStats.p95Ms,
+                            presentStats.repeats, presentStats.count,
+                            (double)reportedQuality,
+                            logicalW[leftView], logicalH[leftView],
+                            logicalW[leftView == 0 ? 1 : 0], logicalH[leftView == 0 ? 1 : 0],
+                            (unsigned long)physicalW, (unsigned long)physicalH,
+                            (int)configuredFoveation, rateMapCount,
+                            (unsigned long long)publishedRenderSettings,
+                            (unsigned long long)publishedRenderSettingsErrors);
+                    if (qualityControl.autoMode && (frameCount - lastQualityAdjustFrame) >= 120) {
+                        lastQualityAdjustFrame = frameCount;
+                        const BOOL struggling = presentStats.count > 0 &&
+                            (presentStats.repeats > presentStats.count / 8 ||
+                             (presentStats.baseMs > 0.0 &&
+                              presentStats.p95Ms > presentStats.baseMs * 1.6));
+                        const BOOL headroom = presentStats.count > 0 && presentStats.repeats == 0 &&
+                            presentStats.baseMs > 0.0 &&
+                            presentStats.p95Ms <= presentStats.baseMs * 1.25;
+                        float next = currentRenderQuality;
+                        if (struggling && currentRenderQuality > 0.2f) {
+                            next = MAX(0.2f, currentRenderQuality - 0.10f);
+                        } else if (headroom && currentRenderQuality < maxRenderQuality) {
+                            next = MIN(maxRenderQuality, currentRenderQuality + 0.05f);
+                        }
+                        if (fabsf(next - currentRenderQuality) > 0.001f) {
+                            const float previous = currentRenderQuality;
+                            currentRenderQuality = next;
+                            applyRenderQuality(lr, next, "auto adjust");
+                            compLog("render quality auto: %.2f -> %.2f (displayHz=%.1f p95=%.2fms "
+                                    "repeats=%d/%d)", (double)previous, (double)next,
+                                    (double)presentStats.displayHz, (double)presentStats.p95Ms,
+                                    presentStats.repeats, presentStats.count);
+                        }
                     }
                 }
             }

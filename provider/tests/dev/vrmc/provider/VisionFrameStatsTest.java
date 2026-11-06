@@ -38,6 +38,21 @@ public final class VisionFrameStatsTest {
         for (int i = 0; i < 10; i++) small.record(5_000_000L + i);
         check("ring capacity bounded", small.snapshotAndReset().meanMs > 0.0);
 
+        // M8: target-interval scoring (measured display cadence, e.g. 120 Hz) + sample count.
+        VisionFrameStats hz = new VisionFrameStats(64);
+        for (int i = 0; i < 30; i++) hz.record(8_333_333L);   // 120 Hz
+        VisionFrameStats.Snapshot fast = hz.snapshotAndReset(1000.0 / 120.0);
+        check("120 Hz cadence not missed", fast.missed90HzFrames == 0 && fast.samples == 30,
+            fast.missed90HzFrames + "/" + fast.samples);
+        for (int i = 0; i < 30; i++) hz.record(8_333_333L);
+        for (int i = 0; i < 3; i++) hz.record(20_000_000L);  // repeated frames at 120 Hz
+        VisionFrameStats.Snapshot slow = hz.snapshotAndReset(1000.0 / 120.0);
+        check("120 Hz repeats scored against 8.33 ms", slow.missed90HzFrames == 3 && slow.samples == 33,
+            slow.missed90HzFrames + "/" + slow.samples);
+        hz.record(20_000_000L);  // 20 ms: fine for 120 Hz scoring? no - falls back to the 90 Hz default
+        check("invalid target falls back to 90 Hz",
+            hz.snapshotAndReset(Double.NaN).missed90HzFrames == 1);
+
         System.out.println("[m5-frame-stats-test] " + checks + " checks, " + failures + " failed");
         System.out.println(failures == 0 ? "[m5-frame-stats-test] PASS" : "[m5-frame-stats-test] FAIL");
         if (failures != 0) System.exit(1);

@@ -399,12 +399,79 @@ public func vrmcShellStart() -> Int32 {
     return 0
 }
 
+/// M8: maximum layer render quality [0,1] (visionOS 26+). This is the upper bound for the drawable's
+/// resolution and for the dynamic-quality range the compositor's runtime controller may use inside.
+/// 1.0 = the highest render quality the device supports (native per-eye panel resolution, i.e. the
+/// "4K in both eyes" target); Documents/vrmc-max-render-quality.txt can pin a lower value for A/B
+/// without rebuilding. An absent/unparsable file falls back to 1.0, never fails the immersive open.
+private func shellMaxRenderQuality() -> LayerRenderer.RenderQuality {
+    let fallback = LayerRenderer.RenderQuality(rawValue: 1.0)
+    let path = shellDocumentsURL().appendingPathComponent("vrmc-max-render-quality.txt")
+    guard let raw = try? String(contentsOf: path, encoding: .utf8) else { return fallback }
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let value = Float(trimmed), value >= 0.05, value <= 1.0 else {
+        shellLog("max render quality: ignoring unparsable override '\(trimmed)' (using 1.0)")
+        return fallback
+    }
+    shellLog("max render quality: Documents/vrmc-max-render-quality.txt = \(value)")
+    return LayerRenderer.RenderQuality(rawValue: value)
+}
+
 struct ShellLayerConfiguration: CompositorLayerConfiguration {
     func makeConfiguration(capabilities: LayerRenderer.Capabilities,
                            configuration: inout LayerRenderer.Configuration) {
-        configuration.layout = .dedicated
-        configuration.isFoveationEnabled = false
+        // M8: foveated rendering + dynamic render quality.
+        //  - Foveation is requested whenever the layer supports it (Apple's "Drawing fully immersive
+        //    content using Metal" sample does exactly this): drawables then expose rasterization rate
+        //    maps with a high-density centre and a smaller physical texture, which is how the system
+        //    gives the fovea native per-eye resolution for less memory/compositor cost.
+        //  - The layout is chosen from the layouts the layer reports for the requested foveation mode.
+        //    The accepted device path is .dedicated; if foveation only allows another layout we use
+        //    that instead of failing the immersive open.
+        //  - maxRenderQuality is the ceiling for the drawable resolution; the compositor starts its
+        //    runtime quality there (or lower from Documents/vrmc-render-quality.txt) and publishes the
+        //    resulting logical per-eye size to the provider through the bridge.
+        let foveationSupported = capabilities.supportsFoveation
+        let foveationDisabledByFlag = shellDocumentFlag("vrmc-foveation-off.flag")
+        let wantFoveation = foveationSupported && !foveationDisabledByFlag
+        let supportedLayouts = capabilities.supportedLayouts(
+            options: wantFoveation ? [.foveationEnabled] : [])
+        var chosenLayout: LayerRenderer.Layout = .dedicated
+        if supportedLayouts.contains(.dedicated) {
+            chosenLayout = .dedicated
+        } else if supportedLayouts.contains(.layered) {
+            chosenLayout = .layered
+        } else if let first = supportedLayouts.first {
+            chosenLayout = first
+        }
+        configuration.layout = chosenLayout
         configuration.colorFormat = .rgba16Float
+        var maxQualityText = "system-default"
+        if #available(visionOS 26.0, *) {
+            let defaultQuality = capabilities.defaultRenderQuality.rawValue
+            // Only touch maxRenderQuality when the layer reports a usable default quality. Some
+            // runtimes (observed: the visionOS 27.0 simulator) report NaN, and setting an explicit
+            // quality there makes CompositorLayer creation fail (CPImmersiveScene.layer abort in
+            // didMoveToWindow) - the immersive space then never opens.
+            let qualitySupported = defaultQuality.isFinite && defaultQuality > 0.0 && defaultQuality <= 1.0
+            if qualitySupported {
+                let maxQuality = shellMaxRenderQuality()
+                configuration.maxRenderQuality = maxQuality
+                maxQualityText = String(format: "%.2f", maxQuality.rawValue)
+            } else {
+                shellLog("layer config: render-quality control UNSUPPORTED (defaultRenderQuality="
+                    + "\(defaultQuality)); leaving maxRenderQuality at the system default")
+            }
+            shellLog("layer config: supportsFoveation=\(foveationSupported) defaultRenderQuality="
+                + "\(defaultQuality) qualitySupported=\(qualitySupported) maxRenderQuality="
+                + "\(maxQualityText) supportedLayouts=\(supportedLayouts.map { "\($0)" })")
+        } else {
+            shellLog("layer config: dynamic render quality unavailable (pre-visionOS 26)")
+        }
+        configuration.isFoveationEnabled = wantFoveation
+        shellLog("layer config: layout=\(chosenLayout) foveation=\(wantFoveation) "
+            + "(supported=\(foveationSupported) disabledByFlag=\(foveationDisabledByFlag)) "
+            + "maxRenderQuality=\(maxQualityText)")
         // M4-W2: tracking-area textures are OPT-IN via Documents/vrmc-gaze.flag. Leaving the layer
         // configuration untouched unless gaze is requested keeps the device/simulator presentation path
         // exactly like the accepted build (the simulator regressed when this was unconditional).

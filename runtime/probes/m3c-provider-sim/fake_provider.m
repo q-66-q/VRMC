@@ -288,3 +288,92 @@ uint64_t vrmc_shared_input_sequence(void) {
     pthread_mutex_unlock(&gInputMutex);
     return sequence;
 }
+/* ------------------------------------------------------------------------------------------- */
+/* M8 render feedback: the REAL compositor publishes display geometry/cadence into this dylib.  */
+/*                                                                                             */
+/* vrmc_shared_publish_render_settings is called once per compositor frame (rate-limited by the  */
+/* compositor to ~every 10 frames + immediately on geometry/quality change). The fake provider     */
+/* records every payload to Documents/vrmc-render-capture.txt so check.py can assert that the     */
+/* compositor actually measured the layer's logical per-eye size, foveation/rate-map state and   */
+/* display cadence, and that the wire layout survives the native round-trip.                      */
+/*                                                                                             */
+/* CSV shape (one line per publish; '#' lines are comments):                                     */
+/*   publishes_count,frame_index,valid,left_logical_w,left_logical_h,right_logical_w,             */
+/*   right_logical_h,drawable_w,drawable_h,foveation,rate_maps,render_quality,max_render_quality, */
+/*   display_hz,frame_time_ms                                                                     */
+/* ------------------------------------------------------------------------------------------- */
+static pthread_mutex_t gRenderMutex = PTHREAD_MUTEX_INITIALIZER;
+static vrmc_render_settings gRenderSettings;
+static int gRenderPublished = 0;
+static FILE *gRenderCapture = NULL;
+static uint64_t gRenderCaptureLines = 0;
+static uint32_t gRenderLastLogicalW = 0;
+static uint32_t gRenderLastLogicalH = 0;
+
+static FILE *fakeRenderCaptureFile(void) {
+    if (gRenderCapture != NULL) return gRenderCapture;
+    NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *path = [docs.firstObject stringByAppendingPathComponent:@"vrmc-render-capture.txt"];
+    gRenderCapture = fopen(path.UTF8String, "w");
+    if (gRenderCapture == NULL) {
+        NSLog(@"[fake-provider] render capture: cannot open %@", path);
+        return NULL;
+    }
+    fprintf(gRenderCapture,
+            "# vrmc-render-capture v1 (fake provider, visionOS simulator): "
+            "publishes,frame_index,valid,left_logical_w,left_logical_h,right_logical_w,"
+            "right_logical_h,drawable_w,drawable_h,foveation,rate_maps,render_quality,"
+            "max_render_quality,display_hz,frame_time_ms\n");
+    fprintf(gRenderCapture,
+            "# Published by the real VRMC compositor (M8 render feedback). Plumbing evidence only - "
+            "display geometry/cadence values in the simulator are not device optics evidence.\n");
+    fflush(gRenderCapture);
+    NSLog(@"[fake-provider] render capture: %@", path);
+    return gRenderCapture;
+}
+
+int32_t vrmc_shared_publish_render_settings(const vrmc_render_settings *settings) {
+    if (settings == NULL) return -1;
+    if (settings->version != VRMC_RENDER_SETTINGS_VERSION) return -2;
+    pthread_mutex_lock(&gRenderMutex);
+    gRenderSettings = *settings;
+    gRenderPublished = 1;
+    FILE *capture = fakeRenderCaptureFile();
+    if (capture != NULL) {
+        fprintf(capture, "%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%.3f,%.3f,%.2f,%.2f\n",
+                (unsigned long long)(gRenderCaptureLines + 1), settings->frame_index, settings->valid,
+                settings->left_logical_width, settings->left_logical_height,
+                settings->right_logical_width, settings->right_logical_height,
+                settings->drawable_width, settings->drawable_height,
+                settings->foveation_enabled, settings->rate_map_count,
+                (double)settings->render_quality, (double)settings->max_render_quality,
+                (double)settings->display_hz, (double)settings->frame_time_ms);
+        fflush(capture);
+        gRenderCaptureLines++;
+        if (settings->left_logical_width != gRenderLastLogicalW ||
+            settings->left_logical_height != gRenderLastLogicalH) {
+            gRenderLastLogicalW = settings->left_logical_width;
+            gRenderLastLogicalH = settings->left_logical_height;
+            NSLog(@"[fake-provider] render geometry logical L=%ux%u R=%ux%u drawable=%ux%u "
+                  "foveation=%u rateMaps=%u quality=%.2f/%.2f displayHz=%.1f",
+                  settings->left_logical_width, settings->left_logical_height,
+                  settings->right_logical_width, settings->right_logical_height,
+                  settings->drawable_width, settings->drawable_height,
+                  settings->foveation_enabled, settings->rate_map_count,
+                  (double)settings->render_quality, (double)settings->max_render_quality,
+                  (double)settings->display_hz);
+        }
+    }
+    pthread_mutex_unlock(&gRenderMutex);
+    return 0;
+}
+
+int32_t vrmc_shared_acquire_render_settings(vrmc_render_settings *out) {
+    if (out == NULL) return -1;
+    memset(out, 0, sizeof(*out));
+    out->version = VRMC_RENDER_SETTINGS_VERSION;
+    pthread_mutex_lock(&gRenderMutex);
+    if (gRenderPublished) *out = gRenderSettings;
+    pthread_mutex_unlock(&gRenderMutex);
+    return 0;
+}

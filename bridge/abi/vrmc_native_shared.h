@@ -193,6 +193,61 @@ int32_t vrmc_shared_acquire_input(vrmc_input_state *out);
  * Consumers use it only for change/staleness detection (never as a clock). */
 uint64_t vrmc_shared_input_sequence(void);
 
+/* ------------------------------------------------------------------------------------------- */
+/* Render feedback (M8: foveated 4K/120 rendering)                                               */
+/* ------------------------------------------------------------------------------------------- */
+/*
+ * Compositor -> provider render feedback, refreshed every compositor frame and read by the provider
+ * from its render thread. The CompositorServices layer knows what the display actually asks for; the
+ * provider must size its own stereo eye textures to that instead of a hardcoded 1024x1024:
+ *
+ *  - left/right_logical_* is the per-eye view size at the current render quality (the resolution at
+ *    which one provider pixel maps 1:1 to one displayed pixel in the fovea). With foveation enabled
+ *    the PHYSICAL drawable is smaller (drawable_width/height); the system expands the high-density
+ *    centre back to the logical size when it presents.
+ *  - foveation_enabled/rate_map_count report whether dynamic rasterization-rate (foveated) rendering
+ *    is active. The provider does not render through the rate map itself (its eye textures are
+ *    uniform); the flag tells it the display path is foveated and how much centre detail the system
+ *    can use.
+ *  - display_hz/frame_time_ms are measured by the compositor from consecutive presentation times, so
+ *    the provider can target the real display cadence (e.g. 120 Hz) instead of assuming 90 Hz.
+ *  - provider_eye_* is an optional compositor-side recommendation (0 = the provider derives its own
+ *    target from the logical size and its render-scale policy).
+ *
+ * This is an additive native-shared channel (same class as display views / input): the Java ABI
+ * structs in vrmc_abi.h are unchanged. Publication is allowed before vrmc_init (the compositor can
+ * run before the JVM); acquire returns 0 with a zeroed valid=0 payload before the first publish.
+ * Whole-struct copies happen under one bridge-internal mutex, so readers never see a torn payload.
+ */
+#define VRMC_RENDER_SETTINGS_VERSION 1u
+typedef struct {
+    uint32_t version;             /* VRMC_RENDER_SETTINGS_VERSION */
+    uint32_t valid;               /* 1 = fields valid, 0 = nothing published yet / uninitialized */
+    uint32_t frame_index;         /* compositor frame number the payload was measured on */
+    uint32_t foveation_enabled;   /* 1 = layer foveation enabled (rate maps active) */
+    uint32_t rate_map_count;      /* rate maps on the built_in drawable (0 = no foveation) */
+    uint32_t left_logical_width;  /* per-eye LOGICAL view size at the current render quality, px */
+    uint32_t left_logical_height;
+    uint32_t right_logical_width;
+    uint32_t right_logical_height;
+    uint32_t drawable_width;      /* PHYSICAL built_in drawable texture extent, px */
+    uint32_t drawable_height;
+    float render_quality;         /* current LayerRenderer render quality [0,1] */
+    float max_render_quality;     /* configured maximum render quality [0,1] */
+    float display_hz;             /* measured display cadence (Hz); 0 = unknown */
+    float frame_time_ms;          /* measured compositor frame interval EWMA (ms); 0 = unknown */
+    uint32_t provider_eye_width;  /* optional compositor recommendation, 0 = provider derives */
+    uint32_t provider_eye_height;
+} vrmc_render_settings;
+
+/* Publish the latest render feedback (compositor thread). Returns 0 on success, nonzero on a NULL /
+ * malformed payload (valid must be 0 or 1, version must match, quality in [0,1], sizes sane). */
+int32_t vrmc_shared_publish_render_settings(const vrmc_render_settings *settings);
+
+/* Acquire the latest render feedback (provider render thread through JNI). Returns 0 and fills *out;
+ * before the first publish *out is zeroed with valid=0 ("no display feedback yet", not an error). */
+int32_t vrmc_shared_acquire_render_settings(vrmc_render_settings *out);
+
 #ifdef __cplusplus
 }
 #endif
