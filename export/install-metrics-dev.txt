@@ -1,11 +1,11 @@
-VRMC install metrics (host measurement; device install size still a K6 acceptance step)
-generated: 2026-11-02T01:21:07-1000
+VRMC install metrics (host measurement; device cold-install duration not yet measured)
+generated: 2026-11-05T21:05:47-1000
 app_path=/tmp/VRMC-native-checklist-summary.app
 app_bytes=584007680
 app_files=485
 app_macho_files=169
-provider_bytes=99576
-provider_sha256=4587b5d2e0a894c4c314a6b8de7715b6829c58fcf05539aefd7fb2516b35a576
+provider_bytes=127258
+provider_sha256=4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351
 package_path=/tmp/VRMC-dev-release.zip
-package_bytes=206538366
-package_sha256=4d9141f05a8993a0c5242534df4ff102aaefe6fffd7ae555bf82c06dd9e3d2af
+package_bytes=206567578
+package_sha256=ab58ff0ba1cfd3a7960e61c06489798c550782abd395973a82afb24f00d2c106

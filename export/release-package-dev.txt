@@ -1,14 +1,14 @@
 VRMC development sideload package (not final release sign-off)
-generated: 2026-11-02T01:21:05-1000
-source_commit=783e19622af9b8d9f1b4ee000e8de777f1f7346e
+generated: 2026-11-05T21:05:47-1000
+source_commit=27c5461b2666eaf0a821857efc39ce05bd594471
 app_tree_sha256=a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb
 app_tree_hash_method=path-independent bundle-relative files (scripts/app_tree_sha256.sh)
-provider_sha256=4587b5d2e0a894c4c314a6b8de7715b6829c58fcf05539aefd7fb2516b35a576
+provider_sha256=4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351
 zip_path=/tmp/VRMC-dev-release.zip
-zip_bytes=206538366
-zip_sha256=4d9141f05a8993a0c5242534df4ff102aaefe6fffd7ae555bf82c06dd9e3d2af
+zip_bytes=206567578
+zip_sha256=ab58ff0ba1cfd3a7960e61c06489798c550782abd395973a82afb24f00d2c106
 package_verify=PASS (scripts/m6_verify_release_package.sh)
 package_freshness=PASS (m6_check_release_current.sh)
 device_integrity=provider hash matches installed D1
 reproducibility=provider two-build hash PASS
-acceptance_gate=NOT READY (export/acceptance-readiness.txt)
+acceptance_gate=NOT READY (17/22 explicit PASS; remaining AC-1/AC-6/K3/K5/K6)
