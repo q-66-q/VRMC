@@ -1994,6 +1994,8 @@ public class VisionVR extends MCVR {
             && this.mc.gui.screen() == null && !KeyboardHandler.SHOWING;
         float x = 0.0F;
         float y = 0.0F;
+        float debugAlong = 0.0F;
+        float debugRight = 0.0F;
         if (usable && this.m7Gesture.leftPinchHeld()) {
             // Player-relative stick: project wrist-minus-head onto the HMD's horizontal forward/right
             // basis. The neutral origin is captured when the pinch engages, so a hand that naturally
@@ -2012,6 +2014,8 @@ public class VisionVR extends MCVR {
             float relZ = this.visionInput.wristZ(VisionInput.HAND_LEFT) - this.hmdPose.m32();
             float along = relX * this.m7MoveForward.x + relZ * this.m7MoveForward.z;
             float right = relX * this.m7MoveRight.x + relZ * this.m7MoveRight.z;
+            debugAlong = along - this.m7StickOriginAlong;
+            debugRight = right - this.m7StickOriginRight;
             if (!this.m7StickOriginSet) {
                 this.m7StickOriginSet = true;
                 this.m7StickOriginAlong = along;
@@ -2035,9 +2039,15 @@ public class VisionVR extends MCVR {
             || (engaged && nowNs - this.m7LocomotionLastLogNs > 3_000_000_000L)) {
             this.m7LocomotionEngaged = engaged;
             this.m7LocomotionLastLogNs = nowNs;
+            float dataX = strafe == null ? 0.0F : strafe.analogData[ControllerType.RIGHT.ordinal()].x;
+            float dataY = strafe == null ? 0.0F : strafe.analogData[ControllerType.RIGHT.ordinal()].y;
             System.out.printf(
-                "[VRMC-M7] pinch stick(player-relative) %s strafe=%.2f forward=%.2f wrist=(%.2f,%.2f,%.2f)%n",
-                engaged ? "engaged" : "released", x, y,
+                "[VRMC-M7] pinch stick(player-relative) %s strafe=%.2f forward=%.2f "
+                    + "delta=(%.2f,%.2f) fwd=(%.2f,%.2f) data=(%.2f,%.2f) active=%b enabled=%b "
+                    + "wrist=(%.2f,%.2f,%.2f)%n",
+                engaged ? "engaged" : "released", x, y, debugAlong, debugRight,
+                this.m7MoveForward.x, this.m7MoveForward.z, dataX, dataY,
+                strafe != null && strafe.isActive(), strafe != null && strafe.isEnabledRaw(),
                 this.visionInput.wristX(VisionInput.HAND_LEFT),
                 this.visionInput.wristY(VisionInput.HAND_LEFT),
                 this.visionInput.wristZ(VisionInput.HAND_LEFT));
@@ -2213,6 +2223,8 @@ public class VisionVR extends MCVR {
             && this.mc.gui.screen() == null && !KeyboardHandler.SHOWING;
         float x = 0.0F;
         float y = 0.0F;
+        float debugAlong = 0.0F;
+        float debugRight = 0.0F;
         if (usable && this.m7Gesture.leftPinchHeld()) {
             VisionLocomotion.axes(
                 this.visionInput.wristX(VisionInput.HAND_LEFT),
