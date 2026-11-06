@@ -21,7 +21,9 @@ public final class VisionStatusJsonTest {
             "2026-01-01T00:00:00Z", 3, true, true, 2L, 4466, false, true, true, true, true,
             "visionOS \"27\\2\"", "seated=false \"quoted\" \\ back", 0.18F,
             "pinch=0.030/0.045 swipe=true", "nominal", "notify", false, false, 11.5F, 18.25F, 4,
-            true, true, 0.42F, true, true, true, "L:pinch R:middle");
+            true, true, 0.42F, true, true, true, "L:pinch R:middle",
+            "eyeTarget=1832x1600 displayLogical=3660x3200 drawable=2412x2108 foveation=1 rateMaps=2 "
+                + "displayHz=120.0 scale=0.50(auto) resizes=2 valid=1");
         String json = VisionStatusJson.build(data, Instant.EPOCH);
         Map<String, Object> parsed = null;
         try {
@@ -57,6 +59,9 @@ public final class VisionStatusJsonTest {
             check("climbeyClimb", Boolean.TRUE.equals(parsed.get("climbeyClimb")));
             check("climbActive", Boolean.TRUE.equals(parsed.get("climbActive")));
             check("gestures round-trip", "L:pinch R:middle".equals(parsed.get("gestures")));
+            check("render round-trip", String.valueOf(parsed.get("render")).contains("eyeTarget=1832x1600")
+                && String.valueOf(parsed.get("render")).contains("displayHz=120.0"),
+                String.valueOf(parsed.get("render")));
         }
         // Regression shape: the last field must not carry a trailing comma/quote (EV-0144 bug).
         String trimmed = json.trim();

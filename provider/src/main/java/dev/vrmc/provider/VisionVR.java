@@ -407,6 +407,23 @@ public class VisionVR extends MCVR {
     /** M5/M6 support file: current provider status snapshot (local only; user-initiated export). */
     private void writeStatusReport() {
         if (this.mc.gameDirectory == null) return;
+        // M8: renderer/display state in the status document so a diagnostics pull alone can answer
+        // "what eye target, display logical size, foveation/rate-map state and cadence did the session
+        // see?" even if the compositor log is missing (the device checker uses it as a fallback).
+        VisionRenderer statusRenderer =
+            (this.dh != null && this.dh.vrRenderer instanceof VisionRenderer sr) ? sr : null;
+        String renderSummary = "";
+        if (statusRenderer != null) {
+            VisionRenderSettings rs = statusRenderer.renderSettingsSnapshot();
+            renderSummary = String.format(java.util.Locale.ROOT,
+                "eyeTarget=%dx%d displayLogical=%dx%d drawable=%dx%d foveation=%d rateMaps=%d "
+                    + "displayHz=%.1f scale=%.2f(%s) resizes=%d valid=%d",
+                statusRenderer.renderEyeTargetWidth(), statusRenderer.renderEyeTargetHeight(),
+                rs.leftLogicalWidth, rs.leftLogicalHeight, rs.drawableWidth, rs.drawableHeight,
+                rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz,
+                statusRenderer.eyeScaleValue(), statusRenderer.eyeScaleIsAuto() ? "auto" : "fixed",
+                statusRenderer.eyeResizeCount(), rs.valid ? 1 : 0);
+        }
         VisionStatusJson.Data data = new VisionStatusJson.Data(
             java.time.Instant.now().toString(),
             VrmcBridge.ABI_VERSION,
@@ -442,7 +459,8 @@ public class VisionVR extends MCVR {
             this.dh.vrPlayer != null && this.dh.climbTracker != null && this.mc.player != null
                 && this.dh.climbTracker.isActive(this.mc.player),
             this.m7Mode ? this.m7Gesture.summary()
-                : (this.visionInput == null ? "" : this.visionInput.gestureSummary()));
+                : (this.visionInput == null ? "" : this.visionInput.gestureSummary()),
+            renderSummary);
         String json = VisionStatusJson.build(data, java.time.Instant.now());
         java.nio.file.Path path = this.mc.gameDirectory.toPath().resolve("vrmc-status.json");
         try {

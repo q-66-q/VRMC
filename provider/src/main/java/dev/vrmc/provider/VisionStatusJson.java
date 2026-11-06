@@ -39,6 +39,8 @@ public final class VisionStatusJson {
         public final boolean climbGrabbing;
         public final boolean climbeyClimb;
         public final boolean climbActive;
+        /** M8 renderer/display summary (eye target, display logical size, foveation, cadence, resizes). */
+        public final String render;
 
         public Data(String generatedAt, int abi, boolean bridgeReady, boolean initialized,
                     long displayViewsGen, int trackedFrames, boolean seated, boolean inputHealthy,
@@ -49,7 +51,7 @@ public final class VisionStatusJson {
                     float frameP50Ms, float frameP95Ms, int missed90Frames,
                     boolean bowActive, boolean bowNotched, float bowDrawPercent,
                     boolean climbGrabbing, boolean climbeyClimb, boolean climbActive,
-                    String gestures) {
+                    String gestures, String render) {
             this.generatedAt = generatedAt;
             this.abi = abi;
             this.bridgeReady = bridgeReady;
@@ -79,6 +81,7 @@ public final class VisionStatusJson {
             this.climbeyClimb = climbeyClimb;
             this.climbActive = climbActive;
             this.gestures = gestures;
+            this.render = render;
         }
     }
 
@@ -113,7 +116,8 @@ public final class VisionStatusJson {
         rawNumber(json, "bowDrawPercent", d.bowDrawPercent, true);
         bool(json, "climbGrabbing", d.climbGrabbing, true);
         bool(json, "climbeyClimb", d.climbeyClimb, true);
-        bool(json, "climbActive", d.climbActive, false);
+        bool(json, "climbActive", d.climbActive, true);
+        field(json, "render", d.render, false);
         json.append("}\n");
         return json.toString();
     }

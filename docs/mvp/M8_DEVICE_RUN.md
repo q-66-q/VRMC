@@ -93,6 +93,12 @@ Manual equivalents (if you prefer the individual scripts):
 | A8 | Measured display cadence: 120 Hz PASS (≥117 Hz, repeats ≤20 %), else PARTIAL with the actual Hz | `render feedback: displayHz=… repeats=…` |
 | A9 | Pacing/regressions: no render-feedback publication failures, no command-buffer failures, provider p95 within 1.5× the measured cadence budget | `[VRMC-M5] diag: … p95Ms=… missedTarget=… targetHz=…` |
 
+**Robustness:** the classifier also reads `vrmc-status.json` (written by the M5/M8 provider diagnostics).
+Its `render` summary carries the eye target, display logical size, foveation/rate-map state, measured
+display Hz and resize count, and the file carries the last frame p50/p95/missed counters — so a pull
+whose compositor log rotated away still classifies via the status fallback
+(`scripts/tests/M8DeviceCheckTest.sh` covers a status-only pull → PASS).
+
 **Required operator statement for full evidence:** whether the image looked **less blurry/jagged**
 than the pre-M8 build (the old build upscaled 1024² into ~1888×1792), whether 90→120 Hz felt smooth,
 and whether foveated sharpening produced halos/edge artefacts (A/B with `--sharpening off`). A PASS
@@ -150,6 +156,7 @@ Interpretation:
 1. Run `scripts/m8_device_check.sh` and keep `/tmp/vrmc-m8-device/` (logs are copied there).
 2. Record a new `EV-xxxx` in `VERIFY.md` §6 with:
    - A6–A9 statuses + the exact log lines,
+   - `vrmc-status.json` `render` summary (eye target / display logical / foveation / displayHz / resizes),
    - measured `displayHz`, repeats, logical per-eye size, final provider eye target, resize count,
    - the operator visual statement (blur/jaggies/comfort),
    - the artifact paths (push them through `scripts/log_evidence.sh` for hashing).

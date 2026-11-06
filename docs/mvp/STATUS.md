@@ -225,3 +225,12 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   gained `SHARPEN=<off|auto|0.05..1.0>`: `off` → no sharpening / `sharpen=0.00`; `0.30` → fixed
   strength 0.30 / `sharpen=0.30`; both scenarios PASS with the known pattern unchanged. The remaining
   work is the D1 session itself — now one command each way.
+
+- 2026-11-05 EV-0275: **M8 diagnostics status render summary + device-check fallback (host PASS).**
+  `vrmc-status.json` now carries the M8 renderer/display state (`render`: eye target, display logical
+  size, drawable, foveation, rate maps, measured display Hz, eye scale auto/fixed, resize count, valid)
+  alongside the existing frame p50/p95/missed counters. The A6–A9 classifier uses this as a fallback
+  when compositor/provider logs have rotated away, and prints it in the report; the synthetic
+  classifier test now covers a status-only pull that classifies **PASS**. Provider suite ALL PASS
+  (status JSON strict/fuzz updated; jar `89a5910f…`, 136,399 B, two-build reproducible); M3c fast
+  self-check PASS. **Device A6–A9 still NOT RUN**; candidate manifest provider hash updated.

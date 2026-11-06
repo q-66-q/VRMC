@@ -16,8 +16,8 @@ bundle_id=dev.vrmc.vrmc
 version=1.2.0
 framework_sha256=b1f48c2f89ad2bb13793dbb6a23c2e20f249f072d82b4ab5f81ba40e3f700f30
 bridge_sha256=a4baa95d78ae1c147bec068b7ca43d89cca929de631f44e201991705fa8857c2
-provider_jar_sha256=cd80b753cbb78f742b8954752aeaa5e09e3e4828ec2245f9a0c86af93ed0b049
-provider_jar_bytes=136067
+provider_jar_sha256=89a5910fe03971b61c39ac0031d4e2c45454d65258dccc59cc4fe9dcd1b382b7
+provider_jar_bytes=136399
 codesign=codesign --verify --deep --strict PASS (169 Mach-O + 6 nested frameworks signed, Apple Development identity, profile provisions D1)
 m8_content=foveation layer configuration + "foveation rate map"/"display geometry"/"render feedback
   published"/"foveated sharpening:" compositor strings present (flatSharp pipeline built), bridge

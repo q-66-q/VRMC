@@ -21,6 +21,7 @@ foveation), 3 = NOT RUN (no M8 evidence: old build / logs not pulled), 4 = FAIL 
 This tool only reads logs; it makes no device claims by itself.
 """
 import argparse
+import json
 import os
 import re
 import sys
@@ -41,6 +42,34 @@ def read_first(directory, names):
             with open(path, "r", errors="replace") as handle:
                 return name, handle.read()
     return None, ""
+
+
+def parse_status_document(directory):
+    """Read vrmc-status.json (M5/M8 diagnostics) if present: the pull's most robust evidence source.
+
+    Returns (document_dict, render_dict). The M8 provider status document carries a "render" summary
+    (eyeTarget, displayLogical, drawable, foveation, rateMaps, displayHz, scale, resizes, valid) plus
+    frameP50Ms/frameP95Ms/missed90Frames, so the checker can fall back to it when logs rotated away.
+    """
+    path = os.path.join(directory, "vrmc-status.json")
+    if not os.path.isfile(path):
+        return {}, {}
+    try:
+        with open(path, "r", errors="replace") as handle:
+            document = json.load(handle)
+    except (ValueError, OSError):
+        return {}, {}
+    render = {}
+    text = str(document.get("render", ""))
+    for key, value in re.findall(r"([A-Za-z]+)=([^\s]+)", text):
+        render[key] = value
+    return document, render
+
+
+def parse_size(value):
+    """'3660x3200' -> (3660, 3200); None if malformed."""
+    match = re.fullmatch(r"(\d+)x(\d+)", str(value or ""))
+    return (int(match.group(1)), int(match.group(2))) if match else None
 
 
 def read_best(directory, names, marker):
@@ -187,30 +216,44 @@ def parse_provider(text):
     return info
 
 
-def check_a6(comp, shell):
+def status_int(render, key):
+    try:
+        return int(str(render.get(key, "")))
+    except (TypeError, ValueError):
+        return None
+
+
+def check_a6(comp, shell, status_render):
     reasons = []
     ok = True
     if shell.get("supports_foveation") is False:
         return "NOT RUN", ["shell: layer reports supportsFoveation=false (environment has no foveation; "
                            "not a device regression)"]
-    if comp.get("configured_foveation") != 1:
-        reasons.append("compositor: layer configuration foveation=%s (expected 1)" %
-                       comp.get("configured_foveation"))
+    status_foveation = status_int(status_render, "foveation")
+    status_rate_maps = status_int(status_render, "rateMaps")
+    configured = comp.get("configured_foveation")
+    if configured is None and status_foveation is not None:
+        configured = status_foveation
+        reasons.append("layer foveation from vrmc-status.json render summary")
+    if configured != 1:
+        reasons.append("layer foveation=%s (expected 1)" % configured)
         ok = False
-    if not comp.get("rate_maps"):
-        reasons.append("compositor: no 'foveation rate map' geometry line")
+    if not comp.get("rate_maps") and not (status_rate_maps or 0) > 0:
+        reasons.append("no 'foveation rate map' geometry line and none in vrmc-status.json")
         ok = False
     geom = comp.get("display_geometry")
-    if not geom:
+    if not geom and (status_rate_maps or 0) > 0:
+        reasons.append("display geometry from vrmc-status.json render summary")
+    elif not geom:
         reasons.append("compositor: no 'display geometry' line")
         ok = False
-    elif geom["rate_maps"] <= 0:
-        reasons.append("compositor: display geometry rateMaps=%d" % geom["rate_maps"])
+    elif geom["rate_maps"] <= 0 and not (status_rate_maps or 0) > 0:
+        reasons.append("display geometry rateMaps=%d" % geom["rate_maps"])
         ok = False
     return ("PASS" if ok else "FAIL"), reasons
 
 
-def check_a7(comp, provider):
+def check_a7(comp, provider, status_render):
     reasons = []
     ok = True
     geom = comp.get("display_geometry")
@@ -220,6 +263,10 @@ def check_a7(comp, provider):
         logical = (geom["left_w"], geom["left_h"])
     elif feedback:
         logical = feedback["logical_left"]
+    elif status_render.get("displayLogical"):
+        logical = parse_size(status_render.get("displayLogical"))
+        if logical:
+            reasons.append("display logical size from vrmc-status.json render summary")
     if logical is None:
         reasons.append("no logical per-eye size reported")
         ok = False
@@ -227,28 +274,49 @@ def check_a7(comp, provider):
         reasons.append("logical per-eye %dx%d is below the 4K-class threshold (%dx%d)" %
                        (logical[0], logical[1], FOVEATION_4K_MIN_W, FOVEATION_4K_MIN_H))
         ok = False
-    if not provider.get("settings_line"):
+    status_target = parse_size(status_render.get("eyeTarget")) if status_render else None
+    if not provider.get("settings_line") and status_target is not None:
+        reasons.append("provider eye target from vrmc-status.json render summary")
+    elif not provider.get("settings_line"):
         reasons.append("provider: no '[VRMC-M8] render settings' line")
         ok = False
     resizes = provider.get("resizes", [])
-    if not resizes:
+    status_resizes = status_int(status_render, "resizes")
+    if not resizes and not (status_resizes or 0) > 0:
         reasons.append("provider: no eye-target resize (eye target did not follow the display)")
         ok = False
-    elif len(resizes) > MAX_RESIZES:
-        reasons.append("provider: %d eye-target resizes (thrash; max %d)" % (len(resizes), MAX_RESIZES))
+    elif len(resizes) > MAX_RESIZES or (status_resizes or 0) > MAX_RESIZES:
+        reasons.append("provider: eye-target resizes (thrash; max %d)" % MAX_RESIZES)
         ok = False
     target = provider.get("state_line", {}).get("eye_target") if provider.get("state_line") else None
+    if target is None:
+        target = status_target
     if target and target[0] < 1024:
         reasons.append("provider: final eye target %dx%d smaller than the pre-M8 1024 baseline" % target)
         ok = False
     return ("PASS" if ok else "PARTIAL"), reasons, logical
 
 
-def check_a8(comp):
+def check_a8(comp, status_render):
     feedback = comp.get("last_feedback")
     reasons = []
     if not feedback:
-        return "NOT RUN", ["no render-feedback cadence line"], None
+        # Fallback: the provider writes the measured display Hz into vrmc-status.json.
+        try:
+            fallback_hz = float(status_render.get("displayHz", ""))
+        except (TypeError, ValueError):
+            fallback_hz = 0.0
+        if fallback_hz > 0.0:
+            status = "PASS" if fallback_hz >= CADENCE_120_MIN_HZ else "PARTIAL"
+            if fallback_hz >= CADENCE_120_MIN_HZ:
+                reasons.append("displayHz=%.1f (120 Hz, from vrmc-status.json render summary)" % fallback_hz)
+            elif fallback_hz >= CADENCE_90_MIN_HZ:
+                reasons.append("displayHz=%.1f (90 Hz; 120 Hz NOT achieved, from vrmc-status.json)"
+                               % fallback_hz)
+            else:
+                reasons.append("displayHz=%.1f (below the 90 Hz floor, from vrmc-status.json)" % fallback_hz)
+            return status, reasons, fallback_hz
+        return "NOT RUN", ["no render-feedback cadence line and no status render summary"], None
     hz = feedback["display_hz"]
     repeats = feedback["repeats"]
     samples = max(1, feedback["samples"])
@@ -270,7 +338,7 @@ def check_a8(comp):
     return status, reasons, hz
 
 
-def check_a9(comp, provider):
+def check_a9(comp, provider, status_doc, status_render):
     reasons = []
     ok = True
     hard_failure = False
@@ -285,7 +353,20 @@ def check_a9(comp, provider):
         hard_failure = True
     diag = provider.get("diag")
     if not diag:
-        reasons.append("provider: no '[VRMC-M5] diag' line (game/session log missing)")
+        # Fallback: the M5 status document carries the last diag window's p50/p95/missed fields.
+        p95 = status_doc.get("frameP95Ms") if isinstance(status_doc, dict) else None
+        if isinstance(p95, (int, float)) and p95 > 0:
+            try:
+                target_hz = float(status_render.get("displayHz", ""))
+            except (TypeError, ValueError):
+                target_hz = 0.0
+            if target_hz <= 0:
+                target_hz = 90.0
+            diag = {"p95Ms": float(p95), "targetHz": target_hz,
+                    "missedTarget": int(status_doc.get("missed90Frames", 0) or 0)}
+            reasons.append("pacing from vrmc-status.json (%d ms window)" % int(target_hz))
+    if not diag:
+        reasons.append("provider: no '[VRMC-M5] diag' line and no status pacing (session log missing)")
         return "PARTIAL", reasons
     p95 = diag.get("p95Ms", 0.0)
     target_hz = diag.get("targetHz", 90.0) or 90.0
@@ -318,6 +399,7 @@ def main():
         directory, ["vrmc-shell.log", "vrmc-shell.prev.log", "shell.log"], "layer config:")
     provider_name, provider_text = read_best(
         directory, ["latestlog.txt", "latestlog-game.txt"], "[VRMC-M8]")
+    status_doc, status_render = parse_status_document(directory)
     if comp_text:
         comp_text = last_session(comp_text, r"starting compositor thread")
     if shell_text:
@@ -328,18 +410,20 @@ def main():
 
     print(f"[m8-device] dir={directory}")
     print(f"[m8-device] logs: compositor={comp_name or 'MISSING'} shell={shell_name or 'MISSING'} "
-          f"provider={provider_name or 'MISSING'}")
+          f"provider={provider_name or 'MISSING'}"
+          f"{' status=vrmc-status.json' if status_render else ''}")
 
     has_m8 = bool(comp.get("display_geometry") or comp.get("feedback_publishes") or
-                  comp.get("rate_maps") or provider.get("settings_line") or provider.get("resizes"))
+                  comp.get("rate_maps") or provider.get("settings_line") or
+                  provider.get("resizes") or status_render.get("valid") == "1")
     if not has_m8:
         print("[m8-device] RESULT: NOT RUN (no M8 rendering lines; old build or logs not pulled)")
         return 3
 
-    a6, a6r = check_a6(comp, shell)
-    a7, a7r, logical = check_a7(comp, provider)
-    a8, a8r, hz = check_a8(comp)
-    a9, a9r = check_a9(comp, provider)
+    a6, a6r = check_a6(comp, shell, status_render)
+    a7, a7r, logical = check_a7(comp, provider, status_render)
+    a8, a8r, hz = check_a8(comp, status_render)
+    a9, a9r = check_a9(comp, provider, status_doc, status_render)
     rows = [("A6 foveation active", a6, a6r), ("A7 4K-class display + provider eye targets", a7, a7r),
             ("A8 display cadence", a8, a8r), ("A9 pacing / regressions", a9, a9r)]
     print(f"{'row':40s} {'status':10s} detail")
@@ -354,6 +438,13 @@ def main():
     if target:
         print(f"  provider eye target: {target[0]}x{target[1]}  resizes={len(provider.get('resizes', []))}"
               f"  scale={provider.get('state_line', {}).get('logical')}")
+    if status_render:
+        print(f"  vrmc-status.json render: eyeTarget={status_render.get('eyeTarget', '?')} "
+              f"displayLogical={status_render.get('displayLogical', '?')} "
+              f"foveation={status_render.get('foveation', '?')} "
+              f"rateMaps={status_render.get('rateMaps', '?')} "
+              f"displayHz={status_render.get('displayHz', '?')} "
+              f"resizes={status_render.get('resizes', '?')}")
     if hz:
         sharpen = comp.get("last_feedback", {}).get("sharpen", 0.0) if comp.get("last_feedback") else 0.0
         print(f"  measured display cadence: {hz:.1f} Hz  foveated sharpening: {sharpen:.2f}")

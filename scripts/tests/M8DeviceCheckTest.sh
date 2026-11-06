@@ -3,10 +3,11 @@
 #
 # Creates synthetic device-like log pulls for the four outcomes and asserts the classifier's exit code
 # and key output rows:
-#   pass     -> exit 0 (A6-A9 all PASS, 120 Hz, foveation active, 4K-class logical, provider resizes)
-#   hz90     -> exit 2 (PARTIAL: measured cadence 90 Hz, not 120)
-#   oldbuild -> exit 3 (NOT RUN: no M8 lines in the logs)
-#   failed   -> exit 4 (FAIL: compositor reports a render-feedback publication failure)
+#   pass        -> exit 0 (A6-A9 all PASS, 120 Hz, foveation active, 4K-class logical, provider resizes)
+#   hz90        -> exit 2 (PARTIAL: measured cadence 90 Hz, not 120)
+#   oldbuild    -> exit 3 (NOT RUN: no M8 lines in the logs)
+#   failed      -> exit 4 (FAIL: compositor reports a render-feedback publication failure)
+#   status-only -> exit 0 (vrmc-status.json render/pacing summary only, no logs: fallback path)
 #
 # Usage: scripts/tests/M8DeviceCheckTest.sh
 set -uo pipefail
@@ -82,8 +83,25 @@ out=$("$ROOT/scripts/m8_device_check.sh" --from "$T/failed" 2>&1); rc=$?
 check "failed exit code 4" test "$rc" -eq 4
 check "failed reports FAIL" bash -c "echo \"\$1\" | grep -q 'RESULT: FAIL'" _ "$out"
 
+# --- case 5: vrmc-status.json-only pull -> PASS via the status fallback ----------------------
+mkdir -p "$T/status-only"
+cat > "$T/status-only/vrmc-status.json" <<'EOF'
+{
+  "generatedAt": "2026-11-06T10:00:00Z",
+  "abi": 3,
+  "frameP50Ms": 8.36,
+  "frameP95Ms": 9.26,
+  "missed90Frames": 0,
+  "render": "eyeTarget=3664x3200 displayLogical=3660x3200 drawable=2412x2108 foveation=1 rateMaps=2 displayHz=120.0 scale=1.00(auto) resizes=4 valid=1"
+}
+EOF
+out=$("$ROOT/scripts/m8_device_check.sh" --from "$T/status-only" 2>&1); rc=$?
+check "status-only pull exit code 0 (fallback)" test "$rc" -eq 0
+check "status-only pull uses vrmc-status.json" bash -c "echo \"\$1\" | grep -q 'status=vrmc-status.json'" _ "$out"
+check "status-only pull PASS A6-A9" bash -c "echo \"\$1\" | grep -q 'RESULT: PASS (A6-A9)'" _ "$out"
+
 if [ "$fail" != "0" ]; then
   echo "[m8-device-test] RESULT: FAIL"
   exit 1
 fi
-echo "[m8-device-test] RESULT: PASS (4 classifier outcomes; host-only, no device)"
+echo "[m8-device-test] RESULT: PASS (5 classifier outcomes; host-only, no device)"

@@ -163,6 +163,8 @@ Device (D1, NOT RUN; one operator session):
   the foveal taper works. The simulator `render` scenario runs the real shader/pipeline end-to-end
   (`foveated sharpening: auto strength=0.45 … upscale=3.75`, `sharpen=0.45` in the cadence summary) and
   still matches the known pattern. **PASS (host Metal + simulator)** — *not device visual evidence*.
+- (robustness) the pull classifier also reads `vrmc-status.json`'s M8 `render` summary and pacing
+  counters, so rotated compositor/provider logs still classify A6–A9 (host-tested status-only pull);
 - A6 `vrmc-compositor.log` shows `layer configuration ... foveation=1 ... maxRenderQuality=1.00` and
   `foveation rate map ...` geometry (screen vs physical size) — foveated rendering actually active.
 - A7 `display geometry: logical L=...` reports the max-quality per-eye view (expected ~4K-class);
