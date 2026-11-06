@@ -133,3 +133,5 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - 2026-11-05 EV-0258: M5 loop recorded as **operator-attested PASS** (tested previously; current-build re-run waived). M6 AC/K remains.
 
 - 2026-11-05 EV-0260: operator accepted reduced 10-min soak as PASS; relaunches not product defects. EV-0261: bow works with open hands held apart; menu-hand gray box shifted onto the hand. Provider `fac54efa…` pushed.
+
+- 2026-11-05 EV-0263: bow visual orientation remains wrong (parallel); accepted as non-blocking known bug per operator. Bow draw/fire works.

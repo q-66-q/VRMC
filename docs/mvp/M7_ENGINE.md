@@ -109,3 +109,6 @@ provider logs `[VRMC-M7] gesture mode=...` and `[VRMC-M7] engine thresholds ... 
   the hand instead of floating behind the wrist.
 
 - **Bow orientation (EV-0262):** the bow-holding hand is rolled 90° around local forward so the bow is perpendicular to the hand rather than lying parallel; flip the sign if the visual axis is reversed.
+
+- **KNOWN BUG (EV-0263):** bow renders parallel to the hand instead of perpendicular. The 90°
+  hand-pose roll did not correct it; draw/fire works. Accepted as a non-blocking known issue.
