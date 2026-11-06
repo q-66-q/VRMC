@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0265`.
+**Next evidence ID:** `EV-0266`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6469,6 +6469,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Operator must launch with JIT and complete first-run world; provider jar is absent from empty data container until stack setup.
 
+### EV-0265 — DEVICE PASS: AC-1 fresh install to immersive world
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T21:37:53-10:00 |
+| Commit | `eb39b5c3056a54ea0e1f65cd35df53cdf25fb1f3` |
+| Dirty state | ocs/mvp/M6_ACCEPTANCE.md, docs/mvp/STATUS.md |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. clean uninstall/reinstall; restore Vivecraft/provider; launch JIT; enter immersive world
+
+**Expected:** fresh app data launches to world natively
+
+**Actual:** operator confirms pass; 21 mods, immersive, world, clean destroy-complete, no exceptions; manual mod restore caveat.
+
+**Artifacts:** evidence/EV-0265/latestlog.txt (60116819da5f); evidence/EV-0265/vrmc-status.json (7ce5d09a17df); evidence/EV-0265/vrmc-shutdown.log (fd534a4209f2); evidence/EV-0265/vrmc-shell.log (b0faaaa5556e); evidence/EV-0265/summary.log (e306ca7a10df)
+
+**Limitations:** Fresh install required manual Vivecraft/provider jars; launcher auto-provisioning gap recorded.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6775,3 +6798,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-05 | **EV-0262 (`PARTIAL`): bow perpendicular to hand** — 90° roll around local forward for the bow-holding hand; `VisionM7ItemContext` now reports main/off bow mask. Suite ALL PASS (m7 74 checks); provider `4e92b306…`/127,258 B pushed/integrity PASS. **Device visual retest pending**; flip to -90 if axis is wrong. Next ID `EV-0263`. |
 | 2026-11-05 | **EV-0263 (`PARTIAL`): bow visual orientation accepted known bug** — 90° local-forward roll did not fix the bow lying parallel to the hand. Bow draw/fire works; operator says leave as a bug and continue. Non-blocking known issue; follow-up needs an item-only/model transform. Next ID `EV-0264`. |
 | 2026-11-05 | **EV-0264 (`PARTIAL`): AC-1 cold reinstall complete** — uninstalled/reinstalled D1 app; cold install 23.66 s, app data container empty. K6 PASS; AC-6 operator sign-off + host legal checks PASS. AC-1 first-run/JIT/create-world still pending. Next ID `EV-0265`. |
+| 2026-11-05 | **EV-0265 (`DEVICE PASS`): AC-1 fresh install → world** — clean uninstall/reinstall (23.66 s), empty app data; operator restored Vivecraft 26.2-1.3.15 + provider into fresh instance, launched with JIT, entered immersive and played a world. 21 mods loaded, clean `destroy-complete`, no exceptions, p50 8.34 ms/p95 9.21 ms missed90=0. Caveat: manual mod restore required; launcher auto-provisioning is a known gap. Acceptance 22/22. Next ID `EV-0266`. |

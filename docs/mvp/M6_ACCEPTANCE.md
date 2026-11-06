@@ -14,7 +14,7 @@ evidence never counts as a device PASS.
 
 | ID | Criterion | Status | Evidence / gap |
 |---|---|---|---|
-| AC-1 | Fresh install → world, natively on AVP, no PC/streaming | `PARTIAL` | Clean uninstall/reinstall completed 2026-11-05 (cold install 23.66 s, app data empty). First-run account/instance setup + create/load world on the fresh container still needs operator confirmation. |
+| AC-1 | Fresh install → world, natively on AVP, no PC/streaming | `PASS` | Clean uninstall/reinstall (cold install 23.66 s), fresh app data; operator restored Vivecraft 26.2-1.3.15 + provider into the fresh instance, launched, entered immersive, and played a world; clean `destroy-complete`, 21 mods loaded, no exceptions (EV-0266). **Known product gap:** launcher does not auto-provision the mod stack; manual jar install was required. |
 | AC-2 | Stereo correct, no eye swap/flip; head tracking aligned | `PASS` | Operator-confirmed stereo alignment + head tracking (EV-0094); display path unchanged through current provider. `ipd=0.0645`, displayViews applied continuously in EV-0256/0261 sessions. |
 | AC-3 | Immersive input from hands (no controller fallback) | `PASS` | All M7 core actions device-passed using hands only (EV-0253/0256/0257): menu, movement, inventory, attack/place/use/break, hotbar, jump/sneak, bow, eat, climb. |
 | AC-4 | Every P0 action reachable from hands; no stuck input | `PASS` | Operator device pass for all P0 hand actions (EV-0256/0257); 200k-frame M7 fuzz + release-input panic path host PASS. |

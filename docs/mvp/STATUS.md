@@ -139,3 +139,5 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - 2026-11-05 EV-0264: acceptance consolidation — AC-2/AC-3/AC-4/K1/K2 PASS (operator + device logs), AC-5/K4 waived PASS, M5 all PASS. Remaining PARTIAL: AC-1 clean install, AC-6 legal, K3 latency rig, K5 thermal step-down, K6 cold install time.
 
 - 2026-11-05 EV-0265: cold uninstall/reinstall done for AC-1 (23.66 s, app data empty); AC-6 operator sign-off + host legal checks PASS; K6 PASS. AC-1 first-run/world pending; package otherwise release-ready at 21/22.
+
+- 2026-11-05 EV-0266: **AC-1 device PASS** on fresh install (world session, 21 mods, clean destroy-complete, p50 8.34/p95 9.21, missed90=0). Caveat: fresh install required manual Vivecraft/provider jar installation; launcher auto-provisioning is a known gap. Acceptance now 22/22.

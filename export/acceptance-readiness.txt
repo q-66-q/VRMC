@@ -1,5 +1,5 @@
 # VRMC acceptance readiness report
-# generated: 2026-11-05T21:25:03-1000
+# generated: 2026-11-05T21:37:53-1000
 # source: docs/mvp/M5_ACCEPTANCE.md, docs/mvp/M6_ACCEPTANCE.md
 
 ## M5_ACCEPTANCE.md (H1..H10)
@@ -15,7 +15,7 @@ H9     PASS
 H10    PASS
 
 ## M6_ACCEPTANCE.md (AC-1..AC-6, K1..K6)
-AC-1   PARTIAL
+AC-1   PASS
 AC-2   PASS
 AC-3   PASS
 AC-4   PASS
@@ -29,7 +29,7 @@ K5     PASS
 K6     PASS
 
 ## summary
-rows=22 explicit-pass=21 not-run=0 partial=1 (partial rows that also say NOT RUN: 0; categories overlap intentionally)
+rows=22 explicit-pass=22 not-run=0 partial=0 (partial rows that also say NOT RUN: 0; categories overlap intentionally)
 
 ## rows (machine-readable)
 id=H1 status=PASS
@@ -42,7 +42,7 @@ id=H7 status=PASS
 id=H8 status=PASS
 id=H9 status=PASS
 id=H10 status=PASS
-id=AC-1 status=PARTIAL
+id=AC-1 status=PASS
 id=AC-2 status=PASS
 id=AC-3 status=PASS
 id=AC-4 status=PASS
