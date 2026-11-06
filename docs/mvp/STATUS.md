@@ -29,7 +29,7 @@ navigation summary.
 | M2 JVM/Minecraft/immersive bootstrap | CLOSED (EV-0094) |
 | M3 presentation/stereo | DEVICE PASS (EV-0093/0094); M3c extras host/build PASS |
 | M4 hands input | W1 device PASS (EV-0096); W2–W5 host PASS; device tuning/AC-4 NOT RUN |
-| M5 settings/comfort/diagnostics | host/build PASS; device acceptance NOT RUN |
+| M5 settings/comfort/diagnostics | **PASS (operator-attested prior session, EV-0258)**; M6 AC/K NOT RUN |
 | M6 hardening/release | host hardening/release gates PASS; device AC/K gates NOT RUN |
 
 ## Implemented feature summary
@@ -129,3 +129,5 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - 2026-11-05 EV-0256: **M7 short-pinch attack/place/use + hold-break + hotbar stability device PASS.** Teleport remains unbound; bow/eat/climb and M5/M6 device gates remain.
 
 - 2026-11-05 EV-0257: **M7 core scope device PASS**; teleport descoped by operator. Remaining: M5/M6 acceptance and hand-tracking dropout metrics.
+
+- 2026-11-05 EV-0258: M5 loop recorded as **operator-attested PASS** (tested previously; current-build re-run waived). M6 AC/K remains.

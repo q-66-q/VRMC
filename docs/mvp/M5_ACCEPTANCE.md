@@ -1,33 +1,34 @@
 # M5 acceptance matrix — gameplay loop, comfort, diagnostics
 
 Authority: [`VERIFY.md`](../../VERIFY.md). Every status is evidence-based; host/build work is **not** a
-device PASS. D1 is currently unavailable, so all device rows are `NOT RUN`.
+device PASS. On 2026-11-05 the operator stated the M5 loop had been tested in prior sessions and waived a
+fresh current-build run; those rows are recorded as **operator-attested PASS** rather than a new run.
 
 | ID | Requirement | Implementation in current build | Status |
 |---|---|---|---|
-| H1 | Title/menu/continue/new world | Launcher -> JIT game -> GUI pointer via right pinch; menu entry via left fist tap; automatic immersive open | `PARTIAL` (device W1 PASS EV-0096; current build needs re-check) |
-| H2 | Free move, snap/smooth turn, teleport, jump, sneak | Left middle-pinch virtual stick; turn angle picker 0/15/30/45/90; left pinch teleport (suppressed during use/bow); right middle tap jump; right middle hold sneak | `HOST PASS` (EV-0099), device `NOT RUN` |
-| H3 | Seated and standing modes | Runtime settings + launcher toggles; opt-in seated HMD pointer parity (`comfort.seatedHmdPointer`) | `HOST PASS` (EV-0129), device `NOT RUN` |
-| H4 | Break/place/attack/use/eat/entity interact | Right pinch attack/click; right fist hold use/bow; contextual VR interact bindings | device `PARTIAL` (W1) / current build `NOT RUN` |
-| H5 | Inventory, hotbar, crafting, chests, drag/drop | Both-fist tap inventory; ring-pinch hotbar wheel 1–9; optional swipes hotbar ±/swap/drop; GUI pointer | `HOST PASS`, device `NOT RUN` |
-| H6 | Pause/options/death/respawn | Left fist tap menu; GUI pointer; no dedicated respawn gesture (GUI) | device `PARTIAL`, current build `NOT RUN` |
-| H7 | Visible hands/held item | Provider hands drive controller poses; optional `hands.componentMode=joints` for fingertip tip component | `HOST PASS` math only, device appearance `NOT RUN` |
-| H8 | Bow | Right fist hold = continuous use (draw/fire); teleport suppressed while held | host `PASS`, device `NOT RUN` |
-| H9 | Climbing | Both-hand pinch grab; both-middle pinch tap = climb jump | host `PASS`, device `NOT RUN` |
-| H10 | Save/reload/settings persistence | Minecraft saves; VRMC settings files; shutdown journal | host/docs PASS, device `NOT RUN` |
+| H1 | Title/menu/continue/new world | Launcher -> JIT game -> GUI pointer via right pinch; menu entry via left fist tap; automatic immersive open | `PASS` (operator-attested prior session 2026-11-05; no new run) |
+| H2 | Free move, snap/smooth turn, jump, sneak (teleport descoped EV-0257) | Left thumb-index pinch player-relative stick; turn angle picker; head rise/lower jump/sneak | `PASS` (operator-attested; M7 movement/jump/sneak device pass EV-0253/0257) |
+| H3 | Seated and standing modes | Runtime settings + launcher toggles; opt-in seated HMD pointer parity (`comfort.seatedHmdPointer`) | `PASS` (operator-attested prior session 2026-11-05) |
+| H4 | Break/place/attack/use/eat/entity interact | Short right pinch = context attack/place/use; hold = break; eat | `PASS` (operator-attested; device EV-0256/0257) |
+| H5 | Inventory, hotbar, crafting, chests, drag/drop | Both-fist tap inventory; right-pinch LMB pick/place; touch-hotbar stable | `PASS` (operator-attested; device EV-0256/0257) |
+| H6 | Pause/options/death/respawn | Left fist tap menu; GUI pointer; respawn via GUI | `PASS` (operator-attested prior session 2026-11-05) |
+| H7 | Visible hands/held item | Provider hands drive controller poses; optional `hands.componentMode=joints` for fingertip tip component | `PASS` (operator-attested prior session 2026-11-05) |
+| H8 | Bow | Both-fist draw, release back fist to fire | `PASS` (operator-attested; device EV-0257) |
+| H9 | Climbing | Alternating closed-hand reach/pull; climb jump | `PASS` (operator-attested; device EV-0257) |
+| H10 | Save/reload/settings persistence | Minecraft saves; VRMC settings files; shutdown journal | `PASS` (operator-attested prior session 2026-11-05) |
 
 ## Comfort/diagnostics
 
 | Item | Status |
 |---|---|
-| Seated/free-move/aim settings | host PASS, device NOT RUN |
-| Smooth/snap turn angle (0/15/30/45/90) | host/build PASS (EV-0127), device NOT RUN |
-| Teleport + bow/use suppression | host PASS (EV-0121/0125) |
-| Recenter (both-middle double-tap) | host PASS (EV-0103) |
-| Comfort vignette | build PASS (EV-0122), device appearance NOT RUN |
-| Frame pacing/diag telemetry | host PASS (EV-0110), device measurements NOT RUN |
-| Thermal/low-power logging | build PASS (EV-0101), device NOT RUN |
-| Diagnostics export (logs/crash/status) | build PASS (EV-0107/0121), device share UI NOT RUN |
+| Seated/free-move/aim settings | PASS (operator-attested prior session) |
+| Smooth/snap turn angle (0/15/30/45/90) | PASS (operator-attested prior session) |
+| Teleport | DESCOPED (EV-0257) |
+| Recenter (both-middle double-tap) | PASS (operator-attested prior session) |
+| Comfort vignette | PASS (operator-attested prior session) |
+| Frame pacing/diag telemetry | PASS (operator-attested prior session) |
+| Thermal/low-power logging | PASS (operator-attested prior session) |
+| Diagnostics export (logs/crash/status) | PASS (operator-attested prior session) |
 | Controls help/reference | host PASS (EV-0124) |
 
 ## Exit criteria (M5)

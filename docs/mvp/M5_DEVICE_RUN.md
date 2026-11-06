@@ -1,4 +1,7 @@
-# M5 device acceptance runbook (D1; NOT RUN yet)
+# M5 device acceptance runbook (D1; operator-attested PASS 2026-11-05)
+
+> **Status:** operator states the M5 loop was tested previously and waived a fresh current-build run.
+> Recorded as operator-attested PASS (EV-0258); M6 AC/K gates remain.
 
 > Scope update 2026-11-05 (EV-0257): operator descoped teleport. M7 mapping below is the accepted
 > mapping; do not test teleport. M7 H1–H10 actions are already device-passed; this run covers the
@@ -65,7 +68,7 @@ unlock required. Behavior evidence still comes from the operator notes + this bu
 Record as a new VERIFY entry (`EV-…`) with `PASS`/`PARTIAL`, limitations, and artifacts; never claim
 device PASS from simulator/host data.
 
-## M7 device A/B companion checks (pre-M5 acceptance)
+## M7 device A/B companion checks (pre-M5 acceptance; M7 scope closed EV-0257)
 
 Record these alongside H1–H10:
 
