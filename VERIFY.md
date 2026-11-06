@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0264`.
+**Next evidence ID:** `EV-0265`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6446,6 +6446,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Accepted non-blocking known issue; follow-up item-only bow transform.
 
+### EV-0264 — AC-1 cold reinstall complete; first-run world pending; AC-6/K6 pass
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T21:24:57-10:00 |
+| Commit | `79be0f154bf6fa4e6e3e231ef81c38530d77a958` |
+| Dirty state | ocs/mvp/M6_ACCEPTANCE.md, docs/mvp/STATUS.md |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. uninstall app; cold install; verify empty app data; record install time; operator sign-off AC-6
+
+**Expected:** fresh app container; install timing; first-run/world
+
+**Actual:** cold install 23.66 s; app data empty; AC-1 first-run/world still pending; AC-6 sign-off recorded.
+
+**Artifacts:** evidence/EV-0264/m6-cold-install.log (567e9ce7ff83); evidence/EV-0264/release-package-dev.txt (8b854e39a8da); evidence/EV-0264/acceptance-readiness.txt (8c3d02b1fe4c); evidence/EV-0264/summary.log (8b219c79f7e2)
+
+**Limitations:** Operator must launch with JIT and complete first-run world; provider jar is absent from empty data container until stack setup.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6751,3 +6774,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-05 | **EV-0261 (`PARTIAL`): bow open-hand draw + menu-hand alignment** — bow draw no longer requires both fists when a bow is held; both tracked hands held apart draw, fist-started draws still fire on fist release, open-hand draws fire by bringing hands together. Menu-hand controller pose shifted local -0.18 m while GUI open so Vivecraft's +Z gray box covers the hand. Suite ALL PASS (m7-gesture 74 checks); provider `fac54efa…`/127,015 B pushed/integrity PASS. **Device retest pending.** Next ID `EV-0262`. |
 | 2026-11-05 | **EV-0262 (`PARTIAL`): bow perpendicular to hand** — 90° roll around local forward for the bow-holding hand; `VisionM7ItemContext` now reports main/off bow mask. Suite ALL PASS (m7 74 checks); provider `4e92b306…`/127,258 B pushed/integrity PASS. **Device visual retest pending**; flip to -90 if axis is wrong. Next ID `EV-0263`. |
 | 2026-11-05 | **EV-0263 (`PARTIAL`): bow visual orientation accepted known bug** — 90° local-forward roll did not fix the bow lying parallel to the hand. Bow draw/fire works; operator says leave as a bug and continue. Non-blocking known issue; follow-up needs an item-only/model transform. Next ID `EV-0264`. |
+| 2026-11-05 | **EV-0264 (`PARTIAL`): AC-1 cold reinstall complete** — uninstalled/reinstalled D1 app; cold install 23.66 s, app data container empty. K6 PASS; AC-6 operator sign-off + host legal checks PASS. AC-1 first-run/JIT/create-world still pending. Next ID `EV-0265`. |
