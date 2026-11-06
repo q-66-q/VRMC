@@ -47,6 +47,31 @@ It runs the real provider in a real Minecraft client with fake 3660×3200 / 120 
 must log `1024x1024 -> 1832x1600` and `resizes=1` (see [M8_HOST_HARNESS.md](M8_HOST_HARNESS.md)).
 Host GL only; it does not replace the device rows.
 
+## 0. Provisioning-profile deadline (check this first)
+
+The candidate is signed with a **development provisioning profile**, which expires (Xcode team/free
+profiles renew on a short cycle). After expiry the app can no longer install or launch on D1.
+
+```bash
+scripts/profile_expiry.sh /tmp/VRMC-native-m8.app --warn-days 7
+# e.g. profile=iOS Team Provisioning Profile: dev.vrmc.vrmc
+#      expires=2026-11-08T08:53:50Z days_left=1.9 provisions_d1=yes
+```
+
+If it is expiring/expired:
+
+1. Sign in to the Apple ID account in **Xcode > Settings > Accounts** (renewal needs it).
+2. `scripts/m8_renew_profile.sh` — builds a throw-away app with bundle id `dev.vrmc.vrmc` via
+   automatic signing and prints the fresh profile (it refuses to claim success if Xcode reused the old
+   profile).
+3. `PROFILE=/tmp/vrmc-profile-renew/fresh.mobileprovision scripts/m8_resign_candidate.sh --update`
+   — re-signs the staged app, refreshes `export/m8-device-candidate.txt` hashes and rebuilds the
+   durable package.
+
+`scripts/m8_device_package.sh` and `scripts/m8_device_session.sh prepare` both check the profile and
+fail on an expired one (they warn when <7 days remain). If renewal is impossible, the D1 session must
+happen **before** the expiry date.
+
 ## 1a. Rehearse the flow without the headset
 
 `scripts/tests/M8DeviceFlowTest.sh` exercises the exact operator-flow commands on synthetic pulls

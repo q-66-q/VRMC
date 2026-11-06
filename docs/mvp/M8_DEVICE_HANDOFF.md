@@ -35,6 +35,14 @@ the image acceptable.
 - Staged originals (volatile /tmp): `/tmp/VRMC-native-m8.app`,
   `/tmp/vrmc-provider-build/vrmc-provider.jar`.
 
+## Deadline: provisioning profile
+
+The signed candidate's development profile **expires 2026-11-08T08:53:50Z** (Xcode team profile cycle).
+After that the app will not install/launch on D1. Check with
+`scripts/profile_expiry.sh /tmp/VRMC-native-m8.app --warn-days 7`; renew + re-sign with
+`scripts/m8_renew_profile.sh` (needs Xcode signed into the Apple ID account) and
+`PROFILE=… scripts/m8_resign_candidate.sh --update`, or run the device session before the expiry.
+
 ## Finish procedure (one command each way)
 
 ```bash

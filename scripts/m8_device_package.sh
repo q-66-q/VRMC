@@ -51,6 +51,16 @@ say "app:          $APP"
 say "provider jar: $PROVIDER_JAR"
 codesign --verify --deep --strict "$APP" >/dev/null 2>&1 || die "codesign --verify --deep --strict FAILED for $APP"
 say "codesign:     deep/strict PASS"
+PROFILE_INFO=""
+if [ -x "$ROOT/scripts/profile_expiry.sh" ]; then
+  profile_warn=$(mktemp /tmp/vrmc-profile-warn.XXXXXX)
+  PROFILE_INFO=$("$ROOT/scripts/profile_expiry.sh" "$APP" --warn-days 7 2>"$profile_warn") || {
+    cat "$profile_warn" >&2; rm -f "$profile_warn"
+    die "the embedded provisioning profile is expired/unreadable; re-sign with a fresh profile first (see docs/mvp/M8_DEVICE_RUN.md)"
+  }
+  rm -f "$profile_warn"
+  say "$PROFILE_INFO"
+fi
 have_app=$("$ROOT/scripts/app_tree_sha256.sh" "$APP" 2>/dev/null || true)
 have_provider=$(shasum -a 256 "$PROVIDER_JAR" | awk '{print $1}')
 have_provider_bytes=$(stat -f%z "$PROVIDER_JAR")
@@ -100,6 +110,7 @@ A6–A9 are still NOT RUN.
 | provider jar sha256 | `__PROVIDER_SHA__` (`__PROVIDER_BYTES__` bytes) |
 | built | see `m8-device-candidate.txt` (build date/hashes + install/tuning/rollback) |
 | codesign | `codesign --verify --deep --strict` PASS (Apple Development, D1 provisioned) |
+| profile | __PROFILE_INFO__ |
 
 ## Install / run (from the repository checkout)
 
@@ -131,6 +142,12 @@ import sys
 path, app_tree, provider, provider_bytes = sys.argv[1:5]
 text = open(path).read()
 text = text.replace("__APP_TREE__", app_tree).replace("__PROVIDER_SHA__", provider).replace("__PROVIDER_BYTES__", provider_bytes)
+open(path, "w").write(text)
+PY
+python3 - "$OUT/README.md" "$PROFILE_INFO" <<'PY' || die "README profile substitution failed"
+import sys
+path, info = sys.argv[1], sys.argv[2] or "unknown (no profile check)"
+text = open(path).read().replace("__PROFILE_INFO__", info)
 open(path, "w").write(text)
 PY
 say "wrote README.md and SHA256SUMS"

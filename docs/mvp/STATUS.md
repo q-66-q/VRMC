@@ -400,3 +400,15 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   `vrmc-m8-trace.csv`, and **binary/garbage logs** exit NOT RUN without a traceback. Provider suite ALL
   PASS (fuzz 120 000/0 violations, ABI fixture 23/23); fast self-check PASS (10 rows). No rendering
   code changed; **device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0292: **Provisioning-profile deadline + renewal/re-sign tooling (host).** The signed
+  candidate's development profile **expires 2026-11-08T08:53:50Z** (~1.9 days after the audit; D1 is
+  provisioned, team <TEAM_ID>). Renewal requires an interactive Xcode Apple ID sign-in:
+  `xcodebuild -allowProvisioningUpdates` reports `No Accounts` and reuses the cached profile. Added
+  `scripts/profile_expiry.sh` (expiry guard in package + session `prepare`: warn <7 days, fail when
+  expired), `scripts/m8_renew_profile.sh` (throw-away auto-signed app; exits 3 with instructions if
+  Xcode reused the old profile) and `scripts/m8_resign_candidate.sh [--update]` (re-signs from the
+  app's own framework/bridge, verifies codesign+expiry, prints hashes; `--update` refreshes
+  candidate+manifest+package). Both tested; package rebuilt with the profile line (zip `afad5c52…`,
+  206,133,978 B). **Device A6–A9 still NOT RUN** — and the D1 session must happen before the profile
+  expiry (or after a successful renewal + re-sign).

@@ -97,6 +97,15 @@ validate_local() {
       die "codesign --verify --deep --strict FAILED for $APP"
     fi
   fi
+  if [ -x "$ROOT/scripts/profile_expiry.sh" ]; then
+    profile_warn=$(mktemp /tmp/vrmc-profile-warn.XXXXXX)
+    profile_info=$("$ROOT/scripts/profile_expiry.sh" "$APP" --warn-days 7 2>"$profile_warn") || {
+      cat "$profile_warn" >&2; rm -f "$profile_warn"
+      die "the embedded provisioning profile is expired; re-sign with a fresh profile before the device session (see docs/mvp/M8_DEVICE_RUN.md)"
+    }
+    cat "$profile_warn" >&2; rm -f "$profile_warn"
+    note "profile:      $profile_info"
+  fi
   if [ "${ALLOW_HASH_MISMATCH:-0}" != "1" ] && [ -f "$MANIFEST" ]; then
     local want_app want_provider have_app have_provider
     want_app=$(grep -m1 '^app_tree_sha256=' "$MANIFEST" | cut -d= -f2)
