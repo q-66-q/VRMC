@@ -96,3 +96,8 @@ provider logs `[VRMC-M7] gesture mode=...` and `[VRMC-M7] engine thresholds ... 
 - **Player-relative movement (EV-0250):** wrist-minus-head is projected onto the HMD horizontal
   forward/right basis before the deadzone/scale mapping, so pushing the hand toward where the player
   looks always walks forward regardless of world yaw.
+
+- **Movement retest fix (EV-0251):** device logs showed teleport presses on the same left pinch and
+  constant strafe from the hand's natural lateral offset. The stick now captures a neutral along/right
+  origin on pinch engage, uses deltas from it, fixes the right-basis sign, and disables teleport dispatch
+  on the movement pinch. Teleport needs a dedicated gesture.

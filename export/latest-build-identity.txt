@@ -1,14 +1,14 @@
 VRMC latest staged/installed development build (not a release manifest)
 
 date: 2026-11-05 (host time)
-source commit: M7 player-relative left-pinch movement (regenerate from a clean release commit)
+source commit: M7 movement neutral-origin/teleport-conflict fix (regenerate from a clean release commit)
 app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
 app path at staging: /tmp/VRMC-native-checklist-summary.app
 signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
-provider jar sha256: 85d18f61fad7398f88cfbd670f1826d8c74972405000c4bbd9f4502867692b68
-provider bytes: 125525
+provider jar sha256: 90a724fc72edc555205c29d33fb1084841795045bad6b134c6a8107a65abf949
+provider bytes: 125614
 gesture mode: m7
-movement: left thumb-index pinch hold + move; HMD-player-relative forward/right basis
+movement: left pinch hold + move; player-relative HMD basis; neutral origin captured at pinch start; teleport disabled on that pinch
 GUI: right pinch = LMB, hold = long press; head cursor 8% below centre
 provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
 device lock at staging: passcodeRequired=true (no behavior test performed)

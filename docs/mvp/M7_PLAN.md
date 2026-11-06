@@ -106,3 +106,10 @@ operator 1–5 score.** Record m4 vs m7 side by side for the A/B.
 
 - Movement now projects wrist-minus-head onto the HMD's horizontal forward/right basis; "forward" is
   relative to the player, not absolute world Z. Device retest required.
+
+## Movement retest fix (EV-0251)
+
+- Left pinch was still also dispatching teleport; teleport can override free-move. Teleport is disabled
+  on the movement pinch for now.
+- Neutral along/right origin is captured at pinch engage; natural hand offset no longer causes constant strafe.
+- Right-basis sign corrected. Device movement retest pending.

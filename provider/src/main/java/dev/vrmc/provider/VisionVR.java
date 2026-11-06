@@ -217,6 +217,9 @@ public class VisionVR extends MCVR {
     private final Vector2f m7LocomotionAxes = new Vector2f();
     private final Vector3f m7MoveForward = new Vector3f();
     private final Vector3f m7MoveRight = new Vector3f();
+    private boolean m7StickOriginSet;
+    private float m7StickOriginAlong;
+    private float m7StickOriginRight;
     private boolean m7LocomotionEngaged;
     private long m7LocomotionLastLogNs;
     /** Reflective hotbar selection: LocalPlayer.getInventory() is @Nullable-annotated in MC 26.2 and the
@@ -1965,8 +1968,9 @@ public class VisionVR extends MCVR {
         setM7Action(VisionInput.KEY_INGAME_MENU, VisionInput.HAND_LEFT, menuAction);
         setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump());
         setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT, this.m7Gesture.sneak());
-        setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT,
-            this.m7Gesture.teleportHeld() && !moving);
+        // M7 left pinch is the movement stick; teleport must not also fire on the same pinch.
+        // A dedicated teleport gesture is still TODO, so keep the action released here.
+        setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, false);
         setM7Action(VisionInput.KEY_HOTBAR_NEXT, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarNext());
         setM7Action(VisionInput.KEY_HOTBAR_PREV, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarPrev());
         applyM7GuiClick(gui);
@@ -1992,7 +1996,9 @@ public class VisionVR extends MCVR {
         float y = 0.0F;
         if (usable && this.m7Gesture.leftPinchHeld()) {
             // Player-relative stick: project wrist-minus-head onto the HMD's horizontal forward/right
-            // basis. Using world X/Z here made "forward" depend on which way the player faced.
+            // basis. The neutral origin is captured when the pinch engages, so a hand that naturally
+            // rests left of the head does not report constant strafe; only motion from the engaged
+            // position moves the player.
             this.m7MoveForward.set(0.0F, 0.0F, -1.0F);
             this.hmdPose.transformDirection(this.m7MoveForward);
             this.m7MoveForward.y = 0.0F;
@@ -2001,16 +2007,24 @@ public class VisionVR extends MCVR {
             } else {
                 this.m7MoveForward.normalize();
             }
-            this.m7MoveRight.set(this.m7MoveForward.z, 0.0F, -this.m7MoveForward.x);
+            this.m7MoveRight.set(-this.m7MoveForward.z, 0.0F, this.m7MoveForward.x);
             float relX = this.visionInput.wristX(VisionInput.HAND_LEFT) - this.hmdPose.m30();
             float relZ = this.visionInput.wristZ(VisionInput.HAND_LEFT) - this.hmdPose.m32();
             float along = relX * this.m7MoveForward.x + relZ * this.m7MoveForward.z;
             float right = relX * this.m7MoveRight.x + relZ * this.m7MoveRight.z;
-            VisionLocomotion.axesRelative(along, right, this.moveOriginZ,
+            if (!this.m7StickOriginSet) {
+                this.m7StickOriginSet = true;
+                this.m7StickOriginAlong = along;
+                this.m7StickOriginRight = right;
+            }
+            VisionLocomotion.axesRelative(along - this.m7StickOriginAlong,
+                right - this.m7StickOriginRight, 0.0F,
                 this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone,
                 this.m7LocomotionAxes);
             x = this.m7LocomotionAxes.x;
             y = this.m7LocomotionAxes.y;
+        } else if (!this.m7Gesture.leftPinchHeld()) {
+            this.m7StickOriginSet = false;
         }
         VRInputAction strafe = this.getInputAction(VivecraftVRMod.INSTANCE.keyFreeMoveStrafe);
         if (strafe != null) {
@@ -2037,6 +2051,7 @@ public class VisionVR extends MCVR {
             writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), 0.0F, 0.0F, VisionInput.ORIGIN_LEFT);
         }
         this.m7LocomotionEngaged = false;
+        this.m7StickOriginSet = false;
     }
 
     private void setM7Action(String name, int hand, boolean state) {
