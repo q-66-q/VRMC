@@ -173,3 +173,14 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   (provider suite m8-render 49 checks; classifier 4/4 outcomes; M3c fast self-check; simulator suite
   flat/sync/hidepark/nopark/pattern/input/render PASS). **Device A6–A9 still NOT RUN (D1
   unavailable)** — no 4K-class/foveation/120 Hz device claim yet.
+
+- 2026-11-05 EV-0270: **M8 foveation rendering-model host probe (real Metal rate map) PASS.** Added
+  `runtime/probes/m8-foveation/run.sh`: the compositor's full-screen `vmain`+`fmain_flat` sampling
+  math is rendered into a real macOS `MTLRasterizationRateMap` pass (0.5 periphery / 1.0 centre;
+  1920×1080 logical → 1488×848 physical). The logical centre maps exactly to the pattern's white
+  centre cross and the logical upper-left quarter to the red quadrant (NDC→UV stays logical under
+  variable rate); the physical-size-viewport negative control corrupts the foveal centre, proving the
+  screen-size viewport convention the compositor uses. 6/6 checks, wired into `scripts/m3c_selfcheck.sh`.
+  Host Metal only — device eye-tracked foveation/optics/cadence (A6–A9) remain NOT RUN. The rendering
+  model was cross-checked against Apple VRR docs, the public *Drawing Graphics on Apple Vision*
+  article and Qt's visionOS qrhimetal rate-map viewport fix (M8_PLAN §8).

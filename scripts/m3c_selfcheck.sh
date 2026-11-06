@@ -27,6 +27,18 @@ run "DepthClearRegressionTest" "$ROOT/scripts/tests/DepthClearRegressionTest.sh"
 step "1b/7 M8 device-check classifier (host)"
 run "M8DeviceCheckTest" "$ROOT/scripts/tests/M8DeviceCheckTest.sh"
 
+step "1c/7 M8 foveation host probe (real Metal rasterization rate map)"
+if "$ROOT/runtime/probes/m8-foveation/run.sh" > /tmp/vrmc-selfcheck-foveation-probe.log 2>&1; then
+  echo "[selfcheck] PASS: M8FoveationProbe"
+else
+  rc=$?
+  if [ "$rc" = "2" ]; then
+    echo "[selfcheck] SKIP: M8FoveationProbe (no Metal / rasterization rate map support)"
+  else
+    echo "[selfcheck] FAIL: M8FoveationProbe"; fail=1
+  fi
+fi
+
 step "2/7 display-view frustum math"
 run "DisplayViewsTest" "$ROOT/scripts/test_display_views.sh"
 

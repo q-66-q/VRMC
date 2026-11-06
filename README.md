@@ -16,6 +16,9 @@ This is a **development/sideload** project, not an App Store submission.
   release-ready build (pre-M8)**; the M8 provider jar (`cd80b753…`, 136,067 B, reproducible) and the
   rendering pipeline have no device acceptance yet. Device verification is a one-command classify:
   `scripts/m8_device_check.sh` (runbook [`docs/mvp/M8_DEVICE_RUN.md`](docs/mvp/M8_DEVICE_RUN.md)).
+  The compositor's foveation sampling path is validated on host Metal against a real rasterization
+  rate map ([probe](runtime/probes/m8-foveation/README.md)); device eye-tracked foveation and cadence
+  remain unverified.
 - Current provider: `4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351`
   (127,258 bytes)
 - Current app tree: `a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb`

@@ -19,6 +19,7 @@ One usage line: set the environment (`DEVICE=<udid>`, and where relevant `BUNDLE
 | `m3c_pull_and_check.sh` | `DEVICE=<udid> scripts/m3c_pull_and_check.sh` — pull the decisive M3c device logs/readbacks and print depthZero / scene-activation / first-presented-frame / parking triage (`--from <dir>` analyses an existing pull) |
 | `m8_device_check.sh` | `DEVICE=<udid> scripts/m8_device_check.sh` — pull the M8 device logs and classify A6–A9 (foveation/rate maps, 4K-class logical size + provider eye targets, measured 90/120 Hz cadence, pacing): exit 0 PASS / 2 PARTIAL / 3 NOT RUN / 4 FAIL / 5 device unavailable; `--from <dir>` analyses an existing pull or simulator case. Runbook: `docs/mvp/M8_DEVICE_RUN.md` |
 | `tests/M8DeviceCheckTest.sh` | `scripts/tests/M8DeviceCheckTest.sh` — host test for the M8 classifier (synthetic PASS/90 Hz/old-build/FAIL log pulls; no device) |
+| `runtime/probes/m8-foveation/run.sh` | `runtime/probes/m8-foveation/run.sh` — host Metal probe: the compositor's full-screen flat sampling math in a real variable-rasterization-rate (foveated) pass on macOS Apple Silicon; verifies the logical UV mapping and the screen-size viewport convention (exit 0 PASS / 1 FAIL / 2 SKIP) |
 
 | `m3c_selfcheck.sh` | `scripts/m3c_selfcheck.sh [--fast]` — one-command M3c host/simulator self-check (depth regression, display-views, provider+bridge builds, bridge suite, provider-sampling harness) |
 

@@ -132,6 +132,13 @@ Host/simulator (this change):
   layer configuration/foveation/quality/frame-pacing/render-feedback lines, and the sampled drawable
   still matches the known pattern. **PASS/FAIL recorded in VERIFY.md** — *simulator only, not device
   optics/refresh evidence*.
+- A5b host foveation pass: `runtime/probes/m8-foveation/run.sh` runs the compositor's full-screen flat
+  sampling math into a real macOS Metal variable-rasterization-rate pass (0.5 periphery / 1.0 centre;
+  1920×1080 logical → 1488×848 physical, 60.9 % of screen pixels). The logical centre maps to the
+  pattern's white centre cross and the logical upper-left quarter to the red quadrant (NDC→UV stays
+  logical under VRR); the negative control with a physical-size viewport corrupts the foveal centre,
+  proving the viewport convention the compositor uses. **PASS (host Metal; 6 checks)** — *not
+  device/visionOS optics or eye-tracked foveation evidence*.
 
 Device (D1, NOT RUN; one operator session):
 - A6 `vrmc-compositor.log` shows `layer configuration ... foveation=1 ... maxRenderQuality=1.00` and
@@ -171,7 +178,24 @@ Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
    via `scripts/log_evidence.sh`).
 5. Tuning/A-B and rollback knobs: see M8_DEVICE_RUN.md §4/§6.
 
-## 8. Risks
+## 8. Confirmation of the foveation rendering model (public sources + host probe)
+
+- Apple's *Scaling variable rasterization rate content*: for a render pass that carries a rate map the
+  GPU does the screen↔physical conversion; a separate scaling pass is only needed when the rate-mapped
+  texture is an *intermediate*, not the final drawable. CompositorServices' drawable is the final
+  target, so the compositor's job is to attach the map and draw normally.
+- The public *Drawing Graphics on Apple Vision with the Metal Rendering API* article: foveation is
+  effectively "for free" — enable `isFoveationEnabled`, set the render pass's `rasterizationRateMap`
+  from the drawable's maps, and use `drawable.views[].textureMap.viewport` (never hardcode viewports);
+  rendering to a smaller-than-rate-map viewport is invalid when foveation is on.
+- Qt's visionOS Metal fix (`qrhimetal.mm`): when a rate map is attached the render-pass viewport is in
+  screen (logical) coordinates; a physical-size viewport is wrong.
+- **M8 host probe PASS** (`runtime/probes/m8-foveation`, EV-0270): on real Metal the compositor's
+  sampling math keeps the logical UV mapping under a 0.5/1.0 foveated rate map, and the physical-size
+  viewport negative control fails exactly as predicted. Device eye-tracked foveation, optics and cadence
+  remain device-only (A6–A9).
+
+## 9. Risks
 
 - **Drawable memory**: rgba16Float at max render quality (two drawables) is large; if the app approaches
   the memory limit, use `vrmc-max-render-quality.txt=0.75` (memory is fixed by the max quality setting,
