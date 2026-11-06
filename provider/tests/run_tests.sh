@@ -165,7 +165,8 @@ if "$JAVAC" -d "$T/renderclasses" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionWorldSupersampleTest.java" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionTrace.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionTraceTest.java" \
-     "$ROOT/provider/tests/dev/vrmc/provider/VisionRenderSettingsFixtureTest.java"; then
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionRenderSettingsFixtureTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionRenderSettingsFuzzTest.java"; then
   if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsTest > "$T/m8-render.log" 2>&1 \
      && grep -q "\[m8-render-test\] PASS" "$T/m8-render.log"; then
     echo "[provider-tests] m8-render: PASS (render feedback layout/parse + eye-target scale policy)"
@@ -238,6 +239,14 @@ if [ -n "$CC_FIXTURE" ] && [ -x "$CC_FIXTURE" ]; then
          && grep -q "\[m8-rs-fixture-test\] PASS" "$T/m8-rs-fixture.log"; then
         echo "[provider-tests] m8-render-settings-fixture: PASS (C vrmc_render_settings -> Java parse contract, 3 cases)"
         grep -E "\[m8-rs-fixture-test\] [0-9]+ checks" "$T/m8-rs-fixture.log"
+        if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsFuzzTest \
+             > "$T/m8-rs-fuzz.log" 2>&1 \
+           && grep -q "\[m8-rs-fuzz-test\] PASS" "$T/m8-rs-fuzz.log"; then
+          echo "[provider-tests] m8-render-settings-fuzz: PASS (arbitrary/mutated payloads never throw or leak)"
+          grep -E "\[m8-rs-fuzz-test\] cases=" "$T/m8-rs-fuzz.log"
+        else
+          cat "$T/m8-rs-fuzz.log"; fail "m8-rs-fuzz"
+        fi
       else
         cat "$T/m8-rs-fixture.log"; fail "m8-rs-fixture-java"
       fi

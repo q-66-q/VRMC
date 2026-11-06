@@ -390,3 +390,13 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   PARTIAL pull, `prepare --dry-run` candidate hash validation + planned install command, and
   `m8_device_package.sh --check`. **12/12 checks**, wired into `scripts/m3c_selfcheck.sh` step 1e
   (**fast self-check 10 PASS rows**). No rendering code changed; **device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0291: **Render-feedback fuzz + classifier robustness (host PASS).**
+  `VisionRenderSettingsFuzzTest` pushes **120 000** arbitrary and randomly-mutated 68-byte payloads
+  through the provider parser — it never throws, rejected payloads return the clean zero snapshot, and
+  accepted values stay inside the documented bounds (so shared-memory corruption can never crash the
+  renderer or allocate an absurd eye texture). The device classifier test grew from 5 to **7 outcomes**:
+  a **trace-only pull** (periodic cadence line rotated away) classifies A8 from
+  `vrmc-m8-trace.csv`, and **binary/garbage logs** exit NOT RUN without a traceback. Provider suite ALL
+  PASS (fuzz 120 000/0 violations, ABI fixture 23/23); fast self-check PASS (10 rows). No rendering
+  code changed; **device A6–A9 still NOT RUN.**

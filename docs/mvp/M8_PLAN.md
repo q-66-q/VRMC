@@ -215,6 +215,10 @@ Device (D1, NOT RUN; one operator session):
   an unreachable target with `target cadence: N Hz unreachable … reverting to auto` (host-tested).
 - A9 Frame pacing within budget at the chosen scale (p50/p95 consistent with 90 or 120 Hz; no
   crash/watchdog), operator visual confirmation that upscale blur/jaggedness is reduced.
+- Robustness: the render-feedback parser survives **120 000 arbitrary/mutated payloads** without
+  throwing or surfacing out-of-contract values (fuzz test), and the device classifier handles a
+  **trace-only pull** (A8 falls back to `vrmc-m8-trace.csv`) and **binary/malformed logs** (NOT RUN, no
+  traceback) — both covered by host tests.
 - The render-feedback ABI has a **cross-language fixture**: `bridge/tests/make_render_settings_fixture.c`
   writes three raw 68-byte `vrmc_render_settings` records (foveated 120 Hz, non-foveated 90 Hz,
   invalid) and the provider suite parses exactly those bytes (23 checks) — a C-struct/Java-offset
