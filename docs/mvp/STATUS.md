@@ -234,3 +234,13 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   classifier test now covers a status-only pull that classifies **PASS**. Provider suite ALL PASS
   (status JSON strict/fuzz updated; jar `89a5910f…`, 136,399 B, two-build reproducible); M3c fast
   self-check PASS. **Device A6–A9 still NOT RUN**; candidate manifest provider hash updated.
+
+- 2026-11-05 EV-0276: **M8 resize texture-lifetime safety (host PASS).** The provider now clears the
+  shared eye frame immediately before each eye-target rebuild, closing the only unsafe window that
+  M8's dynamic resizes introduced (the compositor could otherwise acquire the old eye VkImages between
+  `destroyBuffers` and the next submit; it already retains in-flight textures). Real Minecraft host
+  Fabric harness: resize #1 `1024x1024 -> 1832x1600` and #2 `-> 2200x1928`, each preceded by the
+  `cleared the shared eye frame before the eye-target rebuild` line, **0 M8 exceptions**; provider
+  suite ALL PASS; provider jar `e9a08c52…` (136,579 B, two-build reproducible). The compositor may show
+  its fallback pattern for one or two frames per resize — documented in M8_DEVICE_RUN with the
+  fixed-eye-scale rollback. **Device A6–A9 still NOT RUN (D1 unavailable).**

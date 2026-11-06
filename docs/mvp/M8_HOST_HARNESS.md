@@ -72,6 +72,7 @@ Artifacts: `/tmp/vrmc-m8-host-harness/harness.log` and `latest.log` (the Minecra
 [VRMC-M8] render settings: none published yet (compositor immersive layer not up or old bridge); keeping 1024x1024 eye target
 [VRMC-M8] render settings: logical L=3660x3200 R=3660x3200 drawable=2412x2108 foveation=1 rateMaps=2 (foveated display path) quality=1.00/1.00 displayHz=120.0 frame=8.33ms providerEye=0x0 frameIndex=0
 [VRMC-M8] eye target resize #1: 1024x1024 -> 1832x1600 (logical=3660x3200 scale=0.50 auto(default); displayHz=120.0 quality=1.00/1.00)
+[VRMC-M8] cleared the shared eye frame before the eye-target rebuild (compositor shows its fallback pattern until the new targets are submitted)
 Vivecraft: Reinit Render: VRMC M8 eye target 1832x1600
 [VRMC-M8] creating eye targets 1832x1600 (scale=0.50 source=auto(default) displayLogical=3660x3200 resizes=1)
 [VRMC-M2] eye target L 1832x1600

@@ -234,9 +234,13 @@ Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
 - **Drawable memory**: rgba16Float at max render quality (two drawables) is large; if the app approaches
   the memory limit, use `vrmc-max-render-quality.txt=0.75` (memory is fixed by the max quality setting,
   runtime quality changes do not change memory).
-- **Resize hitch**: a provider eye-target resize rebuilds every render target; the first one happens
-  after the first display feedback (~frame 60+) and is rate-limited. If it is visible, pin
-  `vrmc-eye-scale.txt` so no resizes happen.
+- **Resize hitch / texture lifetime**: a provider eye-target resize rebuilds every render target; the
+  first one happens after the first display feedback (~frame 60+) and is rate-limited (240 frames). Before
+  the rebuild the provider now **clears the shared eye frame**, so the compositor cannot acquire a
+  destroyed eye VkImage in the window between `destroyBuffers` and the next submit (it presents its
+  fallback pattern for the one or two frames instead; the compositor already retains in-flight textures
+  for an encoded command buffer). If the brief fallback is objectionable, pin `vrmc-eye-scale.txt` so
+  no resizes happen.
 - **Layout change**: if foveation only supports a layout other than `.dedicated`, the shell selects it
   from `supportedLayouts`; the compositor already handles sliced/array textures and viewports.
 - **Simulator is not evidence** for optics, refresh rate, thermals or latency; only the plumbing

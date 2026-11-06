@@ -676,6 +676,19 @@ public class VisionRenderer extends VRRenderer {
             this.eyeResizeCount, oldWidth, oldHeight, target[0], target[1],
             settings.leftLogicalWidth, settings.leftLogicalHeight, this.eyeScale, this.eyeScaleSource,
             settings.displayHz, settings.renderQuality, settings.maxRenderQuality));
+        // SAFETY: the resize destroys the current eye VkImages and rebuilds every render target. Stop
+        // handing the old (soon freed) MTLTextures to the compositor before the destroy: clear the
+        // shared eye frame so the compositor shows its fallback pattern for the one or two frames
+        // until the new targets are submitted, instead of acquiring destroyed memory. The compositor
+        // already retains in-flight textures for the command buffer it already encoded, so the only
+        // unsafe window is "acquire after destroy before the next submit" - which this closes.
+        try {
+            VrmcBridge.clearEyeTextures();
+            System.out.println("[VRMC-M8] cleared the shared eye frame before the eye-target rebuild "
+                + "(compositor shows its fallback pattern until the new targets are submitted)");
+        } catch (RuntimeException | LinkageError clearError) {
+            System.out.println("[VRMC-M8][WARN] clearEyeTextures before resize failed: " + clearError);
+        }
         reinitFrameBuffers("VRMC M8 eye target " + target[0] + "x" + target[1]);
     }
 

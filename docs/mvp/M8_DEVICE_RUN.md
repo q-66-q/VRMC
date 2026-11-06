@@ -89,7 +89,7 @@ Manual equivalents (if you prefer the individual scripts):
 | Row | Requirement | Log lines |
 |---|---|---|
 | A6 | Foveation actually active: layer configured `foveation=1`, rate-map geometry present, display geometry `rateMaps>0` | `layer configuration … foveation=1`, `foveation rate map view …`, `display geometry: …` |
-| A7 | 4K-class per-eye display path + provider eye targets follow it: logical per-eye ≥ 3200×2800, provider render settings + ≥1 resize, sane resize count, final target ≥ the old 1024 baseline | compositor `display geometry` / `render feedback published`, provider `[VRMC-M8] render settings:`, `[VRMC-M8] eye target resize #…`, `[VRMC-M8] render state …` |
+| A7 | 4K-class per-eye display path + provider eye targets follow it: logical per-eye ≥ 3200×2800, provider render settings + ≥1 resize, sane resize count, final target ≥ the old 1024 baseline | compositor `display geometry` / `render feedback published`, provider `[VRMC-M8] render settings:`, `[VRMC-M8] eye target resize #…`, `[VRMC-M8] cleared the shared eye frame before the eye-target rebuild`, `[VRMC-M8] render state …` |
 | A8 | Measured display cadence: 120 Hz PASS (≥117 Hz, repeats ≤20 %), else PARTIAL with the actual Hz | `render feedback: displayHz=… repeats=…` |
 | A9 | Pacing/regressions: no render-feedback publication failures, no command-buffer failures, provider p95 within 1.5× the measured cadence budget | `[VRMC-M5] diag: … p95Ms=… missedTarget=… targetHz=…` |
 
@@ -148,8 +148,10 @@ Interpretation:
 - **A9 PARTIAL/FAIL:** if `render feedback publish FAILED`/command-buffer failures appear, record the
   session as FAIL and keep the logs (they are hashed as evidence). If only p95 is over budget, lower
   the eye scale and re-run.
-- **Resize hitch:** the first resize rebuilds every render target. If it is objectionable, pin
-  `vrmc-eye-scale.txt` to a fixed value so no resizes happen.
+- **Resize hitch / texture lifetime:** the provider clears the shared eye frame before each eye-target
+  rebuild, so the compositor cannot sample a destroyed eye texture; it may show its fallback pattern
+  for one or two frames during a resize (intentional). If the auto-ramp transients are objectionable,
+  pin `vrmc-eye-scale.txt` to a fixed value so no resizes happen.
 
 ## 5. Evidence to record
 
