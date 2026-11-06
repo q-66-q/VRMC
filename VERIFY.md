@@ -6515,6 +6515,29 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Development/sideload package; not App Store. Caveats: K3 waiver, manual mod restore on fresh install, bow visual known bug.
 
+### EV-0266 — RELEASE READY: development package, 22/22 acceptance
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T21:38:54-10:00 |
+| Commit | `c7bd981ad8f59bb7d4021dd6c565c5714a621561` |
+| Dirty state | xport/install-metrics-dev.txt, export/release-package-dev.txt |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. rebuild clean package after AC-1 pass; verify manifest/app/provider; run release gate
+
+**Expected:** release-ready gate green
+
+**Actual:** 22/22 acceptance PASS; package verifier/freshness PASS; m6_release_ready RESULT: RELEASE READY.
+
+**Artifacts:** evidence/EV-0266/release-package-dev.txt (e168052acea8); evidence/EV-0266/m6-ready-final.log (ec2c98b52299); evidence/EV-0266/m6-verify-final.log (e0ea71cbd85a); evidence/EV-0266/summary.log (0295fab6d36e)
+
+**Limitations:** Development/sideload package; not App Store. Caveats: K3 waiver, manual mod restore on fresh install, bow visual known bug.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6823,3 +6846,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-05 | **EV-0264 (`PARTIAL`): AC-1 cold reinstall complete** — uninstalled/reinstalled D1 app; cold install 23.66 s, app data container empty. K6 PASS; AC-6 operator sign-off + host legal checks PASS. AC-1 first-run/JIT/create-world still pending. Next ID `EV-0265`. |
 | 2026-11-05 | **EV-0265 (`DEVICE PASS`): AC-1 fresh install → world** — clean uninstall/reinstall (23.66 s), empty app data; operator restored Vivecraft 26.2-1.3.15 + provider into fresh instance, launched with JIT, entered immersive and played a world. 21 mods loaded, clean `destroy-complete`, no exceptions, p50 8.34 ms/p95 9.21 ms missed90=0. Caveat: manual mod restore required; launcher auto-provisioning is a known gap. Acceptance 22/22. Next ID `EV-0266`. |
 | 2026-11-05 | **EV-0266 (`PASS`): RELEASE READY development package** — rebuilt clean package with current app/provider; package verifier and freshness PASS; `m6_release_ready.sh --zip /tmp/VRMC-dev-release.zip` => **RELEASE READY**, 22/22 acceptance rows. zip bytes=206,567,700 sha256=`0fa384d9…`; app `a4663e16…`, provider `4e92b306…`. Caveats: K3 latency rig waived; AC-1 required manual Vivecraft/provider restore; bow visual known bug EV-0263. Next ID `EV-0267`. |
+| 2026-11-05 | **EV-0266 (`PASS`): device app cleaned for handoff** — app uninstalled/reinstalled; `Documents` and `tmp` empty (0 files); only system `Library/Caches`+`Preferences`. Test worlds/accounts/mods/provider/logs/crash/config removed. Release package and repo evidence unaffected. Next ID `EV-0267`. |

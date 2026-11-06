@@ -143,3 +143,5 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - 2026-11-05 EV-0266: **AC-1 device PASS** on fresh install (world session, 21 mods, clean destroy-complete, p50 8.34/p95 9.21, missed90=0). Caveat: fresh install required manual Vivecraft/provider jar installation; launcher auto-provisioning is a known gap. Acceptance now 22/22.
 
 - 2026-11-05 EV-0266: **RELEASE READY** development package (22/22 acceptance). zip `0fa384d9…` 206,567,700 bytes; app `a4663e16…`, provider `4e92b306…`. Caveats: K3 waived; fresh install needs manual Vivecraft/provider restore; bow visual known bug.
+
+- 2026-11-05 EV-0267: device application cleaned for handoff — app uninstalled/reinstalled; `Documents` and `tmp` containers empty (0 files); only system `Library/Caches`+`Preferences` remain. Test worlds, accounts, mods/provider, crash reports, tuning/status/config/logs removed. Release package/evidence remain outside the app.
