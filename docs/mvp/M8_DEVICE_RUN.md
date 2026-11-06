@@ -47,7 +47,22 @@ It runs the real provider in a real Minecraft client with fake 3660×3200 / 120 
 must log `1024x1024 -> 1832x1600` and `resizes=1` (see [M8_HOST_HARNESS.md](M8_HOST_HARNESS.md)).
 Host GL only; it does not replace the device rows.
 
-## 2. First run (defaults)
+## 2. First run (defaults) — one command, then the operator checklist
+
+With the staged candidate in place, `scripts/m8_device_session.sh` wraps artifact validation,
+install and provider push, prints the operator checklist, and classifies the session afterwards:
+
+```bash
+scripts/m8_device_session.sh prepare     # validate hashes + codesign, install app, push provider jar, checklist
+# operator: StikDebug JIT -> launch -> Play -> immersive -> play 3-5 min -> Quit Game
+scripts/m8_device_session.sh collect     # pull the session logs and classify A6-A9
+```
+
+`--dry-run` prints the exact device commands and validates the local artifacts without touching D1;
+`--from <dir>` classifies an existing pull; exit codes: prepare 0 ok / 2 local artifact error / 5 device
+unavailable, collect 0 PASS / 2 PARTIAL / 3 NOT RUN / 4 FAIL.
+
+Manual equivalents (if you prefer the individual scripts):
 
 1. Install/stage the build:
    ```bash

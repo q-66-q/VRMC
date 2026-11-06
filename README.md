@@ -21,8 +21,9 @@ This is a **development/sideload** project, not an App Store submission.
   and the provider's display-feedback → eye-target resize path is validated in a real Minecraft client
   ([host Fabric harness](docs/mvp/M8_HOST_HARNESS.md));
   a signed M8 device candidate is staged and ready to install
-  ([`export/m8-device-candidate.txt`](export/m8-device-candidate.txt)), with device eye-tracked
-  foveation and cadence still unverified.
+  ([`export/m8-device-candidate.txt`](export/m8-device-candidate.txt)); the next device session is
+  one command each way (`scripts/m8_device_session.sh prepare` / `collect`), with device
+  eye-tracked foveation and cadence still unverified.
 - Current provider: `4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351`
   (127,258 bytes)
 - Current app tree: `a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb`

@@ -214,3 +214,14 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   known pattern unchanged). Push script gained `--sharpening` (21 self-test checks); self-check PASS;
   **device candidate rebuilt and signed** (tree `53184ffe…`, framework `b1f48c2f…`, provider
   `cd80b753…`). **Device A6–A9 still NOT RUN (D1 unavailable)**; device halo/comfort judgement remains.
+
+- 2026-11-05 EV-0274: **One-command M8 device session + sharpening knob A/B (host/simulator).**
+  Added `scripts/m8_device_session.sh`: `prepare` validates the staged candidate (codesign
+  deep/strict + app-tree/provider hashes against `export/m8-device-candidate.txt`), installs the app,
+  pushes the matching provider jar and prints the operator checklist; `collect` pulls and classifies
+  A6–A9 (A6 foveation/rate maps, A7 4K-class logical size + provider targets, A8 measured cadence,
+  A9 pacing). Tested: `--dry-run` validates `53184ffe…`/`cd80b753…` and prints the exact commands;
+  unavailable D1 → clear exit 5; `--from` pull classifies correctly. The simulator render scenario
+  gained `SHARPEN=<off|auto|0.05..1.0>`: `off` → no sharpening / `sharpen=0.00`; `0.30` → fixed
+  strength 0.30 / `sharpen=0.30`; both scenarios PASS with the known pattern unchanged. The remaining
+  work is the D1 session itself — now one command each way.

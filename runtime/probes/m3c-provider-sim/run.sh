@@ -202,6 +202,12 @@ run_render() {
   mkdir -p "$DATA/Documents"
   echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
   echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
+  # Optional M8 sharpening A/B: SHARPEN=off|auto|<0.05..1.0> writes Documents/vrmc-sharpening.txt so
+  # the same scenario proves the live knob is honoured by the real compositor.
+  if [ -n "${SHARPEN:-}" ]; then
+    printf '%s\n' "$SHARPEN" > "$DATA/Documents/vrmc-sharpening.txt"
+    echo "[scenario] sharpening knob: $SHARPEN"
+  fi
   xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
   wait_for_log "$DATA/Documents/vrmc-shell.log" 'VRMCCompositorRunning generation=' 40 || true
   wait_for_log "$DATA/Documents/vrmc-compositor.log" 'render feedback published:' 40 || true

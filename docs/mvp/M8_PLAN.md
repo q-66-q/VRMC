@@ -194,12 +194,14 @@ Device (D1, NOT RUN; one operator session):
 
 Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
 
-1. Stage the M8 app + provider jar and install on D1 (`scripts/install_device.sh`,
-   `scripts/push_provider_jar.sh`).
+1. Stage the M8 app + provider jar; then one command runs validate → install → provider push and
+   prints the operator checklist: `scripts/m8_device_session.sh prepare` (underlying scripts:
+   `scripts/install_device.sh`, `scripts/push_provider_jar.sh`).
 2. Launch with JIT, enter immersive, play 3–5 minutes (world + menu + distant geometry), quit cleanly.
-3. Pull and classify in one command: `scripts/m8_device_check.sh` (exit 0 PASS / 2 PARTIAL / 3 NOT
-   RUN / 4 FAIL / 5 device unavailable). It checks A6 (foveation/rate maps), A7 (4K-class logical size
-   + provider eye targets), A8 (measured 90/120 Hz cadence), A9 (pacing/regressions).
+3. Pull and classify in one command: `scripts/m8_device_session.sh collect` (wraps
+   `scripts/m8_device_check.sh`; exit 0 PASS / 2 PARTIAL / 3 NOT RUN / 4 FAIL). It checks A6
+   (foveation/rate maps), A7 (4K-class logical size + provider eye targets), A8 (measured 90/120 Hz
+   cadence, sharpening state), A9 (pacing/regressions).
 4. Record the result + operator visual statement as a new `VERIFY.md` §6 evidence id (hashed bundle
    via `scripts/log_evidence.sh`).
 5. Tuning/A-B and rollback knobs: see M8_DEVICE_RUN.md §4/§6.

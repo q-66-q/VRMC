@@ -42,6 +42,9 @@ runtime/probes/m3c-provider-sim/run.sh input flat   # named scenarios, in order
 FULL=1 runtime/probes/m3c-provider-sim/run.sh       # rebuild framework + fake dylib first
 ```
 
+M8 render-feedback scenario: `render` (`SHARPEN=off|auto|0.05..1.0` env writes
+`Documents/vrmc-sharpening.txt` before launch to A/B the compositor's foveated sharpening knob).
+
 Scenarios: `flat` (provider texture through the flat sampled path), `sync` (same with a real
 `MTLSharedEvent` → compositor `encodeWaitForEvent`), `hidepark` (alpha+isHidden parking A/B),
 `nopark` (parking disabled), `pattern` (eye-distinct stereo/alignment test pattern: proof border, warm
