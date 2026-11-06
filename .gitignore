@@ -45,3 +45,6 @@ runtime/probes/*/build/
 /export/gesturelab-data/rejected/
 /export/gesturelab-data/*.log
 /export/gesturelab-data/*.md
+
+# device soak artifacts are evidence, not source
+/export/soak-*/
