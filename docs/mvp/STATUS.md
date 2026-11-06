@@ -125,3 +125,5 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   temporarily unbound from the left pinch.
 
 - 2026-11-05 EV-0253: **M7 movement device PASS** (left pinch player-relative stick; no teleport override). Other M7 actions/M5/M6 device gates remain.
+
+- 2026-11-05 EV-0256: **M7 short-pinch attack/place/use + hold-break + hotbar stability device PASS.** Teleport remains unbound; bow/eat/climb and M5/M6 device gates remain.

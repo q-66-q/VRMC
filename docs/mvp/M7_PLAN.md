@@ -83,8 +83,8 @@ A/B. Rebuild order after A/B pass:
 | 2 | inventory | **PARTIAL:** both-fist inventory triggered sometimes but frequently missed; fist threshold 0.55→0.65 and tap window 350→450 ms (EV-0234); retest needed. |
 | 2 | inventory | both-fist priority |
 | 3 | walk | left thumb-middle pinch + move left hand (analog stick, EV-0248); old both-fist swing must NOT move |
-| 4 | place/break | 0.35 s boundary |
-| 5 | teleport | hold/release |
+| 4 | place/break | **DEVICE PASS (EV-0256):** short pinch = attack/place/use context; hold = break; hotbar stable |
+| 5 | teleport | **NOT TESTABLE:** left pinch used for movement; teleport unbound, needs a new gesture |
 | 6 | attack | swing recognition |
 | 7 | jump/sneak | head displacement |
 | 8 | hotbar | tap vs swing; direct tap on the rendered HUD bar selects the touched slot (EV-0246, device-only) |
