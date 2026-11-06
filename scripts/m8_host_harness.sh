@@ -54,39 +54,42 @@ xcrun --sdk macosx clang -target arm64-apple-macos27.0 -isysroot "$SDK" -dynamic
   || { say "ERROR: host test dylib build failed (see $LOG)"; exit 2; }
 say "host test dylib: $DYLIB"
 
-# ---- 2. patch the reference project's client run config (idempotent) ---------------------------
+# ---- 2. patch the reference project's client run config ---------------------------------------
+# Idempotent AND re-pointed at THIS run's test dylib/provider jar every time: earlier harness versions
+# only patched once, so a later run could silently reuse a stale dylib path (and a stale publisher).
 BUILD_GRADLE="$REF/fabric/build.gradle"
-if ! grep -q 'vrmc.bridge.lib=' "$BUILD_GRADLE"; then
-  say "patching $BUILD_GRADLE client run with the VRMC M8 vmArgs"
-  python3 - "$BUILD_GRADLE" "$DYLIB" "$PROVIDER_JAR" <<'PY' >> "$LOG" 2>&1
+say "patching $BUILD_GRADLE client run with the VRMC M8 vmArgs"
+python3 - "$BUILD_GRADLE" "$DYLIB" "$PROVIDER_JAR" <<'PY' >> "$LOG" 2>&1
+import re
 import sys
 path, dylib, provider = sys.argv[1:4]
 text = open(path).read()
-old = """        client {
+args = ("            vmArgs '-Dvrmc.hostHarness=true',\n"
+        "                   '-Dvrmc.bridge.lib=%s',\n"
+        "                   '-Dfabric.addMods=%s'") % (dylib, provider)
+pattern = re.compile(r"            vmArgs '-Dvrmc\.hostHarness=true',.*?\n                   '-Dfabric\.addMods=[^']*'", re.S)
+if pattern.search(text):
+    text = pattern.sub(args, text, count=1)
+else:
+    old = """        client {
             client()
             setConfigName('Fabric Client')
             ideConfigGenerated(true)
             runDir('runs/client')
         }"""
-new = """        client {
+    new = """        client {
             client()
             setConfigName('Fabric Client')
             ideConfigGenerated(true)
             runDir('runs/client')
             // VRMC M8 host harness (scripts/m8_host_harness.sh): provider jar + host test bridge
-            // whose render-feedback publisher feeds fake 4K-class display geometry at 120 Hz.
-            vmArgs '-Dvrmc.hostHarness=true',
-                   '-Dvrmc.bridge.lib=%s',
-                   '-Dfabric.addMods=%s'
-        }""" % (dylib, provider)
-if old not in text:
-    raise SystemExit("client run block not found (reference tree layout changed)")
-open(path, "w").write(text.replace(old, new))
+""" + args + "\n        }"
+    if old not in text:
+        raise SystemExit("client run block not found (reference tree layout changed)")
+    text = text.replace(old, new)
+open(path, "w").write(text)
 PY
-  [ $? -eq 0 ] || { say "ERROR: could not patch fabric/build.gradle"; exit 2; }
-else
-  say "fabric/build.gradle already carries the M8 harness vmArgs (idempotent)"
-fi
+[ $? -eq 0 ] || { say "ERROR: could not patch fabric/build.gradle"; exit 2; }
 
 # ---- 3. enable Vivecraft VR in the dev run dir ------------------------------------------------
 RUNDIR="$REF/fabric/runs/client"
@@ -121,12 +124,28 @@ if [ -n "${CONTENT_FIRST:-}" ]; then
 else
   rm -f "$RUNDIR/vrmc-content-first.txt"
 fi
+# Optional M8 display-cadence simulation (DISPLAY_HZ=60..240): the host test publisher reports this
+# as the measured display cadence instead of 120 Hz. With TARGET_HZ higher it exercises the provider's
+# "target cadence unreachable" guardrail (revert to the measured cadence after 8 windows).
+if [ -n "${DISPLAY_HZ:-}" ]; then
+  case "$DISPLAY_HZ" in
+    *[!0-9]*) say "ERROR: DISPLAY_HZ must be 60..240 (got '$DISPLAY_HZ')"; exit 2 ;;
+    *) [ "$DISPLAY_HZ" -ge 60 ] && [ "$DISPLAY_HZ" -le 240 ] \
+         || { say "ERROR: DISPLAY_HZ must be 60..240 (got '$DISPLAY_HZ')"; exit 2; } ;;
+  esac
+  printf '%s\n' "$DISPLAY_HZ" > "$RUNDIR/vrmc-host-display-hz.txt"
+  say "display cadence simulation: $DISPLAY_HZ Hz (host test publisher, $RUNDIR/vrmc-host-display-hz.txt)"
+else
+  rm -f "$RUNDIR/vrmc-host-display-hz.txt"
+fi
 rm -f "$RUNDIR/logs/latest.log"
 say "run dir: $RUNDIR (Vivecraft vrEnabled=true)"
 
 # ---- 4. launch the real Minecraft dev client with the fake display feedback --------------------
 say "launching :fabric:runClient (timeout ${TIMEOUT}s)"
-( cd "$REF" && JAVA_HOME="$JAVA_HOME" VRMC_HOST_TEST_RENDER_SETTINGS=1 \
+DISPLAY_ENV=""
+if [ -n "${DISPLAY_HZ:-}" ]; then DISPLAY_ENV="VRMC_HOST_TEST_DISPLAY_HZ=$DISPLAY_HZ"; fi
+( cd "$REF" && env JAVA_HOME="$JAVA_HOME" VRMC_HOST_TEST_RENDER_SETTINGS=1 $DISPLAY_ENV \
     ./gradlew :fabric:runClient --offline --console=plain >> "$LOG" 2>&1 ) &
 GRADLE_PID=$!
 
@@ -144,6 +163,24 @@ done
 PASS=0
 if [ -n "$RESIZE_LINE" ]; then
   sleep 8   # let the reinit and a few render-state lines land
+  # Guardrail expectation: a target cadence above the simulated display cadence must revert to auto.
+  REVERT_EXPECT=0
+  if [ -n "${TARGET_HZ:-}" ] && [ -n "${DISPLAY_HZ:-}" ]; then
+    case "$TARGET_HZ" in
+      *[!0-9]*) ;;
+      *) [ "$TARGET_HZ" -gt "$DISPLAY_HZ" ] && REVERT_EXPECT=1 ;;
+    esac
+  fi
+  REVERT=""
+  if [ "$REVERT_EXPECT" = "1" ]; then
+    for _ in $(seq 1 20); do
+      REVERT=$(grep -m1 '\[VRMC-M8\] target cadence: .* unreachable' "$LATEST" 2>/dev/null || true)
+      [ -n "$REVERT" ] && break
+      sleep 1
+    done
+  else
+    REVERT=$(grep -m1 '\[VRMC-M8\] target cadence: .* unreachable' "$LATEST" 2>/dev/null || true)
+  fi
   INIT=$(grep -m1 'VisionVR.init() succeeded' "$LATEST" || true)
   BRIDGE=$(grep -m1 'bridge handshake ok' "$LATEST" || true)
   SETTINGS=$(grep -m1 '\[VRMC-M8\] render settings:' "$LATEST" || true)
@@ -155,7 +192,7 @@ if [ -n "$RESIZE_LINE" ]; then
   CONTENT=$(grep -m1 '\[VRMC-M8\] content governor:' "$LATEST" || true)
   ERRORS=$(grep -cE '\[VRMC-M8\].*(ERROR|Exception)' "$LATEST" || true)
   echo "=== evidence lines ===" | tee -a "$LOG"
-  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET" "$CONTENT"; do
+  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET" "$CONTENT" "$REVERT"; do
     [ -n "$line" ] && echo "  $line" | tee -a "$LOG"
   done
   if [ -n "$INIT" ] && [ -n "$RESIZE_LINE" ] && [ -n "$NEW_TARGET" ] && [ -n "$HANDSHAKE" ]; then
@@ -167,6 +204,10 @@ if [ -n "$RESIZE_LINE" ]; then
   fi
   if [ -n "${CONTENT_FIRST:-}" ] && [ -z "$CONTENT" ]; then
     say "content-first knob was set but no '[VRMC-M8] content governor:' line appeared"
+    PASS=0
+  fi
+  if [ "$REVERT_EXPECT" = "1" ] && [ -z "$REVERT" ]; then
+    say "target cadence above the simulated display cadence but no 'unreachable ... reverting to auto' line appeared"
     PASS=0
   fi
   say "M8 renderer resize path: $([ "$PASS" = "1" ] && echo PASS || echo FAIL)"
@@ -187,6 +228,10 @@ say "harness log: $LOG ; minecraft log: $OUT/latest.log"
 if [ "$PASS" = "1" ]; then
   KNOB_NOTE=""
 if [ -n "${TARGET_HZ:-}" ]; then KNOB_NOTE="; target-cadence knob $TARGET_HZ honoured"; fi
+if [ -n "${DISPLAY_HZ:-}" ]; then
+  KNOB_NOTE="$KNOB_NOTE; simulated display $DISPLAY_HZ Hz"
+  if [ -n "$REVERT" ]; then KNOB_NOTE="$KNOB_NOTE (guardrail reverted)"; fi
+fi
 say "RESULT: PASS (host GL: provider resized 1024x1024 -> 1832x1600 from fake 3660x3200 foveated display feedback$KNOB_NOTE; NOT device evidence)"
   exit 0
 fi

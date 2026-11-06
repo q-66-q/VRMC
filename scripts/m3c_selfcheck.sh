@@ -65,7 +65,7 @@ if [ "$FAST" = "1" ]; then
   echo "[selfcheck] skip (--fast)"
 else
   # Retry once: the first simulator launch after a full shell build can race CoreSimulator service startup.
-  run "provider-sim (six scenarios)" bash -c "ok=1; for i in 1 2; do '$ROOT/runtime/probes/m3c-provider-sim/run.sh' > /tmp/vrmc-selfcheck-provider-sim.log 2>&1 && { ok=0; break; }; sleep 5; done; tail -4 /tmp/vrmc-selfcheck-provider-sim.log; exit \$ok"
+  run "provider-sim (presentation scenarios; env-limited ones skip)" bash -c "ok=1; for i in 1 2; do '$ROOT/runtime/probes/m3c-provider-sim/run.sh' > /tmp/vrmc-selfcheck-provider-sim.log 2>&1 && { ok=0; break; }; sleep 5; done; tail -4 /tmp/vrmc-selfcheck-provider-sim.log; exit \$ok"
 fi
 
 step "7/7 M4 immersive-input self-check"

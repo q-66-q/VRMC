@@ -277,3 +277,16 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   34 self-test checks). Verified with 65 policy unit checks, a real Minecraft Fabric harness run
   (`CONTENT_FIRST=on TARGET_HZ=120`, resize path unaffected), classifier 5/5 and the fast self-check;
   provider jar `5d418fd1…` (139,750 B, two-build reproducible). **Device A6–A9 still NOT RUN.**
+
+- 2026-11-05 EV-0280: **Target-cadence guardrail + full host/simulator regression (PASS).** An
+  operator target cadence the display never reaches (e.g. 120 Hz on a 90 Hz session) now auto-reverts
+  after 8 consecutive windows: the provider logs `target cadence: N Hz unreachable … reverting to
+  auto`, follows the measured cadence, and does not re-apply the same knob value until the file
+  changes (retry). Verified in the real Minecraft harness with `DISPLAY_HZ=90 TARGET_HZ=120`
+  (`… measured display stayed 90.0 Hz for 8 windows …`). Harness tooling was fixed to re-point the
+  Fabric client vmArgs at the current test dylib/provider jar every run (a stale path had silently
+  loaded an old publisher) and to accept a game-dir simulated display cadence; simulator `reentry` /
+  `gaze` now report SKIP for known environment limits instead of false failures. Provider suite ALL
+  PASS (guardrail 23/23; jar `6e2238d5…`, 140,714 B, two-build reproducible); **full (non-fast) M3c
+  self-check PASS with 10 PASS rows** and every simulator scenario OVERALL PASS. **Device A6–A9 still
+  NOT RUN.**

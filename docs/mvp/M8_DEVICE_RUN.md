@@ -90,7 +90,7 @@ Manual equivalents (if you prefer the individual scripts):
 |---|---|---|
 | A6 | Foveation actually active: layer configured `foveation=1`, rate-map geometry present, display geometry `rateMaps>0` | `layer configuration … foveation=1`, `foveation rate map view …`, `display geometry: …` |
 | A7 | 4K-class per-eye display path + provider eye targets follow it: logical per-eye ≥ 3200×2800, provider render settings + ≥1 resize, sane resize count, final target ≥ the old 1024 baseline | compositor `display geometry` / `render feedback published`, provider `[VRMC-M8] render settings:`, `[VRMC-M8] eye target resize #…`, `[VRMC-M8] cleared the shared eye frame before the eye-target rebuild`, compositor `eyes absent: reusing the last sampled eye frame` + `eye frame resumed after …` during each resize, `[VRMC-M8] render state …` |
-| A8 | Measured display cadence: 120 Hz PASS (≥117 Hz, repeats ≤20 %), else PARTIAL with the actual Hz | `render feedback: displayHz=… repeats=…` |
+| A8 | Measured display cadence: 120 Hz PASS (≥117 Hz, repeats ≤20 %), else PARTIAL with the actual Hz | `render feedback: displayHz=… repeats=…`; provider `target cadence: 120 Hz (file)…`; if the display cannot reach it, `target cadence: N Hz unreachable … reverting to auto` is an expected, honest outcome (guardrail) |
 | A9 | Pacing/regressions: no render-feedback publication failures, no command-buffer failures, provider p95 within 1.5× the measured cadence budget | `[VRMC-M5] diag: … p95Ms=… missedTarget=… targetHz=…` |
 
 **Robustness:** the classifier also reads `vrmc-status.json` (written by the M5/M8 provider diagnostics).
@@ -113,7 +113,7 @@ Files (push with `devicectl device copy to`, relaunch as noted):
 | `vrmc-eye-scale.txt` | game dir (`Documents/instances/default/`) | `auto` (default), or a number 0.25–1.0 | live, re-read every ~600 frames |
 | `vrmc-render-quality.txt` | `Documents/` (compositor) | `auto` or 0.0–1.0 (pins runtime quality) | next compositor start (relaunch) |
 | `vrmc-max-render-quality.txt` | `Documents/` (shell) | 0.05–1.0 (memory upper bound) | next immersive open |
-| `vrmc-target-hz.txt` | game dir (`Documents/instances/default/`) (provider) | `auto` (default; follow measured display) or 60..120 Hz to aim the auto eye-scale policy at a higher cadence (e.g. 120 while the system reports 90); achievement is still measured | live (~300 frames) |
+| `vrmc-target-hz.txt` | game dir (`Documents/instances/default/`) (provider) | `auto` (default; follow measured display) or 60..120 Hz to aim the auto eye-scale policy at a higher cadence (e.g. 120 while the system reports 90); achievement is still measured. If the display stays below the target for 8 windows the provider auto-reverts and logs `unreachable … reverting to auto` (change the file to retry) | live (~300 frames) |
 | `vrmc-content-first.txt` | game dir (`Documents/instances/default/`) (provider) | `off` (default) or `on`: when struggling, cut render/simulation distance before eye-target resolution | live (~300 frames) |
 | `vrmc-sharpening.txt` | `Documents/` (compositor) | `auto` (default; fovea-weighted CAS-lite when the provider renders below the logical size), `off` (plain bilinear), or a fixed strength 0.05..1.0 | live (~300 frames) |
 | `vrmc-foveation-off.flag` | `Documents/` (shell) | A/B: uniform rasterization (one-way on device: an app-data reset or `vrmc-clear-diagnostics.flag` restores foveation) | next immersive open |

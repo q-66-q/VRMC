@@ -158,7 +158,9 @@ if "$JAVAC" -d "$T/renderclasses" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionFrameStatsTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionTargetCadenceTest.java" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionContentGovernor.java" \
-     "$ROOT/provider/tests/dev/vrmc/provider/VisionContentGovernorTest.java"; then
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionContentGovernorTest.java" \
+     "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionTargetGuardrail.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionTargetGuardrailTest.java"; then
   if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsTest > "$T/m8-render.log" 2>&1 \
      && grep -q "\[m8-render-test\] PASS" "$T/m8-render.log"; then
     echo "[provider-tests] m8-render: PASS (render feedback layout/parse + eye-target scale policy)"
@@ -186,6 +188,13 @@ if "$JAVAC" -d "$T/renderclasses" \
     grep -E "\[m8-content-first-test\] [0-9]+ checks" "$T/m8-content.log"
   else
     cat "$T/m8-content.log"; fail "m8-content-first"
+  fi
+  if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionTargetGuardrailTest > "$T/m8-guardrail.log" 2>&1 \
+     && grep -q "\[m8-target-guardrail-test\] PASS" "$T/m8-guardrail.log"; then
+    echo "[provider-tests] m8-target-guardrail: PASS (unreachable target-cadence auto-revert policy)"
+    grep -E "\[m8-target-guardrail-test\] [0-9]+ checks" "$T/m8-guardrail.log"
+  else
+    cat "$T/m8-guardrail.log"; fail "m8-target-guardrail"
   fi
 else
   fail "m8-render-compile"

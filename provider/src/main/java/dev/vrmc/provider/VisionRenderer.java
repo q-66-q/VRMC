@@ -90,6 +90,13 @@ public class VisionRenderer extends VRRenderer {
     private int targetHzOverride = 0;
     private String targetHzSource = "auto(display)";
     private long lastTargetHzReadFrame = -1000L;
+    /** Last knob value parsed from the file (to detect operator changes after an auto-revert). */
+    private int lastTargetHzFileValue = Integer.MIN_VALUE;
+    /** Consecutive windows where the measured display stayed below the configured target. */
+    private int targetLowWindows;
+    /** True after the guardrail reverted an unreachable target; stays auto until the knob changes. */
+    private boolean targetReverted;
+    private int revertedTargetHz;
     /** Opt-in M8 content-first governor (game dir vrmc-content-first.txt): cut scene cost before resolution. */
     private final VisionContentGovernor contentGovernor = new VisionContentGovernor();
     private long lastContentFirstReadFrame = -1000L;
@@ -639,13 +646,25 @@ public class VisionRenderer extends VRRenderer {
                 + VisionRenderSettings.MAX_TARGET_HZ + " Hz)");
             return;
         }
-        if (parsed != this.targetHzOverride) {
-            this.targetHzOverride = parsed;
-            this.targetHzSource = parsed > 0 ? (parsed + "Hz(file)") : "auto(display)";
-            if (parsed > 0) {
+        // A guardrail auto-revert stays in force until the operator changes the file content: the
+        // same unreachable value is not re-applied every re-read (that would loop revert -> re-arm).
+        if (parsed != this.lastTargetHzFileValue) {
+            this.lastTargetHzFileValue = parsed;
+            if (this.targetReverted && parsed != this.revertedTargetHz) {
+                this.targetReverted = false;
+            }
+        }
+        int requested = parsed;
+        if (this.targetReverted && parsed == this.revertedTargetHz) {
+            requested = 0;   // file still asks for the unreachable rate: keep auto
+        }
+        if (requested != this.targetHzOverride) {
+            this.targetHzOverride = requested;
+            this.targetHzSource = requested > 0 ? (requested + "Hz(file)") : "auto(display)";
+            if (requested > 0) {
                 System.out.println(String.format(java.util.Locale.ROOT,
                     "[VRMC-M8] target cadence: %d Hz (file) - auto eye scale now aims at %.2f ms frames "
-                        + "instead of the measured display cadence", parsed, 1000.0 / parsed));
+                        + "instead of the measured display cadence", requested, 1000.0 / requested));
             } else {
                 System.out.println("[VRMC-M8] target cadence: auto (file) - following the measured "
                     + "display cadence");
@@ -712,6 +731,28 @@ public class VisionRenderer extends VRRenderer {
         final boolean struggling = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
             || stats.p50Ms > targetMs * 1.25;
         final boolean headroom = stats.missedTargetFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
+        // Target-cadence guardrail: never chase a cadence the display does not provide. If the
+        // compositor keeps reporting a lower measured cadence, revert to auto so the policy does not
+        // crush resolution forever on hardware that never promotes (operator can change the file to
+        // retry). targetMs above still used the pre-revert override for this one window.
+        if (this.targetHzOverride > 0 &&
+            VisionTargetGuardrail.displayBelowTarget(this.targetHzOverride, settings.displayHz)) {
+            this.targetLowWindows++;
+            if (VisionTargetGuardrail.shouldRevert(this.targetLowWindows)) {
+                System.out.println(String.format(java.util.Locale.ROOT,
+                    "[VRMC-M8] target cadence: %d Hz unreachable (measured display stayed %.1f Hz for "
+                        + "%d windows); reverting to auto (measured display). Change "
+                        + "Documents/instances/default/vrmc-target-hz.txt to retry.",
+                    this.targetHzOverride, settings.displayHz, this.targetLowWindows));
+                this.revertedTargetHz = this.targetHzOverride;
+                this.targetReverted = true;
+                this.targetHzOverride = 0;
+                this.targetHzSource = "auto(display)";
+                this.targetLowWindows = 0;
+            }
+        } else if (this.targetLowWindows != 0) {
+            this.targetLowWindows = 0;
+        }
         final float previous = this.eyeScale;
         // M8 content-first: prefer cutting scene cost over cutting the eye-target resolution. Runs on
         // every window (it also resets its streak on non-struggling windows); null = no content change.

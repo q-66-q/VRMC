@@ -13,6 +13,7 @@
 #include "vrmc_abi.h"
 #include "vrmc_native_shared.h"
 #include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -38,6 +39,29 @@ static void *publish_loop(void *arg) {
         rs.render_quality = 1.0f;
         rs.max_render_quality = 1.0f;
         rs.display_hz = 120.0f;
+        /* Host-only test knob (harness): publish a lower measured display cadence to exercise the
+           provider's "target cadence unreachable" guardrail (e.g. VRMC_HOST_TEST_DISPLAY_HZ=90 while
+           vrmc-target-hz.txt asks for 120). Never compiled into the device bridge. */
+        const char *display_hz_env = getenv("VRMC_HOST_TEST_DISPLAY_HZ");
+        if (display_hz_env != NULL && *display_hz_env != '\0') {
+            char *end = NULL;
+            float parsed_hz = (float)strtod(display_hz_env, &end);
+            if (end != display_hz_env && parsed_hz >= 30.0f && parsed_hz <= 240.0f) {
+                rs.display_hz = parsed_hz;
+            }
+        } else {
+            /* Gradle's runClient forks a long-lived daemon that may not carry new environment
+               variables; the harness therefore also writes the requested simulated display cadence
+               into the game directory. The publisher's working directory is that run directory. */
+            FILE *hz_file = fopen("vrmc-host-display-hz.txt", "r");
+            if (hz_file != NULL) {
+                float file_hz = 0.0f;
+                if (fscanf(hz_file, "%f", &file_hz) == 1 && file_hz >= 30.0f && file_hz <= 240.0f) {
+                    rs.display_hz = file_hz;
+                }
+                fclose(hz_file);
+            }
+        }
         rs.frame_time_ms = 8.33f;
         vrmc_shared_publish_render_settings(&rs);
         usleep(16000); // ~60 Hz publication is plenty; the provider polls every frame

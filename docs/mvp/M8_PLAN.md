@@ -112,7 +112,11 @@ fill the 11.1 ms budget rather than pursuing 120 Hz. `Documents/instances/defaul
 lets the operator aim at a higher rate (`auto` default, or 60..120 Hz): the provider then holds frames
 inside the shorter deadline (8.33 ms at 120 Hz) and the system can promote the display; the achieved
 rate is still measured (never assumed). Target-cadence overrides are logged and reported in the status
-JSON and the device checker.
+JSON and the device checker. A **guardrail** stops chasing a cadence the display never provides: if
+the measured cadence stays below the configured target for 8 consecutive windows (~16–20 s), the
+provider logs `target cadence: N Hz unreachable … reverting to auto` and follows the measured cadence
+until the knob file changes (so an operator cannot accidentally leave the device in a
+resolution-crushing 120 Hz pursuit on a 90 Hz-limited session).
 
 During an eye-target resize the provider clears the shared eye frame before rebuilding (safety, see
 §8). The compositor keeps its last sampled MTLTexture pair retained and **reuses it for up to 30
@@ -191,7 +195,9 @@ Device (D1, NOT RUN; one operator session):
   provider log shows eye targets sized from it (`[VRMC-M8] eye target resize ...`) and no repeated
   resize thrash.
 - A8 `render feedback: displayHz=...` — the actual presented cadence (90 or 120 Hz) with
-  `repeats=...`; the 120 Hz claim requires `displayHz≈120` with acceptable repeats.
+  `repeats=...`; the 120 Hz claim requires `displayHz≈120` with acceptable repeats. The provider's
+  configured `target cadence` (default auto = measured) is reported alongside; a guardrail auto-reverts
+  an unreachable target with `target cadence: N Hz unreachable … reverting to auto` (host-tested).
 - A9 Frame pacing within budget at the chosen scale (p50/p95 consistent with 90 or 120 Hz; no
   crash/watchdog), operator visual confirmation that upscale blur/jaggedness is reduced.
 
