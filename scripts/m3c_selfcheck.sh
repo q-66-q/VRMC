@@ -51,6 +51,13 @@ else
   fi
 fi
 
+step "1e/7 M8 device-session flow rehearsal (host data, no device)"
+if "$ROOT/scripts/tests/M8DeviceFlowTest.sh" > /tmp/vrmc-selfcheck-m8-flow.log 2>&1; then
+  echo "[selfcheck] PASS: M8DeviceFlowTest"
+else
+  echo "[selfcheck] FAIL: M8DeviceFlowTest"; tail -20 /tmp/vrmc-selfcheck-m8-flow.log; fail=1
+fi
+
 step "2/7 display-view frustum math"
 run "DisplayViewsTest" "$ROOT/scripts/test_display_views.sh"
 

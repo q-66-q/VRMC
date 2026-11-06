@@ -382,3 +382,11 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   (**11 PASS rows**). A C-struct/Java-offset mismatch now fails on the host instead of silently at
   device display feedback (which would leave eye targets at the 1024 fallback). **Device A6–A9 still
   NOT RUN.**
+
+- 2026-11-06 EV-0290: **Device-session flow rehearsal (PASS, host TEST DATA).**
+  `scripts/tests/M8DeviceFlowTest.sh` runs the exact D1 operator command chain on synthetic pulls:
+  classifier fixtures, `m8_device_session.sh collect --report` (exit code preserved; default report with
+  all four sections and the PASS verdict), `m8_device_report.sh` with an operator note on a 90 Hz
+  PARTIAL pull, `prepare --dry-run` candidate hash validation + planned install command, and
+  `m8_device_package.sh --check`. **12/12 checks**, wired into `scripts/m3c_selfcheck.sh` step 1e
+  (**fast self-check 10 PASS rows**). No rendering code changed; **device A6–A9 still NOT RUN.**

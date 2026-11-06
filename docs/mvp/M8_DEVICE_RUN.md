@@ -47,6 +47,13 @@ It runs the real provider in a real Minecraft client with fake 3660×3200 / 120 
 must log `1024x1024 -> 1832x1600` and `resizes=1` (see [M8_HOST_HARNESS.md](M8_HOST_HARNESS.md)).
 Host GL only; it does not replace the device rows.
 
+## 1a. Rehearse the flow without the headset
+
+`scripts/tests/M8DeviceFlowTest.sh` exercises the exact operator-flow commands on synthetic pulls
+(classifier fixtures + `collect --report` + report/operator-note + `prepare --dry-run` + package
+check) so a chain regression fails on the host instead of during the device session. It runs as part of
+`scripts/m3c_selfcheck.sh`.
+
 ## 1b. Durable handoff package
 
 The staged artifacts live in `/tmp` (volatile). Build a workspace copy with checksums before a device
