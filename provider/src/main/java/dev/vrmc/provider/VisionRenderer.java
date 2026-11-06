@@ -86,6 +86,9 @@ public class VisionRenderer extends VRRenderer {
     private int eyeResizeCount;
     private long lastEyeResizeFrame = -1000L;
     private long lastEyeScaleReadFrame = -1000L;
+    /** Frame index when the world level became non-null (-1 = no level yet); drives resize gating. */
+    private long levelLoadedFrame = -1L;
+    private boolean loggedM8State;
     private long frameIndex;
     private boolean polled;
     private boolean loggedNoHandle;
@@ -151,6 +154,24 @@ public class VisionRenderer extends VRRenderer {
 
     public boolean hasDisplayViews() { return this.hasDisplayViews; }
 
+    /** M8: true when a world level is loaded. Render-thread read; never throws into the frame. */
+    private boolean currentLevelLoaded() {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            return mc != null && mc.level != null;
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+    }
+
+    // ---- M8 render-state accessors (read by VisionVR's diagnostic line / device verification) ----
+    public int renderEyeTargetWidth() { return this.currentEyeWidth; }
+    public int renderEyeTargetHeight() { return this.currentEyeHeight; }
+    public VisionRenderSettings renderSettingsSnapshot() { return this.renderSettings; }
+    public float eyeScaleValue() { return this.eyeScale; }
+    public boolean eyeScaleIsAuto() { return this.eyeScaleAuto; }
+    public int eyeResizeCount() { return this.eyeResizeCount; }
+
     /** Applied per-eye frustum tangents (only meaningful once {@link #hasDisplayViews()}). */
     public float[] getAppliedTangents(int eye) { return this.eyeFovTan[eye]; }
 
@@ -191,6 +212,13 @@ public class VisionRenderer extends VRRenderer {
         final long frameNanos = System.nanoTime();
         if (this.lastFrameNanos != 0L) this.renderFrameStats.record(frameNanos - this.lastFrameNanos);
         this.lastFrameNanos = frameNanos;
+        // Track when a world level first becomes available; eye-target resizes are held back until the
+        // world has been stable for a moment (see VisionRenderSettings.canResizeNow).
+        if (currentLevelLoaded()) {
+            if (this.levelLoadedFrame < 0L) this.levelLoadedFrame = this.frameIndex;
+        } else {
+            this.levelLoadedFrame = -1L;
+        }
         if (this.framebufferEye[0] == null || this.framebufferEye[1] == null) {
             return;
         }
@@ -306,6 +334,24 @@ public class VisionRenderer extends VRRenderer {
                 lp.x, lp.y, lp.z, rp.x, rp.y, rp.z));
         }
         System.out.println(sb);
+        // M8 render state: one line per diagnostics interval so a device log alone answers "what was
+        // the display asking for, what did the provider render, and is foveation/cadence live?".
+        VisionRenderSettings rs = this.renderSettings;
+        if (rs.valid) {
+            System.out.println(String.format(java.util.Locale.ROOT,
+                "[VRMC-M8] render state frame=%d eyeTarget=%dx%d logical=%dx%d drawable=%dx%d "
+                    + "foveation=%d rateMaps=%d displayHz=%.1f quality=%.2f/%.2f scale=%.2f(%s) "
+                    + "resizes=%d",
+                this.frameIndex, this.currentEyeWidth, this.currentEyeHeight,
+                rs.leftLogicalWidth, rs.leftLogicalHeight, rs.drawableWidth, rs.drawableHeight,
+                rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz, rs.renderQuality,
+                rs.maxRenderQuality, this.eyeScale, this.eyeScaleSource, this.eyeResizeCount));
+        } else if (!this.loggedM8State) {
+            this.loggedM8State = true;
+            System.out.println("[VRMC-M8] render state: no display feedback yet (compositor immersive "
+                + "layer not up or old bridge); eyeTarget=" + this.currentEyeWidth + "x"
+                + this.currentEyeHeight);
+        }
     }
 
     /**
@@ -563,13 +609,13 @@ public class VisionRenderer extends VRRenderer {
         final double targetMs = VisionRenderSettings.targetIntervalMs(settings.displayHz);
         VisionFrameStats.Snapshot stats = this.renderFrameStats.snapshotAndReset(targetMs);
         if (stats.samples <= 0) return;
-        final boolean struggling = stats.missed90HzFrames >= Math.max(3, stats.samples / 10)
+        final boolean struggling = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
             || stats.p50Ms > targetMs * 1.25;
-        final boolean headroom = stats.missed90HzFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
+        final boolean headroom = stats.missedTargetFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
         final float previous = this.eyeScale;
         if (struggling) {
-            this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale, stats.missed90HzFrames,
-                stats.samples, stats.p50Ms, targetMs);
+            this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale,
+                stats.missedTargetFrames, stats.samples, stats.p50Ms, targetMs);
             this.headroomWindows = 0;
             this.raiseHoldWindows = 3;
         } else if (this.raiseHoldWindows > 0) {
@@ -601,9 +647,22 @@ public class VisionRenderer extends VRRenderer {
             target[0], target[1])) {
             return;
         }
-        // A resize destroys/recreates both eye VkImages and rebuilds every render target; do it at most
-        // every 240 frames (~2 s at 120 Hz) and never during the first 60 frames of a session.
-        if (this.frameIndex < 60L || this.frameIndex - this.lastEyeResizeFrame < 240L) return;
+        // A resize destroys/recreates both eye VkImages and rebuilds every render target: keep it out
+        // of world loading, wait for session warm-up, and rate-limit it to one per 240 frames
+        // (~2 s at 120 Hz). The pending target stays queued because currentEye* only changes below.
+        final boolean levelLoaded = this.levelLoadedFrame >= 0L;
+        final long framesSinceLevelLoad = levelLoaded ? this.frameIndex - this.levelLoadedFrame : -1L;
+        boolean inMenuRoom = false;
+        try {
+            inMenuRoom = MethodHolder.isInMenuRoom();
+        } catch (RuntimeException | LinkageError ignored) {
+            // menu-room probe is best-effort; without it only an in-world stable level allows a resize
+        }
+        if (!VisionRenderSettings.canResizeNow(levelLoaded, framesSinceLevelLoad, inMenuRoom,
+            this.frameIndex)) {
+            return;
+        }
+        if (this.frameIndex - this.lastEyeResizeFrame < 240L) return;
         final int oldWidth = this.currentEyeWidth;
         final int oldHeight = this.currentEyeHeight;
         this.lastEyeResizeFrame = this.frameIndex;

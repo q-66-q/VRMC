@@ -114,7 +114,7 @@ Minecraft's own fill cost. Therefore:
 | M8.2 | Bridge render-feedback channel: `vrmc_render_settings` (68 B) + `vrmc_shared_publish_render_settings`/`acquire` + JNI `nativePollRenderSettings`; C static-assert layout; C concurrency test; Java layout/parse/policy test; fake-provider capture; simulator harness scenario `render`. | DONE (host/sim) |
 | M8.3 | Compositor: foveation/quality/rate-map logging, presentation-cadence statistics, render-quality control (fixed from `vrmc-render-quality.txt`; `auto` opt-in via content "auto"/`vrmc-quality-auto.flag`), `minimumFrameRepeatCount=0`, per-frame render-feedback publication. | DONE (host/sim) |
 | M8.4 | Provider: poll render feedback, adaptive eye scale, eye-target resize + logs, actual-size eye submission, frame-stats target-interval scoring (90/120 Hz). | DONE (host compile+tests) |
-| M8.5 | Device verification on D1 (physical device unavailable during implementation): foveation/rate maps present, logical per-eye resolution at max quality, provider eye target/resizes, measured displayHz, frame pacing, operator visual report. | NOT RUN |
+| M8.5 | Device verification on D1 (physical device unavailable during implementation): foveation/rate maps present, logical per-eye resolution at max quality, provider eye target/resizes, measured displayHz, frame pacing, operator visual report. | **TOOLING READY, DEVICE NOT RUN** — one-command classifier `scripts/m8_device_check.sh` (+ host test) and operator runbook [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md) |
 
 ## 5. Acceptance
 
@@ -159,16 +159,17 @@ Device (D1, NOT RUN; one operator session):
 
 ## 7. Device runbook (M8.5)
 
-1. Build/stage the app + provider jar and install on D1 (`scripts/install_device.sh`,
+Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
+
+1. Stage the M8 app + provider jar and install on D1 (`scripts/install_device.sh`,
    `scripts/push_provider_jar.sh`).
-2. (Optional A/B) push Documents flags/files: `vrmc-foveation-off.flag`, `vrmc-render-quality.txt`
-   (e.g. `1.0`, `0.75`, `auto`), `vrmc-max-render-quality.txt` (e.g. `1.0`/`0.75`); provider-side
-   `Documents/instances/default/vrmc-eye-scale.txt` (`auto` or a number) for eye-target tuning.
-3. Launch, enter immersive, play ~2 minutes in a world (include turning, a menu, and distant geometry).
-4. Pull `Documents/vrmc-compositor.log`, `vrmc-shell.log`, `latestlog.txt`; record operator visual
-   report (blur/jaggies/comfort) and the A6–A9 lines in `VERIFY.md` as a new evidence id.
-5. Rollback: delete the override files, or push `vrmc-foveation-off.flag` + `vrmc-render-quality.txt=0.5`
-   + `vrmc-eye-scale.txt=0.25` for the pre-M8 rendering cost profile.
+2. Launch with JIT, enter immersive, play 3–5 minutes (world + menu + distant geometry), quit cleanly.
+3. Pull and classify in one command: `scripts/m8_device_check.sh` (exit 0 PASS / 2 PARTIAL / 3 NOT
+   RUN / 4 FAIL / 5 device unavailable). It checks A6 (foveation/rate maps), A7 (4K-class logical size
+   + provider eye targets), A8 (measured 90/120 Hz cadence), A9 (pacing/regressions).
+4. Record the result + operator visual statement as a new `VERIFY.md` §6 evidence id (hashed bundle
+   via `scripts/log_evidence.sh`).
+5. Tuning/A-B and rollback knobs: see M8_DEVICE_RUN.md §4/§6.
 
 ## 8. Risks
 

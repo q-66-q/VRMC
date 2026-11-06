@@ -825,23 +825,45 @@ public class VisionVR extends MCVR {
         double hz = this.diagWindowFrames / seconds;
         String screen = this.mc.gui.screen() == null ? "none" : this.mc.gui.screen().getClass().getSimpleName();
         boolean hasPlayer = this.mc.player != null;
-        VisionFrameStats.Snapshot fs = this.frameStats.snapshotAndReset();
+        // M8: score frame pacing against the display cadence the compositor actually measured (90 or
+        // 120 Hz) instead of assuming 90 Hz, and report the renderer's state in the same line.
+        VisionRenderer visionRenderer =
+            (this.dh != null && this.dh.vrRenderer instanceof VisionRenderer r) ? r : null;
+        VisionRenderSettings renderSettings =
+            visionRenderer != null ? visionRenderer.renderSettingsSnapshot() : VisionRenderSettings.none();
+        double targetMs = 1000.0 / 90.0;
+        String renderDiag = "";
+        if (visionRenderer != null) {
+            if (renderSettings.valid && renderSettings.displayHz >= 30.0f
+                && renderSettings.displayHz <= 240.0f) {
+                targetMs = 1000.0 / (double) renderSettings.displayHz;
+            }
+            renderDiag = String.format(java.util.Locale.ROOT,
+                " displayHz=%.1f foveation=%d rateMaps=%d logical=%dx%d eyeTarget=%dx%d scale=%.2f resizes=%d",
+                renderSettings.displayHz, renderSettings.foveationEnabled ? 1 : 0,
+                renderSettings.rateMapCount, renderSettings.leftLogicalWidth,
+                renderSettings.leftLogicalHeight, visionRenderer.renderEyeTargetWidth(),
+                visionRenderer.renderEyeTargetHeight(), visionRenderer.eyeScaleValue(),
+                visionRenderer.eyeResizeCount());
+        }
+        VisionFrameStats.Snapshot fs = this.frameStats.snapshotAndReset(targetMs);
         this.lastFrameP50Ms = (float) fs.p50Ms;
         this.lastFrameP95Ms = (float) fs.p95Ms;
         this.lastMissed90Frames = fs.missed90HzFrames;
         System.out.printf("[VRMC-M5] diag: pollHz=%.1f frames=%d maxGapMs=%.1f p50Ms=%.2f p95Ms=%.2f "
-                + "p95MaxMs=%.2f missed90=%d screen=%s seated=%s hands=L%d R%d displayViewsGen=%d "
-                + "trackedFrames=%d playerPresent=%d%n",
+                + "p95MaxMs=%.2f missed90=%d missedTarget=%d targetHz=%.0f screen=%s seated=%s "
+                + "hands=L%d R%d displayViewsGen=%d trackedFrames=%d playerPresent=%d%s%n",
             hz, this.diagWindowFrames, this.diagMaxGapNs * 1.0E-6, fs.p50Ms, fs.p95Ms, fs.maxMs,
-            fs.missed90HzFrames, screen, this.dh.vrSettings.seated,
+            fs.missed90HzFrames, fs.missedTargetFrames, 1000.0 / targetMs, screen,
+            this.dh.vrSettings.seated,
             this.visionInput.isHandTracked(VisionInput.HAND_LEFT) ? 1 : 0,
             this.visionInput.isHandTracked(VisionInput.HAND_RIGHT) ? 1 : 0,
-            this.displayViewsGen, this.trackedFrames, hasPlayer ? 1 : 0);
-        boolean overBudget = fs.p95Ms > 16.7
-            || fs.missed90HzFrames > Math.max(2, this.diagWindowFrames / 10);
+            this.displayViewsGen, this.trackedFrames, hasPlayer ? 1 : 0, renderDiag);
+        boolean overBudget = fs.p95Ms > targetMs * 1.5
+            || fs.missedTargetFrames > Math.max(2, this.diagWindowFrames / 10);
         if (overBudget) {
-            System.out.printf("[VRMC-M5][WARN] frame pacing above 90 Hz budget: p95=%.2f ms missed90=%d/%d%n",
-                fs.p95Ms, fs.missed90HzFrames, this.diagWindowFrames);
+            System.out.printf("[VRMC-M5][WARN] frame pacing above %.0f Hz budget: p95=%.2f ms missed=%d/%d%n",
+                1000.0 / targetMs, fs.p95Ms, fs.missedTargetFrames, this.diagWindowFrames);
         }
         if (this.adaptiveFramerate && !this.adaptiveApplied) {
             if (overBudget) {

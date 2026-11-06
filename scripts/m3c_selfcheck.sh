@@ -24,6 +24,9 @@ run() { local name="$1"; shift; if "$@"; then echo "[selfcheck] PASS: $name"; el
 step "1/7 depth-clear regression"
 run "DepthClearRegressionTest" "$ROOT/scripts/tests/DepthClearRegressionTest.sh"
 
+step "1b/7 M8 device-check classifier (host)"
+run "M8DeviceCheckTest" "$ROOT/scripts/tests/M8DeviceCheckTest.sh"
+
 step "2/7 display-view frustum math"
 run "DisplayViewsTest" "$ROOT/scripts/test_display_views.sh"
 

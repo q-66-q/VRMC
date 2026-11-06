@@ -32,7 +32,7 @@ navigation summary.
 | M4 hands input | W1 device PASS (EV-0096); W2–W5 host PASS; device tuning/AC-4 NOT RUN |
 | M5 settings/comfort/diagnostics | **PASS (operator-attested prior session, EV-0258)**; M6 AC/K NOT RUN |
 | M6 hardening/release | host hardening/release gates PASS; device AC/K gates NOT RUN |
-| M8 foveated 4K/120 rendering | **host/simulator PASS** (foveation + max render quality layer config, render-feedback bridge channel, adaptive provider eye targets); **device NOT RUN** — [M8_PLAN.md](M8_PLAN.md) |
+| M8 foveated 4K/120 rendering | **host/simulator PASS** (foveation + max render quality layer config, render-feedback bridge channel, adaptive provider eye targets, resize-safety + frame-cadence diagnostics); **device tooling ready** (`scripts/m8_device_check.sh` + [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md)); **device NOT RUN** — [M8_PLAN.md](M8_PLAN.md) |
 
 ## Implemented feature summary
 
@@ -161,3 +161,15 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   public CompositorServices refresh-rate selector. Engine-side foveation is deferred
   (MoltenVK 1.4.3 has no `VK_KHR_fragment_shading_rate`). Bridge/provider host suites PASS; simulator
   `render` scenario PASS (plumbing only). **Device A6–A9 NOT RUN (D1 unavailable).**
+
+- 2026-11-05 EV-0269: **M8 round 2 — resize-safe provider eye targets + device verification tooling.**
+  Provider eye-target resizes are gated to a stable state (menu room, or a loaded level stable for
+  ≥120 frames; 240-frame rate limit) so the render-target rebuild never lands in world loading; the
+  auto eye-scale takes 0.10 steps under strong headroom; frame stats track `missed90` and
+  `missedTarget` (measured cadence) separately, and the periodic diag/render-state lines carry
+  `targetHz/displayHz/foveation/rateMaps/logical/eyeTarget/scale/resizes`. Added
+  `scripts/m8_device_check.sh` (+python analyser and a host test for PASS/90 Hz/old-build/FAIL) and
+  `docs/mvp/M8_DEVICE_RUN.md` so the next D1 session yields A6–A9 in one command. Host/sim ALL PASS
+  (provider suite m8-render 49 checks; classifier 4/4 outcomes; M3c fast self-check; simulator suite
+  flat/sync/hidepark/nopark/pattern/input/render PASS). **Device A6–A9 still NOT RUN (D1
+  unavailable)** — no 4K-class/foveation/120 Hz device claim yet.

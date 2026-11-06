@@ -47,11 +47,22 @@ public final class VisionFrameStatsTest {
         for (int i = 0; i < 30; i++) hz.record(8_333_333L);
         for (int i = 0; i < 3; i++) hz.record(20_000_000L);  // repeated frames at 120 Hz
         VisionFrameStats.Snapshot slow = hz.snapshotAndReset(1000.0 / 120.0);
-        check("120 Hz repeats scored against 8.33 ms", slow.missed90HzFrames == 3 && slow.samples == 33,
-            slow.missed90HzFrames + "/" + slow.samples);
-        hz.record(20_000_000L);  // 20 ms: fine for 120 Hz scoring? no - falls back to the 90 Hz default
+        check("120 Hz repeats scored against 8.33 ms",
+            slow.missedTargetFrames == 3 && slow.samples == 33,
+            slow.missedTargetFrames + "/" + slow.samples);
+        // 13 ms intervals are within the 90 Hz budget (16.67 ms) but late for 120 Hz (12.5 ms): the
+        // stable missed90 count must stay 0 while missedTarget reports every one of them.
+        VisionFrameStats hz13 = new VisionFrameStats(32);
+        for (int i = 0; i < 10; i++) hz13.record(13_000_000L);
+        VisionFrameStats.Snapshot mid = hz13.snapshotAndReset(1000.0 / 120.0);
+        check("13 ms: 90 Hz count stays 0, 120 Hz target count is 10",
+            mid.missed90HzFrames == 0 && mid.missedTargetFrames == 10,
+            mid.missed90HzFrames + "/" + mid.missedTargetFrames);
+        hz.record(20_000_000L);
+        VisionFrameStats.Snapshot fallback = hz.snapshotAndReset(Double.NaN);
         check("invalid target falls back to 90 Hz",
-            hz.snapshotAndReset(Double.NaN).missed90HzFrames == 1);
+            fallback.missed90HzFrames == 1 && fallback.missedTargetFrames == 1,
+            fallback.missed90HzFrames + "/" + fallback.missedTargetFrames);
 
         System.out.println("[m5-frame-stats-test] " + checks + " checks, " + failures + " failed");
         System.out.println(failures == 0 ? "[m5-frame-stats-test] PASS" : "[m5-frame-stats-test] FAIL");

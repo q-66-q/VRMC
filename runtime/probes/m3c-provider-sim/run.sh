@@ -207,6 +207,9 @@ run_render() {
   wait_for_log "$DATA/Documents/vrmc-compositor.log" 'render feedback published:' 40 || true
   wait_for_log "$DATA/Documents/vrmc-compositor.log" 'display geometry: logical L=' 40 || true
   wait_for_log "$DATA/Documents/vrmc-compositor.log" 'render feedback: displayHz=' 60 || true
+  # The shell logs STATE every 5 s; the check requires the immersive scene fgActive marker, so wait
+  # for it explicitly instead of racing the copy (batch runs of all scenarios were flaky here).
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'CPSceneSessionRoleImmersiveSpaceApplication:fgActive' 40 || true
   sleep 2
   xcrun simctl io "$SIM" screenshot "$case_dir/screenshot.png" >/dev/null 2>&1 || true
   cp "$DATA/Documents/vrmc-compositor.log"   "$case_dir/compositor.log" 2>/dev/null || true

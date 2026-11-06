@@ -44,15 +44,17 @@ public final class VisionFrameStats {
         final double targetMs = targetIntervalMs > 0.0 && !Double.isNaN(targetIntervalMs)
             ? targetIntervalMs : NINETY_HZ_MS;
         if (this.count == 0) {
-            return new Snapshot(0, 0.0, 0.0, 0.0, 0, 0);
+            return new Snapshot(0, 0.0, 0.0, 0.0, 0, 0, 0);
         }
         long[] copy = Arrays.copyOf(this.samples, this.count);
         Arrays.sort(copy);
         double meanMs = 0.0;
-        int missed = 0;
+        int missedTarget = 0;
+        int missed90 = 0;
         for (long v : copy) {
             meanMs += v * 1.0E-6;
-            if (v > targetMs * 1.5 * 1.0E6) missed++;
+            if (v > targetMs * 1.5 * 1.0E6) missedTarget++;
+            if (v > NINETY_HZ_MS * 1.5 * 1.0E6) missed90++;
         }
         meanMs /= copy.length;
         double p50 = copy[(int) Math.floor((copy.length - 1) * 0.50)] * 1.0E-6;
@@ -60,7 +62,7 @@ public final class VisionFrameStats {
         double max = copy[copy.length - 1] * 1.0E-6;
         final int sampleCount = copy.length;
         reset();
-        return new Snapshot(meanMs, p50, p95, max, missed, sampleCount);
+        return new Snapshot(meanMs, p50, p95, max, missed90, missedTarget, sampleCount);
     }
 
     public void reset() {
@@ -75,18 +77,21 @@ public final class VisionFrameStats {
         public final double p50Ms;
         public final double p95Ms;
         public final double maxMs;
-        /** Named for the original 90 Hz consumer; counts intervals over 1.5x the TARGET interval. */
+        /** Intervals over 1.5x the 90 Hz interval (the original M5 metric; stable for old consumers). */
         public final int missed90HzFrames;
+        /** Intervals over 1.5x the TARGET interval used for this snapshot (M8: measured cadence). */
+        public final int missedTargetFrames;
         /** Number of intervals in this snapshot (0 for an empty window). */
         public final int samples;
 
         Snapshot(double meanMs, double p50Ms, double p95Ms, double maxMs, int missed90HzFrames,
-                 int samples) {
+                 int missedTargetFrames, int samples) {
             this.meanMs = meanMs;
             this.p50Ms = p50Ms;
             this.p95Ms = p95Ms;
             this.maxMs = maxMs;
             this.missed90HzFrames = missed90HzFrames;
+            this.missedTargetFrames = missedTargetFrames;
             this.samples = samples;
         }
     }

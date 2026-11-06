@@ -142,8 +142,10 @@ public final class VisionRenderSettingsTest {
             VisionRenderSettings.nextAutoScale(base, 40, 240, 20.0, 11.111) - 0.40f) < 1e-5);
         check("auto scale drops on slow p50", Math.abs(
             VisionRenderSettings.nextAutoScale(base, 0, 240, 20.0, 11.111) - 0.40f) < 1e-5);
-        check("auto scale raises with headroom", Math.abs(
-            VisionRenderSettings.nextAutoScale(base, 0, 240, 8.0, 11.111) - 0.55f) < 1e-5);
+        check("auto scale takes a big step with strong headroom", Math.abs(
+            VisionRenderSettings.nextAutoScale(base, 0, 240, 8.0, 11.111) - 0.60f) < 1e-5);
+        check("auto scale takes a small step near the budget edge", Math.abs(
+            VisionRenderSettings.nextAutoScale(base, 0, 240, 9.2, 11.111) - 0.55f) < 1e-5);
         check("auto scale holds in the dead band", Math.abs(
             VisionRenderSettings.nextAutoScale(base, 2, 240, 11.5, 11.111) - base) < 1e-5);
         check("auto scale bounded low", VisionRenderSettings.nextAutoScale(
@@ -152,6 +154,18 @@ public final class VisionRenderSettingsTest {
             VisionRenderSettings.MAX_SCALE, 0, 240, 1.0, 11.111) == VisionRenderSettings.MAX_SCALE);
         check("auto scale ignores empty window", Math.abs(
             VisionRenderSettings.nextAutoScale(base, 0, 0, 0.0, 11.111) - base) < 1e-5);
+
+        // ---- resize safety policy (world load / menu room / warm-up) -------------------------------
+        check("no resize during session warm-up",
+            !VisionRenderSettings.canResizeNow(true, 500L, true, VisionRenderSettings.MIN_RESIZE_FRAME - 1));
+        check("no resize in a loading screen (no level, not menu room)",
+            !VisionRenderSettings.canResizeNow(false, -1L, false, 600L));
+        check("resize allowed in the menu room after warm-up",
+            VisionRenderSettings.canResizeNow(false, -1L, true, 600L));
+        check("no resize in the first frames of a loaded world",
+            !VisionRenderSettings.canResizeNow(true, 30L, false, 600L));
+        check("resize allowed once the loaded world is stable",
+            VisionRenderSettings.canResizeNow(true, VisionRenderSettings.MIN_LEVEL_STABLE_FRAMES, false, 600L));
 
         // ---- resize hysteresis ---------------------------------------------------------------------
         check("same size is not significant", !VisionRenderSettings.isChangeSignificant(1832, 1600, 1832, 1600));

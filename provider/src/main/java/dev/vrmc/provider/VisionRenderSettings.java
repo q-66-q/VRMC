@@ -65,6 +65,10 @@ public final class VisionRenderSettings {
     public static final float CHANGE_THRESHOLD = 0.06f;
     /** Fallback display cadence when the compositor has not measured one yet. */
     public static final double FALLBACK_DISPLAY_HZ = 90.0;
+    /** Never resize before this many rendered frames of the session (warm-up/shaders). */
+    public static final long MIN_RESIZE_FRAME = 60L;
+    /** A loaded world must be stable this long before a resize may rebuild every render target. */
+    public static final long MIN_LEVEL_STABLE_FRAMES = 120L;
 
     public final boolean valid;
     public final int frameIndex;
@@ -211,8 +215,32 @@ public final class VisionRenderSettings {
             p50Ms > targetIntervalMs * 1.25;
         boolean headroom = missedFrames <= 1 && p50Ms < targetIntervalMs * 0.85;
         if (struggling) return Math.max(MIN_SCALE, scale - AUTO_STEP_DOWN);
-        if (headroom) return Math.min(MAX_SCALE, scale + AUTO_STEP_UP);
+        if (headroom) {
+            // Strong headroom (well inside the frame budget on the measured cadence): take a bigger
+            // step so a capable device reaches the native logical resolution in a few seconds, not a
+            // minute. Conservative ramp stays 0.05 near the budget edge.
+            boolean strongHeadroom = missedFrames == 0 && p50Ms < targetIntervalMs * 0.75;
+            return Math.min(MAX_SCALE, scale + (strongHeadroom ? AUTO_STEP_UP * 2.0f : AUTO_STEP_UP));
+        }
         return scale;
+    }
+
+    /**
+     * Resize safety policy: rebuilding every render target (both eye VkImages + the world/menu/GUI
+     * targets) during world loading is a visible hitch in the worst possible place, and resizing on
+     * the very first frames races the initial render setup. Pure function so the host test covers the
+     * decision table; VisionRenderer supplies the game state.
+     *
+     * @param levelLoaded           a level is loaded (in-world)
+     * @param framesSinceLevelLoad  rendered frames since the level became non-null
+     * @param inMenuRoom            Vivecraft's menu room (title/main menu) is active
+     * @param frameIndex            rendered frames this session
+     */
+    public static boolean canResizeNow(boolean levelLoaded, long framesSinceLevelLoad,
+                                       boolean inMenuRoom, long frameIndex) {
+        if (frameIndex < MIN_RESIZE_FRAME) return false;
+        if (levelLoaded) return framesSinceLevelLoad >= MIN_LEVEL_STABLE_FRAMES;
+        return inMenuRoom;
     }
 
     /** True when a resize is worth the render-target rebuild (dimension moved > CHANGE_THRESHOLD). */
