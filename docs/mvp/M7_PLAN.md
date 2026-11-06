@@ -84,7 +84,7 @@ A/B. Rebuild order after A/B pass:
 | 2 | inventory | both-fist priority |
 | 3 | walk | left thumb-middle pinch + move left hand (analog stick, EV-0248); old both-fist swing must NOT move |
 | 4 | place/break | **DEVICE PASS (EV-0256):** short pinch = attack/place/use context; hold = break; hotbar stable |
-| 5 | teleport | **NOT TESTABLE:** left pinch used for movement; teleport unbound, needs a new gesture |
+| 5 | teleport | **DESCOPED 2026-11-05** by operator: left pinch is movement; no teleport gesture will be added |
 | 6 | attack | swing recognition |
 | 7 | jump/sneak | head displacement |
 | 8 | hotbar | tap vs swing; direct tap on the rendered HUD bar selects the touched slot (EV-0246, device-only) |
@@ -99,7 +99,7 @@ operator 1–5 score.** Record m4 vs m7 side by side for the A/B.
 - Movement uses **left thumb-index pinch hold + move left hand**; both-fist swing no longer moves.
 - GUI right pinch is the **left mouse button**; hold = long press/drag, release lifts.
 - Head-ray cursor is offset **8% down** from centre.
-- Teleport shares left pinch and is suppressed while moving; a dedicated teleport gesture remains a follow-up.
+- Teleport was removed from scope by the operator on 2026-11-05; left pinch is movement.
 - Device retest for movement/cursor/click/long-press is pending.
 
 ## Player-relative movement (EV-0250)

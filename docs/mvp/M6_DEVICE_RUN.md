@@ -18,7 +18,7 @@ Purpose: execute AC-1…AC-6 and K1…K6 on hardware, record evidence in VERIFY,
 | AC-1 fresh install → world, native, no PC | Uninstall/reinstall; StikDebug JIT; play; join/create world; no streaming/PC | build identity, diagnostics bundle, operator notes, clean launch log |
 | AC-2 stereo/head alignment | Look at near/far geometry; head translations/rotations; both eyes no swap/flip | 2-3 diagnostics runs + operator confirmation; note IPD/eye values |
 | AC-3 hands only | Disable controllers; every core action from hands | AC-4 checklist output |
-| AC-4 P0 actions + no stuck hands | Run `M4_CONTROLS.md` P0 list: menu, move/turn/teleport/jump/sneak, attack/use, bow, inventory/hotbar, climb, recenter; wave hands in/out of view | per-action pass/fail, stuck-hand stress notes, `vrmc-status.json` snapshots |
+| AC-4 P0 actions + no stuck hands | Run `M4_CONTROLS.md` P0 list: menu, move/turn/jump/sneak, attack/place/use/break (no teleport: descoped EV-0257), bow, inventory/hotbar, climb, recenter; wave hands in/out of view | per-action pass/fail, stuck-hand stress notes, `vrmc-status.json` snapshots |
 | AC-5 soak | `DEVICE_UDID=… SOAK_SECONDS=3600 scripts/m6_soak_harness.sh --device`; 20 cold launches, 10 world loads | harness artifacts; every run must have `destroy-complete`; no watchdog kills |
 | AC-6 legal/source | Confirm no Minecraft/Vivecraft binaries; `SOURCE_OFFER.md`, licenses/notices, manifest source_commit; legal sign-off | signed checklist/notes |
 
