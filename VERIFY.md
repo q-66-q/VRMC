@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0249`.
+**Next evidence ID:** `EV-0260`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6103,6 +6103,257 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Operator request: use the left thumb to control movement. Removed the both-fist alternating-swing walk dispatch; added left-thumb-middle-pinch + move-left-hand analog virtual stick (VisionLocomotion, shared move.* tunables) writing keyFreeMoveStrafe. Engine both-fist walk detector retained only as internal context/suppression and host gate. Zeroed in GUI/seated/keyboard/stale and on release paths. Thumb-middle pinch is disjoint from every M7 action (thumb-index = place/break/GUI, left hold = teleport). Suite ALL PASS; jar 37262f9c.../124,958 B two-build identical; pushed/integrity PASS; crash headroom -3. Device movement test NOT RUN.
 
+### EV-0249 — M7 left-pinch movement + right-pinch LMB hold + cursor down
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T17:22:30-10:00 |
+| Commit | `a0d8e082a49eb88b2988d801edbd5da1f7f5409f` |
+| Dirty state | ocs/mvp/M7_ENGINE.md, docs/mvp/M7_GESTURES.md, docs/mvp/M7_PLAN.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionM7Gesture.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. change movement to left pinch, GUI right pinch press/hold/release LMB, offset cursor down; test/build/push/integrity
+
+**Expected:** host tests PASS; provider pushed; device retest
+
+**Actual:** suite ALL PASS; provider a337481f… pushed/integrity PASS; device behavior NOT RUN.
+
+**Artifacts:** evidence/EV-0249/VisionM7Gesture.java (942d2a26e5cc); evidence/EV-0249/VisionVR.java (87db56a07a03); evidence/EV-0249/m7-tests20.log (6a695611234a); evidence/EV-0249/m7-repro7.log (b078f0898ac0); evidence/EV-0249/m7-integrity6.log (eee894ec43b2); evidence/EV-0249/latest-build-identity.txt (81d4105c21f4); evidence/EV-0249/summary.log (b8ce122aad88)
+
+**Limitations:** Teleport shares left pinch and is suppressed while moving; dedicated teleport gesture needed. Device retest pending.
+
+### EV-0250 — M7 movement fixed to player-relative HMD basis
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T17:35:50-10:00 |
+| Commit | `b0bea21fddde4757e73da46fa2a7c668b6e329bf` |
+| Dirty state | ERIFY.md, docs/mvp/M7_ENGINE.md, docs/mvp/M7_GESTURES.md, docs/mvp/M7_PLAN.md, docs/mvp/STATUS.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionLocomotion.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java, provider/tests/dev/vrmc/provider/VisionLocomotionTest.java |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. project wrist-minus-head onto HMD forward/right; add axesRelative math/tests; build/push/integrity
+
+**Expected:** host tests PASS; player-relative movement; device retest
+
+**Actual:** suite ALL PASS; provider 85d18f61… pushed/integrity PASS; device NOT RUN.
+
+**Artifacts:** evidence/EV-0250/VisionLocomotion.java (214e807cf98d); evidence/EV-0250/VisionVR.java (f7ccc108e24d); evidence/EV-0250/VisionLocomotionTest.java (be1babdfb545); evidence/EV-0250/m7-tests22.log (4858b5f83c10); evidence/EV-0250/m7-repro8.log (b8e9671ad986); evidence/EV-0250/m7-integrity7.log (34f218ecfee7); evidence/EV-0250/latest-build-identity.txt (e995d9967a72); evidence/EV-0250/summary.log (dd9426fe9043)
+
+**Limitations:** Device movement test pending; teleport remains suppressed while moving.
+
+### EV-0251 — M7 movement fix: remove teleport conflict, neutral pinch origin, strafe sign
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T17:43:58-10:00 |
+| Commit | `0bbdee83b325a27ce62994d47c9f253e99a5e947` |
+| Dirty state | ERIFY.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. read movement-failure logs; identify same-pinch teleport and lateral offset; capture neutral origin; fix right-basis sign; disable teleport on movement pinch; tests/build/push/integrity
+
+**Expected:** host PASS; provider pushed; device retest
+
+**Actual:** suite ALL PASS; provider 90a724fc… pushed/integrity PASS; device NOT RUN.
+
+**Artifacts:** evidence/EV-0251/VisionVR.java (fdaa7b6a0482); evidence/EV-0251/m7-tests24.log (fb82dcf5f514); evidence/EV-0251/m7-repro9.log (73417225f90f); evidence/EV-0251/m7-integrity8.log (38ac04b01687); evidence/EV-0251/latest-build-identity.txt (47c2b8f239f4); evidence/EV-0251/summary.log (dd2a9ae988fc)
+
+**Limitations:** Teleport temporarily disabled on left pinch; needs a dedicated gesture. Device movement retest pending.
+
+### EV-0252 — M7 movement diagnostics + fixes; device retest pending
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T17:45:32-10:00 |
+| Commit | `9915dfa4e9bc565dba562a29789e900d70018d58` |
+| Dirty state | ERIFY.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. add movement diagnostic fields; build/tests/repro/push/integrity
+
+**Expected:** host PASS; logs diagnose direction/action delivery
+
+**Actual:** suite ALL PASS; provider d7f45be7… pushed/integrity PASS; device movement retest pending.
+
+**Artifacts:** evidence/EV-0252/VisionVR.java (7232426e4845); evidence/EV-0252/m7-tests25.log (8258917f9376); evidence/EV-0252/m7-repro10.log (f842d195ac22); evidence/EV-0252/m7-integrity9.log (76fa5eb61bf8); evidence/EV-0252/latest-build-identity.txt (ae85786ebda3); evidence/EV-0252/summary.log (ccfc9b823690)
+
+**Limitations:** No device evidence yet; teleport remains disabled on movement pinch.
+
+### EV-0253 — DEVICE PASS: M7 movement (left pinch player-relative stick)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T17:56:54-10:00 |
+| Commit | `d14f643a378eae2f0ca0112bee9e23151a7c4dd3` |
+| Dirty state | ERIFY.md |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. operator tested movement after neutral-origin/teleport-conflict/basis fixes; pull latestlog/status/shutdown
+
+**Expected:** left pinch hold + hand movement walks/strafes player-relative; no teleport override
+
+**Actual:** operator confirms pass; logs show active analog data and player-relative forward/strafe, no teleport transitions; clean shutdown.
+
+**Artifacts:** evidence/EV-0253/latestlog.txt (a9a60747f4fb); evidence/EV-0253/vrmc-status.json (c5203230e068); evidence/EV-0253/vrmc-shutdown.log (da13ad1747eb); evidence/EV-0253/crash-count.txt (5feceb66ffc8); evidence/EV-0253/summary.log (74afa42d1dc7)
+
+**Limitations:** Device PASS for movement only; other M7/M5/M6 gates remain.
+
+### EV-0254 — M7 one-pinch context + hotbar gating + inventory instructions
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T18:53:45-10:00 |
+| Commit | `334515f413f72650888b657db85d4bddfe64f7ef` |
+| Dirty state | ERIFY.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionM7Gesture.java, provider/src/main/java/dev/vrmc/provider/VisionM7ItemContext.java, provider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. implement contextual one-pinch place/attack; fix item context probe; faster pinch; gate touch/air hotbar around actions; build/test/push/integrity
+
+**Expected:** host PASS; device retest
+
+**Actual:** suite ALL PASS; provider 475b7dda… pushed/integrity PASS; device behavior NOT RUN.
+
+**Artifacts:** evidence/EV-0254/VisionVR.java (ecc107b9db1d); evidence/EV-0254/VisionM7Gesture.java (749e622b1bd9); evidence/EV-0254/VisionM7ItemContext.java (44e5c45a67f8); evidence/EV-0254/m7-tests28.log (dffa4ac83f59); evidence/EV-0254/m7-repro11.log (d0688a848ed9); evidence/EV-0254/m7-integrity10.log (5cf164474b7d); evidence/EV-0254/latest-build-identity.txt (52c4a1753216); evidence/EV-0254/summary.log (07207621b4ab)
+
+**Limitations:** Context ambiguity: holding a block while aiming at a block places; right swing remains an alternate attack. Stack-splitting right-click not mapped. Device test pending.
+
+### EV-0255 — M7 right pinch final mapping: short attack/place/use, hold break
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T19:01:19-10:00 |
+| Commit | `f07be0e847a694009332bf1e0d7fd51d19abc92e` |
+| Dirty state | ERIFY.md, docs/mvp/M7_ENGINE.md, docs/mvp/M7_GESTURES.md, export/latest-build-identity.txt, provider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. implement short pinch entity attack / block use / place and hold break; gate hotbar; faster pinch; tests/build/push/integrity
+
+**Expected:** host PASS; device retest
+
+**Actual:** suite ALL PASS; provider 683efdd3… pushed/integrity PASS; device behavior NOT RUN.
+
+**Artifacts:** evidence/EV-0255/VisionVR.java (91f3cca1d030); evidence/EV-0255/VisionM7ItemContext.java (44e5c45a67f8); evidence/EV-0255/m7-tests31.log (26acf29ce5e8); evidence/EV-0255/m7-repro12.log (47ac2a78e80d); evidence/EV-0255/m7-integrity11.log (245bc791632d); evidence/EV-0255/latest-build-identity.txt (5abf65621b11); evidence/EV-0255/summary.log (108145048820)
+
+**Limitations:** Short pinch does not break blocks; hold is break. Inventory stack splitting/right-click still unmapped. Device retest pending.
+
+### EV-0256 — DEVICE PASS: M7 short-pinch attack/place/use + hold-break
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T19:09:51-10:00 |
+| Commit | `d0917968aee981706e73a16f40d38c627935cfb1` |
+| Dirty state | ERIFY.md |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. operator tested one-pinch semantics, hold-break, hotbar stability, inventory; pull latestlog/status/shutdown
+
+**Expected:** short pinch attack/place/use, hold break, hotbar stable, inventory placement
+
+**Actual:** operator all pass; logs show use/attack/inventory/jump actions; clean shutdown; no exceptions.
+
+**Artifacts:** evidence/EV-0256/latestlog.txt (32df00077d7a); evidence/EV-0256/vrmc-status.json (82951c36c8db); evidence/EV-0256/vrmc-shutdown.log (9b9f39c24d83); evidence/EV-0256/vrmc-input-tune.properties (bcd3e7af8ca5); evidence/EV-0256/summary.log (8b656a6e2bc4)
+
+**Limitations:** Device PASS for this mapping only. Teleport unbound; bow/eat/climb and M5/M6 remain.
+
+### EV-0257 — M7 scope close: core actions pass; teleport descoped
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T19:16:55-10:00 |
+| Commit | `26115e189b2815e032a0d3da0845723139f2c1d3` |
+| Dirty state | ERIFY.md |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. operator confirms remaining M7 actions pass and teleports are not required; pull latest log/status/shutdown; update scope/runbook
+
+**Expected:** M7 core action set accepted without teleport
+
+**Actual:** operator: no teleport, other actions passed; logs clean, no exceptions, destroy-complete.
+
+**Artifacts:** evidence/EV-0257/latestlog.txt (32df00077d7a); evidence/EV-0257/vrmc-status.json (82951c36c8db); evidence/EV-0257/vrmc-shutdown.log (9b9f39c24d83); evidence/EV-0257/vrmc-input-tune.properties (bcd3e7af8ca5); evidence/EV-0257/summary.log (52889fb921ef)
+
+**Limitations:** Teleport removed from acceptance scope at operator request. Remaining gates M5/M6 and hand-tracking dropout metrics.
+
+### EV-0258 — M5 acceptance operator-attested PASS (previously tested)
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T19:22:33-10:00 |
+| Commit | `37de2f8eca2ba644fdff7aa52a2f2844965b41f3` |
+| Dirty state | ERIFY.md, docs/mvp/M5_ACCEPTANCE.md, docs/mvp/M5_DEVICE_RUN.md, docs/mvp/STATUS.md |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PASS` |
+
+**Procedure:**
+
+1. operator attested prior M5 test; update acceptance matrix/docs; no new device run
+
+**Expected:** M5 loop accepted without retest
+
+**Actual:** operator-attested PASS; latest logs corroborate clean session; M6 remains
+
+**Artifacts:** evidence/EV-0258/latestlog.txt (32df00077d7a); evidence/EV-0258/vrmc-status.json (82951c36c8db); evidence/EV-0258/vrmc-shutdown.log (9b9f39c24d83); evidence/EV-0258/M5_ACCEPTANCE.md (1e2db1a1c19b); evidence/EV-0258/summary.log (c997ed666138)
+
+**Limitations:** This is an operator waiver, not a fresh evidence run. M6 AC/K gates still require device execution or explicit waiver.
+
+### EV-0259 — 10-min soak attempt fails clean-session check; harness false positive fixed
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T19:39:54-10:00 |
+| Commit | `393ae0fe2a0d7b6de63fd49aaed2cf7f0ba10c83` |
+| Dirty state | ERIFY.md, export/soak-10min-20261105-192524/, export/soak-10min-20261105-192816/ |
+| Device | not recorded |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. run 10-min soak; review shutdown journal; harden harness clean-shutdown check
+
+**Expected:** one continuous session, last event destroy-complete
+
+**Actual:** monitor reported PASS but journal has multiple init/no destroy; game relaunched repeatedly; no crash report; AC-5/K4 not passed.
+
+**Artifacts:** evidence/EV-0259/shutdown-193645.log (6b46009dce8c); evidence/EV-0259/m6_soak_harness.sh (f7ca62c6b603); evidence/EV-0259/summary.log (d1b60d93c10f); evidence/EV-0259/game-193822.log (a8cd07c8fe96); evidence/EV-0259/shell-193822.log (448004b9fec2); evidence/EV-0259/status-193801.json (080b463b3d26)
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6393,3 +6644,14 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-05 | **EV-0246 (`PARTIAL`, host+device-push): M7 direct touch-hotbar selection** — operator clarified that "tap on the inventory bar to select" means tapping the rendered HUD hotbar itself, not cycling with air index taps. Implemented provider-side touch selection mirroring the installed `InteractiveHotbarModule` bar geometry (`GUI_RENDER_POS_ROOM/ROTATION_ROOM`, `GUI_OFFSET_LOCAL`, `GUI_SCALE_APPLIED/MAX`): right index fingertip within 6 cm of the bar, same slot dwelled ≥60 ms with <3 cm drift, 300 ms cooldown → `Inventory.setSelectedSlot` (reflective access; jspecify @Nullable absent from the compile classpath). Guarded off in GUI/seated/HEAD-HUD/untracked/stale; air index-tap cycling kept as fallback. Installed Vivecraft 26.2-1.3.15 bytecode audited for every field/method used. Suite ALL PASS; `747ed2ab…`/124,561 B two-build identical; pushed/integrity PASS; crash headroom -3. **Device tap test NOT RUN.** Next ID `EV-0247`. |
 | 2026-11-05 | **EV-0247 (`PARTIAL`, host+device-push): fail-safe wrapper around the direct touch-hotbar path** — EV-0246's `updateM7TouchHotbar()` runs on the render thread from `VisionVR.poll()`; all its reads are guarded but a Throwable must never crash the frame (EV-0235 lesson), so the call is now wrapped in try/catch with a bounded WARN log. Behaviour/geometry/diagnostics unchanged; air index-tap cycling remains the fallback. Suite ALL PASS; final jar `0ee811fd…`/124,629 B two-build identical; pushed/integrity PASS; crash headroom -3. **Device tap test NOT RUN.** Next ID `EV-0248`. |
 | 2026-11-05 | **EV-0248 (`PARTIAL`, host+device-push): M7 movement = left-thumb virtual stick** — operator requested movement controlled by the left thumb. Removed the both-fist alternating-swing walk dispatch; movement is now the **left thumb-middle pinch hold + move the left hand like a joystick** (forward/back = walk, left/right = strafe) via `VisionLocomotion` with the shared `move.originZ/forwardScale/strafeScale/deadzone` tunables, written to Vivecraft's `keyFreeMoveStrafe` analog action. The engine's both-fist walk detector is retained only as an internal context/suppression signal and its replay-gate rows remain engine tests. Zeroed in GUI/seated/keyboard/stale input and on `releaseM7Actions`/`releaseAllImmediately` (no stuck movement); diagnostics `[VRMC-M7] thumb stick engaged/released …`. The thumb-middle pinch is disjoint from every M7 action (thumb-index = place/break/attack/GUI, left hold = teleport). Suite ALL PASS; `37262f9c…`/124,958 B two-build identical; pushed/integrity PASS; crash headroom -2. **Device movement test NOT RUN.** Next ID `EV-0249`. |
+| 2026-11-05 | **EV-0249 (`PARTIAL`, host+device-push): left-pinch movement, right-pinch LMB hold, cursor down** — movement changed to left thumb-index pinch hold + move left hand (teleport suppressed while moving); GUI right pinch now holds LMB down for long press/drag and releases on pinch end; head-ray cursor offset 8% down. Suite ALL PASS (73 checks); provider `a337481f…`/125,116 B pushed/integrity PASS. **Device retest NOT RUN.** Next ID `EV-0250`. |
+| 2026-11-05 | **EV-0250 (`PARTIAL`, host+device-push): player-relative movement** — movement projected wrist-minus-head onto the HMD horizontal forward/right basis before deadzone/scale, so forward is relative to the player not world Z. Added `VisionLocomotion.axesRelative` + 3 checks (locomotion 12 total); suite ALL PASS; provider `85d18f61…`/125,525 B pushed/integrity PASS. **Device movement retest NOT RUN.** Next ID `EV-0251`. |
+| 2026-11-05 | **EV-0251 (`PARTIAL`, host+device-push): movement fix after device failure** — logs showed left pinch emitting analog stick values **and** repeated `key.teleport` presses; teleport was still mapped to the same pinch and can override free move. Also a hand naturally left/right of the head produced constant strafe. Fixes: capture neutral along/right origin at pinch engage, use deltas; correct right-basis sign; disable teleport on the movement pinch (dedicated gesture TODO). Suite ALL PASS; provider `90a724fc…`/125,614 B pushed/integrity PASS. **Device movement retest NOT RUN.** Next ID `EV-0252`. |
+| 2026-11-05 | **EV-0252 (`PARTIAL`, host+device-push): movement diagnostics** — after the player-relative/neutral-origin/teleport-conflict fixes, the pinch-stick log now includes delta along/right, HMD forward, analog data, active/enabled flags. Provider `d7f45be7…`/125,791 B pushed/integrity PASS; suite ALL PASS. **Device movement retest NOT RUN.** Next ID `EV-0253`. |
+| 2026-11-05 | **EV-0253 (`DEVICE PASS`): M7 movement** — operator confirms movement passes after EV-0251/0252. Logs show `pinch stick(player-relative)` engaged with active analog data, forward/strafe response, **no key.teleport transitions**; clean `destroy-complete`, crash count 0, p50 8.26 ms/p95 9.26 ms, missed90=0. Known warning: item-context probe unavailable (`ItemStack.is(Item)` missing), bow/eat item context off/geometry fallback. Next: remaining M7 actions + M5/M6 device gates. Next ID `EV-0254`. |
+| 2026-11-05 | **EV-0254 (`PARTIAL`, host+device-push): one-pinch context + hotbar gating** — right pinch now places when a block item is held and the crosshair is on a block; otherwise it attacks/breaks (hold continues; creative instant break). Old short-place/held-break conflict removed. Item context probe rewritten without runtime-missing `ItemStack.is(Item)`; pinch debounce 30→20 ms/arm 80→60 ms; touch/air hotbar suppressed during and 500 ms after right actions. Suite ALL PASS; provider `475b7dda…`/126,314 B pushed/integrity PASS. **Device retest pending.** Next ID `EV-0255`. |
+| 2026-11-05 | **EV-0255 (`PARTIAL`, host+device-push): short-pinch attack/place/use, hold break** — short right pinch attacks when crosshair is on an entity, otherwise places/uses; hold >=350 ms breaks/mines; short pinch never breaks a block. Hotbar touch/air suppressed during/after actions; item-context probe fixed; pinch debounce 20 ms/arm 60 ms. Suite ALL PASS; provider `683efdd3…`/126,922 B pushed/integrity PASS. **Device retest pending.** Next ID `EV-0256`. |
+| 2026-11-05 | **EV-0256 (`DEVICE PASS`): M7 short-pinch attack/place/use + hold-break** — operator says all pass for short entity attack / block-place-use, hold break, hotbar stability and inventory pick/place. Logs: 28 use, 15 attack, 6 menu, 8 jump, 2 hotbarNext, 1 inventory; clean `destroy-complete`, p50 8.34 ms/p95 9.27 ms, missed90=1; no exceptions. Teleport unbound; bow/eat/climb/M5/M6 pending. Next ID `EV-0257`. |
+| 2026-11-05 | **EV-0257 (`DEVICE PASS`): M7 scope close** — operator: no teleport; all other M7 actions pass (menu/GUI, movement, inventory, short-pinch attack/place/use, hold-break, hotbar, jump/sneak, bow, eat, climb). Teleport removed from scope. Latest log clean (`destroy-complete`, no exceptions), diag p50 8.34 ms/p95 9.15–9.27 ms, missed90 0–1. Remaining: M5/M6 gates and hand-tracking dropouts. Next ID `EV-0258`. |
+| 2026-11-05 | **EV-0258 (`PASS`, operator-attested): M5 acceptance** — operator states M5 launcher/settings/immersive/comfort/save-reload/diagnostics loop was tested previously and waived a fresh current-build run. Recorded as operator-attested PASS (not a new device run); M5 matrix/docs updated to current M7 mapping with teleport descoped. Latest EV-0257 logs corroborate clean session. **M6 AC/K remain NOT RUN.** Next ID `EV-0259`. |
+| 2026-11-05 | **EV-0259 (`PARTIAL`): 10-min soak attempt not a clean pass; harness false positive fixed** — monitor reported PASS but shutdown journal had multiple `init` events and no `destroy-complete`; game JVM relaunched ~19:32/19:34/19:36 and immersive ended at 19:30:46 with CreativeModeInventoryScreen open. No new crash report/hs_err; cause unproven. Harness now snapshots the journal baseline and requires exactly one init + final `destroy-complete`. **AC-5/K4 NOT passed; one continuous run or root-cause needed.** Next ID `EV-0260`. |
