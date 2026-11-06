@@ -78,8 +78,8 @@ public final class VisionM7Gesture {
     public static final float PINCH_ON = 0.025F;
     /** Pinch release distance (m); Schmitt hysteresis to stop threshold chatter. */
     public static final float PINCH_OFF = 0.045F;
-    public static final long PINCH_DEBOUNCE_NS = 30_000_000L;
-    public static final long PINCH_ARM_NS = 80_000_000L;
+    public static final long PINCH_DEBOUNCE_NS = 20_000_000L;
+    public static final long PINCH_ARM_NS = 60_000_000L;
     /**
      * A pinching hand must be raised in front of the body. Recorded intentional pinches sit
      * forward p05/p50 0.24/0.39 (right) and 0.30/0.36-0.43 (left) with the hand at chest height;
@@ -1140,6 +1140,8 @@ public final class VisionM7Gesture {
     public boolean bowFire() { return this.bowFire; }
     public boolean guiClick() { return this.guiClick; }
     public boolean leftPinchHeld() { return this.pinchEngagedL; }
+    public boolean rightPinchHeld() { return this.pinchEngagedR; }
+    public boolean rightPinchPressedFrame() { return this.pinchPressedThisFrameR; }
     public boolean eat() { return this.eat; }
     public boolean climbGrabLeft() { return this.climbGrabL; }
     public boolean climbGrabRight() { return this.climbGrabR; }

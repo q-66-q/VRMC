@@ -1,60 +1,29 @@
 package dev.vrmc.provider;
 
 /**
- * Fail-safe item-context probe for the M7 gesture engine (bow held / food or drink held).
+ * Fail-safe item-context probe for the M7 gesture engine (bow held / food or drink held / block held).
  *
  * <p>The provider must not link against Minecraft item API details that are not part of the stable
- * compile surface (the {@code ItemStack} accessors currently pull in jspecify annotations that are
- * not on the provider build classpath, and an API drift must never crash a frame). This helper
- * therefore resolves everything reflectively once and degrades to "unknown / not held" on any
- * failure; the gesture engine's context flags are advisory and {@code m7.context=off} keeps the
- * geometry-only fallback available.
+ * compile surface. This helper resolves everything reflectively once and degrades to "unknown / not
+ * held" on any failure; the gesture engine's context flags are advisory and {@code m7.context=off}
+ * keeps the geometry-only fallback available.
  */
 final class VisionM7ItemContext {
     private static boolean attempted;
     private static boolean ready;
+    private static Class<?> resolvedPlayerClass;
     private static java.lang.reflect.Method playerMainHand;
     private static java.lang.reflect.Method playerOffHand;
-    private static java.lang.reflect.Method stackIsItem;
+    private static java.lang.reflect.Method stackGetItem;
     private static java.lang.reflect.Method stackGetComponents;
     private static java.lang.reflect.Method mapHas;
+    private static Class<?> blockItemClass;
     private static Object bowItem;
     private static Object foodComponent;
     private static Object consumableComponent;
-    private static Class<?> resolvedPlayerClass;
+    private static boolean componentsReady;
 
-    private VisionM7ItemContext() {}
-
-    private static synchronized boolean init(Class<?> playerClass) {
-        if (attempted && resolvedPlayerClass == playerClass) return ready;
-        attempted = true;
-        resolvedPlayerClass = playerClass;
-        ready = false;
-        try {
-            Class<?> stackClass = Class.forName("net.minecraft.world.item.ItemStack");
-            Class<?> itemClass = Class.forName("net.minecraft.world.item.Item");
-            Class<?> mapClass = Class.forName("net.minecraft.core.component.DataComponentMap");
-            Class<?> typeClass = Class.forName("net.minecraft.core.component.DataComponentType");
-            Class<?> componentsClass = Class.forName("net.minecraft.core.component.DataComponents");
-            Class<?> itemsClass = Class.forName("net.minecraft.world.item.Items");
-            playerMainHand = playerClass.getMethod("getMainHandItem");
-            playerOffHand = playerClass.getMethod("getOffhandItem");
-            stackIsItem = stackClass.getMethod("is", itemClass);
-            stackGetComponents = stackClass.getMethod("getComponents");
-            mapHas = mapClass.getMethod("has", typeClass);
-            bowItem = itemsClass.getField("BOW").get(null);
-            foodComponent = componentsClass.getField("FOOD").get(null);
-            consumableComponent = componentsClass.getField("CONSUMABLE").get(null);
-            ready = bowItem != null && foodComponent != null && consumableComponent != null;
-        } catch (Throwable t) {
-            ready = false;
-            System.out.println("[VRMC-M7][WARN] item-context probe unavailable (" + t
-                + "); bow/eat context stays off (set m7.context=off for geometry-only fallback)");
-        }
-        return ready;
-    }
-
-    /** @return bit0 = bow held, bit1 = food/drink held; 0 when the probe is unavailable. */
+    /** bit0 = bow held, bit1 = food/drink held, bit2 = block item in main hand. */
     static int flags(Object player) {
         if (player == null) return 0;
         if (!init(player.getClass())) return 0;
@@ -63,23 +32,72 @@ final class VisionM7ItemContext {
             Object main = playerMainHand.invoke(player);
             Object off = playerOffHand.invoke(player);
             if (isBow(main) || isBow(off)) out |= 1;
-            if (isEdible(main) || isEdible(off)) out |= 2;
+            if (componentsReady && (isEdible(main) || isEdible(off))) out |= 2;
+            if (isBlock(main)) out |= 4;
         } catch (Throwable t) {
             return 0;
         }
         return out;
     }
 
+    private static synchronized boolean init(Class<?> playerClass) {
+        if (attempted && resolvedPlayerClass == playerClass) return ready;
+        attempted = true;
+        resolvedPlayerClass = playerClass;
+        ready = false;
+        componentsReady = false;
+        try {
+            Class<?> stackClass = Class.forName("net.minecraft.world.item.ItemStack");
+            Class<?> itemsClass = Class.forName("net.minecraft.world.item.Items");
+            blockItemClass = Class.forName("net.minecraft.world.item.BlockItem");
+            playerMainHand = playerClass.getMethod("getMainHandItem");
+            playerOffHand = playerClass.getMethod("getOffhandItem");
+            stackGetItem = stackClass.getMethod("getItem");
+            bowItem = itemsClass.getField("BOW").get(null);
+            try {
+                Class<?> mapClass = Class.forName("net.minecraft.core.component.DataComponentMap");
+                Class<?> typeClass = Class.forName("net.minecraft.core.component.DataComponentType");
+                Class<?> componentsClass = Class.forName("net.minecraft.core.component.DataComponents");
+                stackGetComponents = stackClass.getMethod("getComponents");
+                mapHas = mapClass.getMethod("has", typeClass);
+                foodComponent = componentsClass.getField("FOOD").get(null);
+                consumableComponent = componentsClass.getField("CONSUMABLE").get(null);
+                componentsReady = foodComponent != null || consumableComponent != null;
+            } catch (Throwable t) {
+                System.out.println("[VRMC-M7][WARN] food/bow component probe unavailable (" + t
+                    + "); food context stays off (block/bow geometry fallback remains)");
+            }
+            ready = blockItemClass != null && stackGetItem != null && playerMainHand != null;
+            if (!ready) {
+                System.out.println("[VRMC-M7][WARN] item-context probe unavailable; context falls back");
+            }
+        } catch (Throwable t) {
+            ready = false;
+            System.out.println("[VRMC-M7][WARN] item-context probe unavailable (" + t
+                + "); bow/eat/block context stays off (set m7.context=off for geometry-only fallback)");
+        }
+        return ready;
+    }
+
+    private static Object item(Object stack) throws ReflectiveOperationException {
+        return stack == null ? null : stackGetItem.invoke(stack);
+    }
+
     private static boolean isBow(Object stack) throws ReflectiveOperationException {
-        if (stack == null) return false;
-        return Boolean.TRUE.equals(stackIsItem.invoke(stack, bowItem));
+        Object item = item(stack);
+        return item != null && item == bowItem;
+    }
+
+    private static boolean isBlock(Object stack) throws ReflectiveOperationException {
+        Object item = item(stack);
+        return item != null && blockItemClass != null && blockItemClass.isInstance(item);
     }
 
     private static boolean isEdible(Object stack) throws ReflectiveOperationException {
-        if (stack == null) return false;
+        if (!componentsReady || stack == null) return false;
         Object map = stackGetComponents.invoke(stack);
         if (map == null) return false;
-        return Boolean.TRUE.equals(mapHas.invoke(map, foodComponent))
-            || Boolean.TRUE.equals(mapHas.invoke(map, consumableComponent));
+        return (foodComponent != null && Boolean.TRUE.equals(mapHas.invoke(map, foodComponent)))
+            || (consumableComponent != null && Boolean.TRUE.equals(mapHas.invoke(map, consumableComponent)));
     }
 }

@@ -168,6 +168,8 @@ public class VisionVR extends MCVR {
     private final Vector3f m7GuiOrigin = new Vector3f();
     private final Vector3f m7GuiDir = new Vector3f();
     private int m7GuiWarnCount;
+    private long m7PlacePulseUntilNs;
+    private long m7LastRightActionNs;
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     private int m7GuiCursorLogCount;
     /** GUI-cursor session state: center once when a screen opens, then head-ray tracking. */
@@ -1944,6 +1946,16 @@ public class VisionVR extends MCVR {
             } catch (Throwable t2) {
                 System.out.println("[VRMC-M7][WARN] could not close GUI screen: " + t);
             }
+        }
+    }
+
+    /** True when the current crosshair hit is a block (context for one-pinch place/break). */
+    private boolean m7TargetIsBlock() {
+        try {
+            return this.mc.hitResult != null
+                && this.mc.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK;
+        } catch (Throwable t) {
+            return false;
         }
     }
 
