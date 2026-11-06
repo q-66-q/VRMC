@@ -7,6 +7,7 @@
 #   --eye-scale        Documents/instances/default/vrmc-eye-scale.txt (provider; live, re-read ~600 frames)
 #   --target-hz        Documents/instances/default/vrmc-target-hz.txt (provider; auto|90|96|100|120, live ~300 frames)
 #   --content-first    Documents/instances/default/vrmc-content-first.txt (provider; on|off, live ~300 frames)
+#   --world-supersample Documents/instances/default/vrmc-world-supersample.txt (provider; off|1.0..2.0, next launch)
 #   --sharpening       Documents/vrmc-sharpening.txt              (compositor; auto|off|0.05..1.0, live ~300 frames)
 #   --foveation-off    Documents/vrmc-foveation-off.flag          (A/B: uniform rasterization)
 #
@@ -21,6 +22,7 @@
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --sharpening auto|off|0.45
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --target-hz auto|90|96|100|120
 #   DEVICE=<udid> scripts/push_m8_render_config.sh --content-first on|off
+#   DEVICE=<udid> scripts/push_m8_render_config.sh --world-supersample off|1.0..2.0   # next launch
 #   scripts/push_m8_render_config.sh --print --eye-scale auto        # no device contact
 #   scripts/push_m8_render_config.sh --self-test                     # offline validation only
 #
@@ -62,6 +64,10 @@ validate_target_hz() {
 }
 validate_content_first() {
   case "$1" in on|off) return 0 ;; *) return 1 ;; esac
+}
+validate_world_supersample() {
+  case "$1" in off) return 0 ;; esac
+  awk -v v="$1" 'BEGIN { exit !(v ~ /^[0-9]+([.][0-9]+)?$/ && v >= 1.0 && v <= 2.0) }'
 }
 
 max_quality_content() {
@@ -123,7 +129,14 @@ self_test() {
   t "content-first off accepted" 0 validate_content_first off
   t "content-first true rejected" 1 validate_content_first true
   t "content-first 1 rejected" 1 validate_content_first 1
-  [ "$fails" = "0" ] && { echo "[m8config] SELF-TEST PASS (34 checks)"; return 0; }
+  t "world-supersample off accepted" 0 validate_world_supersample off
+  t "world-supersample 1.0 accepted" 0 validate_world_supersample 1.0
+  t "world-supersample 1.44 accepted" 0 validate_world_supersample 1.44
+  t "world-supersample 2.0 accepted" 0 validate_world_supersample 2.0
+  t "world-supersample 0.9 rejected" 1 validate_world_supersample 0.9
+  t "world-supersample 2.1 rejected" 1 validate_world_supersample 2.1
+  t "world-supersample text rejected" 1 validate_world_supersample high
+  [ "$fails" = "0" ] && { echo "[m8config] SELF-TEST PASS (41 checks)"; return 0; }
   echo "[m8config] SELF-TEST FAIL ($fails)"; return 1
 }
 
@@ -151,6 +164,10 @@ while [ "$#" -gt 0 ]; do
       v="${2:-}"; [ -n "$v" ] || die "--content-first needs a value"
       validate_content_first "$v" || die "invalid --content-first '$v' (on|off)"
       PUSH_FILES+=("$v|$GAME_DIR/vrmc-content-first.txt"); shift 2 ;;
+    --world-supersample)
+      v="${2:-}"; [ -n "$v" ] || die "--world-supersample needs a value"
+      validate_world_supersample "$v" || die "invalid --world-supersample '$v' (off|1.0..2.0)"
+      PUSH_FILES+=("$v|$GAME_DIR/vrmc-world-supersample.txt"); shift 2 ;;
     --sharpening)
       v="${2:-}"; [ -n "$v" ] || die "--sharpening needs a value"
       validate_sharpening "$v" || die "invalid --sharpening '$v' (auto|off|0.05..1.0)"

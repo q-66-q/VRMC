@@ -100,6 +100,12 @@ view centre (the fovea) and tapers off in the periphery, and is soft-clamped to 
 to limit halos. It is compositing-only work (no game cost), controlled live by
 `Documents/vrmc-sharpening.txt` (`auto` default / `off` / fixed strength).
 
+Minecraft 26.2 has no MSAA, so the remaining software anti-aliasing lever is **super-sampling**:
+`Documents/instances/default/vrmc-world-supersample.txt` = `off` (default) or 1.0..2.0 maps to
+Vivecraft's `renderScaleFactor`, sizing the world render target at eye-target × √factor per axis
+(1.44 → 1.2× per axis) and resolving it down to the eye target. It is startup-only (documented), a
+pure pixel-cost trade for jagged edges, and logged with the resulting scale.
+
 When the target cadence cannot be met, the default policy lowers the eye-target resolution. With
 `Documents/instances/default/vrmc-content-first.txt` = `on` (default off) the provider instead cuts
 **scene cost first** — render distance, then simulation distance, then a second render-distance step
@@ -208,8 +214,9 @@ Device (D1, NOT RUN; one operator session):
    renders fewer peripheral pixels instead of relying on adaptive uniform resolution. Requires a
    vendor build change (new artifact, ADR + licensing review).
 2. **Provider-side sharpening/anti-aliasing** — superseded by M8.6: foveated sharpening now runs in the
-   compositor sampling pass (M8_PLAN §4 M8.6, host probe EV-0273); deeper options are temporal upscaling
-   / TAA (§6.4).
+   compositor sampling pass (M8_PLAN §4 M8.6, host probe EV-0273); jagged edges are additionally
+   addressable with the startup world-supersample knob (SSAA via Vivecraft's renderScaleFactor, M8 §3),
+   and deeper options are temporal upscaling / TAA (§6.4).
 3. **Dynamic per-eye resolution** if the display views become asymmetric (currently both eyes share one
    target size in Vivecraft).
 4. **Temporal upscaling / TAA** in the compositor (history + reprojection) to raise the foveal image

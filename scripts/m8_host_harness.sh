@@ -138,6 +138,20 @@ if [ -n "${DISPLAY_HZ:-}" ]; then
 else
   rm -f "$RUNDIR/vrmc-host-display-hz.txt"
 fi
+# Optional M8 world-supersample knob (SUPERSAMPLE=off|1.0..2.0): startup-only SSAA via Vivecraft's
+# renderScaleFactor (world render target = eye target * sqrt(factor)); the provider logs the mode it read.
+if [ -n "${SUPERSAMPLE:-}" ]; then
+  case "$SUPERSAMPLE" in
+    off) ;;
+    *[!0-9.]*) say "ERROR: SUPERSAMPLE must be off or 1.0..2.0 (got '$SUPERSAMPLE')"; exit 2 ;;
+    *) awk -v v="$SUPERSAMPLE" 'BEGIN { exit !(v >= 1.0 && v <= 2.0) }' \
+         || { say "ERROR: SUPERSAMPLE must be off or 1.0..2.0 (got '$SUPERSAMPLE')"; exit 2; } ;;
+  esac
+  printf '%s\n' "$SUPERSAMPLE" > "$RUNDIR/vrmc-world-supersample.txt"
+  say "world-supersample knob: $SUPERSAMPLE -> $RUNDIR/vrmc-world-supersample.txt"
+else
+  rm -f "$RUNDIR/vrmc-world-supersample.txt"
+fi
 rm -f "$RUNDIR/logs/latest.log"
 say "run dir: $RUNDIR (Vivecraft vrEnabled=true)"
 
@@ -190,9 +204,10 @@ if [ -n "$RESIZE_LINE" ]; then
   STATE=$(grep -m1 '\[VRMC-M8\] render state' "$LATEST" || true)
   TARGET=$(grep -m1 '\[VRMC-M8\] target cadence:' "$LATEST" || true)
   CONTENT=$(grep -m1 '\[VRMC-M8\] content governor:' "$LATEST" || true)
+  SUPERSAMPLE_LINE=$(grep -m1 '\[VRMC-M8\] world supersample:' "$LATEST" || true)
   ERRORS=$(grep -cE '\[VRMC-M8\].*(ERROR|Exception)' "$LATEST" || true)
   echo "=== evidence lines ===" | tee -a "$LOG"
-  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET" "$CONTENT" "$REVERT"; do
+  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET" "$CONTENT" "$REVERT" "$SUPERSAMPLE_LINE"; do
     [ -n "$line" ] && echo "  $line" | tee -a "$LOG"
   done
   if [ -n "$INIT" ] && [ -n "$RESIZE_LINE" ] && [ -n "$NEW_TARGET" ] && [ -n "$HANDSHAKE" ]; then
@@ -208,6 +223,10 @@ if [ -n "$RESIZE_LINE" ]; then
   fi
   if [ "$REVERT_EXPECT" = "1" ] && [ -z "$REVERT" ]; then
     say "target cadence above the simulated display cadence but no 'unreachable ... reverting to auto' line appeared"
+    PASS=0
+  fi
+  if [ -n "${SUPERSAMPLE:-}" ] && [ "$SUPERSAMPLE" != "off" ] && [ -z "$SUPERSAMPLE_LINE" ]; then
+    say "world-supersample knob was set but no '[VRMC-M8] world supersample:' line appeared"
     PASS=0
   fi
   say "M8 renderer resize path: $([ "$PASS" = "1" ] && echo PASS || echo FAIL)"
@@ -232,6 +251,7 @@ if [ -n "${DISPLAY_HZ:-}" ]; then
   KNOB_NOTE="$KNOB_NOTE; simulated display $DISPLAY_HZ Hz"
   if [ -n "$REVERT" ]; then KNOB_NOTE="$KNOB_NOTE (guardrail reverted)"; fi
 fi
+if [ -n "${SUPERSAMPLE:-}" ]; then KNOB_NOTE="$KNOB_NOTE; world supersample $SUPERSAMPLE"; fi
 say "RESULT: PASS (host GL: provider resized 1024x1024 -> 1832x1600 from fake 3660x3200 foveated display feedback$KNOB_NOTE; NOT device evidence)"
   exit 0
 fi

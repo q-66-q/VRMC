@@ -160,7 +160,9 @@ if "$JAVAC" -d "$T/renderclasses" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionContentGovernor.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionContentGovernorTest.java" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionTargetGuardrail.java" \
-     "$ROOT/provider/tests/dev/vrmc/provider/VisionTargetGuardrailTest.java"; then
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionTargetGuardrailTest.java" \
+     "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionWorldSupersample.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionWorldSupersampleTest.java"; then
   if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsTest > "$T/m8-render.log" 2>&1 \
      && grep -q "\[m8-render-test\] PASS" "$T/m8-render.log"; then
     echo "[provider-tests] m8-render: PASS (render feedback layout/parse + eye-target scale policy)"
@@ -195,6 +197,13 @@ if "$JAVAC" -d "$T/renderclasses" \
     grep -E "\[m8-target-guardrail-test\] [0-9]+ checks" "$T/m8-guardrail.log"
   else
     cat "$T/m8-guardrail.log"; fail "m8-target-guardrail"
+  fi
+  if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionWorldSupersampleTest > "$T/m8-supersample.log" 2>&1 \
+     && grep -q "\[m8-supersample-test\] PASS" "$T/m8-supersample.log"; then
+    echo "[provider-tests] m8-world-supersample: PASS (off|1.0..2.0 knob, sqrt-axis mapping, bounded dimensions)"
+    grep -E "\[m8-supersample-test\] [0-9]+ checks" "$T/m8-supersample.log"
+  else
+    cat "$T/m8-supersample.log"; fail "m8-world-supersample"
   fi
 else
   fail "m8-render-compile"

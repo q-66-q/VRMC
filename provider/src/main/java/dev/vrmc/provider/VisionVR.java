@@ -2729,7 +2729,51 @@ public class VisionVR extends MCVR {
         return IDENTITY;
     }
 
-    @Override public VRRenderer createVRRenderer() { return new VisionRenderer(this); }
+    /**
+     * M8 world-supersample knob: startup-only SSAA lever for jagged edges (Minecraft 26.2 has no MSAA).
+     * Vivecraft's renderScaleFactor sizes the world render target at eye x sqrt(factor) per axis and
+     * resolves it down to the eye target. Read before the first render-target creation; 1.0 (off) is
+     * the default. Changing it requires a game restart (documented in the runbook).
+     */
+    private void applyWorldSupersampleKnob() {
+        String value = "off";
+        java.io.File gameDir = Minecraft.getInstance().gameDirectory;
+        if (gameDir != null) {
+            java.io.File knob = new java.io.File(gameDir, "vrmc-world-supersample.txt");
+            if (knob.isFile()) {
+                try {
+                    String text = java.nio.file.Files.readString(knob.toPath()).trim();
+                    if (!text.isEmpty()) value = text;
+                } catch (java.io.IOException | RuntimeException readError) {
+                    System.out.println("[VRMC-M8][WARN] could not read vrmc-world-supersample.txt: " + readError);
+                }
+            }
+        }
+        float factor = VisionWorldSupersample.parse(value);
+        if (factor < 0.0f) {
+            System.out.println("[VRMC-M8] world supersample: ignoring invalid value '" + value
+                + "' (expected off or " + VisionWorldSupersample.MIN_FACTOR + ".."
+                + VisionWorldSupersample.MAX_FACTOR + ")");
+            return;
+        }
+        if (factor <= VisionWorldSupersample.MIN_FACTOR + 1.0e-4f) {
+            if (!value.equalsIgnoreCase("off")) {
+                System.out.println("[VRMC-M8] world supersample: 1.00x (file) - off (world render target "
+                    + "equals the eye target)");
+            }
+            return;
+        }
+        this.dh.vrSettings.renderScaleFactor = factor;
+        System.out.println(String.format(java.util.Locale.ROOT,
+            "[VRMC-M8] world supersample: %.2fx (file) - world render target = eye target * %.2f per axis "
+                + "(Vivecraft renderScaleFactor; startup-only SSAA to reduce jagged edges; pixel cost %.2fx)",
+            factor, VisionWorldSupersample.axisScale(factor), factor));
+    }
+
+    @Override public VRRenderer createVRRenderer() {
+        applyWorldSupersampleKnob();
+        return new VisionRenderer(this);
+    }
     @Override public boolean isActive() { return this.initialized; }
     @Override public float getIPD() { return this.ipd; }
 }

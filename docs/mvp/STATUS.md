@@ -290,3 +290,14 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   PASS (guardrail 23/23; jar `6e2238d5…`, 140,714 B, two-build reproducible); **full (non-fast) M3c
   self-check PASS with 10 PASS rows** and every simulator scenario OVERALL PASS. **Device A6–A9 still
   NOT RUN.**
+
+- 2026-11-06 EV-0281: **World-supersample (SSAA) knob for jagged edges (host PASS).** Minecraft 26.2
+  has no MSAA, so the remaining software anti-aliasing lever is super-sampling: new startup-only knob
+  `vrmc-world-supersample.txt` (`off` default, or 1.0..2.0) maps to Vivecraft's `renderScaleFactor`,
+  making the world render target eye-target × √factor per axis (e.g. 1.44 → 1.2×) resolved down to the
+  eye target; the M8 auto resolution/resize path recomputes it at every resize. Real Minecraft host
+  harness with `SUPERSAMPLE=1.44`: VR target 1832×1600 → **Render target 2199×1921 [144 % render scale,
+  4.2 MP]** (and 2016×1768 → 2420×2122), resize path unaffected. Provider suite ALL PASS (28/28
+  supersample checks; jar `c055dabf…`, 142,286 B, two-build reproducible); `--world-supersample` push
+  knob (41 self-test checks); classifier 5/5; M3c fast self-check PASS. **Device A6–A9 still NOT RUN**;
+  device jaggedness/comfort remain operator-judged at 90 Hz vs 120 Hz.

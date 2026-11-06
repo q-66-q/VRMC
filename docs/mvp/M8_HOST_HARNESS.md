@@ -47,6 +47,8 @@ VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 scripts/m8_host_harness.sh
 VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 TARGET_HZ=100 scripts/m8_host_harness.sh
 # optional M8 content-first knob (provider logs the mode it read):
 VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 CONTENT_FIRST=on scripts/m8_host_harness.sh
+# optional M8 world-supersample knob (startup-only SSAA; provider logs the resulting world target scale):
+VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 SUPERSAMPLE=1.44 scripts/m8_host_harness.sh
 # optional simulated display cadence: exercises the target-cadence guardrail (TARGET_HZ > DISPLAY_HZ
 # must log "unreachable ... reverting to auto"):
 VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 DISPLAY_HZ=90 TARGET_HZ=120 scripts/m8_host_harness.sh
