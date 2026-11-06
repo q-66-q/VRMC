@@ -44,6 +44,10 @@ FULL=1 runtime/probes/m3c-provider-sim/run.sh       # rebuild framework + fake d
 
 M8 render-feedback scenario: `render` (`SHARPEN=off|auto|0.05..1.0` env writes
 `Documents/vrmc-sharpening.txt` before launch to A/B the compositor's foveated sharpening knob).
+M8 resize-grace scenario: `eyedrop` (`Documents/vrmc-fake-eyes-drop.flag`) — the fake provider withholds
+its eye frame for 60 acquire calls, mimicking the real provider clearing the shared frame for an
+eye-target rebuild; the compositor must log last-frame reuse → grace expiry → recovery (in that order),
+survive the gap, and present the known pattern afterwards.
 
 Scenarios: `flat` (provider texture through the flat sampled path), `sync` (same with a real
 `MTLSharedEvent` → compositor `encodeWaitForEvent`), `hidepark` (alpha+isHidden parking A/B),

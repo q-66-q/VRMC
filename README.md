@@ -13,14 +13,15 @@ This is a **development/sideload** project, not an App Store submission.
 - **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)
 - **M8 foveated 4K/120 rendering: host/simulator PASS; device NOT RUN** —
   [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md). The hashes/package below describe the **last
-  release-ready build (pre-M8)**; the M8 provider jar (`cd80b753…`, 136,067 B, reproducible) and the
+  release-ready build (pre-M8)**; the M8 provider jar (`e9a08c52…`, 136,579 B, reproducible) and the
   rendering pipeline have no device acceptance yet. Device verification is a one-command classify:
   `scripts/m8_device_check.sh` (runbook [`docs/mvp/M8_DEVICE_RUN.md`](docs/mvp/M8_DEVICE_RUN.md)).
   The compositor's foveation sampling path is validated on host Metal against a real rasterization
   rate map plus its M8.6 foveated-sharpening upscale metrics ([probe](runtime/probes/m8-foveation/README.md)),
   and the provider's display-feedback → eye-target resize path is validated in a real Minecraft client
-  ([host Fabric harness](docs/mvp/M8_HOST_HARNESS.md));
-  a signed M8 device candidate is staged and ready to install
+  ([host Fabric harness](docs/mvp/M8_HOST_HARNESS.md)), including the resize texture-lifetime safety
+  and the compositor's resize grace (no test-pattern flash during an eye-target rebuild; simulator
+  `eyedrop` scenario); a signed M8 device candidate is staged and ready to install
   ([`export/m8-device-candidate.txt`](export/m8-device-candidate.txt)); the next device session is
   one command each way (`scripts/m8_device_session.sh prepare` / `collect`), with device
   eye-tracked foveation and cadence still unverified.

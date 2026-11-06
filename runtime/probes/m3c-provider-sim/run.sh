@@ -227,6 +227,35 @@ run_render() {
   python3 "$HERE/check.py" "$case_dir" --require-render --require-parking || overall=1
 }
 
+run_eyedrop() {
+  # M8 resize grace: the provider withholds its eye frame for 60 acquire calls (mimicking the real
+  # provider clearing the shared frame before an eye-target rebuild). The compositor must reuse its
+  # last sampled pair for the 30-frame grace, log when the grace expires, and recover when eyes return.
+  local case_dir="$OUT/case-eyedrop"
+  rm -rf "$case_dir"; mkdir -p "$case_dir"
+  xcrun simctl uninstall "$SIM" "$BUNDLE" 2>/dev/null || true
+  xcrun simctl install "$SIM" "$APP"
+  local DATA; DATA=$(xcrun simctl get_app_container "$SIM" "$BUNDLE" data)
+  mkdir -p "$DATA/Documents"
+  echo "provider sim" > "$DATA/Documents/vrmc-open-on-launch.flag"
+  echo "flat"          > "$DATA/Documents/vrmc-reproj-off.flag"
+  echo "drop"          > "$DATA/Documents/vrmc-fake-eyes-drop.flag"
+  xcrun simctl launch "$SIM" "$BUNDLE" >/dev/null 2>&1
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'VRMCCompositorRunning generation=' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-shell.log" 'CPSceneSessionRoleImmersiveSpaceApplication:fgActive' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'eyes absent: reusing the last sampled eye frame' 60 || true
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'last-frame grace expired' 40 || true
+  wait_for_log "$DATA/Documents/vrmc-compositor.log" 'eye frame resumed after' 40 || true
+  sleep 3
+  xcrun simctl io "$SIM" screenshot "$case_dir/screenshot.png" >/dev/null 2>&1 || true
+  cp "$DATA/Documents/vrmc-compositor.log" "$case_dir/compositor.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-shell.log"      "$case_dir/shell.log" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw" "$case_dir/drawable-L.raw" 2>/dev/null || true
+  cp "$DATA/Documents/vrmc-drawable-L.raw.meta" "$case_dir/drawable-L.raw.meta" 2>/dev/null || true
+  echo "---- scenario: eyedrop (M8 resize grace) ----"
+  python3 "$HERE/check.py" "$case_dir" --require-eyedrop --require-parking || overall=1
+}
+
 run_gaze() {
   local case_dir="$OUT/case-gaze"
   rm -rf "$case_dir"; mkdir -p "$case_dir"
@@ -257,7 +286,7 @@ run_gaze() {
   fi
 }
 
-ALL_SCENARIOS=(flat sync hidepark nopark pattern reentry input gaze render)
+ALL_SCENARIOS=(flat sync hidepark nopark pattern reentry input gaze render eyedrop)
 if [ "$#" -gt 0 ]; then
   SCENARIOS=("$@")
 else
@@ -274,6 +303,7 @@ for scenario in "${SCENARIOS[@]}"; do
     input)    run_input ;;
     gaze)     run_gaze ;;
     render)   run_render ;;
+    eyedrop)  run_eyedrop ;;
     *)
       echo "[provider-sim] unknown scenario '$scenario' (known: ${ALL_SCENARIOS[*]})"
       exit 2

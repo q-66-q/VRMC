@@ -162,9 +162,42 @@ int32_t vrmc_shared_publish_eyes(const vrmc_eye_targets *targets, const vrmc_sha
     return 0;
 }
 
+// Optional M8 eye-drop exercise (Documents/vrmc-fake-eyes-drop.flag): the real provider clears the
+// shared eye frame before an eye-target rebuild, so the compositor must reuse its last sampled frame
+// for a short grace window instead of flashing the test pattern. This mimics that window: after
+// ~2 s of normal frames it withholds the frame for 60 acquire calls, then resumes with a bumped
+// texture generation. The fake provider keeps its textures alive (like a real in-flight pair), so the
+// compositor's retained last-frame pair is still valid to sample.
+static int gEyesDropMode = -1;
+static uint32_t gEyesDropAcquires = 0;
+static uint32_t gEyesDropGeneration = 0;
+
+static BOOL fakeEyesDropEnabled(void) {
+    if (gEyesDropMode >= 0) return gEyesDropMode != 0;
+    NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *flagPath = [docs.firstObject stringByAppendingPathComponent:@"vrmc-fake-eyes-drop.flag"];
+    gEyesDropMode = [[NSFileManager defaultManager] fileExistsAtPath:flagPath] ? 1 : 0;
+    return gEyesDropMode != 0;
+}
+
 int32_t vrmc_shared_acquire_eyes(vrmc_shared_eye_frame *out) {
     if (out == NULL) return -1;
     memset(out, 0, sizeof(*out));
+    if (fakeEyesDropEnabled()) {
+        gEyesDropAcquires++;
+        if (gEyesDropAcquires == 120) {
+            NSLog(@"[fake-provider] eyes-drop: withholding the eye frame for 60 acquire calls "
+                  "(simulated provider clear for an eye-target rebuild)");
+        }
+        if (gEyesDropAcquires > 120 && gEyesDropAcquires <= 180) {
+            return -1;   // no eye frame: the compositor must reuse its last sampled pair
+        }
+        if (gEyesDropAcquires == 181) {
+            gEyesDropGeneration++;
+            NSLog(@"[fake-provider] eyes-drop: eye frames resumed after 60 missing calls "
+                  "(texture generation=%u)", gEyesDropGeneration);
+        }
+    }
     fillEyeTargets(&out->eyes);
     if (gSharedEvent != nil) {
         gSignalValue++;
@@ -179,7 +212,7 @@ int32_t vrmc_shared_acquire_eyes(vrmc_shared_eye_frame *out) {
     }
     out->sync.frame_index = out->eyes.frame_index;
     out->publish_sequence = ++gPublishSequence;
-    out->texture_generation = gTextureGeneration;
+    out->texture_generation = gTextureGeneration + gEyesDropGeneration;
     return 0;
 }
 

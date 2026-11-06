@@ -98,6 +98,7 @@ def main():
     pattern = "--pattern" in args
     require_input = "--require-input" in args
     require_render = "--require-render" in args
+    require_eyedrop = "--require-eyedrop" in args
 
     raw = os.path.join(out, "drawable-L.raw")
     if not os.path.exists(raw):
@@ -253,6 +254,31 @@ def main():
             no_errors = "render feedback publish FAILED" not in text
             print(f"{'no render-feedback errors':32s} {('none' if no_errors else 'seen'):24s} {'none':8s} {'PASS' if no_errors else 'FAIL'}")
             if not no_errors: failures += 1
+    if require_eyedrop:
+        # M8 resize grace: the fake provider withheld its eye frame for 60 acquires (mimicking the real
+        # provider clearing the shared frame before an eye-target rebuild). The compositor must reuse
+        # its last sampled pair, log the grace expiry, then recover when eyes return - in that order -
+        # and the shell must have survived the whole drop.
+        reuse_marker = "eyes absent: reusing the last sampled eye frame"
+        expired_marker = "last-frame grace expired"
+        resumed_marker = "eye frame resumed after"
+        reuse_ok = reuse_marker in text
+        print(f"{'grace: last-frame reuse logged':32s} {('seen' if reuse_ok else 'missing'):24s} {'seen':8s} {'PASS' if reuse_ok else 'FAIL'}")
+        if not reuse_ok: failures += 1
+        expired_ok = expired_marker in text
+        print(f"{'grace: expiry logged':32s} {('seen' if expired_ok else 'missing'):24s} {'seen':8s} {'PASS' if expired_ok else 'FAIL'}")
+        if not expired_ok: failures += 1
+        resumed_ok = resumed_marker in text
+        print(f"{'grace: recovery logged':32s} {('seen' if resumed_ok else 'missing'):24s} {'seen':8s} {'PASS' if resumed_ok else 'FAIL'}")
+        if not resumed_ok: failures += 1
+        order_ok = (reuse_ok and expired_ok and resumed_ok and
+                    text.index(reuse_marker) < text.index(expired_marker) < text.index(resumed_marker))
+        print(f"{'grace: reuse -> expiry -> resume':32s} {('ordered' if order_ok else 'out of order'):24s} {'ordered':8s} {'PASS' if order_ok else 'FAIL'}")
+        if not order_ok: failures += 1
+        crash_ok = (("FATAL" not in stext) and ("SIGSEGV" not in stext)
+                    and "VRMCCompositorRunning generation=" in stext)
+        print(f"{'grace: compositor survived drop':32s} {('yes' if crash_ok else 'no'):24s} {'yes':8s} {'PASS' if crash_ok else 'FAIL'}")
+        if not crash_ok: failures += 1
     active_ok = "CPSceneSessionRoleImmersiveSpaceApplication:fgActive" in stext
     print(f"{'immersive scene fgActive':32s} {('seen' if active_ok else 'missing'):24s} {'seen':8s} {'PASS' if active_ok else 'FAIL'}")
     if not active_ok: failures += 1
@@ -265,6 +291,7 @@ def main():
     if reentry: detail += " + background/foreground re-entry"
     if require_input: detail += " + synthetic-hand input publication/release (plumbing only, NOT hands evidence)"
     if require_render: detail += " + M8 render feedback display-geometry/cadence publication (plumbing only)"
+    if require_eyedrop: detail += " + M8 resize-grace last-frame reuse/expiry/recovery (simulated provider clear)"
     print("[provider-sim] PASS: " + detail)
     return 0
 

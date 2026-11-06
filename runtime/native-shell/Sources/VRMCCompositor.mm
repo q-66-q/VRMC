@@ -1800,6 +1800,16 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     float lastLoggedSharpenStrength = -1.0f;
     float currentSharpenStrength = 0.0f;
     BOOL loggedSharpen = NO;
+    // M8 resize grace: the provider clears the shared eye frame before rebuilding its eye targets
+    // (VisionRenderer.maybeResizeEyeTargets). Without a grace window the compositor would drop to the
+    // procedural test pattern for the one or two frames of every resize (a visible flash during the
+    // auto-ramp). Keep the last sampled MTLTexture pair (retained, like the in-flight retention below)
+    // and reuse it for up to 30 frames so a resize presents one stale frame instead of the pattern.
+    id<MTLTexture> lastLeftEye = nil;
+    id<MTLTexture> lastRightEye = nil;
+    uint64_t lastEyesFrame = 0;
+    int eyesMissingFrames = 0;
+    BOOL loggedEyeCacheReuse = NO;
 
     // M4-W1 input state. One preallocated snapshot per frame (no per-frame allocation) and one
     // rate-limited log counter per concern; never dump joint arrays every frame. The synthetic-flag
@@ -2509,6 +2519,9 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         if (gClearGameStoppingFn != NULL) gClearGameStoppingFn();
                         const char *reason = gameStopping ? "provider-signal" : "eyes-lost-timeout";
                         compLog("game stopping detected (%s); posting VRMCGameStopped", reason);
+                        // The game is gone; do not keep the (possibly large) eye textures cached.
+                        lastLeftEye = nil;
+                        lastRightEye = nil;
                         dispatch_async(dispatch_get_main_queue(), ^{
                             [[NSNotificationCenter defaultCenter]
                                 postNotificationName:@"VRMCGameStopped"
@@ -2518,6 +2531,52 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     }
                 }
             }
+            // M8 resize grace (see the state comment above): when the provider has just cleared the
+            // shared eye frame for a render-target rebuild, keep sampling the last good pair for a few
+            // frames. Only for the flat path (the reprojection path needs the provider FOV per frame),
+            // and never when the operator explicitly forced the pattern/probe or sampling is disabled.
+            BOOL usingCachedEyes = NO;
+            if (!haveEyes) {
+                eyesMissingFrames++;
+                if (!forceTestPattern && !samplingDisabled && !selfTest && useFlat &&
+                    lastLeftEye != nil && lastRightEye != nil && eyesMissingFrames <= 30) {
+                    usingCachedEyes = YES;
+                    if (!loggedEyeCacheReuse) {
+                        loggedEyeCacheReuse = YES;
+                        compLog("eyes absent: reusing the last sampled eye frame for up to 30 frames "
+                                "(age=%llu frames; provider render-target rebuild; retained MTLTextures "
+                                "stay alive)",
+                                (unsigned long long)(lastEyesFrame != 0 ? frameCount - lastEyesFrame : 0));
+                    }
+                } else if (loggedEyeCacheReuse) {
+                    loggedEyeCacheReuse = NO;
+                    compLog("eyes absent for %d frames: last-frame grace expired; "
+                            "falling back to the test pattern until eyes return", eyesMissingFrames);
+                }
+            } else {
+                if (eyesMissingFrames > 0) {
+                    compLog("eye frame resumed after %d frame(s) without provider eyes",
+                            eyesMissingFrames);
+                }
+                eyesMissingFrames = 0;
+                loggedEyeCacheReuse = NO;
+                lastLeftEye = (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.left_texture;
+                lastRightEye = (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.right_texture;
+                lastEyesFrame = frameCount;
+            }
+            // Textures/sizes used to draw this frame: the provider's, or the cached pair.
+            uint64_t drawLeftHandle = haveEyes ? eyeFrame.eyes.left_texture
+                : (usingCachedEyes ? (uint64_t)(uintptr_t)(__bridge void *)lastLeftEye : 0);
+            uint64_t drawRightHandle = haveEyes ? eyeFrame.eyes.right_texture
+                : (usingCachedEyes ? (uint64_t)(uintptr_t)(__bridge void *)lastRightEye : 0);
+            uint32_t drawLeftWidth = haveEyes ? eyeFrame.eyes.left_width
+                : (usingCachedEyes ? (uint32_t)lastLeftEye.width : 0);
+            uint32_t drawLeftHeight = haveEyes ? eyeFrame.eyes.left_height
+                : (usingCachedEyes ? (uint32_t)lastLeftEye.height : 0);
+            uint32_t drawRightWidth = haveEyes ? eyeFrame.eyes.right_width
+                : (usingCachedEyes ? (uint32_t)lastRightEye.width : 0);
+            uint32_t drawRightHeight = haveEyes ? eyeFrame.eyes.right_height
+                : (usingCachedEyes ? (uint32_t)lastRightEye.height : 0);
             const vrmc_eye_targets *eyesPtr = &eyeFrame.eyes;
             static uint32_t loggedTextureGeneration = 0;
             static int loggedEyeTextureUsage = 0;
@@ -2568,8 +2627,8 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         (double)gTexMeanL.load(), (double)gTexMeanR.load());
             }
 
-            BOOL testPatternNow = (!haveEyes || samplingDisabled || forceTestPattern ||
-                                   autoTestPattern || selfTest);
+            BOOL testPatternNow = ((!haveEyes && !usingCachedEyes) || samplingDisabled ||
+                                   forceTestPattern || autoTestPattern || selfTest);
             if (testPatternNow != lastTestPatternState) {
                 lastTestPatternState = testPatternNow;
                 compLog("TEST PATTERN state changed: active=%d haveEyes=%d samplingDisabled=%d "
@@ -2592,14 +2651,10 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             // completes. The provider clears the shared handles on VR teardown, but a frame already in
             // flight must not sample (or release) a freed texture (EV-0096 shutdown SIGSEGV, objc_retain
             // on an eye-texture handle). Retain before encoding, release in the completion handler.
-            uint64_t retainedLeft = 0;
-            uint64_t retainedRight = 0;
-            if (haveEyes) {
-                retainedLeft = eyesPtr->left_texture;
-                retainedRight = eyesPtr->right_texture;
-                if (retainedLeft != 0) CFRetain((CFTypeRef)(uintptr_t)retainedLeft);
-                if (retainedRight != 0) CFRetain((CFTypeRef)(uintptr_t)retainedRight);
-            }
+            uint64_t retainedLeft = drawLeftHandle;
+            uint64_t retainedRight = drawRightHandle;
+            if (retainedLeft != 0) CFRetain((CFTypeRef)(uintptr_t)retainedLeft);
+            if (retainedRight != 0) CFRetain((CFTypeRef)(uintptr_t)retainedRight);
             [cb addCompletedHandler:^(id<MTLCommandBuffer> completed) {
                 if (retainedLeft != 0) CFRelease((CFTypeRef)(uintptr_t)retainedLeft);
                 if (retainedRight != 0) CFRelease((CFTypeRef)(uintptr_t)retainedRight);
@@ -2739,8 +2794,8 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         float sharpenTexelH = 0.0f;
                         if (useFlat && !testPatternNow && sharpenControl.enabled &&
                             pipes.flatSharp != nil && haveEyes && eyesPtr != NULL) {
-                            const uint32_t eyeW = isLeftEye ? eyesPtr->left_width : eyesPtr->right_width;
-                            const uint32_t eyeH = isLeftEye ? eyesPtr->left_height : eyesPtr->right_height;
+                            const uint32_t eyeW = isLeftEye ? drawLeftWidth : drawRightWidth;
+                            const uint32_t eyeH = isLeftEye ? drawLeftHeight : drawRightHeight;
                             if (eyeW > 0 && eyeH > 0 && viewport.width > 0 && viewport.height > 0) {
                                 const double upscale = MAX(viewport.width / (double)eyeW,
                                                            viewport.height / (double)eyeH);
@@ -2776,7 +2831,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         if (chosen != nil) {
                             [enc setRenderPipelineState:chosen];
                             if (!testPatternNow) {
-                                uint64_t handle = isLeftEye ? eyesPtr->left_texture : eyesPtr->right_texture;
+                                uint64_t handle = isLeftEye ? drawLeftHandle : drawRightHandle;
                                 // Reuse the opaque MTLTexture pointer exported by the provider (same GPU/process).
                                 id<MTLTexture> tex = (__bridge id<MTLTexture>)(void *)(uintptr_t)handle;
                                 if (tex != nil && tex.device != device) {

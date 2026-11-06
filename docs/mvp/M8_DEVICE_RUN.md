@@ -89,7 +89,7 @@ Manual equivalents (if you prefer the individual scripts):
 | Row | Requirement | Log lines |
 |---|---|---|
 | A6 | Foveation actually active: layer configured `foveation=1`, rate-map geometry present, display geometry `rateMaps>0` | `layer configuration … foveation=1`, `foveation rate map view …`, `display geometry: …` |
-| A7 | 4K-class per-eye display path + provider eye targets follow it: logical per-eye ≥ 3200×2800, provider render settings + ≥1 resize, sane resize count, final target ≥ the old 1024 baseline | compositor `display geometry` / `render feedback published`, provider `[VRMC-M8] render settings:`, `[VRMC-M8] eye target resize #…`, `[VRMC-M8] cleared the shared eye frame before the eye-target rebuild`, `[VRMC-M8] render state …` |
+| A7 | 4K-class per-eye display path + provider eye targets follow it: logical per-eye ≥ 3200×2800, provider render settings + ≥1 resize, sane resize count, final target ≥ the old 1024 baseline | compositor `display geometry` / `render feedback published`, provider `[VRMC-M8] render settings:`, `[VRMC-M8] eye target resize #…`, `[VRMC-M8] cleared the shared eye frame before the eye-target rebuild`, compositor `eyes absent: reusing the last sampled eye frame` + `eye frame resumed after …` during each resize, `[VRMC-M8] render state …` |
 | A8 | Measured display cadence: 120 Hz PASS (≥117 Hz, repeats ≤20 %), else PARTIAL with the actual Hz | `render feedback: displayHz=… repeats=…` |
 | A9 | Pacing/regressions: no render-feedback publication failures, no command-buffer failures, provider p95 within 1.5× the measured cadence budget | `[VRMC-M5] diag: … p95Ms=… missedTarget=… targetHz=…` |
 

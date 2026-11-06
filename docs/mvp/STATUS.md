@@ -244,3 +244,13 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   suite ALL PASS; provider jar `e9a08c52…` (136,579 B, two-build reproducible). The compositor may show
   its fallback pattern for one or two frames per resize — documented in M8_DEVICE_RUN with the
   fixed-eye-scale rollback. **Device A6–A9 still NOT RUN (D1 unavailable).**
+
+- 2026-11-05 EV-0277: **Compositor resize grace (simulator PASS).** When the provider clears the
+  shared eye frame before an eye-target rebuild, the compositor now keeps the last sampled
+  `MTLTexture` pair retained and reuses it for up to 30 frames (one stale frame), instead of flashing
+  the procedural test pattern for the 1–2 frames of every dynamic resize; longer gaps fall back to the
+  pattern and log the grace expiry, and recovery is logged when eyes return. New simulator `eyedrop`
+  scenario (provider withholds the eye frame for 60 acquires, then resumes with a bumped generation):
+  reuse → expiry → recovery ordered, compositor survived, final known pattern PASS; `render`
+  regression PASS. The device candidate was rebuilt with the new framework (tree `6773acf1…`,
+  framework `d53e148a…`, provider `e9a08c52…`, codesign PASS). **Device A6–A9 still NOT RUN.**

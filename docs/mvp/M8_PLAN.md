@@ -100,6 +100,12 @@ view centre (the fovea) and tapers off in the periphery, and is soft-clamped to 
 to limit halos. It is compositing-only work (no game cost), controlled live by
 `Documents/vrmc-sharpening.txt` (`auto` default / `off` / fixed strength).
 
+During an eye-target resize the provider clears the shared eye frame before rebuilding (safety, see
+§8). The compositor keeps its last sampled MTLTexture pair retained and **reuses it for up to 30
+frames** of the gap, so a resize presents one stale frame instead of flashing the procedural test
+pattern; after 30 frames it falls back to the pattern and logs the grace expiry. This is exercised by
+the simulator `eyedrop` scenario (fake provider withholds the eye frame for 60 acquires, then resumes).
+
 ### Honest limitation
 
 The provider renders a **uniform** eye image. CompositorServices foveation reduces the **system's**
