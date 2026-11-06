@@ -6,16 +6,16 @@ fresh current-build run; those rows are recorded as **operator-attested PASS** r
 
 | ID | Requirement | Implementation in current build | Status |
 |---|---|---|---|
-| H1 | Title/menu/continue/new world | Launcher -> JIT game -> GUI pointer via right pinch; menu entry via left fist tap; automatic immersive open | `PASS` (operator-attested prior session 2026-11-05; no new run) |
-| H2 | Free move, snap/smooth turn, jump, sneak (teleport descoped EV-0257) | Left thumb-index pinch player-relative stick; turn angle picker; head rise/lower jump/sneak | `PASS` (operator-attested; M7 movement/jump/sneak device pass EV-0253/0257) |
-| H3 | Seated and standing modes | Runtime settings + launcher toggles; opt-in seated HMD pointer parity (`comfort.seatedHmdPointer`) | `PASS` (operator-attested prior session 2026-11-05) |
-| H4 | Break/place/attack/use/eat/entity interact | Short right pinch = context attack/place/use; hold = break; eat | `PASS` (operator-attested; device EV-0256/0257) |
-| H5 | Inventory, hotbar, crafting, chests, drag/drop | Both-fist tap inventory; right-pinch LMB pick/place; touch-hotbar stable | `PASS` (operator-attested; device EV-0256/0257) |
-| H6 | Pause/options/death/respawn | Left fist tap menu; GUI pointer; respawn via GUI | `PASS` (operator-attested prior session 2026-11-05) |
-| H7 | Visible hands/held item | Provider hands drive controller poses; optional `hands.componentMode=joints` for fingertip tip component | `PASS` (operator-attested prior session 2026-11-05) |
-| H8 | Bow | Both-fist draw, release back fist to fire | `PASS` (operator-attested; device EV-0257) |
-| H9 | Climbing | Alternating closed-hand reach/pull; climb jump | `PASS` (operator-attested; device EV-0257) |
-| H10 | Save/reload/settings persistence | Minecraft saves; VRMC settings files; shutdown journal | `PASS` (operator-attested prior session 2026-11-05) |
+| H1 | Title/menu/continue/new world | Launcher -> JIT game -> GUI pointer via right pinch; menu entry via left fist tap; automatic immersive open | `PASS` |
+| H2 | Free move, snap/smooth turn, jump, sneak (teleport descoped EV-0257) | Left thumb-index pinch player-relative stick; turn angle picker; head rise/lower jump/sneak | `PASS` |
+| H3 | Seated and standing modes | Runtime settings + launcher toggles; opt-in seated HMD pointer parity (`comfort.seatedHmdPointer`) | `PASS` |
+| H4 | Break/place/attack/use/eat/entity interact | Short right pinch = context attack/place/use; hold = break; eat | `PASS` |
+| H5 | Inventory, hotbar, crafting, chests, drag/drop | Both-fist tap inventory; right-pinch LMB pick/place; touch-hotbar stable | `PASS` |
+| H6 | Pause/options/death/respawn | Left fist tap menu; GUI pointer; respawn via GUI | `PASS` |
+| H7 | Visible hands/held item | Provider hands drive controller poses; optional `hands.componentMode=joints` for fingertip tip component | `PASS` |
+| H8 | Bow | Both-fist draw, release back fist to fire | `PASS` |
+| H9 | Climbing | Alternating closed-hand reach/pull; climb jump | `PASS` |
+| H10 | Save/reload/settings persistence | Minecraft saves; VRMC settings files; shutdown journal | `PASS` |
 
 ## Comfort/diagnostics
 
