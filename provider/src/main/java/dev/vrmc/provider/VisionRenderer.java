@@ -104,6 +104,10 @@ public class VisionRenderer extends VRRenderer {
     private long levelLoadedFrame = -1L;
     /** True once an eye-target rebuild threw; the auto policy is disabled to avoid a retry loop. */
     private boolean loggedResizeFailure;
+    /** M8 frame trace CSV (game dir): one row per auto-policy window; disabled on the first write error. */
+    private java.nio.file.Path tracePath;
+    private boolean traceUnavailable;
+    private long traceRows;
     private boolean loggedM8State;
     private long frameIndex;
     private boolean polled;
@@ -620,6 +624,51 @@ public class VisionRenderer extends VRRenderer {
     }
 
     /**
+     * Append one M8 frame-trace row (game dir vrmc-m8-trace.csv) for the window just measured.
+     * Best-effort by design: the first write failure disables tracing with one warning and never
+     * affects rendering. The row is a snapshot before this window's policy adjustments.
+     */
+    private void appendTraceRow(VisionRenderSettings settings, VisionFrameStats.Snapshot stats) {
+        if (this.traceUnavailable) return;
+        try {
+            if (this.tracePath == null) {
+                java.io.File gameDir = Minecraft.getInstance().gameDirectory;
+                if (gameDir == null) return;
+                this.tracePath = gameDir.toPath().resolve(VisionTrace.FILE_NAME);
+                if (!java.nio.file.Files.isRegularFile(this.tracePath)) {
+                    java.nio.file.Files.writeString(this.tracePath, VisionTrace.HEADER + "\n",
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+                }
+                // Log once per session whether the file is new or appended to from an earlier run.
+                System.out.println("[VRMC-M8] trace: " + this.tracePath
+                    + " (CSV, one row per auto-policy window, appended)");
+            }
+            if (this.traceRows >= VisionTrace.MAX_ROWS) {
+                this.traceUnavailable = true;
+                System.out.println("[VRMC-M8] trace: capped at " + VisionTrace.MAX_ROWS
+                    + " rows; further rows are not written");
+                return;
+            }
+            int targetHz = this.targetHzOverride > 0 ? this.targetHzOverride
+                : (int) Math.round(settings.displayHz);
+            String row = VisionTrace.row(this.frameIndex, System.currentTimeMillis(),
+                settings.displayHz, targetHz, this.currentEyeWidth, this.currentEyeHeight,
+                this.eyeScale, this.eyeResizeCount, stats.missedTargetFrames, stats.samples,
+                stats.p50Ms, stats.p95Ms, settings.foveationEnabled ? 1 : 0, settings.rateMapCount,
+                settings.renderQuality, settings.maxRenderQuality,
+                this.contentGovernor.enabled() ? 1 : 0, this.contentGovernor.reductions());
+            java.nio.file.Files.writeString(this.tracePath, row + "\n",
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND);
+            this.traceRows++;
+        } catch (Throwable traceError) {
+            this.traceUnavailable = true;
+            System.out.println("[VRMC-M8][WARN] frame trace disabled: " + traceError);
+        }
+    }
+
+    /**
      * Re-read the target-cadence knob every ~300 frames (the operator may push it while playing).
      * "auto" (default) follows the display cadence the compositor measured; 90/96/100/120 lets the
      * operator aim at a higher rate so the provider keeps frames inside the shorter deadline and the
@@ -739,6 +788,9 @@ public class VisionRenderer extends VRRenderer {
         // oscillating on/off-budget load still accumulates enough pressure to act.
         final boolean contentPressure = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
             || stats.p50Ms > targetMs * 1.05;
+        // M8 frame trace: a device pull otherwise only sees the last line of each log. One CSV row per
+        // window gives the resolution/refresh history for A/B analysis (best-effort, never fatal).
+        appendTraceRow(settings, stats);
         // Target-cadence guardrail: never chase a cadence the display does not provide. If the
         // compositor keeps reporting a lower measured cadence, revert to auto so the policy does not
         // crush resolution forever on hardware that never promotes (operator can change the file to

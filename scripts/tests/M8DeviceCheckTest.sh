@@ -43,6 +43,11 @@ EOF
 [shell] 2026-11-06 08:44:27 +0000 layer config: supportsFoveation=true defaultRenderQuality=0.50 qualitySupported=true maxRenderQuality=1.00 supportedLayouts=["cp_layer_renderer_layout(rawValue: 0)", "cp_layer_renderer_layout(rawValue: 2)"]
 [shell] 2026-11-06 08:44:27 +0000 layer config: layout=cp_layer_renderer_layout(rawValue: 0) foveation=true (supported=true disabledByFlag=false) maxRenderQuality=1.00
 EOF
+  cat > "$dir/vrmc-m8-trace.csv" <<'EOF'
+frame,timestamp_ms,display_hz,target_hz,eye_w,eye_h,scale,resizes,missed_target,samples,p50_ms,p95_ms,foveation,rate_maps,quality,max_quality,content_first,reductions
+240,1762418630000,120.04,120,1832,1600,0.50,1,2,240,8.31,9.75,1,2,1.00,1.00,0,0
+480,1762418631000,120.00,120,2200,1928,0.60,2,0,240,8.29,9.10,1,2,1.00,1.00,0,0
+EOF
   cat > "$dir/latestlog.txt" <<EOF
 [21:36:02] [Render thread/INFO] (LoggedPrintStream) [STDOUT]: [VRMC-M8] render settings: logical L=3660x3200 R=3660x3200 drawable=2412x2108 foveation=1 rateMaps=2 (foveated display path) quality=1.00/1.00 displayHz=120.0 frame=8.34ms providerEye=0x0 frameIndex=1234
 [21:36:04] [Render thread/INFO] (LoggedPrintStream) [STDOUT]: [VRMC-M8] eye target resize #1: 1024x1024 -> 1832x1600 (logical=3660x3200 scale=0.50 auto(default); displayHz=120.0 quality=1.00/1.00)
@@ -59,6 +64,7 @@ check "pass exit code 0" test "$rc" -eq 0
 check "pass reports A6-A9" bash -c "echo \"\$1\" | grep -q 'RESULT: PASS (A6-A9)'" _ "$out"
 check "pass reports 120 Hz" bash -c "echo \"\$1\" | grep -q 'displayHz=120.0 (120 Hz)'" _ "$out"
 check "pass reports 4K-class logical" bash -c "echo \"\$1\" | grep -q 'logical L=3660x3200'" _ "$out"
+check "pass reports m8 frame trace" bash -c "echo \"\$1\" | grep -q 'm8 frame trace: 2 window(s)'" _ "$out"
 
 # --- case 2: 90 Hz -> PARTIAL --------------------------------------------------------------
 write_pass_logs "$T/hz90" 90.0 90

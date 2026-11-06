@@ -330,3 +330,15 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   sha256 `6df778e6…`, `unzip -t` clean). A one-page `docs/mvp/M8_DEVICE_HANDOFF.md` captures the
   proven-vs-unproven state, the one-command finish procedure, what to record, and the known fallbacks.
   No rendering code changed; **device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0285: **Per-window M8 frame trace (PASS).** The provider now writes
+  `Documents/instances/default/vrmc-m8-trace.csv`: one row per auto-policy window with frame, measured
+  display Hz, target Hz, eye target, scale, resizes, missed deadlines, p50/p95, foveation/rate maps,
+  quality and content-first state (header once, appended across sessions, 20 000-row cap, best-effort
+  with one warning on failure). Device pulls include it: the checker prints a compact summary
+  (window count, display Hz range, final eye target, scale range/final, resizes) and can use the last
+  row as an A8 cadence fallback; the host harness requires/copies the file and the classifier test
+  asserts the summary. Verified in the real Minecraft harness (`TARGET_HZ=120 CONTENT_FIRST=on`):
+  8 rows with the auto ramp to eyeTarget 2568×2248/scale 0.70; 27/27 trace checks; provider suite ALL
+  PASS (jar `2cc9626a…`, 144,529 B, two-build reproducible); classifier 5/5; fast self-check PASS;
+  durable package rebuilt (zip sha256 `c5170e1c…`). **Device A6–A9 still NOT RUN.**

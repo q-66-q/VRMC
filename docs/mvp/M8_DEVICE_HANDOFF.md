@@ -28,6 +28,8 @@ the image acceptable.
 - Durable package: `export/m8-device-package/` (app bundle + provider jar + manifest + checksums +
   README; zip: `export/m8-device-package.zip`). Built/validated by `scripts/m8_device_package.sh`.
 - Candidate manifest (identity, install/tuning/rollback): `export/m8-device-candidate.txt`.
+- After a session, `Documents/instances/default/vrmc-m8-trace.csv` (pulled by the checker) holds the
+  one-row-per-window resolution/refresh history for the evidence bundle.
 - Staged originals (volatile /tmp): `/tmp/VRMC-native-m8.app`,
   `/tmp/vrmc-provider-build/vrmc-provider.jar`.
 

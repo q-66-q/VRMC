@@ -208,6 +208,9 @@ Device (D1, NOT RUN; one operator session):
   an unreachable target with `target cadence: N Hz unreachable … reverting to auto` (host-tested).
 - A9 Frame pacing within budget at the chosen scale (p50/p95 consistent with 90 or 120 Hz; no
   crash/watchdog), operator visual confirmation that upscale blur/jaggedness is reduced.
+- The pull also contains `vrmc-m8-trace.csv` (one row per auto-policy window: display Hz, target Hz,
+  eye target, scale, resizes, frame times, foveation, content-first state); the device checker prints a
+  compact summary and can use the last row as an A8 cadence fallback.
 
 ## 6. Deferred / future work
 

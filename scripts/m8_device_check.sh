@@ -40,6 +40,7 @@ if [ -z "$FROM" ]; then
   pull "Documents/vrmc-shell.prev.log" "vrmc-shell.prev.log" || true
   pull "Documents/instances/default/latestlog.txt" "latestlog.txt" || true
   pull "Documents/instances/default/vrmc-status.json" "vrmc-status.json" || true
+  pull "Documents/instances/default/vrmc-m8-trace.csv" "vrmc-m8-trace.csv" || true
   pull "Documents/vrmc-heartbeat.txt" "vrmc-heartbeat.txt" || true
   pulled=$(find "$OUTDIR" -maxdepth 1 -type f ! -path '*/session/*' 2>/dev/null | wc -l | tr -d ' ')
   echo "[m8-device] pulled $pulled file(s)"

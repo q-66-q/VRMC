@@ -52,6 +52,10 @@ VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 SUPERSAMPLE=1.44 scripts/m8
 # optional all-knobs soak: keep the client running N seconds and re-check the M8 invariants afterwards
 VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 TARGET_HZ=120 CONTENT_FIRST=on SUPERSAMPLE=1.44 \
   SOAK_SECONDS=120 scripts/m8_host_harness.sh --timeout 300
+
+The harness also requires the provider's per-window M8 frame trace to be written
+(`vrmc-m8-trace.csv`, one row per auto-policy window), copies it into `$OUT` and prints the first/last
+rows; the device checker pulls the same file and summarises it.
 # optional simulated display cadence: exercises the target-cadence guardrail (TARGET_HZ > DISPLAY_HZ
 # must log "unreachable ... reverting to auto"):
 VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 DISPLAY_HZ=90 TARGET_HZ=120 scripts/m8_host_harness.sh

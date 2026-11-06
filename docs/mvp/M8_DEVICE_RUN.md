@@ -179,6 +179,8 @@ Interpretation:
 
 1. Run `scripts/m8_device_check.sh` and keep `/tmp/vrmc-m8-device/` (logs are copied there).
 2. Record a new `EV-xxxx` in `VERIFY.md` §6 with:
+   - the `m8 frame trace` summary the checker prints (window count, displayHz range, final eye target,
+     scale range/final, resizes) and, if useful, the CSV itself as an artifact,
    - A6–A9 statuses + the exact log lines,
    - `vrmc-status.json` `render` summary (eye target / display logical / foveation / displayHz / resizes),
    - measured `displayHz`, repeats, logical per-eye size, final provider eye target, resize count,

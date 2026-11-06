@@ -66,6 +66,35 @@ def parse_status_document(directory):
     return document, render
 
 
+def parse_trace(directory):
+    """Read the provider's per-window M8 frame trace (vrmc-m8-trace.csv) if the pull contains one."""
+    path = os.path.join(directory, "vrmc-m8-trace.csv")
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "r", errors="replace") as handle:
+            lines = [line.strip() for line in handle if line.strip()]
+    except OSError:
+        return {}
+    if not lines:
+        return {}
+    header = lines[0].split(",")
+    rows = []
+    for line in lines[1:]:
+        parts = line.split(",")
+        if len(parts) != len(header):
+            continue
+        rows.append(dict(zip(header, parts)))
+    return {"header": header, "rows": rows}
+
+
+def trace_float(row, key):
+    try:
+        return float(row.get(key, ""))
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def parse_target(value):
     """'120(120Hz(file))' -> (120, '120Hz(file)'); '0(auto(display))' -> (0, 'auto(display)')."""
     match = re.fullmatch(r"(\d+)\((.+)\)", str(value or ""))
@@ -311,24 +340,30 @@ def check_a7(comp, provider, status_render):
     return ("PASS" if ok else "PARTIAL"), reasons, logical
 
 
-def check_a8(comp, status_render):
+def check_a8(comp, status_render, trace_last):
     feedback = comp.get("last_feedback")
     reasons = []
     if not feedback:
-        # Fallback: the provider writes the measured display Hz into vrmc-status.json.
+        # Fallback: the provider writes the measured display Hz into vrmc-status.json, and the M8 frame
+        # trace carries one row per window (the last row also reflects the achieved cadence).
         try:
             fallback_hz = float(status_render.get("displayHz", ""))
         except (TypeError, ValueError):
             fallback_hz = 0.0
+        fallback_source = "vrmc-status.json"
+        if fallback_hz <= 0.0 and trace_last:
+            fallback_hz = trace_float(trace_last, "display_hz")
+            fallback_source = "vrmc-m8-trace.csv"
         if fallback_hz > 0.0:
             status = "PASS" if fallback_hz >= CADENCE_120_MIN_HZ else "PARTIAL"
             if fallback_hz >= CADENCE_120_MIN_HZ:
-                reasons.append("displayHz=%.1f (120 Hz, from vrmc-status.json render summary)" % fallback_hz)
+                reasons.append("displayHz=%.1f (120 Hz, from %s)" % (fallback_hz, fallback_source))
             elif fallback_hz >= CADENCE_90_MIN_HZ:
-                reasons.append("displayHz=%.1f (90 Hz; 120 Hz NOT achieved, from vrmc-status.json)"
-                               % fallback_hz)
+                reasons.append("displayHz=%.1f (90 Hz; 120 Hz NOT achieved, from %s)"
+                               % (fallback_hz, fallback_source))
             else:
-                reasons.append("displayHz=%.1f (below the 90 Hz floor, from vrmc-status.json)" % fallback_hz)
+                reasons.append("displayHz=%.1f (below the 90 Hz floor, from %s)"
+                               % (fallback_hz, fallback_source))
             return status, reasons, fallback_hz
         return "NOT RUN", ["no render-feedback cadence line and no status render summary"], None
     hz = feedback["display_hz"]
@@ -422,6 +457,9 @@ def main():
     provider_name, provider_text = read_best(
         directory, ["latestlog.txt", "latestlog-game.txt"], "[VRMC-M8]")
     status_doc, status_render = parse_status_document(directory)
+    trace = parse_trace(directory)
+    trace_rows = trace.get("rows", [])
+    trace_last = trace_rows[-1] if trace_rows else None
     if comp_text:
         comp_text = last_session(comp_text, r"starting compositor thread")
     if shell_text:
@@ -444,7 +482,7 @@ def main():
 
     a6, a6r = check_a6(comp, shell, status_render)
     a7, a7r, logical = check_a7(comp, provider, status_render)
-    a8, a8r, hz = check_a8(comp, status_render)
+    a8, a8r, hz = check_a8(comp, status_render, trace_last)
     a9, a9r = check_a9(comp, provider, status_doc, status_render)
     rows = [("A6 foveation active", a6, a6r), ("A7 4K-class display + provider eye targets", a7, a7r),
             ("A8 display cadence", a8, a8r), ("A9 pacing / regressions", a9, a9r)]
@@ -474,6 +512,19 @@ def main():
               f"displayHz={status_render.get('displayHz', '?')} "
               f"target={status_render.get('target', '?')} "
               f"resizes={status_render.get('resizes', '?')}")
+    if trace_rows:
+        hz_values = [trace_float(row, "display_hz") for row in trace_rows]
+        scale_values = [trace_float(row, "scale") for row in trace_rows]
+        hz_values = [value for value in hz_values if value > 0.0]
+        scale_values = [value for value in scale_values if value > 0.0]
+        eye_w = trace_last.get("eye_w", "?")
+        eye_h = trace_last.get("eye_h", "?")
+        hz_text = ("%.1f-%.1f" % (min(hz_values), max(hz_values))) if hz_values else "n/a"
+        scale_text = ("%.2f-%.2f (final %.2f)" % (min(scale_values), max(scale_values),
+                      trace_float(trace_last, "scale"))) if scale_values else "n/a"
+        print(f"  m8 frame trace: {len(trace_rows)} window(s) displayHz {hz_text} "
+              f"target={trace_last.get('target_hz', '?')} final eyeTarget={eye_w}x{eye_h} "
+              f"scale {scale_text} resizes={trace_last.get('resizes', '?')}")
     if hz:
         sharpen = comp.get("last_feedback", {}).get("sharpen", 0.0) if comp.get("last_feedback") else 0.0
         print(f"  measured display cadence: {hz:.1f} Hz  foveated sharpening: {sharpen:.2f}")

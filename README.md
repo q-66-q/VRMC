@@ -13,7 +13,7 @@ This is a **development/sideload** project, not an App Store submission.
 - **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)
 - **M8 foveated 4K/120 rendering: host/simulator PASS; device NOT RUN** —
   [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md). The hashes/package below describe the **last
-  release-ready build (pre-M8)**; the M8 provider jar (`2242c116…`, 142,529 B, reproducible) and the
+  release-ready build (pre-M8)**; the M8 provider jar (`2cc9626a…`, 144,529 B, reproducible) and the
   rendering pipeline have no device acceptance yet. Device verification is a one-command classify:
   `scripts/m8_device_check.sh` (runbook [`docs/mvp/M8_DEVICE_RUN.md`](docs/mvp/M8_DEVICE_RUN.md)).
   The compositor's foveation sampling path is validated on host Metal against a real rasterization

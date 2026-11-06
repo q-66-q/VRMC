@@ -152,8 +152,8 @@ if [ -n "${SUPERSAMPLE:-}" ]; then
 else
   rm -f "$RUNDIR/vrmc-world-supersample.txt"
 fi
-rm -f "$RUNDIR/logs/latest.log"
-say "run dir: $RUNDIR (Vivecraft vrEnabled=true)"
+rm -f "$RUNDIR/logs/latest.log" "$RUNDIR/vrmc-m8-trace.csv"
+say "run dir: $RUNDIR (Vivecraft vrEnabled=true, fresh M8 trace)"
 
 # ---- 4. launch the real Minecraft dev client with the fake display feedback --------------------
 say "launching :fabric:runClient (timeout ${TIMEOUT}s)"
@@ -205,11 +205,23 @@ if [ -n "$RESIZE_LINE" ]; then
   TARGET=$(grep -m1 '\[VRMC-M8\] target cadence:' "$LATEST" || true)
   CONTENT=$(grep -m1 '\[VRMC-M8\] content governor:' "$LATEST" || true)
   SUPERSAMPLE_LINE=$(grep -m1 '\[VRMC-M8\] world supersample:' "$LATEST" || true)
+  TRACE_LINE=$(grep -m1 '\[VRMC-M8\] trace:' "$LATEST" || true)
+  TRACE_FILE="$RUNDIR/vrmc-m8-trace.csv"
+  TRACE_ROWS=0
+  if [ -f "$TRACE_FILE" ]; then
+    TRACE_ROWS=$(tail -n +2 "$TRACE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+  fi
   ERRORS=$(grep -cE '\[VRMC-M8\].*(ERROR|Exception)' "$LATEST" || true)
   echo "=== evidence lines ===" | tee -a "$LOG"
-  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET" "$CONTENT" "$REVERT" "$SUPERSAMPLE_LINE"; do
+  for line in "$INIT" "$BRIDGE" "$SETTINGS" "$RESIZE_LINE" "$RESIZE_CONFIG" "$NEW_TARGET" "$HANDSHAKE" "$STATE" "$TARGET" "$CONTENT" "$REVERT" "$SUPERSAMPLE_LINE" "$TRACE_LINE"; do
     [ -n "$line" ] && echo "  $line" | tee -a "$LOG"
   done
+  say "frame trace: rows=$TRACE_ROWS file=$TRACE_FILE"
+  if [ -f "$TRACE_FILE" ]; then
+    cp -f "$TRACE_FILE" "$OUT/vrmc-m8-trace.csv" 2>/dev/null || true
+    echo "  trace first: $(head -2 "$TRACE_FILE" | tail -1)" | tee -a "$LOG"
+    echo "  trace last:  $(tail -1 "$TRACE_FILE")" | tee -a "$LOG"
+  fi
   if [ -n "$INIT" ] && [ -n "$RESIZE_LINE" ] && [ -n "$NEW_TARGET" ] && [ -n "$HANDSHAKE" ]; then
     PASS=1
   fi
@@ -227,6 +239,10 @@ if [ -n "$RESIZE_LINE" ]; then
   fi
   if [ -n "${SUPERSAMPLE:-}" ] && [ "$SUPERSAMPLE" != "off" ] && [ -z "$SUPERSAMPLE_LINE" ]; then
     say "world-supersample knob was set but no '[VRMC-M8] world supersample:' line appeared"
+    PASS=0
+  fi
+  if [ -z "$TRACE_LINE" ] || [ "${TRACE_ROWS:-0}" -lt 1 ] 2>/dev/null; then
+    say "M8 frame trace missing ('$TRACE_FILE' rows=$TRACE_ROWS): the provider did not write vrmc-m8-trace.csv"
     PASS=0
   fi
   # Optional soak with all knobs enabled: keep the real client running and re-check the M8 invariants.
