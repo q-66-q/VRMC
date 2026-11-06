@@ -18,7 +18,7 @@ evidence never counts as a device PASS.
 | AC-2 | Stereo correct, no eye swap/flip; head tracking aligned | `PARTIAL` | EV-0094 operator-confirmed stereo alignment + head tracking; M3-W5/W6 90 Hz/soak still NOT RUN. |
 | AC-3 | Immersive input from hands (no controller fallback) | `PARTIAL` | W1 device PASS (EV-0096); W2–W4 host PASS (EV-0097–EV-0101); full AC-4 hands checklist NOT RUN. |
 | AC-4 | Every P0 action reachable from hands; no stuck input | `NOT RUN` | Guesture slices host-tested; real-hands P0 checklist, gesture tuning, no-stuck stress on D1 required. |
-| AC-5 | 60-min session, 20 cold launches, 10 world loads, no watchdog kills | `NOT RUN` | `scripts/m6_soak_harness.sh` prepared (dry-run PASS); device run required. |
+| AC-5 | 60-min session, 20 cold launches, 10 world loads, no watchdog kills | `NOT RUN` | Operator approved a **reduced 10-min soak** (2026-11-05) for quick stability evidence; this is a waiver/PARTIAL, not full AC-5 (60 min). Harness prepared/dry-run PASS. |
 | AC-6 | No Minecraft binaries; ownership/EULA; GPL source; notices complete | `PARTIAL` | THIRD_PARTY_NOTICES/licensing present; `SOURCE_OFFER.md` (GPL/LGPL corresponding-source offer, no Minecraft/Vivecraft redistribution) added; release manifest script prepared; final legal review/sign-off still required. |
 
 ## Budgets (K gates)
@@ -28,7 +28,7 @@ evidence never counts as a device PASS.
 | K1 | Launcher ≤10 s; launch → in-world ≤90 s | `NOT RUN` | needs D1 timing runs (`DT-14`). |
 | K2 | 90 Hz target; ≥72 fps default; 45 fps floor behavior | `NOT RUN` | M5 presets/diagnostics implemented; device pacing trace required. |
 | K3 | Rotational M2P P50 ≤50 ms / P95 ≤65 ms | `NOT RUN` | 240 fps latency rig protocol + rig availability still required. |
-| K4 | 60-min/20-launch/10-load stability | `NOT RUN` | M6 soak harness + shutdown journal; device run required. |
+| K4 | 60-min/20-launch/10-load stability | `NOT RUN` | Reduced 10-min soak approved; full K4 60-min still open. |
 | K5 | Thermal step-down predictable, 45 fps floor | `NOT RUN` | shell thermal monitor implemented (EV-0101); device thermal soak required. |
 | K6 | Install ≤3.5 GB, first install ≤30 min | `NOT RUN` | release manifest records app/bundle size; needs device install measurement. |
 

@@ -19,7 +19,7 @@ Purpose: execute AC-1…AC-6 and K1…K6 on hardware, record evidence in VERIFY,
 | AC-2 stereo/head alignment | Look at near/far geometry; head translations/rotations; both eyes no swap/flip | 2-3 diagnostics runs + operator confirmation; note IPD/eye values |
 | AC-3 hands only | Disable controllers; every core action from hands | AC-4 checklist output |
 | AC-4 P0 actions + no stuck hands | Run `M4_CONTROLS.md` P0 list: menu, move/turn/jump/sneak, attack/place/use/break (no teleport: descoped EV-0257), bow, inventory/hotbar, climb, recenter; wave hands in/out of view | per-action pass/fail, stuck-hand stress notes, `vrmc-status.json` snapshots |
-| AC-5 soak | `DEVICE_UDID=… SOAK_SECONDS=3600 scripts/m6_soak_harness.sh --device`; 20 cold launches, 10 world loads | harness artifacts; every run must have `destroy-complete`; no watchdog kills |
+| AC-5 soak | `DEVICE_UDID=… SOAK_SECONDS=600 scripts/m6_soak_harness.sh --device` (operator-approved reduced 10-min run 2026-11-05; full AC-5 is 60 min); 20 cold launches, 10 world loads | harness artifacts; every run must have `destroy-complete`; no watchdog kills. Reduced run is a waiver/PARTIAL, not full AC-5. |
 | AC-6 legal/source | Confirm no Minecraft/Vivecraft binaries; `SOURCE_OFFER.md`, licenses/notices, manifest source_commit; legal sign-off | signed checklist/notes |
 
 ## K gates
@@ -29,7 +29,7 @@ Purpose: execute AC-1…AC-6 and K1…K6 on hardware, record evidence in VERIFY,
 | K1 timing | D1 timing runs (`DT-14`): start/stop, frame times | timing table |
 | K2 90 Hz pacing | Play with `[VRMC-M5] diag` at 30 s; record p50/p95/missed90 (+launcher provider line) | diag log windows + status JSON |
 | K3 latency rig | 240 fps rig: motion-to-photon / input-to-action | rig results |
-| K4 soak | AC-5 artifact set | soak output + shutdown journals |
+| K4 soak | AC-5 artifact set | reduced 10-min run (2026-11-05 waiver); full K4 still requires 60 min |
 | K5 thermal | Long session; thermal log/state file; `performance.thermalResponse` A/B | `vrmc-thermal.log`, state file, diag |
 | K6 install size | `scripts/m6_install_metrics.sh` host + device app info/storage measurement | metrics output + device storage note |
 
@@ -38,7 +38,7 @@ Purpose: execute AC-1…AC-6 and K1…K6 on hardware, record evidence in VERIFY,
 ```
 scripts/m6_device_integrity.sh
 scripts/m6_device_diagnostics_pull.sh /tmp/vrmc-device-diag
-DEVICE_UDID=<udid> SOAK_SECONDS=3600 scripts/m6_soak_harness.sh --device
+DEVICE_UDID=<udid> SOAK_SECONDS=600 scripts/m6_soak_harness.sh --device  # operator-approved reduced soak; full AC-5 = 3600
 scripts/m6_acceptance_report.sh --require-pass
 ```
 
