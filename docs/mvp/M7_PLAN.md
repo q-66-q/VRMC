@@ -101,3 +101,8 @@ operator 1–5 score.** Record m4 vs m7 side by side for the A/B.
 - Head-ray cursor is offset **8% down** from centre.
 - Teleport shares left pinch and is suppressed while moving; a dedicated teleport gesture remains a follow-up.
 - Device retest for movement/cursor/click/long-press is pending.
+
+## Player-relative movement (EV-0250)
+
+- Movement now projects wrist-minus-head onto the HMD's horizontal forward/right basis; "forward" is
+  relative to the player, not absolute world Z. Device retest required.

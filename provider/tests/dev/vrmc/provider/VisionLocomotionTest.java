@@ -44,6 +44,20 @@ public final class VisionLocomotionTest {
 
         // Head motion changes the relative wrist position: moving the head forward while the hand is
         // fixed pulls the virtual stick back (expected: hand is the anchor, not world-fixed).
+        // Player-relative axes: caller supplies projection onto HMD forward/right, so the same
+        // physical hand direction must always mean forward regardless of world yaw.
+        Vector2f relFwd = VisionLocomotion.axesRelative(0.35F, 0.0F,
+            VisionLocomotion.DEFAULT_ORIGIN_Z, VisionLocomotion.DEFAULT_FORWARD_SCALE,
+            VisionLocomotion.DEFAULT_STRAFE_SCALE, VisionLocomotion.DEFAULT_DEADZONE);
+        check("relative axes forward positive", relFwd.y > 0.5F && Math.abs(relFwd.x) < 0.01F, String.valueOf(relFwd));
+        Vector2f relStrafe = VisionLocomotion.axesRelative(VisionLocomotion.DEFAULT_ORIGIN_Z, 0.30F,
+            VisionLocomotion.DEFAULT_ORIGIN_Z, VisionLocomotion.DEFAULT_FORWARD_SCALE,
+            VisionLocomotion.DEFAULT_STRAFE_SCALE, VisionLocomotion.DEFAULT_DEADZONE);
+        check("relative axes strafe positive", relStrafe.x > 0.5F && Math.abs(relStrafe.y) < 0.01F, String.valueOf(relStrafe));
+        Vector2f relRest = VisionLocomotion.axesRelative(VisionLocomotion.DEFAULT_ORIGIN_Z, 0.0F,
+            VisionLocomotion.DEFAULT_ORIGIN_Z, VisionLocomotion.DEFAULT_FORWARD_SCALE,
+            VisionLocomotion.DEFAULT_STRAFE_SCALE, VisionLocomotion.DEFAULT_DEADZONE);
+        check("relative axes rest inside deadzone", relRest.length() < 0.01F, String.valueOf(relRest));
         Vector2f noHead = VisionLocomotion.axes(0.0F, 0.0F, -0.35F, 0.0F, 0.0F, 0.0F);
         Vector2f headFwd = VisionLocomotion.axes(0.0F, 0.0F, -0.35F, 0.0F, 0.0F, -0.25F);
         check("head-relative", headFwd.y < noHead.y, "noHead=" + noHead + " headFwd=" + headFwd);

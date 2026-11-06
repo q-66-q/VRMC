@@ -116,3 +116,6 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - Head-ray cursor offset 8% down.
 - Teleport shares left pinch, suppressed while moving; dedicated teleport gesture still needed.
 - Provider `a337481f…` pushed/verified; device movement/cursor/GUI retest pending.
+
+- 2026-11-05 EV-0250: M7 movement made player-relative (HMD horizontal basis) after operator observed
+  world-absolute forward; provider `85d18f61…` pushed/verified. Device retest pending.

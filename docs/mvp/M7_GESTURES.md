@@ -12,7 +12,7 @@ the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand 
 |---|---|---|---|
 | 1 | Menu / UI click | System eye hover highlights; **right pinch** activates | Raw eye gaze is not exposed to third-party apps. Native SwiftUI menus get system gaze hover. In-game Minecraft GUI (a texture) cannot: see §3. |
 | 2 | Escape | **left fist tap** | No close gesture; Escape/back lives in Options. |
-| 3 | Walk / run | **left thumb-index pinch hold + move the left hand like a joystick** (forward/back = walk, left/right = strafe; EV-0248/EV-0249) | Analog free-move via Vivecraft `keyFreeMoveStrafe`; turning by body/head. Replaces the earlier both-fist swing walk. Left pinch is also teleport; teleport is suppressed while moving (see §2). |
+| 3 | Walk / run | **left thumb-index pinch hold + move the left hand like a joystick, player-relative** (forward/back = walk, left/right = strafe; EV-0248/EV-0249/EV-0250) | Analog free-move via Vivecraft `keyFreeMoveStrafe`; turning by body/head. Replaces the earlier both-fist swing walk. Left pinch is also teleport; teleport is suppressed while moving (see §2). |
 | 4 | Jump | **physical head rise** (or auto-jump for one block) | Auto-jump enabled by default. Head-rise detector has hysteresis; seated fallback remains. |
 | 5 | Sneak | **physical head lowering** (sustained) | Seated fallback remains; sneaking by looking down must NOT trigger. |
 | 6 | Teleport | **left pinch hold → aim → release to commit** | Conflict with movement on the same pinch: teleport is suppressed while movement axes are non-zero; a dedicated gesture is still needed. |
@@ -32,7 +32,7 @@ the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand 
   GUI cannot know which pixel the eyes are on. The practical game-GUI implementation is a **head/eye-ray
   reticle** (head ray is available from `DeviceAnchor`) that highlights the Minecraft control under it.
   True eye hover remains native-UI only. This must be accepted or the GUI must be re-implemented natively.
-- **Movement mapping (EV-0248/EV-0249):** movement is the **left thumb-index pinch virtual stick** (hold the pinch,
+- **Movement mapping (EV-0248/EV-0249/EV-0250, player-relative):** movement is the **left thumb-index pinch virtual stick** (hold the pinch,
   move the left hand forward/back/left/right); the both-fist alternating swing no longer moves the player
   (the engine retains it only as a context/suppression signal). Left pinch is also teleport, so teleport is
   suppressed while movement axes are non-zero; a dedicated teleport gesture is a follow-up.

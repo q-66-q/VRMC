@@ -33,7 +33,7 @@
 | teleport | left pinch hold ≥ 120 ms starts aim; release commits; world/seat/GUI/walk/bow/climb suppression |
 | menu | left fist tap 60–550 ms with a quiet left hand, no chord/bow/climb/pinch/attack context |
 | inventory | both-fist tap ≤ 450 ms, max wrist separation < 0.50 m, never walk/bow/climb/tracking-loss |
-| movement | **left thumb-index pinch hold + move the left hand** as a joystick (forward/back = walk, left/right = strafe), analog via `keyFreeMoveStrafe`; replaces both-fist swing (EV-0248/EV-0249). The engine's both-fist walk detector remains only as a context/suppression signal. Teleport shares left pinch but is suppressed while movement axes are non-zero. |
+| movement | **left thumb-index pinch hold + move the left hand** as a joystick, projected onto the HMD's horizontal forward/right basis so forward is **player-relative** (not world-relative); analog via `keyFreeMoveStrafe`; replaces both-fist swing (EV-0248/EV-0249/EV-0250). The engine's both-fist walk detector remains only as a context/suppression signal. Teleport shares left pinch but is suppressed while movement axes are non-zero. |
 | attack | one-handed closed-hand swing, 120 ms windowed wrist speed ≥ 1.4 m/s (peak-aligned policy), 400 ms cooldown, re-arm < 0.8 m/s, suppression by both-fist/walk/bow/eat/pinch/climb/head contexts |
 | bow | bow held + both fists + |head-forward separation| > 0.30 m (exit 0.22) at chest height (max up > -0.30), armed 100 ms; release of the draw fires (Minecraft hold-to-draw semantics) |
 | eat | food/drink held + right hand in the 0.30 m face ball (forward > -0.02, lateral < 0.28, up -0.45…0.10), 60 ms latch, 150 ms tracking-gap bridging, exit hysteresis 0.32 m |
@@ -92,3 +92,7 @@
 
 `gesture.mode=m4` in `vrmc-input-tune.properties` then launcher **Reload input** (or relaunch). The
 provider logs `[VRMC-M7] gesture mode=...` and `[VRMC-M7] engine thresholds ... context=...` at init.
+
+- **Player-relative movement (EV-0250):** wrist-minus-head is projected onto the HMD horizontal
+  forward/right basis before the deadzone/scale mapping, so pushing the hand toward where the player
+  looks always walks forward regardless of world yaw.

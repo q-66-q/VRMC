@@ -215,6 +215,8 @@ public class VisionVR extends MCVR {
     // both-fist alternating-swing walk dispatch; the engine's both-fist walk detector stays as an
     // internal context/suppression signal only.
     private final Vector2f m7LocomotionAxes = new Vector2f();
+    private final Vector3f m7MoveForward = new Vector3f();
+    private final Vector3f m7MoveRight = new Vector3f();
     private boolean m7LocomotionEngaged;
     private long m7LocomotionLastLogNs;
     /** Reflective hotbar selection: LocalPlayer.getInventory() is @Nullable-annotated in MC 26.2 and the
@@ -1989,12 +1991,23 @@ public class VisionVR extends MCVR {
         float x = 0.0F;
         float y = 0.0F;
         if (usable && this.m7Gesture.leftPinchHeld()) {
-            VisionLocomotion.axes(
-                this.visionInput.wristX(VisionInput.HAND_LEFT),
-                this.visionInput.wristY(VisionInput.HAND_LEFT),
-                this.visionInput.wristZ(VisionInput.HAND_LEFT),
-                this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
-                this.moveOriginZ, this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone,
+            // Player-relative stick: project wrist-minus-head onto the HMD's horizontal forward/right
+            // basis. Using world X/Z here made "forward" depend on which way the player faced.
+            this.m7MoveForward.set(0.0F, 0.0F, -1.0F);
+            this.hmdPose.transformDirection(this.m7MoveForward);
+            this.m7MoveForward.y = 0.0F;
+            if (this.m7MoveForward.lengthSquared() < 1.0E-8F) {
+                this.m7MoveForward.set(0.0F, 0.0F, -1.0F);
+            } else {
+                this.m7MoveForward.normalize();
+            }
+            this.m7MoveRight.set(this.m7MoveForward.z, 0.0F, -this.m7MoveForward.x);
+            float relX = this.visionInput.wristX(VisionInput.HAND_LEFT) - this.hmdPose.m30();
+            float relZ = this.visionInput.wristZ(VisionInput.HAND_LEFT) - this.hmdPose.m32();
+            float along = relX * this.m7MoveForward.x + relZ * this.m7MoveForward.z;
+            float right = relX * this.m7MoveRight.x + relZ * this.m7MoveRight.z;
+            VisionLocomotion.axesRelative(along, right, this.moveOriginZ,
+                this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone,
                 this.m7LocomotionAxes);
             x = this.m7LocomotionAxes.x;
             y = this.m7LocomotionAxes.y;
@@ -2009,7 +2022,7 @@ public class VisionVR extends MCVR {
             this.m7LocomotionEngaged = engaged;
             this.m7LocomotionLastLogNs = nowNs;
             System.out.printf(
-                "[VRMC-M7] pinch stick %s strafe=%.2f forward=%.2f wrist=(%.2f,%.2f,%.2f)%n",
+                "[VRMC-M7] pinch stick(player-relative) %s strafe=%.2f forward=%.2f wrist=(%.2f,%.2f,%.2f)%n",
                 engaged ? "engaged" : "released", x, y,
                 this.visionInput.wristX(VisionInput.HAND_LEFT),
                 this.visionInput.wristY(VisionInput.HAND_LEFT),

@@ -61,6 +61,35 @@ public final class VisionLocomotion {
         dest.set(strafe * inv, forward * inv);
     }
 
+    /**
+     * Player-relative M7 movement: the caller already projected the wrist-minus-head vector onto the
+     * HMD's horizontal forward/right basis. {@code wristForward} is metres along the player's look
+     * direction (positive = in front), {@code wristRight} is metres to the player's right.
+     */
+    public static void axesRelative(float wristForward, float wristRight,
+                                    float originZ, float forwardScale, float strafeScale,
+                                    float deadzone, Vector2f dest) {
+        dest.set(0.0F, 0.0F);
+        if (!Float.isFinite(wristForward) || !Float.isFinite(wristRight)) {
+            return;
+        }
+        float forward = clamp((wristForward - originZ) * forwardScale);
+        float strafe = clamp(wristRight * strafeScale);
+        float magnitude = (float) Math.sqrt(forward * forward + strafe * strafe);
+        float dead = Math.max(0.0F, deadzone);
+        if (magnitude <= dead) return;
+        float scaled = Math.min(1.0F, (magnitude - dead) / Math.max(1.0E-4F, 1.0F - dead));
+        float inv = scaled / magnitude;
+        dest.set(strafe * inv, forward * inv);
+    }
+
+    public static Vector2f axesRelative(float wristForward, float wristRight, float originZ,
+                                        float forwardScale, float strafeScale, float deadzone) {
+        Vector2f out = new Vector2f();
+        axesRelative(wristForward, wristRight, originZ, forwardScale, strafeScale, deadzone, out);
+        return out;
+    }
+
     public static Vector2f axes(float wristX, float wristY, float wristZ,
                                 float headX, float headY, float headZ) {
         return axes(wristX, wristY, wristZ, headX, headY, headZ,
