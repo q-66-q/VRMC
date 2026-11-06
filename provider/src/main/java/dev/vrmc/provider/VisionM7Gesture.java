@@ -347,6 +347,7 @@ public final class VisionM7Gesture {
     private long menuPulseUntilNs;
     private long jumpPulseUntilNs;
     private long guiClickPulseUntilNs;
+    private boolean guiClickHeld;
     private long climbJumpPulseUntilNs;
     private boolean teleportHold;
     private boolean breakHeld;
@@ -861,10 +862,9 @@ public final class VisionM7Gesture {
             this.hotbarPendingNextNs = 0L;
         }
 
-        // ---- GUI: right pinch press = click ----
-        if (gui && this.pinchPressedThisFrameR && trackedR) {
-            this.guiClickPulseUntilNs = nowNs + 80_000_000L;
-        }
+        // ---- GUI: right pinch = left mouse button; holding it keeps the button down ----
+        // (the old 80 ms pulse could not express a long press/drag).
+        this.guiClickHeld = gui && this.pinchEngagedR && trackedR;
 
         // ---- publish outputs ----
         this.jump = nowNs < this.jumpPulseUntilNs;
@@ -877,7 +877,7 @@ public final class VisionM7Gesture {
         this.hotbarPrev = nowNs < this.hotbarPrevPulseUntilNs;
         this.bowDraw = this.bowActive;
         this.bowFire = nowNs < this.bowFireUntilNs;
-        this.guiClick = nowNs < this.guiClickPulseUntilNs;
+        this.guiClick = this.guiClickHeld;
         this.eat = this.eatHeld;
         this.climbJump = nowNs < this.climbJumpPulseUntilNs;
         this.walk = this.walkActive;
@@ -1139,6 +1139,7 @@ public final class VisionM7Gesture {
     public boolean bowDraw() { return this.bowDraw; }
     public boolean bowFire() { return this.bowFire; }
     public boolean guiClick() { return this.guiClick; }
+    public boolean leftPinchHeld() { return this.pinchEngagedL; }
     public boolean eat() { return this.eat; }
     public boolean climbGrabLeft() { return this.climbGrabL; }
     public boolean climbGrabRight() { return this.climbGrabR; }
@@ -1246,6 +1247,7 @@ public final class VisionM7Gesture {
         this.inventoryPulseUntilNs = 0L;
         this.menuPulseUntilNs = 0L;
         this.leftFistTapPulseUntilNs = 0L;
+        this.guiClickHeld = false;
         this.jumpPulseUntilNs = 0L;
         this.guiClickPulseUntilNs = 0L;
         this.climbJumpPulseUntilNs = 0L;

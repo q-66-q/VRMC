@@ -168,6 +168,7 @@ public class VisionVR extends MCVR {
     private final Vector3f m7GuiOrigin = new Vector3f();
     private final Vector3f m7GuiDir = new Vector3f();
     private int m7GuiWarnCount;
+    private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     private int m7GuiCursorLogCount;
     /** GUI-cursor session state: center once when a screen opens, then head-ray tracking. */
     private boolean m7GuiScreenOpen;
@@ -1255,7 +1256,8 @@ public class VisionVR extends MCVR {
         int winW = Math.max(1, this.mc.getWindow().getScreenWidth());
         int winH = Math.max(1, this.mc.getWindow().getScreenHeight());
         InputSimulator.setMousePos(
-            winW * 0.5D / this.m7CursorScaleX, winH * 0.5D / this.m7CursorScaleY);
+            winW * 0.5D / this.m7CursorScaleX,
+            (winH * (0.5D + M7_GUI_CURSOR_DOWN)) / this.m7CursorScaleY);
     }
 
     /**
@@ -1338,7 +1340,8 @@ public class VisionVR extends MCVR {
         // Divide the runtime onMove scale out so the stored MouseHandler position is uv*win; the
         // renderer/click mapping (xpos * guiScaledWidth / screenWidth) then lands on uv.
         double mx = uv.x * (double) winW / this.m7CursorScaleX;
-        double my = uv.y * (double) winH / this.m7CursorScaleY;
+        double uvY = Math.max(0.0D, Math.min(1.0D, uv.y + M7_GUI_CURSOR_DOWN));
+        double my = uvY * (double) winH / this.m7CursorScaleY;
         if (this.m7GuiCursorLogCount < 3) {
             this.m7GuiCursorLogCount++;
             System.out.printf("[VRMC-M7] head cursor uv=(%.4f,%.4f) screenPx=(%d,%d) mouse=(%.1f,%.1f) screen=%s%n",
@@ -1942,6 +1945,8 @@ public class VisionVR extends MCVR {
     private void applyM7Actions() {
         boolean gui = this.mc.gui.screen() != null;
         boolean seated = this.dh.vrSettings.seated;
+        applyM7Locomotion();
+        boolean moving = this.m7LocomotionEngaged;
         boolean use = this.m7Gesture.place() || this.m7Gesture.eat() || this.m7Gesture.bowDraw();
         boolean attack = this.m7Gesture.attack();
         setM7Action(VisionInput.KEY_ATTACK, VisionInput.HAND_RIGHT, attack);
@@ -1958,19 +1963,18 @@ public class VisionVR extends MCVR {
         setM7Action(VisionInput.KEY_INGAME_MENU, VisionInput.HAND_LEFT, menuAction);
         setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump());
         setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT, this.m7Gesture.sneak());
-        setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, this.m7Gesture.teleportHeld());
+        setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT,
+            this.m7Gesture.teleportHeld() && !moving);
         setM7Action(VisionInput.KEY_HOTBAR_NEXT, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarNext());
         setM7Action(VisionInput.KEY_HOTBAR_PREV, VisionInput.HAND_RIGHT, this.m7Gesture.hotbarPrev());
         applyM7GuiClick(gui);
         setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_LEFT, this.m7Gesture.climbGrabLeft());
         setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_RIGHT, this.m7Gesture.climbGrabRight());
         setM7Action(VisionInput.KEY_CLIMBEY_JUMP, VisionInput.HAND_NONE, this.m7Gesture.climbJump());
-
-        applyM7Locomotion();
     }
 
     /**
-     * M7 left-thumb virtual stick. While the LEFT thumb-middle pinch is held, the left wrist position
+     * M7 left-pinch virtual stick. While the LEFT thumb-index pinch is held, the left wrist position
      * relative to the head is a joystick: hand forward/back = walk forward/back, left/right = strafe
      * (same mapping/tunables as M4's middle-pinch locomotion: move.originZ/forwardScale/strafeScale/
      * deadzone). Values feed Vivecraft's keyFreeMoveStrafe analog action so free-move rotation/comfort
@@ -1984,7 +1988,7 @@ public class VisionVR extends MCVR {
             && this.mc.gui.screen() == null && !KeyboardHandler.SHOWING;
         float x = 0.0F;
         float y = 0.0F;
-        if (usable && this.visionInput.middlePressed(VisionInput.HAND_LEFT)) {
+        if (usable && this.m7Gesture.leftPinchHeld()) {
             VisionLocomotion.axes(
                 this.visionInput.wristX(VisionInput.HAND_LEFT),
                 this.visionInput.wristY(VisionInput.HAND_LEFT),
@@ -2005,7 +2009,7 @@ public class VisionVR extends MCVR {
             this.m7LocomotionEngaged = engaged;
             this.m7LocomotionLastLogNs = nowNs;
             System.out.printf(
-                "[VRMC-M7] thumb stick %s strafe=%.2f forward=%.2f wrist=(%.2f,%.2f,%.2f)%n",
+                "[VRMC-M7] pinch stick %s strafe=%.2f forward=%.2f wrist=(%.2f,%.2f,%.2f)%n",
                 engaged ? "engaged" : "released", x, y,
                 this.visionInput.wristX(VisionInput.HAND_LEFT),
                 this.visionInput.wristY(VisionInput.HAND_LEFT),
@@ -2181,7 +2185,7 @@ public class VisionVR extends MCVR {
             && this.mc.gui.screen() == null && !KeyboardHandler.SHOWING;
         float x = 0.0F;
         float y = 0.0F;
-        if (usable && this.visionInput.middlePressed(VisionInput.HAND_LEFT)) {
+        if (usable && this.m7Gesture.leftPinchHeld()) {
             VisionLocomotion.axes(
                 this.visionInput.wristX(VisionInput.HAND_LEFT),
                 this.visionInput.wristY(VisionInput.HAND_LEFT),

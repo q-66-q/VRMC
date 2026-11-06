@@ -108,3 +108,11 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
 - A lite app variant with JRE pruning is an experimental K6 option (app ~246 MB vs ~584 MB) but is
   **not installed/default** until device launch is validated.
 - Development package is not a release manifest sign-off.
+
+## 2026-11-05 latest M7 mapping (EV-0249)
+
+- Movement: left thumb-index pinch hold + move left hand (analog free-move); both-fist swing no longer moves.
+- GUI: right pinch = left mouse button; hold = long press/drag; release lifts.
+- Head-ray cursor offset 8% down.
+- Teleport shares left pinch, suppressed while moving; dedicated teleport gesture still needed.
+- Provider `a337481f…` pushed/verified; device movement/cursor/GUI retest pending.

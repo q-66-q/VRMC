@@ -1,16 +1,14 @@
 VRMC latest staged/installed development build (not a release manifest)
 
-date: 2026-11-05 (host time; provider-only update on top of the installed app bundle)
-source commit: 419f7f9 + working-tree fixes EV-0239 (cursor centring), EV-0242/0243 (onMove scale probe + VR-state re-probe), EV-0244 (direct GUI click dispatch), EV-0246/0247 (direct touch-hotbar + fail-safe), EV-0248 (left-thumb virtual-stick movement)
-app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent; app bundle unchanged by the provider-only push)
-app path at staging: /tmp/VRMC-native-checklist-summary.app (installed app bundle from the prior staging; not rebuilt here)
-signed Mach-O files: 169 (codesign --verify --deep --strict PASS at the prior staging; app bundle not re-signed in this provider-only push)
-provider jar sha256: 37262f9c4881dde1ac796f2de751c50198d5ef735f5b2574626855e94016c345
-provider bytes: 124958
+date: 2026-11-05 (host time)
+source commit: M7 left-pinch movement + GUI LMB hold + cursor down (regenerate from a clean release commit)
+app tree sha256: a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb (path-independent, scripts/app_tree_sha256.sh)
+app path at staging: /tmp/VRMC-native-checklist-summary.app
+signed Mach-O files: 169 (codesign --verify --deep --strict PASS)
+provider jar sha256: a337481f0a5f46185833386a8e7e0549420eaa8abfed6e46c76e7fdd1cff9e3f
+provider bytes: 125116
 gesture mode: m7
-movement mapping: left thumb-middle pinch hold + move left hand = analog walk/strafe (EV-0248; both-fist swing no longer moves)
-provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar (round-trip sha256 PASS, EV-0248)
-installed Vivecraft runtime (audited, EV-0245/EV-0246): vivecraft-26.2-1.3.15-fabric.jar sha256 e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb (6,685,183 B)
-device launch: NOT RUN (devicectl app launch fails with "Failed to allocate RSD device"; relaunch is operator-side); device movement/cursor/click/touch-hotbar retest pending
-crash-guard state: Documents/vrmc-crash-count.txt is -2 (write to -3 failed with a devicectl connection error; -2 still leaves four unclean launches of headroom; a clean destroy-complete resets it to 0)
-note: previous installed jars: 0ee811fd.../124629 B (EV-0247), 747ed2ab.../124561 B (EV-0246), 71d08da4.../122375 B (EV-0244)
+movement: left thumb-index pinch hold + move left hand (analog); teleport suppressed while moving
+GUI: right pinch = LMB, hold = long press; head cursor 8% below centre
+provider jar push/integrity: OK -> Documents/instances/default/mods/vrmc-provider.jar
+device lock at staging: passcodeRequired=true (no behavior test performed)

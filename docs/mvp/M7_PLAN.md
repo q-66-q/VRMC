@@ -93,3 +93,11 @@ A/B. Rebuild order after A/B pass:
 
 Each row: **triggered (Y/N), false-trigger count (None/Occasional/Frequent), response timeliness,
 operator 1–5 score.** Record m4 vs m7 side by side for the A/B.
+
+## 2026-11-05 latest mapping changes (EV-0249)
+
+- Movement uses **left thumb-index pinch hold + move left hand**; both-fist swing no longer moves.
+- GUI right pinch is the **left mouse button**; hold = long press/drag, release lifts.
+- Head-ray cursor is offset **8% down** from centre.
+- Teleport shares left pinch and is suppressed while moving; a dedicated teleport gesture remains a follow-up.
+- Device retest for movement/cursor/click/long-press is pending.

@@ -33,14 +33,14 @@
 | teleport | left pinch hold ≥ 120 ms starts aim; release commits; world/seat/GUI/walk/bow/climb suppression |
 | menu | left fist tap 60–550 ms with a quiet left hand, no chord/bow/climb/pinch/attack context |
 | inventory | both-fist tap ≤ 450 ms, max wrist separation < 0.50 m, never walk/bow/climb/tracking-loss |
-| walk | engine detector: both fists + opposite-phase swing on the head-forward axis; starts on 2 crossings (or 1 crossing with ≥ 0.18 m amplitude), continues while both fists are closed, stops 1.2 s after the swing motion ends. **Operator mapping changed 2026-11-05 (EV-0248): movement dispatch is now the left thumb-middle pinch virtual stick (forward/back/strafe analog via `keyFreeMoveStrafe`); the both-fist walk output is retained only as an internal context/suppression signal and the replay-gate walk rows remain engine tests.** |
+| movement | **left thumb-index pinch hold + move the left hand** as a joystick (forward/back = walk, left/right = strafe), analog via `keyFreeMoveStrafe`; replaces both-fist swing (EV-0248/EV-0249). The engine's both-fist walk detector remains only as a context/suppression signal. Teleport shares left pinch but is suppressed while movement axes are non-zero. |
 | attack | one-handed closed-hand swing, 120 ms windowed wrist speed ≥ 1.4 m/s (peak-aligned policy), 400 ms cooldown, re-arm < 0.8 m/s, suppression by both-fist/walk/bow/eat/pinch/climb/head contexts |
 | bow | bow held + both fists + |head-forward separation| > 0.30 m (exit 0.22) at chest height (max up > -0.30), armed 100 ms; release of the draw fires (Minecraft hold-to-draw semantics) |
 | eat | food/drink held + right hand in the 0.30 m face ball (forward > -0.02, lateral < 0.28, up -0.45…0.10), 60 ms latch, 150 ms tracking-gap bridging, exit hysteresis 0.32 m |
 | hotbar | quiet-wrist index-fingertip tap (60 ms tip window > 0.82 m/s, wrist 120 ms window < 0.45, index ≥ 1.35× middle), 320 ms delayed single-tap decision → next; a second tap 500–650 ms later → previous (one pulse per physical tap, return motion ignored). **Direct touch selection (EV-0246):** the right index fingertip on the rendered wrist/HUD inventory bar selects that slot (6 cm proximity, 60 ms same-slot dwell with <3 cm drift, 300 ms cooldown; guarded off in GUI/seated/HEAD-HUD/untracked) |
 | jump / sneak | dt-corrected head baseline (τ = 2 s) frozen outside a 0.10 m dead-band; jump = 0.10 m rise + 0.35 m/s windowed velocity, 0.7 s cooldown; sneak = 0.12 m drop latched 0.5 s, released below 0.05 m for 250 ms; steep look-down (pitch < ~-46°) gates both; landing after a jump cannot sneak |
 | climb | Vivecraft climb context + closed hand above the chest (up > -0.10 m in context mode); grab latches until the hand opens or the pull passes -0.50 m; jump chord = both hands pulling down within 250 ms |
-| GUI | right pinch press = click; left-fist tap close pulse; world gestures suppressed |
+| GUI | **right pinch = left mouse button**; press-and-hold keeps LMB down for long press/drag; release lifts. Head-ray cursor sits 8% below centre. Left-fist tap closes the screen; world gestures suppressed. |
 
 ## Replay gate status (2026-11-03, evaluator v2)
 
