@@ -342,3 +342,13 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   8 rows with the auto ramp to eyeTarget 2568×2248/scale 0.70; 27/27 trace checks; provider suite ALL
   PASS (jar `2cc9626a…`, 144,529 B, two-build reproducible); classifier 5/5; fast self-check PASS;
   durable package rebuilt (zip sha256 `c5170e1c…`). **Device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0286: **Device-session report generator + `collect --report` (host tooling).**
+  `scripts/m8_device_report.sh` turns a pull into a reviewable report: build identity from the
+  candidate manifest, full A6–A9 classifier output, key compositor/provider/shell lines, the frame
+  trace summary, an operator visual-statement section (`--operator-note`) and PASS/PARTIAL/FAIL/NOT
+  RUN next steps; `--evidence` creates the evidence bundle from the same pull.
+  `scripts/m8_device_session.sh collect --report [--evidence]` runs it while preserving the classifier
+  exit code. Verified on a synthetic PASS fixture (all report sections, trace rows=2, exit 0), a
+  simulator PARTIAL pull, and the evidence path (bundle created from the fixture and removed to keep
+  TEST DATA out of the evidence set). No rendering code changed; **device A6–A9 still NOT RUN.**

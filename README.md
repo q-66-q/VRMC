@@ -31,7 +31,7 @@ This is a **development/sideload** project, not an App Store submission.
   (app + provider jar + checksums, `scripts/m8_device_package.sh`) plus
   [`M8_DEVICE_HANDOFF.md`](docs/mvp/M8_DEVICE_HANDOFF.md) capture everything needed to finish on the
   headset; the next device session is one command each way (`scripts/m8_device_session.sh prepare` /
-  `collect`), with device eye-tracked foveation and cadence still unverified.
+  `collect --report`), with device eye-tracked foveation and cadence still unverified.
 - Current provider: `4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351`
   (127,258 bytes)
 - Current app tree: `a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb`

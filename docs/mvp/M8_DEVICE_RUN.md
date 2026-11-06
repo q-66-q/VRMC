@@ -68,7 +68,8 @@ install and provider push, prints the operator checklist, and classifies the ses
 ```bash
 scripts/m8_device_session.sh prepare     # validate hashes + codesign, install app, push provider jar, checklist
 # operator: StikDebug JIT -> launch -> Play -> immersive -> play 3-5 min -> Quit Game
-scripts/m8_device_session.sh collect     # pull the session logs and classify A6-A9
+scripts/m8_device_session.sh collect --report   # pull + classify + write export/m8-device-session-report.md
+# optional: --evidence also creates an evidence bundle from the pull (classifier + report + logs)
 ```
 
 `--dry-run` prints the exact device commands and validates the local artifacts without touching D1;

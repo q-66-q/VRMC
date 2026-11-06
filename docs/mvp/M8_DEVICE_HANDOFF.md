@@ -48,11 +48,14 @@ PROVIDER_JAR="$PWD/export/m8-device-package/vrmc-provider.jar" \
 #      scripts/push_m8_render_config.sh --sharpening off     # halo A/B
 #    then Quit Game with the game's own quit.
 
-# 3. pull + classify A6–A9
-scripts/m8_device_session.sh collect
+# 3. pull + classify A6–A9 and write the session report
+scripts/m8_device_session.sh collect --report      # add --evidence to bundle the pull
 ```
 
-The collector writes `/tmp/vrmc-m8-device/` and exits 0 PASS / 2 PARTIAL / 3 NOT RUN / 4 FAIL.
+The collector writes `/tmp/vrmc-m8-device/`, classifies A6–A9 (exit 0 PASS / 2 PARTIAL / 3 NOT RUN /
+4 FAIL) and, with `--report`, writes `export/m8-device-session-report.md` (classifier output, key log
+lines, frame trace, build identity and the operator-statement placeholder). `--evidence` create the
+evidence bundle from the same pull.
 A6 foveation/rate maps · A7 4K-class logical size + provider eye targets · A8 measured displayHz
 (+ target-cadence source) · A9 pacing/regressions. If A6/A7/A8 pass, run the A/B above once with
 `--world-supersample 1.44` (relaunch) for the jaggedness question.

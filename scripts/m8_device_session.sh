@@ -14,6 +14,8 @@
 #
 # Options/env:
 #   --dry-run            validate + print the exact device commands, change nothing
+#   --report             collect also writes export/m8-device-session-report.md (+ report script)
+#   --evidence           with --report: also create an evidence bundle for the session
 #   --from <dir>         classify an existing pull directory (implies collect)
 #   APP                  app bundle (default /tmp/VRMC-native-m8.app)
 #   PROVIDER_JAR         provider jar (default /tmp/vrmc-provider-build/vrmc-provider.jar)
@@ -35,6 +37,8 @@ OUTDIR="${OUTDIR:-/tmp/vrmc-m8-device}"
 MANIFEST="${MANIFEST:-$ROOT/export/m8-device-candidate.txt}"
 DRY_RUN=0
 FROM=""
+REPORT=0
+EVIDENCE=0
 MODE="${1:-}"
 
 usage() { sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
@@ -45,6 +49,8 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     prepare|collect|all) MODE="$1"; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --report) REPORT=1; shift ;;
+    --evidence) EVIDENCE=1; shift ;;
     --from) FROM="${2:?--from needs a directory}"; MODE="collect"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     "") shift ;;
@@ -57,18 +63,25 @@ run() { if [ "$DRY_RUN" = "1" ]; then echo "  DRY-RUN: $*"; else "$@"; fi; }
 
 # ---- shared: classify (collect) ---------------------------------------------------------------
 collect() {
+  local rc
   if [ -n "$FROM" ]; then
     note "classifying existing pull: $FROM"
     "$ROOT/scripts/m8_device_check.sh" --from "$FROM"
-    return $?
-  fi
-  if [ "$DRY_RUN" = "1" ]; then
+    rc=$?
+  elif [ "$DRY_RUN" = "1" ]; then
     echo "  DRY-RUN: OUTDIR=$OUTDIR scripts/m8_device_check.sh"
-    return 0
+    rc=0
+  else
+    note "pulling the latest session logs and classifying A6-A9 -> $OUTDIR"
+    OUTDIR="$OUTDIR" "$ROOT/scripts/m8_device_check.sh"
+    rc=$?
   fi
-  note "pulling the latest session logs and classifying A6-A9 -> $OUTDIR"
-  OUTDIR="$OUTDIR" "$ROOT/scripts/m8_device_check.sh"
-  return $?
+  if [ "$REPORT" = "1" ] && [ "$DRY_RUN" != "1" ]; then
+    local report_args=(--from "${FROM:-$OUTDIR}")
+    if [ "$EVIDENCE" = "1" ]; then report_args+=(--evidence); fi
+    "$ROOT/scripts/m8_device_report.sh" "${report_args[@]}" || note "WARN: report generation failed (classifier rc=$rc preserved)"
+  fi
+  return "$rc"
 }
 
 # ---- shared: local artifact validation --------------------------------------------------------
@@ -154,6 +167,6 @@ case "$MODE" in
   collect) collect ;;
   all)
     prepare || exit $?
-    note "prepare done. After the play session run: scripts/m8_device_session.sh collect"
+    note "prepare done. After the play session run: scripts/m8_device_session.sh collect --report"
     ;;
 esac
