@@ -10,11 +10,12 @@ package dev.vrmc.provider;
  * This is the resolution-vs-frame-rate tradeoff that matters for the "4K in both eyes at 120 Hz"
  * objective: fewer pixels lost, cheaper frames gained.
  *
- * Pure policy: the renderer passes the current distances and a "struggling" flag; {@link #decide}
- * returns the new {render, simulation} distances to apply, or {@code null} for "no change".
- * Hysteresis: two consecutive struggling windows are required, at most one reduction is applied per
- * window, a one-window cooldown separates reductions, and at most three reductions happen per
- * session (never below the configured minimums).
+ * Pure policy: the renderer passes the current distances and a "pressure" flag (any window materially
+ * over the target frame budget); {@link #decide} returns the new {render, simulation} distances to
+ * apply, or {@code null} for "no change". Pressure accumulates (+1 over budget, -1 under budget,
+ * floored at 0) so oscillating loads still act; two pressure points are required, at most one
+ * reduction is applied per window, a one-window cooldown separates reductions, and at most three
+ * reductions happen per session (never below the configured minimums).
  */
 public final class VisionContentGovernor {
     public static final int MIN_RENDER_DISTANCE = 6;
@@ -25,7 +26,8 @@ public final class VisionContentGovernor {
     public static final int COOLDOWN_WINDOWS = 1;
 
     private boolean enabled;
-    private int strugglingStreak;
+    /** Decayed pressure counter: +1 on a struggling window, -1 on a calm window (never below 0). */
+    private int pressure;
     private int cooldown;
     private int reductions;
     private int renderReductions;
@@ -34,7 +36,7 @@ public final class VisionContentGovernor {
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
         if (!enabled) {
-            this.strugglingStreak = 0;
+            this.pressure = 0;
             this.cooldown = 0;
         }
     }
@@ -64,21 +66,23 @@ public final class VisionContentGovernor {
      */
     public int[] decide(boolean struggling, int renderDistance, int simulationDistance) {
         if (!this.enabled) {
-            this.strugglingStreak = 0;
+            this.pressure = 0;
             this.cooldown = 0;
             return null;
         }
         if (!struggling) {
-            this.strugglingStreak = 0;
+            // Decay rather than hard-reset: an oscillating (on/off budget) load still accumulates
+            // pressure instead of never reaching the threshold.
+            this.pressure = Math.max(0, this.pressure - 1);
             if (this.cooldown > 0) this.cooldown--;
             return null;
         }
-        this.strugglingStreak++;
+        this.pressure++;
         if (this.cooldown > 0) {
             this.cooldown--;
             return null;
         }
-        if (this.strugglingStreak < REQUIRED_STRUGGLING_WINDOWS || this.reductions >= MAX_REDUCTIONS) {
+        if (this.pressure < REQUIRED_STRUGGLING_WINDOWS || this.reductions >= MAX_REDUCTIONS) {
             return null;
         }
         boolean renderRoom = renderDistance - STEP >= MIN_RENDER_DISTANCE;
@@ -97,7 +101,7 @@ public final class VisionContentGovernor {
         }
         if (newRender == renderDistance && newSimulation == simulationDistance) return null;
         this.reductions++;
-        this.strugglingStreak = 0;
+        this.pressure = 0;
         this.cooldown = COOLDOWN_WINDOWS;
         if (newRender != renderDistance) this.renderReductions++;
         if (newSimulation != simulationDistance) this.simulationReductions++;

@@ -115,7 +115,7 @@ Files (push with `devicectl device copy to`, relaunch as noted):
 | `vrmc-max-render-quality.txt` | `Documents/` (shell) | 0.05–1.0 (memory upper bound) | next immersive open |
 | `vrmc-target-hz.txt` | game dir (`Documents/instances/default/`) (provider) | `auto` (default; follow measured display) or 60..120 Hz to aim the auto eye-scale policy at a higher cadence (e.g. 120 while the system reports 90); achievement is still measured. If the display stays below the target for 8 windows the provider auto-reverts and logs `unreachable … reverting to auto` (change the file to retry) | live (~300 frames) |
 | `vrmc-world-supersample.txt` | game dir (`Documents/instances/default/`) (provider) | `off` (default) or 1.0..2.0 (Vivecraft renderScaleFactor): SSAA — world rendered at eye-target × √factor per axis, resolved down to the eye target; startup-only (relaunch), pure pixel-cost trade for jagged edges | next launch |
-| `vrmc-content-first.txt` | game dir (`Documents/instances/default/`) (provider) | `off` (default) or `on`: when struggling, cut render/simulation distance before eye-target resolution | live (~300 frames) |
+| `vrmc-content-first.txt` | game dir (`Documents/instances/default/`) (provider) | `off` (default) or `on`: when the frame budget is missed (decaying pressure; 2 points), cut render/simulation distance before eye-target resolution | live (~300 frames) |
 | `vrmc-sharpening.txt` | `Documents/` (compositor) | `auto` (default; fovea-weighted CAS-lite when the provider renders below the logical size), `off` (plain bilinear), or a fixed strength 0.05..1.0 | live (~300 frames) |
 | `vrmc-foveation-off.flag` | `Documents/` (shell) | A/B: uniform rasterization (one-way on device: an app-data reset or `vrmc-clear-diagnostics.flag` restores foveation) | next immersive open |
 
@@ -154,6 +154,9 @@ Interpretation:
 - **A9 PARTIAL/FAIL:** if `render feedback publish FAILED`/command-buffer failures appear, record the
   session as FAIL and keep the logs (they are hashed as evidence). If only p95 is over budget, lower
   the eye scale and re-run.
+- **Resize failure fallback:** if `[VRMC-M8][WARN] eye-target rebuild failed …` appears, the M8 auto
+  eye scale disabled itself to avoid a loop; the session keeps running at the current target. Record it
+  as a regression (attach the log) and relaunch; a fixed `vrmc-eye-scale.txt` still works.
 - **Resize hitch / texture lifetime:** the provider clears the shared eye frame before each eye-target
   rebuild, so the compositor cannot sample a destroyed eye texture; it may show its fallback pattern
   for one or two frames during a resize (intentional). If the auto-ramp transients are objectionable,

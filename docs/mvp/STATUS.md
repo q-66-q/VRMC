@@ -310,3 +310,14 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   survives the rate map) and mean absolute change 0.018 (anti-halo bound 0.15). Fast M3c self-check
   PASS. **Device A6–A9 still NOT RUN**; the interaction is validated on host Metal with a synthetic
   rate map, not device optics.
+
+- 2026-11-06 EV-0283: **Resize-failure containment + all-knobs host soak (PASS).** The M8 eye-target
+  rebuild is now wrapped: if an experimental rebuild throws, the provider logs a warning, keeps the
+  current target and disables the auto eye scale instead of crashing the render loop (fixed scale
+  keeps working). Content-first now uses a broader decaying-pressure trigger (any window materially
+  over budget counts, +1/−1, two points) so oscillating loads still act. The host harness gained
+  `SOAK_SECONDS`; a 120 s soak with `TARGET_HZ=120 CONTENT_FIRST=on SUPERSAMPLE=1.44` produced
+  **8 eye-target rebuilds and 0 M8 exceptions** (final eyeTarget 3112×2728 at 120 Hz target, scale
+  0.90, resizes=8); an earlier heavier-load run showed 2 resizes, 0 exceptions, scale 0.50→0.40.
+  Provider suite ALL PASS (jar `2242c116…`, 142,529 B, two-build reproducible); push self-test 41
+  checks; classifier 5/5; fast self-check PASS. **Device A6–A9 still NOT RUN.**

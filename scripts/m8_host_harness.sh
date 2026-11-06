@@ -229,6 +229,24 @@ if [ -n "$RESIZE_LINE" ]; then
     say "world-supersample knob was set but no '[VRMC-M8] world supersample:' line appeared"
     PASS=0
   fi
+  # Optional soak with all knobs enabled: keep the real client running and re-check the M8 invariants.
+  if [ -n "${SOAK_SECONDS:-}" ] && [ "$SOAK_SECONDS" -gt 0 ] 2>/dev/null; then
+    say "soaking ${SOAK_SECONDS}s with the client running (knobs stay active) ..."
+    sleep "$SOAK_SECONDS"
+    SOAK_RESIZES=$(grep -c '\[VRMC-M8\] eye target resize' "$LATEST" 2>/dev/null || true)
+    SOAK_ERRORS=$(grep -cE '\[VRMC-M8\].*(ERROR|Exception)' "$LATEST" 2>/dev/null || true)
+    SOAK_STATE=$(grep '\[VRMC-M8\] render state' "$LATEST" 2>/dev/null | tail -1 || true)
+    echo "  soak after ${SOAK_SECONDS}s: resizes=${SOAK_RESIZES} M8-exceptions=${SOAK_ERRORS}" | tee -a "$LOG"
+    [ -n "$SOAK_STATE" ] && echo "  $SOAK_STATE" | tee -a "$LOG"
+    if [ "${SOAK_ERRORS:-0}" != "0" ]; then
+      say "soak found ${SOAK_ERRORS} M8 exception line(s)"
+      PASS=0
+    fi
+    if [ "${SOAK_RESIZES:-0}" -lt 1 ] 2>/dev/null; then
+      say "soak expected at least one eye-target resize"
+      PASS=0
+    fi
+  fi
   say "M8 renderer resize path: $([ "$PASS" = "1" ] && echo PASS || echo FAIL)"
 else
   say "TIMEOUT: no '[VRMC-M8] eye target resize #1:' line within ${TIMEOUT}s (see $LOG / $LATEST)"

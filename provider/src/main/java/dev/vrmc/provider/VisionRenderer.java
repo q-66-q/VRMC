@@ -102,6 +102,8 @@ public class VisionRenderer extends VRRenderer {
     private long lastContentFirstReadFrame = -1000L;
     /** Frame index when the world level became non-null (-1 = no level yet); drives resize gating. */
     private long levelLoadedFrame = -1L;
+    /** True once an eye-target rebuild threw; the auto policy is disabled to avoid a retry loop. */
+    private boolean loggedResizeFailure;
     private boolean loggedM8State;
     private long frameIndex;
     private boolean polled;
@@ -731,6 +733,12 @@ public class VisionRenderer extends VRRenderer {
         final boolean struggling = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
             || stats.p50Ms > targetMs * 1.25;
         final boolean headroom = stats.missedTargetFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
+        // Content-first pressure: broader than the resolution policy's "struggling" (any window
+        // materially over budget counts), so scene cost is cut before resolution when frames drift
+        // above the target; the governor also decays pressure instead of hard-resetting, so an
+        // oscillating on/off-budget load still accumulates enough pressure to act.
+        final boolean contentPressure = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
+            || stats.p50Ms > targetMs * 1.05;
         // Target-cadence guardrail: never chase a cadence the display does not provide. If the
         // compositor keeps reporting a lower measured cadence, revert to auto so the policy does not
         // crush resolution forever on hardware that never promotes (operator can change the file to
@@ -764,7 +772,8 @@ public class VisionRenderer extends VRRenderer {
         } catch (RuntimeException | LinkageError ignored) {
             // options unavailable: the governor simply finds no room and the resolution policy applies
         }
-        int[] contentReduction = this.contentGovernor.decide(struggling, renderDistance, simulationDistance);
+        int[] contentReduction = this.contentGovernor.decide(contentPressure, renderDistance,
+            simulationDistance);
         if (contentReduction != null) {
             try {
                 Minecraft.getInstance().options.renderDistance().set(contentReduction[0]);
@@ -812,8 +821,29 @@ public class VisionRenderer extends VRRenderer {
         }
     }
 
-    /** Resize the stereo eye targets to the current logical display size x eye scale. */
+    /**
+     * M8 resize safety wrapper: an experimental render-target rebuild must never crash the render loop.
+     * If it throws, keep the previous target (the VRRenderer state is not trusted after a failed
+     * rebuild), disable the auto eye scale so the same failing rebuild is not retried every 240 frames,
+     * and log once. A fixed eye scale keeps working.
+     */
     private void maybeResizeEyeTargets(VisionRenderSettings settings) {
+        try {
+            maybeResizeEyeTargetsUnchecked(settings);
+        } catch (RuntimeException | LinkageError resizeError) {
+            if (!this.loggedResizeFailure) {
+                this.loggedResizeFailure = true;
+                System.out.println("[VRMC-M8][WARN] eye-target rebuild failed (" + resizeError
+                    + "); keeping the current target " + this.currentEyeWidth + "x"
+                    + this.currentEyeHeight + " and disabling the auto eye scale to avoid a resize loop");
+            }
+            this.eyeScaleAuto = false;
+            this.eyeScaleSource = "auto(disabled-after-resize-failure)";
+        }
+    }
+
+    /** Resize the stereo eye targets to the current logical display size x eye scale. */
+    private void maybeResizeEyeTargetsUnchecked(VisionRenderSettings settings) {
         int[] target = VisionRenderSettings.eyeTarget(settings, this.eyeScale);
         if (target == null) return;
         if (!VisionRenderSettings.isChangeSignificant(this.currentEyeWidth, this.currentEyeHeight,

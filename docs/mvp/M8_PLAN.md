@@ -109,8 +109,8 @@ pure pixel-cost trade for jagged edges, and logged with the resulting scale.
 When the target cadence cannot be met, the default policy lowers the eye-target resolution. With
 `Documents/instances/default/vrmc-content-first.txt` = `on` (default off) the provider instead cuts
 **scene cost first** — render distance, then simulation distance, then a second render-distance step
-(two consecutive struggling windows, one step per window, at most three per session, never below the
-6-chunk minimums) — and only then lowers the eye-target resolution. That preserves the 4K-class image
+(pressure accumulates +1 on a window materially over budget and decays −1 under budget; two points
+needed, one step per window, at most three per session, never below the 6-chunk minimums) — and only then lowers the eye-target resolution. That preserves the 4K-class image
 while making frames cheaper, which is the right trade for the "4K at 120 Hz" objective.
 
 The auto eye-scale policy normally aims at the cadence the compositor measured, so at 90 Hz it would
@@ -269,6 +269,10 @@ Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
 - **Drawable memory**: rgba16Float at max render quality (two drawables) is large; if the app approaches
   the memory limit, use `vrmc-max-render-quality.txt=0.75` (memory is fixed by the max quality setting,
   runtime quality changes do not change memory).
+- **Resize failure containment**: the eye-target rebuild is wrapped so a failing experimental rebuild
+  cannot crash the render loop: it logs `[VRMC-M8][WARN] eye-target rebuild failed …`, keeps the
+  current target and disables the auto eye scale (a fixed scale keeps working). This is a fallback, not
+  expected behaviour, and is reported by the device checker if it appears.
 - **Resize hitch / texture lifetime**: a provider eye-target resize rebuilds every render target; the
   first one happens after the first display feedback (~frame 60+) and is rate-limited (240 frames). Before
   the rebuild the provider now **clears the shared eye frame**, so the compositor cannot acquire a
