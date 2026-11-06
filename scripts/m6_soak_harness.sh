@@ -32,6 +32,10 @@ fi
 [ -n "$DEVICE_UDID" ] || { echo "[m6-soak] ERROR: DEVICE_UDID is required for --device" >&2; exit 2; }
 mkdir -p "$OUT"
 pull() { xcrun devicectl device copy from --device "$DEVICE_UDID" --domain-type appDataContainer --domain-identifier "$BUNDLE_ID" --source "$1" --destination "$2" >/dev/null 2>&1 || true; }
+# Snapshot the journal before monitoring so historical sessions cannot satisfy the clean-shutdown check.
+pull Documents/instances/default/vrmc-shutdown.log "$OUT/shutdown-initial.log"
+INITIAL_LINES=$(wc -l < "$OUT/shutdown-initial.log" 2>/dev/null | tr -d ' ' || echo 0)
+echo "[m6-soak] shutdown baseline lines=${INITIAL_LINES:-0}"
 echo "[m6-soak] monitoring $BUNDLE_ID on $DEVICE_UDID for ${SOAK_SECONDS}s; artifacts $OUT"
 fail=0
 start=$(date +%s)
@@ -56,14 +60,29 @@ while :; do
   sleep "$POLL_SECONDS"
 done
 latest_shutdown=$(ls -t "$OUT"/shutdown-*.log 2>/dev/null | head -1 || true)
-if [ -n "$latest_shutdown" ] && grep -q "destroy-complete" "$latest_shutdown"; then
-  echo "[m6-soak] shutdown journal: destroy-complete present"
+if [ -n "$latest_shutdown" ]; then
+  new_events=$(tail -n +$((INITIAL_LINES + 1)) "$latest_shutdown" 2>/dev/null || true)
+  last_event=$(printf '%s\n' "$new_events" | grep -E "event=(init|destroy-start|destroy-complete)" | tail -1 || true)
+  init_count=$(printf '%s\n' "$new_events" | grep -c "event=init" || true)
+  echo "[m6-soak] shutdown journal last new event: ${last_event:-<none>}"
+  if [ "$REQUIRE_CLEAN_SHUTDOWN" = "1" ]; then
+    if ! printf '%s' "$last_event" | grep -q "event=destroy-complete"; then
+      echo "[m6-soak] FAIL: last new shutdown event is not destroy-complete (crash/force-kill or still running)"
+      fail=1
+    fi
+    if [ "${init_count:-0}" -ne 1 ]; then
+      echo "[m6-soak] FAIL: $init_count provider init events in soak window (expected exactly 1 continuous session)"
+      fail=1
+    fi
+  else
+    echo "[m6-soak] WARN: REQUIRE_CLEAN_SHUTDOWN=0; not enforcing last event/one-init"
+  fi
 else
   if [ "$REQUIRE_CLEAN_SHUTDOWN" = "1" ]; then
-    echo "[m6-soak] FAIL: no destroy-complete in shutdown journal (no session, game still running, or teardown crash)"
+    echo "[m6-soak] FAIL: no shutdown journal captured (no session, game still running, or teardown crash)"
     fail=1
   else
-    echo "[m6-soak] WARN: no destroy-complete in shutdown journal (REQUIRE_CLEAN_SHUTDOWN=0)"
+    echo "[m6-soak] WARN: no shutdown journal captured"
   fi
 fi
 latest_status=$(ls -t "$OUT"/status-*.json 2>/dev/null | head -1 || true)
