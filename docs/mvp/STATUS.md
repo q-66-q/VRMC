@@ -193,3 +193,12 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   preview PASS) and `export/m8-device-candidate.txt` with install/tuning/rollback commands. D1 install
   attempt fails with `CoreDeviceError 4016` (device unavailable) → **device install/A6–A9 NOT RUN**;
   the candidate is ready to install when the headset is reachable.
+
+- 2026-11-05 EV-0272: **M8 host Fabric harness PASS (host GL).** Added `scripts/m8_host_harness.sh`
+  and [M8_HOST_HARNESS.md](M8_HOST_HARNESS.md): the real M8 provider runs inside a real Minecraft 26.2 +
+  Fabric + Vivecraft desktop client while a host test bridge dylib feeds fake 3660×3200 / foveation=1 /
+  120 Hz display geometry through the real native-shared channel. The provider starts at 1024×1024 with
+  no feedback, then resizes its stereo eye targets **1024×1024 → 1832×1600** through Vivecraft's
+  `Reinit Render` path and ramps the auto eye scale (0.60 → 2200×1928, 0.70 → 2568×2248) at the
+  240-frame cadence with **0 M8 exceptions**. This de-risks the provider part of device row A7 (host
+  desktop GL, fabricated feedback, menu room only — **not** device/Vulkan/optics evidence).

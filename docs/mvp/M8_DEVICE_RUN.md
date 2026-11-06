@@ -35,6 +35,18 @@ M8 is the foveated 4K/120 rendering pipeline:
 4. The existing instance with Vivecraft 26.2-1.3.15 + the VRMC provider jar in
    `Documents/instances/default/mods/`.
 
+## 1b. Optional host pre-check (no headset)
+
+Before a device session you can validate the provider-side feedback→resize path on the Mac:
+
+```bash
+VIVECRAFT_REF=/path/to/VivecraftMod-Multiloader-26.2 scripts/m8_host_harness.sh
+```
+
+It runs the real provider in a real Minecraft client with fake 3660×3200 / 120 Hz display feedback and
+must log `1024x1024 -> 1832x1600` and `resizes=1` (see [M8_HOST_HARNESS.md](M8_HOST_HARNESS.md)).
+Host GL only; it does not replace the device rows.
+
 ## 2. First run (defaults)
 
 1. Install/stage the build:

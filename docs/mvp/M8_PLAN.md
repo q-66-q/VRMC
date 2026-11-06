@@ -139,6 +139,14 @@ Host/simulator (this change):
   logical under VRR); the negative control with a physical-size viewport corrupts the foveal centre,
   proving the viewport convention the compositor uses. **PASS (host Metal; 6 checks)** — *not
   device/visionOS optics or eye-tracked foveation evidence*.
+- A7b host Fabric harness: `scripts/m8_host_harness.sh` (docs: [M8_HOST_HARNESS.md](M8_HOST_HARNESS.md))
+  runs the real M8 provider inside a real Minecraft 26.2 + Fabric + Vivecraft desktop client and feeds
+  it fake 3660×3200 / foveation=1 / 120 Hz display feedback through the real bridge channel. The
+  provider starts at 1024×1024 with no feedback, then polls, parses and resizes its stereo eye targets
+  **1024×1024 → 1832×1600** through Vivecraft's reinit path; with headroom the auto controller then ramps
+  0.60 (2200×1928) and 0.70 (2568×2248) at the 240-frame cadence, with no M8 exceptions.
+  **PASS (host GL; EV-0272)** — *not device/Vulkan/optics evidence; display feedback is fabricated and
+  the menu-room branch only*.
 
 Device (D1, NOT RUN; one operator session):
 - A6 `vrmc-compositor.log` shows `layer configuration ... foveation=1 ... maxRenderQuality=1.00` and
