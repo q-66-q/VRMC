@@ -18,7 +18,8 @@ This is a **development/sideload** project, not an App Store submission.
   `scripts/m8_device_check.sh` (runbook [`docs/mvp/M8_DEVICE_RUN.md`](docs/mvp/M8_DEVICE_RUN.md)).
   The compositor's foveation sampling path is validated on host Metal against a real rasterization
   rate map plus its M8.6 foveated-sharpening upscale metrics and the combined foveated-drawable +
-  sharpening pass ([probe](runtime/probes/m8-foveation/README.md)) and by an upscale quality ladder
+  sharpening pass ([probe](runtime/probes/m8-foveation/README.md)), by a cross-language render-feedback ABI
+  fixture (C struct -> Java parser), and by an upscale quality ladder
   ([probe](runtime/probes/m8-quality-ladder/README.md): PSNR/acutance per eye-target scale), with a generated
   device tuning guide ([`M8_TUNING.md`](docs/mvp/M8_TUNING.md): budgets + A/B commands),
   and the provider's display-feedback → eye-target resize path is validated in a real Minecraft client

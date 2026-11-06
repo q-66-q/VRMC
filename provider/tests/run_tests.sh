@@ -164,7 +164,8 @@ if "$JAVAC" -d "$T/renderclasses" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionWorldSupersample.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionWorldSupersampleTest.java" \
      "$ROOT/provider/src/main/java/dev/vrmc/provider/VisionTrace.java" \
-     "$ROOT/provider/tests/dev/vrmc/provider/VisionTraceTest.java"; then
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionTraceTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionRenderSettingsFixtureTest.java"; then
   if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsTest > "$T/m8-render.log" 2>&1 \
      && grep -q "\[m8-render-test\] PASS" "$T/m8-render.log"; then
     echo "[provider-tests] m8-render: PASS (render feedback layout/parse + eye-target scale policy)"
@@ -216,6 +217,38 @@ if "$JAVAC" -d "$T/renderclasses" \
   fi
 else
   fail "m8-render-compile"
+fi
+
+# --- 5. M8 render-feedback ABI: C struct -> Java parser cross-language fixture -----------------
+step "m8-render-settings-fixture"
+CC_FIXTURE=$(xcrun --sdk macosx --find clang 2>/dev/null || command -v clang || true)
+CC_SDK=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)
+if [ -n "$CC_FIXTURE" ] && [ -x "$CC_FIXTURE" ]; then
+  mkdir -p "$T"
+  if "$CC_FIXTURE" -O2 -isysroot "$CC_SDK" -I "$ROOT/bridge/abi" \
+       "$ROOT/bridge/tests/make_render_settings_fixture.c" -o "$T/make_render_settings_fixture" \
+       > "$T/m8-rs-fixture-build.log" 2>&1; then
+    if "$T/make_render_settings_fixture" "$T/render_settings_fixture.bin" \
+         > "$T/m8-rs-fixture-gen.log" 2>&1; then
+      RS_SIZE=$(wc -c < "$T/render_settings_fixture.bin" | tr -d ' ')
+      RS_SHA=$(shasum -a 256 "$T/render_settings_fixture.bin" | awk '{print $1}')
+      echo "[provider-tests] m8-render-settings-fixture: bytes=$RS_SIZE sha256=$RS_SHA"
+      if "$JAVA" -cp "$T/renderclasses" dev.vrmc.provider.VisionRenderSettingsFixtureTest \
+           "$T/render_settings_fixture.bin" > "$T/m8-rs-fixture.log" 2>&1 \
+         && grep -q "\[m8-rs-fixture-test\] PASS" "$T/m8-rs-fixture.log"; then
+        echo "[provider-tests] m8-render-settings-fixture: PASS (C vrmc_render_settings -> Java parse contract, 3 cases)"
+        grep -E "\[m8-rs-fixture-test\] [0-9]+ checks" "$T/m8-rs-fixture.log"
+      else
+        cat "$T/m8-rs-fixture.log"; fail "m8-rs-fixture-java"
+      fi
+    else
+      cat "$T/m8-rs-fixture-gen.log"; fail "m8-rs-fixture-generate"
+    fi
+  else
+    cat "$T/m8-rs-fixture-build.log"; fail "m8-rs-fixture-build"
+  fi
+else
+  echo "[provider-tests] m8-render-settings-fixture: SKIP (no host C compiler)"
 fi
 
 # --- 5. M4-W1 immersive input: layout + gesture engine + pose (+ cross-language fixture) ---------

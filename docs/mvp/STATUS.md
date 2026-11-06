@@ -372,3 +372,13 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   (`TARGET_HZ=120 CONTENT_FIRST=on SUPERSAMPLE=1.44`) passed: **resizes=6, M8-exceptions=0**, final
   eyeTarget 2752×2408 at scale 0.75/target 120, **166-window** post-soak trace; fast self-check PASS
   (9 rows). **Device A6–A9 still NOT RUN.**
+
+- 2026-11-06 EV-0289: **Render-feedback ABI cross-language fixture (PASS).**
+  `bridge/tests/make_render_settings_fixture.c` writes three raw 68-byte `vrmc_render_settings`
+  records exactly as the compositor publishes them (foveated 120 Hz at max quality with drawable
+  2412×2108; non-foveated 90 Hz quality 0.75; invalid valid=0) and the new
+  `VisionRenderSettingsFixtureTest` parses those bytes through the provider parser — **23/23 checks**,
+  fixture 204 bytes sha256 `e4fd0eb1…`, run by the provider suite and the full M3c self-check
+  (**11 PASS rows**). A C-struct/Java-offset mismatch now fails on the host instead of silently at
+  device display feedback (which would leave eye targets at the 1024 fallback). **Device A6–A9 still
+  NOT RUN.**
