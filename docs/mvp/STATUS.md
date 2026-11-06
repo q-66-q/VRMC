@@ -184,3 +184,12 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   Host Metal only — device eye-tracked foveation/optics/cadence (A6–A9) remain NOT RUN. The rendering
   model was cross-checked against Apple VRR docs, the public *Drawing Graphics on Apple Vision*
   article and Qt's visionOS qrhimetal rate-map viewport fix (M8_PLAN §8).
+
+- 2026-11-05 EV-0271: **M8 device candidate staged and verified (host).** Built the M8 device shell
+  framework + M8 device bridge (render-settings symbols) and staged a signed app
+  `/tmp/VRMC-native-m8.app` (tree `aea4bd4f…`, `codesign --verify --deep --strict` PASS, 169 Mach-O +
+  6 frameworks, profile provisions D1) with the matching provider jar `cd80b753…` (136,067 B,
+  two-build reproducible). Added `scripts/push_m8_render_config.sh` (offline self-test + `--print`
+  preview PASS) and `export/m8-device-candidate.txt` with install/tuning/rollback commands. D1 install
+  attempt fails with `CoreDeviceError 4016` (device unavailable) → **device install/A6–A9 NOT RUN**;
+  the candidate is ready to install when the headset is reachable.

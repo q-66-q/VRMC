@@ -19,8 +19,16 @@ M8 is the foveated 4K/120 rendering pipeline:
 
 ## 1. What you need
 
-1. The M8 build: native app (shell with the M8 layer configuration + compositor) and the M8 provider jar
-   (`4db9d202…`, 134,537 bytes, two-build reproducible) installed on D1.
+1. The M8 build: a **staged device-candidate app** plus the matching M8 provider jar. The last host-built
+   candidate (D1 unavailable at build time, so **not yet installed/tested**) is recorded in
+   [`export/m8-device-candidate.txt`](../../export/m8-device-candidate.txt):
+   - app: `/tmp/VRMC-native-m8.app` — tree sha256 `aea4bd4f…`, signed, deep/strict verify PASS,
+     contains the M8 shell framework + M8 bridge dylib (render-settings symbols verified);
+   - provider jar: `cd80b753…` / 136,067 B (two-build reproducible), matching the M8 provider code.
+   If the candidate is missing, rebuild with `scripts/build_shell.sh` (device), `MODE=device
+   scripts/build_bridge.sh`, then `scripts/stage_native_app.sh <framework> <bridge dylib>` (see
+   `export/m8-device-candidate.txt` for the exact invocation) and build the provider jar with
+   `scripts/build_provider.sh`.
 2. D1 unlocked, awake and reachable over the paired development connection
    (`xcrun devicectl list devices` must show `Apple Vision Pro … available`).
 3. JIT enabled for the app in StikDebug (as in the normal launch procedure).
@@ -31,8 +39,8 @@ M8 is the foveated 4K/120 rendering pipeline:
 
 1. Install/stage the build:
    ```bash
-   scripts/install_device.sh                      # app (the release/M6 staging script in this repo)
-   scripts/push_provider_jar.sh                   # M8 provider jar
+   DEVICE=<udid> scripts/install_device.sh /tmp/VRMC-native-m8.app dev.vrmc.vrmc
+   DEVICE=<udid> scripts/push_provider_jar.sh /tmp/vrmc-provider-build/vrmc-provider.jar
    ```
 2. Launch the app (StikDebug JIT, then the app), let the launcher boot Minecraft, create/load a world
    and enter the immersive space.
@@ -71,7 +79,20 @@ Files (push with `devicectl device copy to`, relaunch as noted):
 | `vrmc-eye-scale.txt` | game dir (`Documents/instances/default/`) | `auto` (default), or a number 0.25–1.0 | live, re-read every ~600 frames |
 | `vrmc-render-quality.txt` | `Documents/` (compositor) | `auto` or 0.0–1.0 (pins runtime quality) | next compositor start (relaunch) |
 | `vrmc-max-render-quality.txt` | `Documents/` (shell) | 0.05–1.0 (memory upper bound) | next immersive open |
-| `vrmc-foveation-off.flag` | `Documents/` (shell) | A/B: uniform rasterization | next immersive open |
+| `vrmc-foveation-off.flag` | `Documents/` (shell) | A/B: uniform rasterization (one-way on device: an app-data reset or `vrmc-clear-diagnostics.flag` restores foveation) | next immersive open |
+
+One command for all of the above (no relaunch required for eye scale):
+
+```bash
+scripts/push_m8_render_config.sh --eye-scale 0.5            # live tuning
+scripts/push_m8_render_config.sh --runtime-quality auto      # next launch
+scripts/push_m8_render_config.sh --max-quality 0.75          # next immersive open
+scripts/push_m8_render_config.sh --print --eye-scale auto    # offline preview
+scripts/push_m8_render_config.sh --self-test                 # offline validation
+```
+
+When a knob is set back to its default, prefer the explicit value (`--max-quality default`,
+`--runtime-quality default`, `--eye-scale auto`) because devicectl cannot delete files.
 
 Interpretation:
 
