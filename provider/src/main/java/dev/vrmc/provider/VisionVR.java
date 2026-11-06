@@ -209,6 +209,13 @@ public class VisionVR extends MCVR {
     private int m7TouchHotbarLogCount;
     private boolean m7TouchHotbarArmedLogged;
     private int m7TouchHotbarWarnCount;
+    // M7 movement: left thumb-middle pinch hold + move the left hand = analog virtual stick
+    // (operator request 2026-11-05: "for the movement, use left thumb to control"). This replaces the
+    // both-fist alternating-swing walk dispatch; the engine's both-fist walk detector stays as an
+    // internal context/suppression signal only.
+    private final Vector2f m7LocomotionAxes = new Vector2f();
+    private boolean m7LocomotionEngaged;
+    private long m7LocomotionLastLogNs;
     /** Reflective hotbar selection: LocalPlayer.getInventory() is @Nullable-annotated in MC 26.2 and the
      * jspecify annotation class is not on the provider compile classpath, so resolve it reflectively. */
     private java.lang.reflect.Method m7InventoryMethod;
@@ -1896,6 +1903,7 @@ public class VisionVR extends MCVR {
         if (this.bindingActions == null || this.visionInput == null) {
             return;
         }
+        this.zeroM7Locomotion();
         for (int i = 0; i < this.bindingActions.length; i++) {
             VRInputAction action = this.bindingActions[i];
             if (action == null) {
@@ -1934,7 +1942,6 @@ public class VisionVR extends MCVR {
     private void applyM7Actions() {
         boolean gui = this.mc.gui.screen() != null;
         boolean seated = this.dh.vrSettings.seated;
-        boolean walk = this.m7Gesture.walkActive() && !gui && !seated;
         boolean use = this.m7Gesture.place() || this.m7Gesture.eat() || this.m7Gesture.bowDraw();
         boolean attack = this.m7Gesture.attack();
         setM7Action(VisionInput.KEY_ATTACK, VisionInput.HAND_RIGHT, attack);
@@ -1959,11 +1966,60 @@ public class VisionVR extends MCVR {
         setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_RIGHT, this.m7Gesture.climbGrabRight());
         setM7Action(VisionInput.KEY_CLIMBEY_JUMP, VisionInput.HAND_NONE, this.m7Gesture.climbJump());
 
+        applyM7Locomotion();
+    }
+
+    /**
+     * M7 left-thumb virtual stick. While the LEFT thumb-middle pinch is held, the left wrist position
+     * relative to the head is a joystick: hand forward/back = walk forward/back, left/right = strafe
+     * (same mapping/tunables as M4's middle-pinch locomotion: move.originZ/forwardScale/strafeScale/
+     * deadzone). Values feed Vivecraft's keyFreeMoveStrafe analog action so free-move rotation/comfort
+     * settings still apply. Zeroed in GUI, seated, keyboard, stale/unhealthy input, or when the pinch
+     * is not held; this replaces the both-fist swing walk dispatch.
+     */
+    private void applyM7Locomotion() {
+        long nowNs = System.nanoTime();
+        boolean usable = this.visionInput != null && this.visionInput.isInputHealthy()
+            && !this.visionInput.isStale() && !this.dh.vrSettings.seated
+            && this.mc.gui.screen() == null && !KeyboardHandler.SHOWING;
+        float x = 0.0F;
+        float y = 0.0F;
+        if (usable && this.visionInput.middlePressed(VisionInput.HAND_LEFT)) {
+            VisionLocomotion.axes(
+                this.visionInput.wristX(VisionInput.HAND_LEFT),
+                this.visionInput.wristY(VisionInput.HAND_LEFT),
+                this.visionInput.wristZ(VisionInput.HAND_LEFT),
+                this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
+                this.moveOriginZ, this.moveForwardScale, this.moveStrafeScale, this.moveDeadzone,
+                this.m7LocomotionAxes);
+            x = this.m7LocomotionAxes.x;
+            y = this.m7LocomotionAxes.y;
+        }
         VRInputAction strafe = this.getInputAction(VivecraftVRMod.INSTANCE.keyFreeMoveStrafe);
         if (strafe != null) {
-            writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), 0.0F,
-                walk ? this.m7Gesture.walkForward() : 0.0F, VisionInput.ORIGIN_LEFT);
+            writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), x, y, VisionInput.ORIGIN_LEFT);
         }
+        boolean engaged = x != 0.0F || y != 0.0F;
+        if (engaged != this.m7LocomotionEngaged
+            || (engaged && nowNs - this.m7LocomotionLastLogNs > 3_000_000_000L)) {
+            this.m7LocomotionEngaged = engaged;
+            this.m7LocomotionLastLogNs = nowNs;
+            System.out.printf(
+                "[VRMC-M7] thumb stick %s strafe=%.2f forward=%.2f wrist=(%.2f,%.2f,%.2f)%n",
+                engaged ? "engaged" : "released", x, y,
+                this.visionInput.wristX(VisionInput.HAND_LEFT),
+                this.visionInput.wristY(VisionInput.HAND_LEFT),
+                this.visionInput.wristZ(VisionInput.HAND_LEFT));
+        }
+    }
+
+    /** Zero the M7 virtual-stick output (tracking loss, seated, mode change, release paths). */
+    private void zeroM7Locomotion() {
+        VRInputAction strafe = this.getInputAction(VivecraftVRMod.INSTANCE.keyFreeMoveStrafe);
+        if (strafe != null) {
+            writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), 0.0F, 0.0F, VisionInput.ORIGIN_LEFT);
+        }
+        this.m7LocomotionEngaged = false;
     }
 
     private void setM7Action(String name, int hand, boolean state) {
@@ -2011,6 +2067,7 @@ public class VisionVR extends MCVR {
     }
 
     private void releaseM7Actions() {
+        this.zeroM7Locomotion();
         if (this.m7GuiClickPressed) {
             this.m7GuiClickPressed = false;
             InputSimulator.releaseMouse(MOUSE_BUTTON_LEFT);

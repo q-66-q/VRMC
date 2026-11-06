@@ -33,7 +33,7 @@
 | teleport | left pinch hold ≥ 120 ms starts aim; release commits; world/seat/GUI/walk/bow/climb suppression |
 | menu | left fist tap 60–550 ms with a quiet left hand, no chord/bow/climb/pinch/attack context |
 | inventory | both-fist tap ≤ 450 ms, max wrist separation < 0.50 m, never walk/bow/climb/tracking-loss |
-| walk | both fists + opposite-phase swing on the head-forward axis; starts on 2 crossings (or 1 crossing with ≥ 0.18 m amplitude), continues while both fists are closed, stops 1.2 s after the swing motion ends |
+| walk | engine detector: both fists + opposite-phase swing on the head-forward axis; starts on 2 crossings (or 1 crossing with ≥ 0.18 m amplitude), continues while both fists are closed, stops 1.2 s after the swing motion ends. **Operator mapping changed 2026-11-05 (EV-0248): movement dispatch is now the left thumb-middle pinch virtual stick (forward/back/strafe analog via `keyFreeMoveStrafe`); the both-fist walk output is retained only as an internal context/suppression signal and the replay-gate walk rows remain engine tests.** |
 | attack | one-handed closed-hand swing, 120 ms windowed wrist speed ≥ 1.4 m/s (peak-aligned policy), 400 ms cooldown, re-arm < 0.8 m/s, suppression by both-fist/walk/bow/eat/pinch/climb/head contexts |
 | bow | bow held + both fists + |head-forward separation| > 0.30 m (exit 0.22) at chest height (max up > -0.30), armed 100 ms; release of the draw fires (Minecraft hold-to-draw semantics) |
 | eat | food/drink held + right hand in the 0.30 m face ball (forward > -0.02, lateral < 0.28, up -0.45…0.10), 60 ms latch, 150 ms tracking-gap bridging, exit hysteresis 0.32 m |

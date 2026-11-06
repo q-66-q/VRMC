@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-03.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0248`.
+**Next evidence ID:** `EV-0249`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6076,6 +6076,33 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** EV-0246 touch-hotbar runs on the render thread in VisionVR.poll; all reads are guarded but a Throwable must never crash the frame (EV-0235 lesson), so the call is wrapped in try/catch with a bounded warning log. Behaviour and geometry unchanged; same guards/diagnostics. Suite ALL PASS; final jar 0ee811fd.../124,629 B two-build identical; pushed/integrity PASS; crash headroom -3. Device tap test NOT RUN.
 
+### EV-0248 — M7 movement: left thumb-middle virtual stick replaces both-fist swing walk
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-05T16:02:33-10:00 |
+| Commit | `57695981368da1a1d33d17a3412c1dcbb8f6bc49` |
+| Dirty state | rovider/src/main/java/dev/vrmc/provider/VisionVR.java |
+| Device | D1 Apple Vision Pro (<D1-UDID>) |
+| Host | Mac16,7 / macOS 27.0.1 / Xcode 27.2 |
+| Status | `PARTIAL` |
+
+**Procedure:**
+
+1. Read the request: movement controlled by the left thumb
+2. Remove the both-fist walk dispatch from M7 movement (engine detector retained for context/suppression and host gates)
+3. Add left thumb-middle pinch virtual stick via VisionLocomotion + keyFreeMoveStrafe; zero in GUI/seated/keyboard/stale and on release paths
+4. Add transition/3 s thumb-stick diagnostics
+5. Provider suite + two independent builds; push/integrity; crash headroom for the relaunch
+
+**Expected:** Holding the left thumb-middle pinch and moving the left hand walks/strafes analogously; no stuck movement on any release path
+
+**Actual:** Feature built/pushed/integrity-PASS (37262f9c.../124,958 B), suite ALL PASS. Device movement test NOT RUN (operator relaunch required).
+
+**Artifacts:** evidence/EV-0248/feature-note.txt (224559ecd795); evidence/EV-0248/thumb-tests.log (5097caed663d); evidence/EV-0248/ev0248-build-a.log (2c5a0b9d8cfd); evidence/EV-0248/ev0248-build-b.log (b3aad5b28e20); evidence/EV-0248/push.log (b987045c3946); evidence/EV-0248/integrity.log (9a214db52ea4); evidence/EV-0248/vrmc-crash-count-headroom.txt (615bdd17c255)
+
+**Limitations:** Operator request: use the left thumb to control movement. Removed the both-fist alternating-swing walk dispatch; added left-thumb-middle-pinch + move-left-hand analog virtual stick (VisionLocomotion, shared move.* tunables) writing keyFreeMoveStrafe. Engine both-fist walk detector retained only as internal context/suppression and host gate. Zeroed in GUI/seated/keyboard/stale and on release paths. Thumb-middle pinch is disjoint from every M7 action (thumb-index = place/break/GUI, left hold = teleport). Suite ALL PASS; jar 37262f9c.../124,958 B two-build identical; pushed/integrity PASS; crash headroom -3. Device movement test NOT RUN.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6365,3 +6392,4 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-04 | **EV-0243 (`PARTIAL`, host+device-push): VR-state-aware cursor calibration** — EV-0242's one-time probe could measure scale 1.0 while the game was still in its flat window (`VR_RUNNING=false`; the runtime onMove scale only applies in VR), and the window does not resize when the immersive space opens, so the stale calibration would persist into VR and the half-position cursor bug would remain. Calibration now keys on `VRState.VR_RUNNING` (re-probe on flat↔VR and window-size changes), clears the valid-uv latch so the cursor re-centres with the new scale, and logs `vr=` in the cursor diag. Suite ALL PASS; `4c917439…`/122,089 B two-build identical; pushed/integrity PASS; crash-count headroom `-3` on D1. **Device visual retest NOT RUN** (one operator relaunch). Next ID `EV-0244`. |
 | 2026-11-05 | **EV-0246 (`PARTIAL`, host+device-push): M7 direct touch-hotbar selection** — operator clarified that "tap on the inventory bar to select" means tapping the rendered HUD hotbar itself, not cycling with air index taps. Implemented provider-side touch selection mirroring the installed `InteractiveHotbarModule` bar geometry (`GUI_RENDER_POS_ROOM/ROTATION_ROOM`, `GUI_OFFSET_LOCAL`, `GUI_SCALE_APPLIED/MAX`): right index fingertip within 6 cm of the bar, same slot dwelled ≥60 ms with <3 cm drift, 300 ms cooldown → `Inventory.setSelectedSlot` (reflective access; jspecify @Nullable absent from the compile classpath). Guarded off in GUI/seated/HEAD-HUD/untracked/stale; air index-tap cycling kept as fallback. Installed Vivecraft 26.2-1.3.15 bytecode audited for every field/method used. Suite ALL PASS; `747ed2ab…`/124,561 B two-build identical; pushed/integrity PASS; crash headroom -3. **Device tap test NOT RUN.** Next ID `EV-0247`. |
 | 2026-11-05 | **EV-0247 (`PARTIAL`, host+device-push): fail-safe wrapper around the direct touch-hotbar path** — EV-0246's `updateM7TouchHotbar()` runs on the render thread from `VisionVR.poll()`; all its reads are guarded but a Throwable must never crash the frame (EV-0235 lesson), so the call is now wrapped in try/catch with a bounded WARN log. Behaviour/geometry/diagnostics unchanged; air index-tap cycling remains the fallback. Suite ALL PASS; final jar `0ee811fd…`/124,629 B two-build identical; pushed/integrity PASS; crash headroom -3. **Device tap test NOT RUN.** Next ID `EV-0248`. |
+| 2026-11-05 | **EV-0248 (`PARTIAL`, host+device-push): M7 movement = left-thumb virtual stick** — operator requested movement controlled by the left thumb. Removed the both-fist alternating-swing walk dispatch; movement is now the **left thumb-middle pinch hold + move the left hand like a joystick** (forward/back = walk, left/right = strafe) via `VisionLocomotion` with the shared `move.originZ/forwardScale/strafeScale/deadzone` tunables, written to Vivecraft's `keyFreeMoveStrafe` analog action. The engine's both-fist walk detector is retained only as an internal context/suppression signal and its replay-gate rows remain engine tests. Zeroed in GUI/seated/keyboard/stale input and on `releaseM7Actions`/`releaseAllImmediately` (no stuck movement); diagnostics `[VRMC-M7] thumb stick engaged/released …`. The thumb-middle pinch is disjoint from every M7 action (thumb-index = place/break/attack/GUI, left hold = teleport). Suite ALL PASS; `37262f9c…`/124,958 B two-build identical; pushed/integrity PASS; crash headroom -2. **Device movement test NOT RUN.** Next ID `EV-0249`. |

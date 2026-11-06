@@ -12,7 +12,7 @@ the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand 
 |---|---|---|---|
 | 1 | Menu / UI click | System eye hover highlights; **right pinch** activates | Raw eye gaze is not exposed to third-party apps. Native SwiftUI menus get system gaze hover. In-game Minecraft GUI (a texture) cannot: see §3. |
 | 2 | Escape | **left fist tap** | No close gesture; Escape/back lives in Options. |
-| 3 | Walk / run | **both fists, alternating arm swing** (walking-in-place motion) | Forward only; turning by body/head. Short both-fist taps remain inventory. Suppresses attack/use while active. |
+| 3 | Walk / run | **left thumb-middle pinch hold + move the left hand like a joystick** (forward/back = walk, left/right = strafe; EV-0248) | Analog free-move via Vivecraft `keyFreeMoveStrafe`; turning by body/head. Replaces the earlier both-fist swing walk (the engine keeps that detector only as an internal context/suppression signal). |
 | 4 | Jump | **physical head rise** (or auto-jump for one block) | Auto-jump enabled by default. Head-rise detector has hysteresis; seated fallback remains. |
 | 5 | Sneak | **physical head lowering** (sustained) | Seated fallback remains; sneaking by looking down must NOT trigger. |
 | 6 | Teleport | **left pinch hold → aim → release to commit** | Release commits; opening hand / losing tracking cancels. |
@@ -32,6 +32,10 @@ the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand 
   GUI cannot know which pixel the eyes are on. The practical game-GUI implementation is a **head/eye-ray
   reticle** (head ray is available from `DeviceAnchor`) that highlights the Minecraft control under it.
   True eye hover remains native-UI only. This must be accepted or the GUI must be re-implemented natively.
+- **Movement mapping (EV-0248):** movement is the **left thumb-middle pinch virtual stick** (hold the pinch,
+  move the left hand forward/back/left/right); the both-fist alternating swing no longer moves the player
+  (the engine retains it only as a context/suppression signal). The thumb-middle pinch family is disjoint from
+  every M7 action (thumb-index = place/break/attack/GUI click, left thumb-index hold = teleport).
 - **Both-fist walking conflicts** with both-fist inventory, both-fist bow, right-fist use, and both-fist
   climbing. Resolve by context + timing: tap (<250 ms, little motion) = inventory; sustained alternating
   swing = walk; bow in hand = bow; climbable in reach = climb.
@@ -63,7 +67,8 @@ the M4 per-finger micro-gesture layer with the operator's preferred, whole-hand 
 1. GUI open: reticle + right pinch/drag; no locomotion/attack.
 2. Bow held + both fists + front/back hand separation: bow draw/release.
 3. Climbable in reach + alternating reach/pull: climb grab/release.
-4. Both fists sustained alternating swing: walk/run (forward); suppress attack/use.
+4. Left thumb-middle pinch hold + move left hand: analog walk/strafe (EV-0248). The both-fist
+   alternating swing no longer moves the player; it remains only an internal context/suppression signal.
 5. Right hand near head + edible/drinkable held: eat/drink.
 6. Right-hand swing velocity/acceleration above threshold: attack.
 7. Short right pinch: place/select. Held right pinch: break/mine (after a 350 ms threshold), release stops.
