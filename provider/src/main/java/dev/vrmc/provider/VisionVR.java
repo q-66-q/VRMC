@@ -240,6 +240,8 @@ public class VisionVR extends MCVR {
     private java.lang.reflect.Method m7GetSelectedSlotMethod;
     private java.lang.reflect.Method m7SetSelectedSlotMethod;
     private boolean m7InventoryReflectionTried;
+    /** Reflection cache for Player.isPassenger(): right-fist tap becomes dismount while riding. */
+    private java.lang.reflect.Method m7IsPassengerMethod;
     private int m7InventoryReflectionWarnCount;
     private Map<VRInputAction, List<Long>> originsByAction;
     /** Pose-diagnostic pacing (first tracked pose of an episode + every ~300 tracked frames). */
@@ -355,6 +357,7 @@ public class VisionVR extends MCVR {
             + " (tune gesture.mode / -Dvrmc.gesture.mode; operator mapping)");
         if (this.m7Mode) {
             System.out.println("[VRMC-M7] mapping: short right pinch=place, held right pinch=break, "
+                + "right fist tap=use/interact (boat/door/button); while riding=dismount, "
                 + "left fist=escape, both-fist tap=inventory, both-fist swing=walk, head rise/lower=jump/sneak, "
                 + "left pinch hold=teleport, right swing=attack, right index tap=hotbar, near-head=eat, "
                 + "wide both fists=bow, alternating grips=climb");
@@ -2040,6 +2043,20 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /** True while the player is riding an entity (boat/minecart/horse): right-fist tap dismounts. */
+    private boolean m7IsRiding() {
+        try {
+            Object player = this.mc.player;
+            if (player == null) return false;
+            if (this.m7IsPassengerMethod == null) {
+                this.m7IsPassengerMethod = player.getClass().getMethod("isPassenger");
+            }
+            return Boolean.TRUE.equals(this.m7IsPassengerMethod.invoke(player));
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     private void applyM7Actions() {
         boolean gui = this.mc.gui.screen() != null;
         boolean seated = this.dh.vrSettings.seated;
@@ -2047,6 +2064,8 @@ public class VisionVR extends MCVR {
         boolean moving = this.m7LocomotionEngaged;
         boolean rightPinchHeld = this.m7Gesture.rightPinchHeld();
         long actionNow = System.nanoTime();
+        boolean riding = m7IsRiding();
+        boolean rightFistTap = this.m7Gesture.rightFistTap();
         boolean targetEntity = !gui && !seated && this.m7TargetIsEntity();
         boolean targetBlock = !gui && !seated && this.m7TargetIsBlock();
         if (rightPinchHeld && !this.m7RightPinchPrev) {
@@ -2069,7 +2088,8 @@ public class VisionVR extends MCVR {
         }
         this.m7RightPinchPrev = rightPinchHeld;
         boolean use = (actionNow < this.m7ShortUseUntilNs)
-            || this.m7Gesture.eat() || this.m7Gesture.bowDraw();
+            || this.m7Gesture.eat() || this.m7Gesture.bowDraw()
+            || (rightFistTap && !riding);
         boolean attack = (actionNow < this.m7ShortAttackUntilNs)
             || this.m7HeldBreak
             || (this.m7Gesture.attack() && !this.m7Gesture.breakHeld());
@@ -2089,7 +2109,9 @@ public class VisionVR extends MCVR {
         }
         setM7Action(VisionInput.KEY_INGAME_MENU, VisionInput.HAND_LEFT, menuAction);
         setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump());
-        setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT, this.m7Gesture.sneak());
+        // Right-fist tap is context sensitive: on foot = use (mount/interact), riding = sneak (dismount).
+        setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT,
+            this.m7Gesture.sneak() || (rightFistTap && riding));
         // M7 left pinch is the movement stick; teleport must not also fire on the same pinch.
         // A dedicated teleport gesture is still TODO, so keep the action released here.
         setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, false);

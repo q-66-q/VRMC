@@ -12,6 +12,7 @@ package dev.vrmc.provider;
  * <ul>
  *   <li>short right pinch (&lt;350 ms) = place/select; held right pinch (&ge;350 ms) = break/mine;</li>
  *   <li>left pinch hold = teleport aim, release commits; left fist tap = Escape/menu (also in GUI);</li>
+ *   <li>right fist tap = use/interact (mount boat, doors, buttons) without the attack path;</li>
  *   <li>both-fist short tap (&lt;450 ms) = inventory; both fists + alternating swing = walk forward;</li>
  *   <li>right-hand swing = entity attack; right index-finger tap = hotbar next (double = previous);</li>
  *   <li>wide both fists front/back = bow draw, release the back fist fires (only while a bow is held);</li>
@@ -289,6 +290,8 @@ public final class VisionM7Gesture {
     private long lastBothFistCloseNs, lastBothFistReleaseNs;
     private long lastInventoryNs, lastMenuNs;
     private long leftFistTapPulseUntilNs;
+    /** Right-fist tap pulse: discrete use/interact (mount boat, doors, buttons; not attack). */
+    private long rightFistTapPulseUntilNs;
     private boolean bothFistPrev;
     private long bothFistStartNs;
     private float bothMaxSep;
@@ -769,6 +772,20 @@ public final class VisionM7Gesture {
             this.lastMenuNs = nowNs;
         }
 
+        // ---- right fist tap = discrete use/interact (operator request: seat on a boat without
+        // triggering break). Boats/interactive entities hit by a short right pinch were classified as
+        // "entity" and sent key.attack; this explicit gesture sends key.use instead. ----
+        long rightFistTapDuration = this.rightFistPressNs == 0L ? -1L : nowNs - this.rightFistPressNs;
+        boolean rightFistTap = this.prevFistR && !this.fistR && !this.fistL
+            && rightFistTapDuration >= LEFT_FIST_TAP_MIN_NS
+            && rightFistTapDuration <= LEFT_FIST_TAP_MAX_NS
+            && !gui && !this.bowActive && !seated
+            && nowNs - this.lastBothFistReleaseNs > 200_000_000L
+            && nowNs - this.lastInventoryNs > 200_000_000L;
+        if (rightFistTap) {
+            this.rightFistTapPulseUntilNs = nowNs + 120_000_000L;
+        }
+
         // ---- both-fist inventory: short tap, hands together, never walk/bow/climb ----
         if (this.bothFistPrev && !both && !gui && !walkingNow && !this.bowActive
             && !this.climbGrabL && !this.climbGrabR && !this.bothHadTrackingLoss
@@ -1137,6 +1154,8 @@ public final class VisionM7Gesture {
     public boolean menu() { return this.menu; }
     /** Left-fist tap pulse for GUI close (world menu pulses use {@link #menu()}). */
     public boolean leftFistTap() { return this.nowNs < this.leftFistTapPulseUntilNs; }
+    /** Right-fist tap pulse: discrete use/interact (boat, door, button); never attack. */
+    public boolean rightFistTap() { return this.nowNs < this.rightFistTapPulseUntilNs; }
     public boolean inventory() { return this.inventory; }
     public boolean hotbarNext() { return this.hotbarNext; }
     public boolean hotbarPrev() { return this.hotbarPrev; }
@@ -1213,6 +1232,7 @@ public final class VisionM7Gesture {
         this.lastPinchReleaseL = 0L; this.lastPinchReleaseR = 0L;
         this.leftPinchPressNs = 0L; this.rightPinchPressNs = 0L;
         this.leftFistPressNs = 0L; this.rightFistPressNs = 0L;
+        this.leftFistTapPulseUntilNs = 0L; this.rightFistTapPulseUntilNs = 0L;
         this.bothFistPrev = false;
         this.bothFistStartNs = 0L;
         this.bothMaxSep = 0.0F;

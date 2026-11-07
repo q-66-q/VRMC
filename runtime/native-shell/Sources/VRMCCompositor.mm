@@ -95,6 +95,22 @@ typedef int32_t (*publish_gaze_fn)(const vrmc_gaze_event *);
 typedef int32_t (*publish_render_settings_fn)(const vrmc_render_settings *);
 static eye_targets_fn gEyeFn;
 static acquire_eyes_fn gAcquireFn;
+// Per-eye LOGICAL (screen-space) size of the latest built_in drawable, captured by the render-feedback
+// block and used by the sharpening decision in the draw loop (the foveated physical drawable is much
+// smaller, so the draw-loop viewport alone cannot tell when the provider renders below display res).
+static uint32_t gFrameLogicalW[2] = {0, 0};
+static uint32_t gFrameLogicalH[2] = {0, 0};
+
+// Cached sRGB texture views of the provider eye textures: the provider renders into RGBA8_UNORM
+// but its pixel values are sRGB-encoded (the window path relies on OS conversion), while the
+// compositor drawable is RGBA16Float which visionOS treats as linear. Sampling through an sRGB
+// view decodes to linear in hardware (same result as the window path), avoiding the double
+// encode that made the immersive image look washed out. Recreated only when the provider
+// reallocates the eye textures (resize).
+static id<MTLTexture> gSrgbColorViewL = nil;
+static id<MTLTexture> gSrgbColorViewR = nil;
+static uint64_t gSrgbColorHandleL = 0;
+static uint64_t gSrgbColorHandleR = 0;
 static set_tracking_fn gTrackFn;
 static set_display_views_fn gDisplayViewsFn;
 static input_publish_fn gInputPublishFn;
@@ -2073,6 +2089,10 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     }
                     logicalW[i] = (uint32_t)logicalWidth;
                     logicalH[i] = (uint32_t)logicalHeight;
+                    if (i >= 0 && i < 2) {
+                        gFrameLogicalW[i] = logicalW[i];
+                        gFrameLogicalH[i] = logicalH[i];
+                    }
                     if (!loggedRateMaps && rateMap != nil) {
                         loggedRateMaps = YES;
                         MTLSize screen = rateMap.screenSize;
@@ -2792,13 +2812,39 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         float sharpenStrength = 0.0f;
                         float sharpenTexelW = 0.0f;
                         float sharpenTexelH = 0.0f;
+                        static int loggedSharpenGate = 0;
+                        if (!loggedSharpenGate) {
+                            loggedSharpenGate = 1;
+                            const int gateIndex = (leftView == 1) ? 1 : 0;
+                            compLog("sharpen gate: useFlat=%d test=%d enabled=%d auto=%d pipe=%d haveEyes=%d "
+                                    "eye=%ux%u ref=%ux%u viewport=%.0fx%.0f mode=%s",
+                                    (int)useFlat, (int)testPatternNow, (int)sharpenControl.enabled,
+                                    (int)sharpenControl.autoMode, (int)(pipes.flatSharp != nil),
+                                    (int)haveEyes, drawLeftWidth, drawLeftHeight,
+                                    gFrameLogicalW[gateIndex], gFrameLogicalH[gateIndex],
+                                    viewport.width, viewport.height,
+                                    sharpenControl.autoMode ? "auto" : "fixed");
+                        }
                         if (useFlat && !testPatternNow && sharpenControl.enabled &&
                             pipes.flatSharp != nil && haveEyes && eyesPtr != NULL) {
                             const uint32_t eyeW = isLeftEye ? drawLeftWidth : drawRightWidth;
                             const uint32_t eyeH = isLeftEye ? drawLeftHeight : drawRightHeight;
-                            if (eyeW > 0 && eyeH > 0 && viewport.width > 0 && viewport.height > 0) {
-                                const double upscale = MAX(viewport.width / (double)eyeW,
-                                                           viewport.height / (double)eyeH);
+                            // The sharpening decision must use the LOGICAL per-eye size, not the
+                            // foveated drawable extent: with rate maps the physical drawable is much
+                            // smaller than the logical view (device: 2432x2368 vs 6261x5023), so
+                            // viewport/eye would never exceed 1.02 and the pass stayed off exactly
+                            // when the provider renders below display resolution (the blur case).
+                            // The system upscales the foveated drawable to the panel, and the fovea
+                            // maps logical pixels 1:1, so provider-eye -> logical is the visible
+                            // upscale to compensate.
+                            const int logicalIndex = (leftView == 1) ? 1 : 0;
+                            const uint32_t logicalRefW = gFrameLogicalW[logicalIndex];
+                            const uint32_t logicalRefH = gFrameLogicalH[logicalIndex];
+                            const uint32_t refWFinal = logicalRefW > 0 ? logicalRefW : (uint32_t)viewport.width;
+                            const uint32_t refHFinal = logicalRefH > 0 ? logicalRefH : (uint32_t)viewport.height;
+                            if (eyeW > 0 && eyeH > 0 && refWFinal > 0 && refHFinal > 0) {
+                                const double upscale = MAX(refWFinal / (double)eyeW,
+                                                           refHFinal / (double)eyeH);
                                 if (upscale > 1.02) {
                                     sharpenStrength = sharpenControl.autoMode
                                         ? (float)MIN(0.45, (upscale - 1.0) * 0.35)
@@ -2810,11 +2856,13 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                         loggedSharpen = YES;
                                         lastLoggedSharpenStrength = sharpenStrength;
                                         compLog("foveated sharpening: %s strength=%.2f provider=%ux%u "
-                                                "viewport=%.0fx%.0f upscale=%.2f vignette=%.2f "
-                                                "(fovea-weighted CAS-lite; Documents/vrmc-sharpening.txt=%s)",
+                                                "logicalRef=%ux%u drawableViewport=%.0fx%.0f upscale=%.2f "
+                                                "vignette=%.2f (fovea-weighted CAS-lite; "
+                                                "Documents/vrmc-sharpening.txt=%s)",
                                                 sharpenControl.autoMode ? "auto" : "fixed",
-                                                (double)sharpenStrength, eyeW, eyeH, viewport.width,
-                                                viewport.height, upscale, (double)vignetteStrength,
+                                                (double)sharpenStrength, eyeW, eyeH, refWFinal, refHFinal,
+                                                viewport.width, viewport.height, upscale,
+                                                (double)vignetteStrength,
                                                 sharpenControl.autoMode ? "auto" : "fixed");
                                     }
                                 }
@@ -2834,6 +2882,50 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 uint64_t handle = isLeftEye ? drawLeftHandle : drawRightHandle;
                                 // Reuse the opaque MTLTexture pointer exported by the provider (same GPU/process).
                                 id<MTLTexture> tex = (__bridge id<MTLTexture>)(void *)(uintptr_t)handle;
+                                // Hardware sRGB decode: the provider texture values are sRGB-encoded, the drawable
+                                // is linear float. Bind an sRGB view (cached per handle) so the immersive image gets
+                                // the same gamma handling as the window path; Documents/vrmc-linearize-color.txt=off A/Bs it.
+                                static BOOL linearizeColorEnabled = YES;
+                                static BOOL linearizeColorInit = NO;
+                                if (!linearizeColorInit) {
+                                    linearizeColorInit = YES;
+                                    NSString *linearizeText = readDocumentText(@"vrmc-linearize-color.txt");
+                                    if (linearizeText.length > 0 &&
+                                        ([linearizeText caseInsensitiveCompare:@"off"] == NSOrderedSame ||
+                                         linearizeText.floatValue == 0.0f)) {
+                                        linearizeColorEnabled = NO;
+                                    }
+                                    compLog("color: sRGB->linear %s (%s; Documents/vrmc-linearize-color.txt=%s)",
+                                            linearizeColorEnabled ? "ON" : "OFF",
+                                            linearizeColorEnabled ? "hardware sRGB texture view, immersive matches window"
+                                                                  : "raw linear passthrough (A/B)",
+                                            linearizeText.length > 0 ? linearizeText.UTF8String : "default");
+                                }
+                                MTLPixelFormat srgbViewFormat = MTLPixelFormatInvalid;
+                                if (tex.pixelFormat == MTLPixelFormatRGBA8Unorm) {
+                                    srgbViewFormat = MTLPixelFormatRGBA8Unorm_sRGB;
+                                } else if (tex.pixelFormat == MTLPixelFormatBGRA8Unorm) {
+                                    srgbViewFormat = MTLPixelFormatBGRA8Unorm_sRGB;
+                                }
+                                if (linearizeColorEnabled && srgbViewFormat != MTLPixelFormatInvalid) {
+                                    __strong id<MTLTexture> *viewCache = isLeftEye ? &gSrgbColorViewL : &gSrgbColorViewR;
+                                    uint64_t *handleCache = isLeftEye ? &gSrgbColorHandleL : &gSrgbColorHandleR;
+                                    if (*handleCache != handle || *viewCache == nil) {
+                                        id<MTLTexture> srgbView = [tex newTextureViewWithPixelFormat:srgbViewFormat];
+                                        if (srgbView != nil) {
+                                            *viewCache = srgbView;
+                                            *handleCache = handle;
+                                            static int loggedSrgbView = 0;
+                                            if (!loggedSrgbView) {
+                                                loggedSrgbView = 1;
+                                                compLog("color: sRGB->linear applied via texture view (provider fmt=%lu -> view fmt=%lu %lux%lu)",
+                                                        (unsigned long)tex.pixelFormat, (unsigned long)srgbView.pixelFormat,
+                                                        (unsigned long)srgbView.width, (unsigned long)srgbView.height);
+                                            }
+                                        }
+                                    }
+                                    if (*viewCache != nil) tex = *viewCache;
+                                }
                                 if (tex != nil && tex.device != device) {
                                     static int loggedDeviceMismatch = 0;
                                     if (!loggedDeviceMismatch) {
