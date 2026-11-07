@@ -1,6 +1,6 @@
 # M8 device-session report
 
-Generated: 2026-11-07T07:27:21Z  -  pull: /tmp/vrmc-m8-device
+Generated: 2026-11-07T09:04:55Z  -  pull: /tmp/vrmc-m8-device
 
 Classifier: exit 2 - RESULT: PARTIAL (A8 display cadence=PARTIAL)
 
@@ -22,38 +22,38 @@ Classifier: exit 2 - RESULT: PARTIAL (A8 display cadence=PARTIAL)
     A6 foveation active                      PASS       
     A7 4K-class display + provider eye targets PASS       provider eye target from vrmc-status.json render summary
     A8 display cadence                       PARTIAL    displayHz=90.0 (90 Hz; 120 Hz NOT achieved); repeated frames 0/240
-    A9 pacing / regressions                  PASS       pacing from vrmc-status.json (90 ms window)
+    A9 pacing / regressions                  PASS       pacing from vrmc-status.json (90 ms window); provider: missedTarget=15 in the last window
       display: logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 quality=1.0
-      vrmc-status.json render: eyeTarget=3136x2512 displayLogical=6261x5023 foveation=1 rateMaps=2 displayHz=90.0 target=0(auto(display)) resizes=11
-      m8 frame trace: 187 window(s) displayHz 90.0-90.0 target=90 final eyeTarget=3136x2512 scale 0.25-0.65 (final 0.50) resizes=11
-      measured display cadence: 90.0 Hz  foveated sharpening: 0.00
+      vrmc-status.json render: eyeTarget=2824x2264 displayLogical=6261x5023 foveation=1 rateMaps=2 displayHz=90.0 target=0(auto(display)) resizes=6
+      m8 frame trace: 420 window(s) displayHz 90.0-90.0 target=90 final eyeTarget=2824x2264 scale 0.25-0.65 (final 0.45) resizes=6
+      measured display cadence: 90.0 Hz  foveated sharpening: 0.43
     [m8-device] RESULT: PARTIAL (A8 display cadence=PARTIAL)
     [m8-device] logs in /tmp/vrmc-m8-device
 
 ## Key log lines
 
     ### compositor
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2859 errors=0
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2871 errors=0
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2883 errors=0
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2895 errors=0
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2907 errors=0
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2919 errors=0
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2931 errors=0
-    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.00 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=2943 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=88.5 p50=11.11ms p95=11.11ms repeats=3/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=459 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=471 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=89.6 p50=11.11ms p95=11.11ms repeats=1/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=483 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=89.6 p50=11.11ms p95=11.11ms repeats=1/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=495 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=89.6 p50=11.11ms p95=11.11ms repeats=1/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=507 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=89.6 p50=11.11ms p95=11.11ms repeats=1/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=519 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=531 errors=0
+    [vrmc-comp] render feedback: displayHz=90.0 presentHz=90.0 p50=11.11ms p95=11.11ms repeats=0/240 quality=1.00 sharpen=0.43 logical L=6261x5023 R=6261x5023 physical=2432x2368 foveation=1 rateMaps=2 published=543 errors=0
 
     ### provider
 
     ### shell
-    [shell] 2026-11-07 07:11:49 +0000 layer config: supportsFoveation=true defaultRenderQuality=0.43500003 qualitySupported=true maxRenderQuality=1.00 supportedLayouts=["cp_layer_renderer_layout(rawValue: 0)", "cp_layer_renderer_layout(rawValue: 2)"]
-    [shell] 2026-11-07 07:11:49 +0000 layer config: layout=cp_layer_renderer_layout(rawValue: 0) foveation=true (supported=true disabledByFlag=false) maxRenderQuality=1.00
+    [shell] 2026-11-07 09:02:39 +0000 layer config: supportsFoveation=true defaultRenderQuality=0.43500003 qualitySupported=true maxRenderQuality=1.00 supportedLayouts=["cp_layer_renderer_layout(rawValue: 0)", "cp_layer_renderer_layout(rawValue: 2)"]
+    [shell] 2026-11-07 09:02:39 +0000 layer config: layout=cp_layer_renderer_layout(rawValue: 0) foveation=true (supported=true disabledByFlag=false) maxRenderQuality=1.00
 
 ## Frame trace (vrmc-m8-trace.csv)
 
-Rows: 187
+Rows: 420
 
     frame,timestamp_ms,display_hz,target_hz,eye_w,eye_h,scale,resizes,missed_target,samples,p50_ms,p95_ms,foveation,rate_maps,quality,max_quality,content_first,reductions
-    27840,1794035835451,90.00,90,3136,2512,0.50,11,0,240,11.21,12.39,1,2,1.00,1.00,1,0
+    5280,1794042218325,90.00,90,2824,2264,0.45,6,2,240,11.34,13.78,1,2,1.00,1.00,1,0
 
 ## Operator visual statement
 

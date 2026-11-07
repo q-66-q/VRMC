@@ -11,7 +11,7 @@ This is a **development/sideload** project, not an App Store submission.
 - **M7 hand-input mapping: device PASS**
 - **M5/M6 acceptance: 22/22 rows PASS** ([`docs/mvp/M6_ACCEPTANCE.md`](docs/mvp/M6_ACCEPTANCE.md))
 - **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)
-- **M8 foveated 4K/120 rendering: host/simulator PASS; device NOT RUN** —
+- **M8 foveated 4K/120 rendering: host+simulator PASS; DEVICE PARTIAL 2026-11-07 (foveation + 4K-class per eye + sharpening/colour/boat PASS; 90 Hz platform cap, 120 Hz not attainable for custom immersive rendering)** —
   [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md). The hashes/package below describe the **last
   release-ready build (pre-M8)**; the M8 provider jar (`2cc9626a…`, 144,529 B, reproducible) and the
   rendering pipeline have no device acceptance yet. Device verification is a one-command classify:

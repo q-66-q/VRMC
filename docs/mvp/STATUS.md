@@ -412,3 +412,15 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   candidate+manifest+package). Both tested; package rebuilt with the profile line (zip `afad5c52…`,
   206,133,978 B). **Device A6–A9 still NOT RUN** — and the D1 session must happen before the profile
   expiry (or after a successful renewal + re-sign).
+
+- 2026-11-07 EV-0293..EV-0297: **M8 device acceptance run on D1 - PARTIAL, platform-capped.**
+  Vivecraft/Minecraft runs in-world with foveation active and rate maps (A6 PASS), logical per eye
+  **6261x5023** with provider eye targets sized from display feedback (A7 PASS), and pacing within
+  the 90 Hz budget (A9 PASS). The display measured **90 Hz in every window**: Apple documents custom
+  immersive Metal rendering as up to 90 frames a second, so the requested 120 Hz is a platform
+  limitation (A8 PARTIAL), not a code defect. Operator-validated: immersive colour now matches the
+  window (hardware sRGB texture view), foveated sharpening is active and visibly sharper
+  (sharpen=0.43), right-fist tap mounts a boat and dismounts while riding. Known bug: sub-1 s
+  purple-ish flash on immersive menu/pause screens (cosmetic, unresolved). Durable package rebuilt
+  (app tree 0672c44c..., provider e4542a46..., zip sha256 f0943eab..., 206,136,692 B); development
+  profile expires 2026-11-08T08:53:50Z.

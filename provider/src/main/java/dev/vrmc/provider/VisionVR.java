@@ -176,6 +176,10 @@ public class VisionVR extends MCVR {
     private boolean m7HeldBreak;
     private long m7ShortAttackUntilNs;
     private long m7ShortUseUntilNs;
+    /** Latch for the right-fist tap: decision (use vs dismount) is made once on the tap edge. */
+    private boolean m7FistTapPrev;
+    private long m7FistTapUseUntilNs;
+    private long m7FistTapSneakUntilNs;
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     /** Menu-hand gray box correction: our pose forward is -Z, while Vivecraft's gray box grows +Z. */
     private static final float M7_MENU_HAND_SHIFT_M = 0.18F;
@@ -357,7 +361,7 @@ public class VisionVR extends MCVR {
             + " (tune gesture.mode / -Dvrmc.gesture.mode; operator mapping)");
         if (this.m7Mode) {
             System.out.println("[VRMC-M7] mapping: short right pinch=place, held right pinch=break, "
-                + "right fist tap=use/interact (boat/door/button); while riding=dismount, "
+                + "right fist tap=use (mount/interact); tap while riding=dismount (latched per tap), "
                 + "left fist=escape, both-fist tap=inventory, both-fist swing=walk, head rise/lower=jump/sneak, "
                 + "left pinch hold=teleport, right swing=attack, right index tap=hotbar, near-head=eat, "
                 + "wide both fists=bow, alternating grips=climb");
@@ -2066,6 +2070,16 @@ public class VisionVR extends MCVR {
         long actionNow = System.nanoTime();
         boolean riding = m7IsRiding();
         boolean rightFistTap = this.m7Gesture.rightFistTap();
+        // Latch on the rising edge: mounting on this tap must not flip the same pulse into sneak
+        // on the next frame once the player is suddenly riding (that made the boat bounce out).
+        if (rightFistTap && !this.m7FistTapPrev) {
+            if (riding) {
+                this.m7FistTapSneakUntilNs = actionNow + 150_000_000L;
+            } else {
+                this.m7FistTapUseUntilNs = actionNow + 150_000_000L;
+            }
+        }
+        this.m7FistTapPrev = rightFistTap;
         boolean targetEntity = !gui && !seated && this.m7TargetIsEntity();
         boolean targetBlock = !gui && !seated && this.m7TargetIsBlock();
         if (rightPinchHeld && !this.m7RightPinchPrev) {
@@ -2089,7 +2103,7 @@ public class VisionVR extends MCVR {
         this.m7RightPinchPrev = rightPinchHeld;
         boolean use = (actionNow < this.m7ShortUseUntilNs)
             || this.m7Gesture.eat() || this.m7Gesture.bowDraw()
-            || (rightFistTap && !riding);
+            || (actionNow < this.m7FistTapUseUntilNs);
         boolean attack = (actionNow < this.m7ShortAttackUntilNs)
             || this.m7HeldBreak
             || (this.m7Gesture.attack() && !this.m7Gesture.breakHeld());
@@ -2111,7 +2125,7 @@ public class VisionVR extends MCVR {
         setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump());
         // Right-fist tap is context sensitive: on foot = use (mount/interact), riding = sneak (dismount).
         setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT,
-            this.m7Gesture.sneak() || (rightFistTap && riding));
+            this.m7Gesture.sneak() || (actionNow < this.m7FistTapSneakUntilNs));
         // M7 left pinch is the movement stick; teleport must not also fire on the same pinch.
         // A dedicated teleport gesture is still TODO, so keep the action released here.
         setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, false);
@@ -2258,6 +2272,9 @@ public class VisionVR extends MCVR {
         this.m7HeldBreak = false;
         this.m7ShortAttackUntilNs = 0L;
         this.m7ShortUseUntilNs = 0L;
+        this.m7FistTapPrev = false;
+        this.m7FistTapUseUntilNs = 0L;
+        this.m7FistTapSneakUntilNs = 0L;
         this.m7RightPinchStartNs = 0L;
         if (this.m7GuiClickPressed) {
             this.m7GuiClickPressed = false;

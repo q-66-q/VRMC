@@ -1,6 +1,20 @@
 # M8 device verification runbook (D1)
 
-**Status:** tooling ready; **device run NOT RUN** (D1 unavailable during implementation).
+**Status:** **device run COMPLETE 2026-11-07 (PARTIAL)** - A6 foveation PASS, A7 4K-class PASS, A9 pacing PASS, A8 PARTIAL because the platform displays 90 Hz for custom immersive rendering (Apple documents up to 90 fps; 120 Hz is available mainly for video modes). Operator-validated: immersive colour matches the window, foveated sharpening looks sharper, right-fist tap mounts a boat and dismounts while riding. Known cosmetic bug: sub-1 s purple-ish flash on immersive menu/pause screens.
+**Measured result (2026-11-07, D1 <D1-UDID>):**
+
+- A6 PASS: `foveation=1`, `rateMaps=2`, logical per eye **6261x5023**, foveated drawable 2432x2368;
+- A7 PASS: provider eye target from display feedback, e.g. **2824x2264 at scale 0.45** (auto), 6 resizes;
+- A8 PARTIAL: **displayHz=90.0 in every window**; 120 Hz is not attainable for custom immersive Metal
+  rendering on this platform (Apple CompositorServices: up to 90 frames a second; the spec 90/96/100/120 Hz
+  modes are for video playback). Do not claim 120 Hz without a measured 120.
+- A9 PASS: p50/p95 about 11.1/11.6 ms within the 90 Hz budget, repeats 0/240 in most windows;
+- operator: colour matches the window, foveated sharpening active (`sharpen=0.43`, auto strength
+  0.35-0.45), right-fist tap mounts a boat and dismounts while riding;
+- known bug: sub-1 s purple-ish flash on immersive menu/pause screens (cosmetic, unresolved, not
+  reproducible on demand);
+- durable package rebuilt: app tree 0672c44c..., provider e4542a46..., zip sha256 f0943eab...,
+  206,136,692 B. Development profile expires 2026-11-08T08:53:50Z.
 **Plan/acceptance:** [M8_PLAN.md](M8_PLAN.md) §5/§7. **Evidence:** record a new EV id in
 [`VERIFY.md`](../../VERIFY.md) §6; this page is the operator procedure, not evidence.
 

@@ -1,8 +1,11 @@
 # M8 device-session handoff
 
-Current state of the foveated 4K/120 work and the exact steps to finish it on D1. Device acceptance
-(A6–A9 + operator visual statement) is **NOT RUN** — D1 has been `unavailable` to `devicectl` for the
-whole implementation window (last connection recorded hours before these runs).
+Final state (2026-11-07): **device acceptance run COMPLETE, PARTIAL** — A6 foveation PASS, A7
+4K-class PASS, A9 pacing PASS, A8 PARTIAL because the platform displays 90 Hz for custom immersive
+rendering (Apple documents up to 90 fps; the 96/100/120 Hz spec modes are video playback). Operator
+validated immersive colour parity, visibly sharper foveated output and right-fist boat mount/dismount.
+Known cosmetic bug: sub-1 s purple flash on immersive menu screens. The development profile expires
+**2026-11-08T08:53:50Z**; re-sign before any later device session.
 
 ## What is already proven (host / simulator only)
 

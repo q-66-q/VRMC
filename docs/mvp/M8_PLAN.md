@@ -302,3 +302,17 @@ Full operator procedure: [M8_DEVICE_RUN.md](M8_DEVICE_RUN.md).
   from `supportedLayouts`; the compositor already handles sliced/array textures and viewports.
 - **Simulator is not evidence** for optics, refresh rate, thermals or latency; only the plumbing
   (channel, parsing, logging, shader sampling) is verified there.
+
+## 8. Device result (2026-11-07)
+
+- D1 <D1-UDID>, visionOS 27.2, in-world sessions EV-0293..EV-0297.
+- A6 PASS: foveation=1, rateMaps=2; A7 PASS: logical 6261x5023 per eye, provider eye targets
+  sized from display feedback (2824x2264 auto at scale 0.45).
+- A8 PARTIAL: measured 90 Hz in every window. Apple CompositorServices documents custom immersive
+  Metal rendering as up to 90 frames a second; the 96/100/120 Hz modes are for video playback.
+  120 Hz live gameplay is a platform limitation, not a code defect - do not claim it.
+- A9 PASS: p50/p95 about 11.1/11.6 ms, repeats 0/240 in most windows.
+- Operator validation: immersive colour matches the window; foveated sharpening active
+  (sharpen=0.43) and visibly sharper; right-fist tap mounts a boat, tap while riding dismounts.
+- Known bug: sub-1 s purple flash on immersive menu/pause screens (cosmetic, unresolved).
+- Durable package rebuilt for the final app/provider (zip sha256 f0943eab..., 206,136,692 B).

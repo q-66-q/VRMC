@@ -1,8 +1,8 @@
-# M8 device-candidate build (foveated 4K/120 rendering + foveated sharpening + resize grace) — host-built, NOT device-verified
+# M8 device-candidate build (foveated rendering + foveated sharpening + resize grace) - DEVICE-VALIDATED 2026-11-07 (HST)
 #
-# Build date: 2026-11-06T09:38Z (HST 2026-11-05 23:38)
-# Git: see repo HEAD at build (M8 work: EV-0268/0269/0270/0271/0272 + M8.6 sharpening/EV-0273)
-# Staged app: /tmp/VRMC-native-m8.app   (NOT installed; device D1 unavailable at build time)
+# Build date: 2026-11-07T09:00Z (HST 2026-11-06 23:00)
+# Git: see repo HEAD at build (device session EV-0293..EV-0296)
+# Staged app: /tmp/VRMC-native-m8.app (installed on D1 during EV-0296 session)
 #
 # WHAT THIS IS
 #   The release-ready Amethyst app tree with the M8 native shell framework (foveated rendering layer
@@ -10,14 +10,23 @@
 #   dylib (68-byte vrmc_render_settings channel + JNI nativePollRenderSettings). The matching M8
 #   provider jar is a separate artifact (see below) and must be copied into the instance mods/.
 #
+# DEVICE RESULT (EV-0296): A6 foveation PASS (foveation=1, rateMaps=2), A7 4K-class PASS
+#   (logical 6261x5023/eye, provider eye target 2824x2264 @ scale 0.45), A8 PARTIAL (displayHz=90;
+#   120 Hz is not achievable for custom immersive rendering - Apple CompositorServices documents
+#   "up to 90 frames a second"), A9 pacing PASS (p95 within the 90 Hz budget, repeats 0/240).
+#   Operator-validated: immersive colour matches the window, foveated sharpening visibly sharper
+#   (auto strength 0.35-0.45, feedback sharpen=0.43), right-fist tap mounts a boat and dismounts
+#   while riding. KNOWN BUG: <1 s purple-ish flash on immersive menu/pause screens (cosmetic,
+#   under investigation, not reproducible on demand).
+#
 # ARTIFACT IDENTITY (verified in this build)
-app_tree_sha256=6773acf1504178f17115d9c49bf5c096903a1d5275d3b4e6a0d8535ad33280dc
+app_tree_sha256=0672c44c05834a8d92a7dea854d46a752a83c4cfb2440c04500f84adc134856e
 bundle_id=dev.vrmc.vrmc
 version=1.2.0
-framework_sha256=d53e148a49a7b2204a640de54a070ac61c35d64361c23ae499585beed2cabb45
-bridge_sha256=ce11bac2b057f80d8b662449d3bb1ee252a953f4ed853fdce944ec9fa026a726
-provider_jar_sha256=2cc9626aefc0fd3e9c81cd6289c9aa621f24dee829d698ebca2b4a66676396ad
-provider_jar_bytes=144529
+framework_sha256=170e27d43506b0fcc0b603de7ddf6725c1be823961b3ea764fdb243638ac21b7
+bridge_sha256=0241870e2b627bad1cea48fc084d817d483e015587978e17dd505b1eee88054c
+provider_jar_sha256=e4542a461c01f96c7c54e6d4b83f66e79b7bbe467ebfd6954af872d0d48d8cc0
+provider_jar_bytes=145050
 codesign=codesign --verify --deep --strict PASS (169 Mach-O + 6 nested frameworks signed, Apple Development identity, profile provisions D1)
 m8_content=foveation layer configuration + "foveation rate map"/"display geometry"/"render feedback
   published"/"foveated sharpening:"/"eyes absent: reusing the last sampled eye frame" compositor

@@ -427,11 +427,13 @@ static VRMCSharpenControl readSharpenControl(void) {
     control.strength = 0.0f;
     NSString *text = readDocumentText(@"vrmc-sharpening.txt");
     if (text == nil || text.length == 0) return control;
+    // NOTE: check "auto" FIRST. text.floatValue of "auto" is 0.0, so testing the numeric/off case
+    // first silently disabled sharpening for the default file content (device bug: enabled=0).
+    if ([text caseInsensitiveCompare:@"auto"] == NSOrderedSame) return control;
     if ([text caseInsensitiveCompare:@"off"] == NSOrderedSame || text.floatValue == 0.0f) {
         control.enabled = NO;
         return control;
     }
-    if ([text caseInsensitiveCompare:@"auto"] == NSOrderedSame) return control;
     float value = text.floatValue;
     if (value >= 0.05f && value <= 1.0f) {
         control.autoMode = NO;
@@ -1813,6 +1815,12 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     BOOL loggedLogicalSizes = NO;
     // M8 foveated sharpening state (see readSharpenControl): re-read periodically for live A/B.
     VRMCSharpenControl sharpenControl = readSharpenControl();
+    {
+        NSString *sharpText = readDocumentText(@"vrmc-sharpening.txt");
+        compLog("sharpen control: enabled=%d auto=%d strength=%.2f (Documents/vrmc-sharpening.txt=%s)",
+                (int)sharpenControl.enabled, (int)sharpenControl.autoMode, (double)sharpenControl.strength,
+                sharpText.length > 0 ? sharpText.UTF8String : "default(auto)");
+    }
     float lastLoggedSharpenStrength = -1.0f;
     float currentSharpenStrength = 0.0f;
     BOOL loggedSharpen = NO;
@@ -2812,9 +2820,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         float sharpenStrength = 0.0f;
                         float sharpenTexelW = 0.0f;
                         float sharpenTexelH = 0.0f;
-                        static int loggedSharpenGate = 0;
-                        if (!loggedSharpenGate) {
-                            loggedSharpenGate = 1;
+                        if (haveEyes && !testPatternNow && isLeftEye && (frameCount % 300) == 0) {
                             const int gateIndex = (leftView == 1) ? 1 : 0;
                             compLog("sharpen gate: useFlat=%d test=%d enabled=%d auto=%d pipe=%d haveEyes=%d "
                                     "eye=%ux%u ref=%ux%u viewport=%.0fx%.0f mode=%s",
@@ -2907,14 +2913,18 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 } else if (tex.pixelFormat == MTLPixelFormatBGRA8Unorm) {
                                     srgbViewFormat = MTLPixelFormatBGRA8Unorm_sRGB;
                                 }
+                                static uint32_t gSrgbColorGeneration = 0;
+                                const uint32_t viewGeneration = haveEyes ? eyeFrame.texture_generation : gSrgbColorGeneration;
                                 if (linearizeColorEnabled && srgbViewFormat != MTLPixelFormatInvalid) {
                                     __strong id<MTLTexture> *viewCache = isLeftEye ? &gSrgbColorViewL : &gSrgbColorViewR;
                                     uint64_t *handleCache = isLeftEye ? &gSrgbColorHandleL : &gSrgbColorHandleR;
-                                    if (*handleCache != handle || *viewCache == nil) {
+                                    if (*handleCache != handle || *viewCache == nil ||
+                                        gSrgbColorGeneration != viewGeneration) {
                                         id<MTLTexture> srgbView = [tex newTextureViewWithPixelFormat:srgbViewFormat];
                                         if (srgbView != nil) {
                                             *viewCache = srgbView;
                                             *handleCache = handle;
+                                            gSrgbColorGeneration = viewGeneration;
                                             static int loggedSrgbView = 0;
                                             if (!loggedSrgbView) {
                                                 loggedSrgbView = 1;
