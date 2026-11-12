@@ -200,6 +200,15 @@ public final class VisionM7Gesture {
     public static final long HEAD_POSTURE_SETTLE_NS = 1_500_000_000L;
     public static final float HEAD_POSTURE_QUIET_VELOCITY = 0.15F;
     public static final float HEAD_SLOW_TAU_S = 12.0F;
+    /**
+     * The baseline may only adapt while the head is within ~20 deg of level (|forward.y| <= this).
+     * Looking down changes the tracked HMD height by ~0.10-0.13 m; if that pitch-induced offset is
+     * learned as a resting height, looking back up reads as a head-rise jump (host-reproduced: hold a
+     * steep look-down for 5 s, look up = jump on the old slow-drift path). Posture changes that are
+     * worth learning even while looking down (sitting, lying back) are >= {@link #HEAD_POSTURE_SHIFT}
+     * and still re-baseline without this gate.
+     */
+    public static final float HEAD_POSTURE_LEVEL_PITCH = 0.35F;
     /** A confirmed pinch of the same hand within this window is not a fist tap (curled pinch hands). */
     public static final long FIST_TAP_PINCH_QUIET_NS = 500_000_000L;
 
@@ -546,9 +555,14 @@ public final class VisionM7Gesture {
         if (this.prevNs == 0L) this.headBaseline = headY;
         float deviation = headY - this.headBaseline;
         boolean headGesturesOff = (context & CTX_NO_HEAD_GESTURES) != 0;
+        // Pitch lever: a tilted head sits lower/higher than the same body posture looking level, so
+        // height adaptation is only meaningful within ~20 deg of level (see HEAD_POSTURE_LEVEL_PITCH).
+        boolean headLevelForPosture = Math.abs(this.pitchY) <= HEAD_POSTURE_LEVEL_PITCH;
         if (Math.abs(deviation) <= HEAD_BASELINE_DEADBAND) {
-            float alpha = 1.0F - (float) Math.exp(-dt / HEAD_BASELINE_TAU_S);
-            this.headBaseline += deviation * alpha;
+            if (headLevelForPosture) {
+                float alpha = 1.0F - (float) Math.exp(-dt / HEAD_BASELINE_TAU_S);
+                this.headBaseline += deviation * alpha;
+            }
             this.headShiftSinceNs = 0L;
         } else if (Math.abs(headVel) < HEAD_POSTURE_QUIET_VELOCITY) {
             // Quiet head outside the band: posture change or a held crouch (see HEAD_POSTURE_SHIFT).
@@ -566,7 +580,7 @@ public final class VisionM7Gesture {
                     nowNs + HEAD_JUMP_COOLDOWN_NS);
                 this.sneakBlockUntilNs = Math.max(this.sneakBlockUntilNs,
                     nowNs + HEAD_JUMP_SNEAK_SUPPRESS_NS);
-            } else {
+            } else if (headLevelForPosture) {
                 float alpha = 1.0F - (float) Math.exp(-dt / HEAD_SLOW_TAU_S);
                 this.headBaseline += deviation * alpha;
             }

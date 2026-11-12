@@ -9,20 +9,26 @@ import ObjectiveC
 /// The shell framework has no link-time dependency on the launcher: everything goes through the
 /// Objective-C runtime / dlsym and degrades to "not available" when a symbol is missing, so a
 /// launcher change can never stop the shell from loading.
+///
+/// The launcher is never a second UI: `LauncherHostView` keeps its one view controller loaded in a
+/// hidden in-window host (or in the user-requested Minecraft setup sheet), and pressing Play drives
+/// the launcher's own Play button from there.
 @MainActor
 enum LauncherBridge {
     private static var cachedController: UIViewController?
 
-    /// The one launcher view controller of this process. It is created once and reused so the
-    /// Launcher tab and the Play button talk to the same instance.
+    /// The one launcher view controller of this process. It is created once and reused by the hidden
+    /// Play host and the Minecraft setup sheet, so both always talk to the same instance.
     static func launcherController() -> UIViewController {
         if let cachedController {
-            // SwiftUI may rebuild the representable; detach the single instance from its old parent.
+            // Another host site may have owned it; detach the single instance from its old parent
+            // before it is attached to a new container.
             if cachedController.parent != nil {
                 cachedController.willMove(toParent: nil)
                 cachedController.view.removeFromSuperview()
                 cachedController.removeFromParent()
             }
+            cachedController.loadViewIfNeeded()
             return cachedController
         }
         let controller: UIViewController
@@ -35,12 +41,29 @@ enum LauncherBridge {
             shellLog("launcher host: LauncherSplitViewController not found (running outside the app?)")
         }
         cachedController = controller
+        // Loading the view now builds the launcher's navigation controller and its Play button even
+        // while the host is still the hidden in-window view.
+        controller.loadViewIfNeeded()
         return controller
     }
 
-    /// True when the real launcher is present (false in the standalone preview host).
-    static var launcherAvailable: Bool {
-        NSClassFromString("LauncherSplitViewController") != nil
+    /// Attach the single launcher view controller to a SwiftUI-owned host container.
+    ///
+    /// The launcher is deliberately NOT the SwiftUI representable itself: a UIViewController can only
+    /// have one parent, and the hidden Play host and the setup sheet must be able to come and go
+    /// without one teardown pulling the launcher out of the other.
+    static func attachLauncher(to container: UIViewController) {
+        let containerView: UIView = container.view
+        if let cachedController, cachedController.parent === container {
+            cachedController.view.frame = containerView.bounds
+            return
+        }
+        let controller = launcherController()
+        container.addChild(controller)
+        controller.view.frame = containerView.bounds
+        controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        containerView.addSubview(controller.view)
+        controller.didMove(toParent: container)
     }
 
     /// JIT state as the launcher itself checks it before starting the game; nil when unknown.
@@ -66,21 +89,25 @@ enum LauncherBridge {
         return (navigation, button)
     }
 
-    /// Title of the launcher's own Play/Install button ("Play", "Install", …), nil when not loaded.
-    static func playButtonTitle() -> String? {
-        playButton()?.button.currentTitle
-    }
-
     /// Press the launcher's own Play button, exactly as a tap would (same enabled state, same
-    /// install/JIT/download flow). Returns false when the launcher is not on screen yet or busy.
+    /// install/JIT/download flow). Returns false while the launcher is still loading its versions or
+    /// accounts, so callers retry instead of sending the user to a second UI.
+    ///
+    /// The launcher lives in a hidden host that is in the window, so "the view is loaded and the
+    /// button is enabled" is the real precondition here. Requiring `view.window != nil` as well made
+    /// the hidden path fragile while the window is being parked for VR.
     @discardableResult
     static func pressPlay() -> Bool {
         guard let (owner, button) = playButton() else {
             shellLog("launcher play: button not available yet")
             return false
         }
-        guard button.isEnabled, owner.viewIfLoaded?.window != nil else {
-            shellLog("launcher play: button disabled or launcher not on screen (enabled=\(button.isEnabled))")
+        guard owner.viewIfLoaded != nil else {
+            shellLog("launcher play: launcher view not loaded yet")
+            return false
+        }
+        guard button.isEnabled else {
+            shellLog("launcher play: button still disabled (launcher loading or setup incomplete)")
             return false
         }
         let action = "performInstallOrShowDetails:"
@@ -95,6 +122,14 @@ enum LauncherBridge {
         if owner.responds(to: selector) {
             owner.perform(selector, with: button)
             shellLog("launcher play: invoked \(action) directly")
+            return true
+        }
+        // Last resort: the launcher's own game-start method. It skips the install/JIT pre-flight, so
+        // it is only used when the documented button action is not present in this build.
+        let launch = NSSelectorFromString("launchMinecraft:")
+        if owner.responds(to: launch) {
+            owner.perform(launch, with: nil)
+            shellLog("launcher play: invoked launchMinecraft: directly")
             return true
         }
         shellLog("launcher play: no play action found on the launcher")
@@ -166,13 +201,17 @@ final class SetupManager {
     private(set) var lastActionMessage = ""
 
     @ObservationIgnored private var providerStartupResult: SetupStatus?
+    /// True while more than one Vivecraft jar is installed. Fabric refuses to start with two copies,
+    /// so Play must stay disabled even though inspectVivecraft() reports the jar as "attention"
+    /// (an untested *single* build is still allowed to play).
+    private(set) var vivecraftDuplicate = false
 
     /// Play is gated only on what automatic setup owns and can verify itself (the bundled VRMC mod
     /// and the Vivecraft jar). The launcher owns the Fabric profile, the account and JIT, and its own
     /// Play button already reflects those, so an unreadable/stale launcher file can never dead-end
     /// our Play button while the game is in fact launchable.
     var readyToPlay: Bool {
-        provider.isReady && vivecraftUsable
+        provider.isReady && vivecraftUsable && !vivecraftDuplicate
     }
 
     /// Vivecraft counts as usable when a jar is installed, also an untested build (shown as a note).
@@ -271,6 +310,10 @@ final class SetupManager {
         if !downloading {
             let state = Self.inspectVivecraft()
             if vivecraft != state { vivecraft = state }
+            // A second Vivecraft jar is a hard "the game will not start" condition (Fabric refuses
+            // duplicate mod ids), unlike an untested single build, which .attention still allows.
+            let duplicate = Self.installedVivecraftJars().count > 1
+            if vivecraftDuplicate != duplicate { vivecraftDuplicate = duplicate }
         }
         let providerState = Self.inspectProvider(fallback: providerStartupResult)
         if provider != providerState { provider = providerState }
@@ -294,6 +337,19 @@ final class SetupManager {
             return .missing("The VRMC mod is missing from the mods folder.")
         }
         if case .ready = fallback { return fallback! }
+        // A failed automatic install must not become "ready" just because a file exists at the
+        // install path: when this build bundles the provider, only the exact bundled hash counts as
+        // installed (the same check installBundledProvider() makes). Covers a startup install that
+        // failed after writing the file and a corrupted/partial jar dropped in by something else.
+        if let bundled = bundledProviderURL(), let bundledHash = sha256(of: bundled),
+           let installedHash = sha256(of: installed) {
+            if installedHash == bundledHash {
+                return .ready("Installed \(bundledHash.prefix(8))")
+            }
+            shellLog("setup: installed provider failed verification "
+                + "(installed=\(installedHash.prefix(12)) expected=\(bundledHash.prefix(12)))")
+            return .missing("The VRMC mod failed verification. Reinstall it.")
+        }
         return .ready("Installed")
     }
 
@@ -336,7 +392,7 @@ final class SetupManager {
         guard let data = try? Data(contentsOf: url),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let profiles = root["profiles"] as? [String: Any] else {
-            return .missing("No game profile yet. In Launcher, install Fabric for Minecraft \(minecraftVersion).")
+            return .missing("No game profile yet. Open Minecraft setup to install Fabric for Minecraft \(minecraftVersion).")
         }
         func versionId(_ name: String) -> String {
             ((profiles[name] as? [String: Any])?["lastVersionId"] as? String) ?? ""
@@ -351,9 +407,9 @@ final class SetupManager {
             return .ready(selectedId)
         }
         if let other = profiles.keys.sorted().first(where: { isFabricTarget(versionId($0)) }) {
-            return .attention("Select the profile “\(other)” in Launcher (currently “\(selected)”).")
+            return .attention("Select the profile “\(other)” in Minecraft setup (currently “\(selected)”).")
         }
-        return .missing("In Launcher, install Fabric for Minecraft \(minecraftVersion) and select that profile.")
+        return .missing("In Minecraft setup, install Fabric for Minecraft \(minecraftVersion) and select that profile.")
     }
 
     nonisolated private static func inspectAccount() -> SetupStatus {
@@ -365,7 +421,7 @@ final class SetupManager {
             return .ready(accounts.count == 1 ? first.deletingPathExtension().lastPathComponent
                                               : "\(accounts.count) accounts")
         }
-        return .missing("Sign in with your Minecraft account in Launcher.")
+        return .missing("Sign in with your Minecraft account in Minecraft setup.")
     }
 
     // MARK: Vivecraft

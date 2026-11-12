@@ -8,6 +8,13 @@ This is a **development/sideload** project, not an App Store submission.
 
 ## Current status
 
+- **VRMC 1.3 UI release: installed on D1 as 1.3.3 (2026-11-11); on-headset launch check pending.**
+  The window is now one native visionOS console (Play / Comfort / Controls / Help) and pressing Play
+  starts Minecraft in place instead of switching to the Amethyst launcher UI. Automatic setup
+  (hash-verified provider, pinned Vivecraft download) and an in-VR quick menu are included. Host
+  gates PASS; the visual tab-bar/Play check needs the headset because the host's
+  `devicectl device process launch` transport is currently broken for all apps. See
+  [`docs/release/1.3-notes.md`](docs/release/1.3-notes.md) and `VERIFY.md` EV-0298.
 - **M7 hand-input mapping: device PASS**
 - **M5/M6 acceptance: 22/22 rows PASS** ([`docs/mvp/M6_ACCEPTANCE.md`](docs/mvp/M6_ACCEPTANCE.md))
 - **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)

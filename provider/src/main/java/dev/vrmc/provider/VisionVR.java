@@ -222,6 +222,11 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private boolean seatedPlay;
     private boolean seatedPlayJumpPrev;
     private long seatedPlayJumpUntilNs;
+    /**
+     * Seated snap turn: a left middle-finger single tap is deferred by the double-tap window so a
+     * double tap nets ONE right turn instead of left-then-right (see {@link SeatedTurnGesture}).
+     */
+    private final SeatedTurnGesture seatedTurn = new SeatedTurnGesture();
     private boolean vivecraftSeatedWarned;
     /** Pause-screen entry point of the in-VR quick menu (re-added after every screen re-init). */
     private Object quickMenuButton;
@@ -2304,15 +2309,22 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         return index;
     }
 
-    /** Seated play snap turn: left middle-finger pinch tap = left, double tap = right. */
+    /**
+     * Seated play snap turn: left middle-finger pinch tap = turn left, double tap = turn right.
+     *
+     * <p>The single tap is deferred by the engine's middle double-tap window ({@link SeatedTurnGesture}):
+     * the engine emits a single-tap pulse on the first tap of a double tap, so turning immediately
+     * would make a double tap turn left *and* right (net zero). The deferred decision costs ~0.38 s
+     * of latency on a single tap; a double tap turns right immediately.
+     */
     private void applySeatedPlayTurn(boolean enabled, long now) {
         if (enabled) {
-            if (this.visionInput.middleDoubleTapPressed(VisionInput.HAND_LEFT)) {
-                this.rotatePulseDirection = 1;
-                this.rotatePulseUntilNs = now + this.rotatePulseNanos;
-            } else if (this.visionInput.middleTapPressed(VisionInput.HAND_LEFT)
-                && this.rotatePulseDirection == 0) {
-                this.rotatePulseDirection = -1;
+            int turn = this.seatedTurn.update(true,
+                this.visionInput.middleTapPressed(VisionInput.HAND_LEFT),
+                this.visionInput.middleDoubleTapPressed(VisionInput.HAND_LEFT),
+                now, this.visionInput.middleDoubleMillis() * 1_000_000L);
+            if (turn != SeatedTurnGesture.NONE) {
+                this.rotatePulseDirection = turn;
                 this.rotatePulseUntilNs = now + this.rotatePulseNanos;
             }
         } else if (this.rotatePulseDirection == 0 && this.rotatePulseUntilNs == 0L) {

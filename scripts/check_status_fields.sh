@@ -4,11 +4,19 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-SHELL_SRC="runtime/native-shell/Sources/Shell.swift"
+# The window UI moved from Shell.swift to ShellUI.swift in 1.3; scan every shell source so the
+# guard keeps working across file splits instead of silently checking nothing.
+SHELL_SRCS=(runtime/native-shell/Sources/*.swift)
 BUILDER="provider/src/main/java/dev/vrmc/provider/VisionStatusJson.java"
-[ -f "$SHELL_SRC" ] || { echo "[status-fields] ERROR: $SHELL_SRC missing" >&2; exit 2; }
+[ "${#SHELL_SRCS[@]}" -gt 0 ] && [ -f "${SHELL_SRCS[0]}" ] || { echo "[status-fields] ERROR: no runtime/native-shell/Sources/*.swift found" >&2; exit 2; }
 [ -f "$BUILDER" ] || { echo "[status-fields] ERROR: $BUILDER missing" >&2; exit 2; }
-FIELDS=$(grep -oE 'obj\["[A-Za-z0-9]+"\]' "$SHELL_SRC" | sed -E 's/obj\["([A-Za-z0-9]+)"\]/\1/' | LC_ALL=C sort -u)
+# Both the 1.2 obj["field"] and the 1.3 status["field"] read forms count.
+FIELDS=$(grep -hoE '(obj|status)\["[A-Za-z0-9_]+"\]' "${SHELL_SRCS[@]}" \
+         | sed -E 's/^[A-Za-z]+\["([A-Za-z0-9_]+)"\]$/\1/' | LC_ALL=C sort -u)
+if [ -z "$FIELDS" ]; then
+  echo "[status-fields] FAIL: could not extract any status fields from ${SHELL_SRCS[*]} (guard would be vacuous)" >&2
+  exit 1
+fi
 fail=0; count=0
 for field in $FIELDS; do
   count=$((count + 1))

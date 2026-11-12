@@ -424,3 +424,16 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   purple-ish flash on immersive menu/pause screens (cosmetic, unresolved). Durable package rebuilt
   (app tree 0672c44c..., provider e4542a46..., zip sha256 f0943eab..., 206,136,692 B); development
   profile expires 2026-11-08T08:53:50Z.
+
+- 2026-11-11 EV-0298: **VRMC 1.3 single-UI release candidate (host PASS, device installed, on-headset check pending).**
+  The window is one native console (Play/Comfort/Controls/Help) and Play starts Minecraft in place
+  through a hidden in-window launcher host, so clicking Play no longer jumps to the Amethyst
+  launcher UI. Automatic setup (hash-verified bundled provider, pinned Vivecraft download/import,
+  duplicate-jar gate) and the in-VR quick menu (recenter/height/seated/turn/vignette/world scale/
+  render distance/release input/gesture guide) are in. Provider fixes: look-down false-JUMP
+  regression (HIGH) and seated double-tap snap turn netting zero (MEDIUM). Host: provider suite ALL
+  PASS, jar 158,742 B `89be397f…` 3-build reproducible, shell BUILD SUCCEEDED `8c517f6a…`,
+  `m6_release_check.sh` PASS. Device: 1.3.0 UI + in-world session proven on D1 (10,997 frames);
+  release 1.3.3 installed in place (codesign PASS, app data preserved). Pending: on-headset launch
+  of 1.3.3 + visual tab/Play check (host devicectl launch transport broken; user tap required).
+  Evidence `evidence/device-1.3/REPORT.md`, notes `docs/release/1.3-notes.md`.

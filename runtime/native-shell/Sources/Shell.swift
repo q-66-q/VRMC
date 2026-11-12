@@ -515,11 +515,39 @@ struct ShellLayerConfiguration: CompositorLayerConfiguration {
     }
 }
 
-struct LauncherHostView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        LauncherBridge.launcherController()
+/// SwiftUI-owned container that hosts the single launcher view controller.
+///
+/// SwiftUI only ever manages this plain container; `LauncherBridge` moves the one launcher controller
+/// into whichever container is currently active (the hidden 1×1 Play host or the Minecraft setup
+/// sheet). That indirection is what keeps the launcher usable from the hidden host without a SwiftUI
+/// teardown ever pulling it out of the other host.
+final class LauncherHostContainer: UIViewController {
+    override func loadView() {
+        let view = UIView()
+        view.backgroundColor = .clear
+        self.view = view
     }
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        children.first?.view.frame = view.bounds
+    }
+}
+
+struct LauncherHostView: UIViewControllerRepresentable {
+    /// The hidden host turns itself off while the Minecraft setup sheet owns the launcher.
+    var isActive: Bool = true
+
+    func makeUIViewController(context: Context) -> LauncherHostContainer {
+        let container = LauncherHostContainer()
+        if isActive { LauncherBridge.attachLauncher(to: container) }
+        return container
+    }
+
+    func updateUIViewController(_ container: LauncherHostContainer, context: Context) {
+        guard isActive else { return }
+        LauncherBridge.attachLauncher(to: container)
+    }
 }
 
 /// App-level owner of the immersive lifecycle.

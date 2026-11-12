@@ -9,24 +9,35 @@ import UniformTypeIdentifiers
 //   Comfort   play style, turning, vignette, height, world scale, performance
 //   Controls  gesture reference and hand sensitivity
 //   Help      session status, recovery, diagnostics export
-//   Launcher  the Amethyst launcher (accounts, versions, mods) — unchanged, embedded
+//
+// One UI only: pressing Play never switches to the launcher's own screens. A single launcher view
+// controller stays mounted in a hidden 1×1 pt host inside this window, so LauncherBridge can press
+// the launcher's own Play button (which owns the install/JIT/launch flow) with no second UI shown.
+// The launcher screens become visible only when the user deliberately opens "Minecraft setup" from
+// the Play setup card or Help, never automatically.
 //
 // Settings are written to the same files the provider reads (vrmc-runtime.properties,
 // vrmc-input-tune.properties, Documents/vrmc-vignette.flag). While a game runs, saving also asks
 // the game to reload them, so changes apply without restarting.
 
 enum ShellTab: Hashable {
-    case play, comfort, controls, help, launcher
+    case play, comfort, controls, help
 }
 
 struct RootView: View {
     @Bindable var shell: ShellCoordinator
     @State private var tab: ShellTab = .play
     @State private var setup = SetupManager.shared
+    /// The launcher's own screens, shown only when the user asks for them (sign-in, Fabric, JIT).
+    @State private var launcherSetupPresented = false
+    /// The hidden host owns the single launcher controller except while the setup sheet is on screen.
+    /// It is switched off before the sheet is presented and back on only after the sheet is gone, so
+    /// the two hosts never contest the one controller while the cover animates.
+    @State private var launcherHostActive = true
 
     var body: some View {
         TabView(selection: $tab) {
-            PlayView(shell: shell, setup: setup, tab: $tab)
+            PlayView(shell: shell, setup: setup, presentLauncherSetup: presentLauncherSetup)
                 .tabItem { Label("Play", systemImage: "play.circle") }
                 .tag(ShellTab.play)
             ComfortView(shell: shell)
@@ -35,13 +46,20 @@ struct RootView: View {
             ControlsView(shell: shell)
                 .tabItem { Label("Controls", systemImage: "hand.raised") }
                 .tag(ShellTab.controls)
-            HelpView(shell: shell, setup: setup)
+            HelpView(shell: shell, setup: setup, presentLauncherSetup: presentLauncherSetup)
                 .tabItem { Label("Help", systemImage: "lifepreserver") }
                 .tag(ShellTab.help)
-            LauncherHostView()
-                .ignoresSafeArea()
-                .tabItem { Label("Launcher", systemImage: "square.stack.3d.up") }
-                .tag(ShellTab.launcher)
+        }
+        .overlay(alignment: .topLeading) { hiddenLauncherHost }
+        .fullScreenCover(isPresented: $launcherSetupPresented, onDismiss: {
+            // The sheet has finished dismissing: hand the launcher back to the hidden in-window host.
+            launcherHostActive = true
+        }) {
+            LauncherSetupSheet { launcherSetupPresented = false }
+        }
+        .onChange(of: shell.gameRunning) { _, running in
+            // The launcher started the game from the setup sheet: leave setup behind.
+            if running { launcherSetupPresented = false }
         }
         .task {
             setup.refresh()
@@ -50,7 +68,51 @@ struct RootView: View {
                 setup.refresh()
             }
         }
-        .onAppear { shellLog("window UI appeared (release 1.3)") }
+        .onAppear { shellLog("window UI appeared (release 1.3, single UI)") }
+    }
+
+    /// Deliberate setup entry points only: the Play setup card and Help call this. Play never does.
+    private func presentLauncherSetup() {
+        launcherHostActive = false
+        launcherSetupPresented = true
+    }
+
+    /// The single launcher view controller, loaded and laid out inside the window but invisible and
+    /// non-interactive: that is what lets LauncherBridge drive the launcher's own install/JIT/launch
+    /// flow without showing a second UI. The setup sheet takes the same controller over while it is
+    /// open, then hands it back here.
+    private var hiddenLauncherHost: some View {
+        // Laid out at the app window's default size so the launcher builds its normal (full-size)
+        // view hierarchy, but fully transparent and non-interactive: nothing of it is ever shown.
+        LauncherHostView(isActive: launcherHostActive)
+            .frame(width: 1180, height: 780)
+            .opacity(0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// The Amethyst launcher's own screens, presented only when the user asks for them: Microsoft sign-in,
+/// Fabric profile install and the JIT prompt live there. Play never opens this sheet.
+private struct LauncherSetupSheet: View {
+    let onDone: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            LauncherHostView()
+                .ignoresSafeArea()
+            Button(action: onDone) {
+                Label("Done", systemImage: "checkmark")
+                    .padding(.horizontal, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .buttonBorderShape(.capsule)
+            .padding(24)
+            .accessibilityLabel("Close Minecraft setup")
+            .accessibilityHint("Returns to VRMC")
+        }
+        .background(.regularMaterial)
     }
 }
 
@@ -113,9 +175,13 @@ private struct StatusRow: View {
 private struct PlayView: View {
     @Bindable var shell: ShellCoordinator
     var setup: SetupManager
-    @Binding var tab: ShellTab
+    /// Opens the launcher's own screens (sign-in, Fabric, JIT). Deliberate user action only.
+    let presentLauncherSetup: () -> Void
     @State private var importing = false
     @State private var playMessage = ""
+    @State private var launching = false
+    @State private var slowStart = false
+    @State private var launchFailed = false
 
     var body: some View {
         NavigationStack {
@@ -123,6 +189,8 @@ private struct PlayView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     hero
                     if !shell.crashGuardMessage.isEmpty { safeModeCard }
+                    if launchFailed && !shell.gameRunning { launchFailedCard }
+                    if slowStart && launching && !shell.gameRunning { slowStartCard }
                     if shell.gameRunning { inGameCard } else { setupCard }
                 }
                 .padding(32)
@@ -134,6 +202,15 @@ private struct PlayView: View {
         .fileImporter(isPresented: $importing,
                       allowedContentTypes: [UTType(filenameExtension: "jar") ?? .data, .data]) { result in
             if case .success(let url) = result { setup.importVivecraft(from: url) }
+        }
+        .onChange(of: shell.gameRunning) { _, running in
+            // The game can also be started from Minecraft setup; drop any stale Play-tab state.
+            if running {
+                launching = false
+                slowStart = false
+                launchFailed = false
+                playMessage = ""
+            }
         }
     }
 
@@ -160,6 +237,43 @@ private struct PlayView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.extraLarge)
                 }
+            } else if launching {
+                Button {} label: {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Starting…")
+                    }
+                    .font(.title3.weight(.semibold))
+                    .padding(.horizontal, 20)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.extraLarge)
+                .disabled(true)
+                .accessibilityLabel("Starting Minecraft")
+            } else if startable {
+                Button {
+                    play()
+                } label: {
+                    Label("Play", systemImage: "play.fill")
+                        .font(.title3.weight(.semibold))
+                        .padding(.horizontal, 20)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.extraLarge)
+                .accessibilityHint("Starts Minecraft in this app")
+            } else if setup.readyToPlay {
+                // Microsoft sign-in / Fabric profile are the launcher's own flows. Play would only
+                // push the launcher's screens invisibly, so send the user to the deliberate sheet.
+                Button {
+                    presentLauncherSetup()
+                } label: {
+                    Label("Set up Minecraft", systemImage: "wrench.and.screwdriver")
+                        .font(.title3.weight(.semibold))
+                        .padding(.horizontal, 20)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.extraLarge)
+                .accessibilityHint("Opens Minecraft setup to sign in and install Fabric")
             } else {
                 Button {
                     play()
@@ -170,9 +284,8 @@ private struct PlayView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.extraLarge)
-                .disabled(!setup.readyToPlay)
-                .accessibilityHint(setup.readyToPlay ? "Opens the launcher and starts Minecraft"
-                                                     : "Install the VRMC mod and Vivecraft first")
+                .disabled(true)
+                .accessibilityHint("Install the VRMC mod and Vivecraft first")
             }
         }
         .padding(28)
@@ -187,23 +300,68 @@ private struct PlayView: View {
         }
         if !playMessage.isEmpty { return playMessage }
         if setup.readyToPlay {
-            return "VRMC is ready. Press Play — the launcher handles sign-in, Fabric and JIT."
+            if !setup.fabric.isReady || !setup.account.isReady {
+                return "One last step: sign in and pick the Fabric profile in Minecraft setup."
+            }
+            return "VRMC is ready. Press Play to start Minecraft."
         }
         return "A few things to set up before the first game."
     }
 
+    /// Play can drive the launcher directly only when the launcher's own prerequisites are in place;
+    /// otherwise the hero offers the deliberate "Set up Minecraft" sheet instead.
+    private var startable: Bool {
+        setup.readyToPlay && setup.fabric.isReady && setup.account.isReady
+    }
+
+    /// Start Minecraft through the launcher's own Play button, in place, with no UI switch.
+    ///
+    /// The button lives in the hidden launcher host and only exists/becomes enabled after the
+    /// launcher has loaded its versions and accounts, so the press is retried for a few seconds.
+    /// If nothing starts, the Play tab says so inline and offers "Open Minecraft setup"; the launcher
+    /// screens are never presented automatically.
     private func play() {
-        playMessage = ""
-        tab = .launcher
+        guard !launching else { return }
+        playMessage = "Starting Minecraft…"
+        launchFailed = false
+        slowStart = false
+        launching = true
         Task {
-            // The launcher's own button must be on screen to be pressed (it owns the JIT/install
-            // flow) and the launcher may still be loading on a cold visit to the Launcher tab, so
-            // keep trying for ~8 s instead of giving up after a fixed short burst.
-            for _ in 0..<20 {
-                if LauncherBridge.pressPlay() { return }
+            var pressed = false
+            for attempt in 0..<30 {
+                if LauncherBridge.pressPlay() {
+                    pressed = true
+                    break
+                }
+                if attempt >= 2 { playMessage = "Waiting for the launcher…" }
                 try? await Task.sleep(for: .milliseconds(400))
             }
-            playMessage = "Press Play in the launcher to start."
+            guard pressed else {
+                launching = false
+                launchFailed = true
+                playMessage = "Minecraft did not start. The launcher is still getting ready."
+                return
+            }
+            playMessage = "Starting Minecraft…"
+            // The launcher runs its install/JIT flow and then starts the JVM; wait for the game's own
+            // started notification instead of assuming the button press was enough. The first run can
+            // take minutes (downloads, JIT), so the ceiling is generous and the setup button appears
+            // while still starting rather than declaring failure early.
+            for tick in 0..<360 {
+                if shell.gameRunning {
+                    launching = false
+                    slowStart = false
+                    launchFailed = false
+                    playMessage = ""
+                    return
+                }
+                if tick == 40 { slowStart = true }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            launching = false
+            slowStart = false
+            launchFailed = true
+            playMessage = "Minecraft is taking longer than expected to start."
         }
     }
 
@@ -216,6 +374,49 @@ private struct PlayView: View {
                 .foregroundStyle(.secondary)
             if shell.safeMode {
                 Button("Clear safe mode") { shell.clearCrashGuard() }
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+    }
+
+    private var slowStartCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Still starting…", systemImage: "clock.arrow.circlepath")
+                .font(.headline)
+            Text("The first launch can take a few minutes while Minecraft downloads what it needs. If nothing happens, open Minecraft setup to check sign-in, Fabric and JIT.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                presentLauncherSetup()
+            } label: {
+                Label("Open Minecraft setup", systemImage: "wrench.and.screwdriver")
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+    }
+
+    private var launchFailedCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Minecraft did not start", systemImage: "exclamationmark.triangle.fill")
+                .font(.headline)
+                .foregroundStyle(.yellow)
+            Text("The launcher may still need a Microsoft sign-in, a Fabric profile or JIT. Open Minecraft setup to finish it, then press Play again. Nothing else has changed.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Button {
+                    presentLauncherSetup()
+                } label: {
+                    Label("Open Minecraft setup", systemImage: "wrench.and.screwdriver")
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Try again") { play() }
                     .buttonStyle(.bordered)
             }
         }
@@ -271,13 +472,20 @@ private struct PlayView: View {
                       status: setup.fabric)
             Divider()
             StatusRow(title: "Minecraft account", systemImage: "person.crop.circle", status: setup.account)
-            if !setup.fabric.isReady || !setup.account.isReady {
-                Button {
-                    tab = .launcher
-                } label: {
-                    Label("Open Launcher", systemImage: "square.stack.3d.up")
+            if !setup.fabric.isReady || !setup.account.isReady || !setup.jit.isReady {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {
+                        presentLauncherSetup()
+                    } label: {
+                        Label("Open Minecraft setup", systemImage: "wrench.and.screwdriver")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("Shows the Minecraft launcher screens for sign-in, Fabric and JIT")
+                    Text("Sign-in, Fabric and the JIT prompt happen in Minecraft setup. Play starts the game directly; open this only if the game does not start.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.bordered)
                 .padding(.leading, 46)
             }
             Divider()
@@ -621,6 +829,7 @@ private struct ControlsView: View {
 private struct HelpView: View {
     @Bindable var shell: ShellCoordinator
     var setup: SetupManager
+    let presentLauncherSetup: () -> Void
     @State private var status: [String: Any] = [:]
     @State private var exportURL: URL?
     @State private var exportMessage = ""
@@ -659,6 +868,18 @@ private struct HelpView: View {
                     Text("Recovery")
                 } footer: {
                     Text("To quit, close the VRMC window. Your world is saved by Minecraft as you play.")
+                }
+                Section {
+                    Button {
+                        presentLauncherSetup()
+                    } label: {
+                        Label("Open Minecraft setup", systemImage: "wrench.and.screwdriver")
+                    }
+                    .accessibilityHint("Shows the Minecraft launcher screens for sign-in, Fabric and JIT")
+                } header: {
+                    Text("Minecraft setup")
+                } footer: {
+                    Text("Play starts the game directly. Open this only if it does not start: sign in, install Fabric, or enable JIT here.")
                 }
                 Section {
                     Button {

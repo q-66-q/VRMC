@@ -54,10 +54,17 @@ public final class VisionM7RegressionTest {
 
     private static void step(VisionM7Gesture g, long[] t, float[] l, float[] r, float pinchL,
                              float pinchR, int ctx, float headY) {
+        stepPitch(g, t, l, r, pinchL, pinchR, ctx, headY, 0.0F);
+    }
+
+    /** As {@link #step}, with the head forward vector's Y (pitch) made explicit. */
+    private static void stepPitch(VisionM7Gesture g, long[] t, float[] l, float[] r, float pinchL,
+                                  float pinchR, int ctx, float headY, float fwdY) {
         t[0] += DT;
         if (t[0] < CLOCK_BASE_NS) t[0] += CLOCK_BASE_NS;
+        float fwdZ = (float) -Math.sqrt(Math.max(0.0F, 1.0F - fwdY * fwdY));
         g.update(true, l, true, r, pinchL, pinchR, 0.0F, headY, 0.0F,
-            1.0F, 0.0F, 0.0F, 0.0F, 0.0F, -1.0F, t[0], ctx);
+            1.0F, 0.0F, 0.0F, 0.0F, fwdY, fwdZ, t[0], ctx);
     }
 
     private static int frames(double seconds) { return (int) Math.round(seconds * 1.0e9 / DT); }
@@ -80,6 +87,7 @@ public final class VisionM7RegressionTest {
 
     public static void main(String[] args) {
         testSitDownRecovers();
+        testLookDownDoesNotLearnPosture();
         testCrouchStillHolds();
         testSlouchRecoversSlowly();
         testStandUpDoesNotBreakSneak();
@@ -111,6 +119,41 @@ public final class VisionM7RegressionTest {
             Math.abs(g.headBaseline() - (HEAD_Y - 0.40F)) < 0.03F);
         hold(g, t, HEAD_Y - 0.40F, 5.0, 0);
         check("sneak stays released while seated", !g.sneak());
+    }
+
+    /**
+     * A steep look-down lowers the tracked head by ~0.10-0.13 m. Learning that as a resting height
+     * made looking back up fire the head-rise jump (regression on the posture-recovery slow drift:
+     * look down 5-10 s, look up = jump). The baseline must stay at the standing height.
+     */
+    private static void testLookDownDoesNotLearnPosture() {
+        System.out.println("[m7-regression-test] a held look-down is not learned as a posture");
+        VisionM7Gesture g = new VisionM7Gesture();
+        long[] t = {0L};
+        for (int i = 0; i < frames(1.0); i++) {
+            stepPitch(g, t, left(OPEN, HEAD_Y), right(OPEN, HEAD_Y), 0.20F, 0.20F, 0, HEAD_Y, 0.0F);
+        }
+        float downY = HEAD_Y - 0.13F;
+        int downFrames = frames(0.5);
+        for (int i = 1; i <= downFrames; i++) {
+            float f = i / (float) downFrames;
+            stepPitch(g, t, left(OPEN, HEAD_Y - 0.13F * f), right(OPEN, HEAD_Y - 0.13F * f),
+                0.20F, 0.20F, 0, HEAD_Y - 0.13F * f, -0.90F * f);
+        }
+        for (int i = 0; i < frames(10.0); i++) {
+            stepPitch(g, t, left(OPEN, downY), right(OPEN, downY), 0.20F, 0.20F, 0, downY, -0.90F);
+        }
+        boolean jumped = false;
+        int upFrames = frames(0.30);
+        for (int i = 1; i <= upFrames; i++) {
+            float f = i / (float) upFrames;
+            float y = downY + 0.13F * f;
+            stepPitch(g, t, left(OPEN, y), right(OPEN, y), 0.20F, 0.20F, 0, y, -0.90F * (1.0F - f));
+            jumped |= g.jump();
+        }
+        check("looking back up after a held look-down does not jump", !jumped);
+        check("look-down is not learned as a resting height",
+            Math.abs(g.headBaseline() - HEAD_Y) < 0.02F);
     }
 
     private static void testCrouchStillHolds() {

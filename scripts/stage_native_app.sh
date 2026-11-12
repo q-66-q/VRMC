@@ -18,6 +18,8 @@
 #                                                generated with get-task-allow=true for JIT)
 #   BUNDLE_ID   expected/forced bundle id       (default dev.vrmc.vrmc)
 #   DISPLAY_NAME  set CFBundleDisplayName/CFBundleName (default: leave whatever SRC_APP has)
+#   APP_VERSION / APP_BUILD  set CFBundleShortVersionString / CFBundleVersion before signing
+#                             (default: leave whatever SRC_APP has; must be applied pre-signature)
 #   DEVICE      UDID expected in the profile    (default ${VRMC_DEVICE_UDID:-}; '' to skip)
 #   ALLOW_PLATFORM_MISMATCH=1   skip the visionOS (platform 11) check on framework/dylib
 #   DRY_RUN=1   print the plan, change nothing
@@ -202,6 +204,18 @@ if [ "$DRY_RUN" != "1" ]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleName $DISPLAY_NAME" "$DEST_APP/Info.plist" 2>/dev/null \
       || /usr/libexec/PlistBuddy -c "Add :CFBundleName string $DISPLAY_NAME" "$DEST_APP/Info.plist"
     note "display name -> $DISPLAY_NAME"
+  fi
+  # Version bump must happen before codesign: Info.plist is part of the sealed bundle. The device
+  # only accepts a newer CFBundleVersion for an in-place upgrade, so a reinstall needs this.
+  if [ -n "${APP_VERSION:-}" ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$DEST_APP/Info.plist" \
+      || die "could not set CFBundleShortVersionString=$APP_VERSION"
+    note "CFBundleShortVersionString -> $APP_VERSION"
+  fi
+  if [ -n "${APP_BUILD:-}" ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_BUILD" "$DEST_APP/Info.plist" \
+      || die "could not set CFBundleVersion=$APP_BUILD"
+    note "CFBundleVersion -> $APP_BUILD"
   fi
 fi
 run cp "$PROFILE" "$DEST_APP/embedded.mobileprovision"

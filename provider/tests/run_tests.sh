@@ -296,6 +296,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7RegressionTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/SeatedTurnGestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionSettingsFileTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionQuickMenuReflectionTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/TestJson.java" \
@@ -410,6 +411,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m7-regression-test\] [0-9]+ checks" "$T/m7-regression.log"
   else
     cat "$T/m7-regression.log"; fail "m7-regression"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.SeatedTurnGestureTest > "$T/m7-seated-turn.log" 2>&1 \
+     && grep -q "\[m7-seated-turn-test\] PASS" "$T/m7-seated-turn.log"; then
+    echo "[provider-tests] m7-seated-turn: PASS (deferred single tap; a double tap nets one right turn)"
+    grep -E "\[m7-seated-turn-test\] [0-9]+ checks" "$T/m7-seated-turn.log"
+  else
+    cat "$T/m7-seated-turn.log"; fail "m7-seated-turn"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionSettingsFileTest > "$T/m5-settings-file.log" 2>&1 \
      && grep -q "\[m5-settings-file-test\] PASS" "$T/m5-settings-file.log"; then
