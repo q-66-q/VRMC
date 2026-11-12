@@ -39,8 +39,12 @@ profile (byte-identical), so no extension is possible before expiry - re-sign af
 - Device: previous build 1.3.3 ran on D1 (single-window UI confirmed visually, Play started Minecraft
   with no UI switch, auto setup installed provider 89be397f, 19,517 immersive frames, clean quit);
   1.3.4 installed in place, app data preserved (shell log 08fde2b0... identical before/after install).
-- 1.3.4 on-headset launch/verification: NOT YET RUN at time of this record (needs one Home View tap;
-  acceptance checklist in evidence/device-1.3/REPORT.md section 7).
+- 1.3.4 on-headset run verified PASS 2026-11-11 19:57-19:58 HST (Home View tap): single window scene
+  (1 scene/2 windows, was 16), automatic VR entry (no manual Enter VR), provider auto-updated in mods/ to
+  02e3eca9... (161,999 B), status runningOnVisionOS=visionOS, compositor instrumentation live/clean,
+  crash-count 0, no new crash report. App was backgrounded rather than quit, so the game-stop logging path
+  was not exercised; pause-screen quick-menu placement (R2/R3) and long-session stability remain device
+  follow-ups. Evidence: evidence/device-1.3/logs/1.3.4-release-run/ (VERIFICATION.md, sha256sums.txt).
 
 ## Evidence
 evidence/device-1.3/REPORT.md, evidence/device-1.3/builds/1.3.4-release/,

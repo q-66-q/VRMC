@@ -449,3 +449,12 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   triage protocol documented (no visual guess). Device: 1.3.4 installed in place (identity recorded,
   app data preserved); launch + R1/R2/R3/R6 spot checks still need one Home View tap. Evidence
   `evidence/device-1.3/`, notes `docs/release/1.3.4-notes.md`, `docs/plan/RENDER_BUGFIX.md`.
+
+- 2026-11-11 EV-0300: **VRMC 1.3.4 on-headset run PASS (device).** One Home View launch confirmed
+  both release-blocker fixes: a single window scene (1 scene/2 windows, was 8/16) and **automatic VR
+  entry** with no manual Enter VR; auto-setup updated the provider to 161,999 B `02e3eca9...`; status
+  reports `runningOnVisionOS: visionOS`; compositor instrumentation live/clean (5 swap lines, 10 sRGB
+  rebuilds, no stale view, diagnostics off, errors=0, 3,285 frames); crash-count 0, no new crash
+  report. Not exercised (follow-ups, not failures): pause-screen quick-menu placement R2/R3, game-quit
+  NEW-3 logging (app was backgrounded), long-session stability; one transient hand-tracking loss at
+  backgrounding released actions safely. Evidence `evidence/device-1.3/logs/1.3.4-release-run/`.

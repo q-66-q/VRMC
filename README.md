@@ -16,8 +16,10 @@ This is a **development/sideload** project, not an App Store submission.
   findings R1/R2/R3/R5/R6/R10/R7/R8/R9. The purple menu/pause flash is instrumented for the next
   device A/B (see `docs/plan/RENDER_BUGFIX.md`); no visual guess was made. Host gates PASS (provider
   suite 944 checks, reproducible jar `02e3eca9…`, shell BUILD SUCCEEDED `718b7f19…`, release check
-  PASS). On-headset launch of 1.3.4 and the R1/R2/R3/R6 spot checks still need the headset because the
-  host's `devicectl device process launch` transport is broken for all apps. See
+  PASS). On-headset run verified PASS: automatic VR entry with no manual Enter VR, single window scene
+  (1 scene / 2 windows), provider auto-updated to `02e3eca9...`, no crash. Remaining device follow-ups
+  (pause-screen quick menu placement, game-quit logging) are documented; the host's
+  `devicectl device process launch` transport is broken for all apps so launch is from the Home View. See
   [`docs/release/1.3.4-notes.md`](docs/release/1.3.4-notes.md), [`docs/release/1.3-notes.md`](docs/release/1.3-notes.md)
   and `VERIFY.md` EV-0298/EV-0299.
 - **M7 hand-input mapping: device PASS**

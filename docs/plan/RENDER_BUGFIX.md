@@ -15,8 +15,15 @@ the **hardware sRGB texture view** ("after the colour correction"), whose M8 imp
 stale-view hazard that the 1.3 checkpoint has already hardened. Without a device A/B the remaining
 candidate cannot be confirmed, so this pass adds **release-neutral instrumentation** plus a
 defensive cache-key tightening (no image change on a correct path) so the next D1 run can prove or
-exonerate the compositor. This is the 1.3.4 path: keep the release gating (which provably closed the
-*real* pre-1.3 pattern flashes), do not guess a visual fix.
+exonerate a compositor texture-view bug. This is the 1.3.4 path: keep the release gating (which
+provably closed the *real* pre-1.3 pattern flashes), do not guess a visual fix.
+
+**Status 2026-11-11:** the instrumentation is in the 1.3.4 build and **verified live** on the first
+1.3.4 device run (device-verify, 37 s headless): 5/5 eye-texture swaps logged (1.3.3 logged 1 of 11),
+10/10 sRGB views rebuilt with the correct sizes, **no stale view sampled**, release surfaces off,
+grace intact. The run did not open a pause/inventory screen, so it neither reproduced nor explained
+the flash — the capture hook is armed for the next observation session (see §"1.3.4 verification"
+and the D1 checklist).
 
 ## Evidence sources
 
@@ -101,6 +108,43 @@ gives no swap nearby — that points to content-side (Vivecraft in-world GUI/pos
 the compositor texture path. Capture the operator's **exact moment** (VR entry vs pause vs inventory)
 on the 1.3.4 run; it splits the remaining candidates cleanly.
 
+### 1.3.4 verification — instrumentation live and clean (device-verify headless run, 19:57:48–19:58:54 HST)
+
+Evidence: `evidence/device-1.3/logs/1.3.4-release-run/` — compositor log `89da3e4a…`,
+`VERIFICATION.md` `e4a2854b…`, status `adeb556b…` (`sha256sums.txt`). 37 s in VR; the user
+backgrounded the app with the game running, so this is a **no-flash-observation** run (no pause /
+inventory screen was opened; the only menu moments were VR entry at the MenuWorld/TitleScreen and
+world join).
+
+What the new code proved on device:
+
+- **Instrumentation is in the staged build and works**: `provider eye textures changed` ×5 — initial
+  publish (publish=56, handles `0x0->0x72289b2300 / 0x0->0x72289b2080`, 1024×1024) then 4 eye-target
+  resizes 3136×2512, 2512×2016, 1880×1512, 2512×2016 (status `resizes=4`). The 1.3.3 build printed
+  **1** swap line for 11 rebuilds; this run prints exactly one per swap.
+- **sRGB view follows every swap**: `color: sRGB view rebuilt` ×10 = L/R × 5 publishes; view size
+  always equals the new provider target; no view-creation failure line.
+- **No stale view was sampled**: all 8 post-swap views report `previousViewOtherTexture=1` — that is
+  the **expected cache-replacement case** (the previous view belonged to the texture the swap line
+  just replaced; `previousHandle` equals the old handle, and the new view is created and cached
+  *before* the draw that samples it). Only the two initial views are `=0` (`previousHandle=0x0`).
+  There is no swap whose eye had a missing rebuild before the next draw, and no rebuild with an
+  unchanged handle.
+- **Release behaviour unchanged**: `diagnosticsEnabled=0`, zero `TEST PATTERN state changed`, no
+  nil-drawable/encoder lines, `errors=0` in all 27 render-feedback lines,
+  `presentedFrames=3285 framesWithoutDrawable=0 framesWithoutEncoder=0`; 4 resize gaps each held the
+  last frame (age=1) and resumed after 2–6 frames.
+
+Interpretation (field semantics, so future logs are read correctly): in this code
+`previousViewOtherTexture=1` is **normal** on a swap (`previousHandle != new handle` and a view was
+cached). A **stale-view hit** would be either (i) a `provider eye textures changed` line after which
+the next draw for that eye has **no** matching `sRGB view rebuilt` line, or (ii) a rebuild whose
+`previousHandle` equals the new `handle`. Neither occurred.
+
+Still open: **no flash was observed** in this short run because no pause/inventory screen was opened.
+The instrumentation is armed for an observation session; the decision tree below applies once the
+flash is reported (with the operator's exact moment).
+
 ## Ruled in/out
 
 | Candidate | Verdict | Evidence |
@@ -166,9 +210,12 @@ after this pass `45ae88df64afcf12d5ae10e391bc1fbbebb86e8c18d7e3543af9d6564ce93b9
 2. **Swap log coverage**: `grep 'provider eye textures changed' vrmc-compositor.log` should appear
    roughly once per provider `eye target resize #N` (e.g. 11 for a fresh session) — this is the
    logging fix working; previously it showed 1.
-3. **sRGB view follows the texture**: one `color: sRGB view rebuilt` per eye per swap; expect
-   `previousViewOtherTexture=0` and sizes matching the provider target. Any `=1` is a live
-   stale-view bug (→ fix the cache in the same way, with device evidence).
+3. **sRGB view follows the texture**: one `color: sRGB view rebuilt` per eye per swap; view
+   size must equal the provider target. `previousViewOtherTexture=1` is **EXPECTED** on normal swaps
+   (cache replacement — confirmed on 1.3.4: 8/8 post-swap views, previousHandle == the replaced
+   handle); only the first lifetime views are `=0`. A **stale-view hit** is: a swap line whose eye
+   has **no matching rebuild before the next draw**, or a rebuild with `previousHandle == handle`
+   — if seen, send the log lines to render-investigate for a targeted cache fix.
 4. **Reproduce the flash** on menu / pause / inventory open a few times, and **record the exact
    moment** (VR entry/title screen vs pause vs inventory — see the 1.3.3 timing bound above). Then:
    - flush observed **and** a `provider eye textures changed` / `sRGB view rebuilt` line within the
@@ -186,11 +233,12 @@ after this pass `45ae88df64afcf12d5ae10e391bc1fbbebb86e8c18d7e3543af9d6564ce93b9
 ## 1.3.4 release-note wording (recommended)
 
 "A sub-1 s purple flash was previously seen on immersive menu/pause screens in pre-1.3 M8
-diagnostic-build sessions (EV-0295..EV-0297). It is not observed in 1.3.3 release runs (/tmp
-pull 2026-11-11: no diagnostics surfaces active, 19,517 frames with valid eyes and no invalid-pass
-fills). The sRGB texture-view path and every eye-texture swap are now logged, with a
-diagnostics-only drawable capture on the frames after each swap; if it recurs, the next session's
-logs pinpoint the exact swap and pixels."
+diagnostic-build sessions (EV-0295..EV-0297). It has not been observed in 1.3.3/1.3.4 release-mode
+runs (1.3.3: no diagnostics surfaces active, 19,517 frames with valid eyes and no invalid-pass
+fills; 1.3.4: 3,285 frames, 4 eye-target rebuilds, no stale texture view). The sRGB texture-view
+path and every eye-texture swap are now logged, with a diagnostics-only drawable capture on the
+frames after each swap; if it is reported again, the session's logs pinpoint the exact swap and
+pixels, or exonerate the compositor path."
 
 ## Explicitly NOT done
 
