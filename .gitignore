@@ -52,3 +52,9 @@ runtime/probes/*/build/
 
 # device soak artifacts are evidence, not source
 /export/soak-*/
+
+# Provider jar bundled into the shell framework by scripts/build_shell.sh (build output)
+/runtime/native-shell/Resources/vrmc-provider.jar
+
+# Per-developer identity (device UDID, team ID, signing identity); template: scripts/local.env.example
+/scripts/local.env

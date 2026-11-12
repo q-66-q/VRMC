@@ -29,9 +29,10 @@
 # Env: DEVICE (default D1 UDID), BUNDLE_ID (dev.vrmc.vrmc), GAME_DIR (Documents/instances/default),
 #      DRY_RUN=1 (same as --print), MAX_ATTEMPTS (default 3).
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
 GAME_DIR="${GAME_DIR:-Documents/instances/default}"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-3}"

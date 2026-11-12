@@ -58,7 +58,7 @@ import java.util.Properties;
  * {@code VRInputAction.isEnabled()} is replaced by VRInputActionMixin only while this provider is the
  * active backend.
  */
-public class VisionVR extends MCVR {
+public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private static final int TRACKING_BYTES = VrmcBridge.TRACKING_BYTES;
     /** Host harness only: no real controllers exist, so identity component transforms are correct. */
     private static final Matrix4f IDENTITY = new Matrix4f();
@@ -205,6 +205,28 @@ public class VisionVR extends MCVR {
     /** VR-state the probe was measured in: the onMove scale only applies while VR_RUNNING. */
     private boolean m7CursorCalibVrRunning;
     private long m7LastScreenCloseNs;
+    /**
+     * A right pinch that was already held when a screen opened or closed belongs to the previous
+     * context: clicking "Back to Game" must not place a block / start mining when the menu closes,
+     * and a pinch held while the inventory opens must not click whatever is under the cursor. Set on
+     * the GUI<->world transition, cleared when the pinch is released.
+     */
+    private boolean m7PinchCarry;
+    private boolean m7PrevGui;
+    /**
+     * Seated play (launcher/quick-menu "Play style: Seated"): hands keep working, head rise/drop
+     * jump+sneak are off, and the middle-finger pinches take over (right tap = jump, right hold =
+     * sneak, left tap / double tap = snap turn left / right). Vivecraft's own seated mode is never
+     * enabled here: it is the keyboard/mouse mode and would release every hand action.
+     */
+    private boolean seatedPlay;
+    private boolean seatedPlayJumpPrev;
+    private long seatedPlayJumpUntilNs;
+    private boolean vivecraftSeatedWarned;
+    /** Pause-screen entry point of the in-VR quick menu (re-added after every screen re-init). */
+    private Object quickMenuButton;
+    private java.lang.reflect.Method addRenderableWidgetMethod;
+    private boolean quickMenuInjectFailed;
     /** M7 GUI click edge state: dispatched directly through vanilla MouseHandler (not the VR binding). */
     private boolean m7GuiClickPressed;
     private int m7GuiClickLogCount;
@@ -360,11 +382,12 @@ public class VisionVR extends MCVR {
         System.out.println("[VRMC-M7] gesture mode=" + (this.m7Mode ? "m7" : "m4")
             + " (tune gesture.mode / -Dvrmc.gesture.mode; operator mapping)");
         if (this.m7Mode) {
-            System.out.println("[VRMC-M7] mapping: short right pinch=place, held right pinch=break, "
-                + "right fist tap=use (mount/interact); tap while riding=dismount (latched per tap), "
-                + "left fist=escape, both-fist tap=inventory, both-fist swing=walk, head rise/lower=jump/sneak, "
-                + "left pinch hold=teleport, right swing=attack, right index tap=hotbar, near-head=eat, "
-                + "wide both fists=bow, alternating grips=climb");
+            System.out.println("[VRMC-M7] mapping: short right pinch=place/use (attack on a mob), held right "
+                + "pinch=break, right fist tap=use (mount/interact; dismount while riding), left pinch "
+                + "hold+move=walk/strafe, left fist tap=menu/back, both-fist tap=inventory, head "
+                + "rise/lower=jump/sneak (standing), right middle pinch tap/hold=jump/sneak and left "
+                + "middle tap/double=snap turn (seated play), right swing=attack, hotbar touch/index "
+                + "tap=slot, near-head=eat, hands apart=bow, alternating grips=climb");
         }
 
         this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
@@ -439,7 +462,7 @@ public class VisionVR extends MCVR {
             this.initialized,
             this.displayViewsGen,
             this.trackedFrames,
-            this.dh.vrSettings.seated,
+            this.dh.vrSettings.seated || this.seatedPlay,
             this.visionInput != null && this.visionInput.isInputHealthy(),
             this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_LEFT),
             this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT),
@@ -567,7 +590,7 @@ public class VisionVR extends MCVR {
             }
         }
         if (settings == null) return;
-        if (settings.hasSeated) this.dh.vrSettings.seated = settings.seated;
+        if (settings.hasSeated) setSeatedPlayInternal(settings.seated, "settings");
         if (settings.hasSeatedFreeMove) this.dh.vrSettings.seatedFreeMove = settings.seatedFreeMove;
         if (settings.hasSeatedUseHMD) this.dh.vrSettings.seatedUseHMD = settings.seatedUseHMD;
         if (settings.hasSeatedHmdPointer) this.seatedHmdPointer = settings.seatedHmdPointer;
@@ -773,12 +796,18 @@ public class VisionVR extends MCVR {
                 case "recenter" -> { performRecenter(); detail = "recenter requested"; }
                 case "calibrate-height" -> {
                     AutoCalibration.calibrateManual();
+                    this.m7Gesture.resetHeadBaseline();
                     detail = "manual height calibration performed";
+                }
+                case "quick-menu" -> {
+                    this.mc.gui.setScreen(new VisionQuickMenuScreen(this, this.mc.gui.screen()));
+                    detail = "quick menu opened";
                 }
                 case "reload-settings" -> {
                     this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
                     applyRuntimeSettings(this.runtimeSettings);
-                    detail = "runtime settings reloaded and applied";
+                    detail = "runtime settings reloaded and applied (play style="
+                        + (this.seatedPlay ? "seated" : "standing") + ")";
                 }
                 case "release-input" -> {
                     this.visionInput = new VisionInput(this.inputTuning);
@@ -812,7 +841,10 @@ public class VisionVR extends MCVR {
                     detail = restorePerformanceReductions();
                 }
                 case "controls" -> {
-                    showGameChat(controlsHelpLines());
+                    String[] help = controlsHelpLines();
+                    String[] chat = new String[help.length];
+                    for (int i = 0; i < help.length; i++) chat[i] = "[VRMC] " + help[i];
+                    showGameChat(chat);
                     detail = "controls summary sent to chat";
                 }
                 case "diag" -> {
@@ -992,6 +1024,7 @@ public class VisionVR extends MCVR {
         } catch (Throwable ignored) {
             // settings unavailable: keep default
         }
+        if (this.seatedPlay) ctx |= VisionM7Gesture.CTX_NO_HEAD_GESTURES;
         if ((this.m7ItemContextFrame++ % 6) == 0) {
             this.m7ItemContextBits = VisionM7ItemContext.flags(this.mc.player);
             this.m7BowHandMask = VisionM7ItemContext.bowHands(this.mc.player);
@@ -1100,6 +1133,8 @@ public class VisionVR extends MCVR {
             this.processInputs();
             this.hmdSampling();
         }
+        guardVivecraftSeated();
+        updateQuickMenuEntry();
         pollCommandFile();
         pollThermalState();
         updateHandCalibration();
@@ -1192,8 +1227,8 @@ public class VisionVR extends MCVR {
                 this.hmdPose.transformDirection(this.m7HeadRight);
                 this.m7Gesture.update(trackedL, this.visionInput.joints(VisionInput.HAND_LEFT),
                     trackedR, this.visionInput.joints(VisionInput.HAND_RIGHT),
-                    this.visionInput.pinchDistance(VisionInput.HAND_LEFT),
-                    this.visionInput.pinchDistance(VisionInput.HAND_RIGHT),
+                    m7IndexPinchDistance(VisionInput.HAND_LEFT),
+                    m7IndexPinchDistance(VisionInput.HAND_RIGHT),
                     this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
                     this.m7HeadRight.x, this.m7HeadRight.y, this.m7HeadRight.z,
                     this.m7HeadForward.x, this.m7HeadForward.y, this.m7HeadForward.z,
@@ -2066,7 +2101,20 @@ public class VisionVR extends MCVR {
         boolean seated = this.dh.vrSettings.seated;
         applyM7Locomotion();
         boolean moving = this.m7LocomotionEngaged;
-        boolean rightPinchHeld = this.m7Gesture.rightPinchHeld();
+        boolean rightPinchRaw = this.m7Gesture.rightPinchHeld();
+        if (gui != this.m7PrevGui) {
+            this.m7PrevGui = gui;
+            if (rightPinchRaw) {
+                this.m7PinchCarry = true;
+                // Forget the old context's press so its duration cannot become a place/break here.
+                this.m7RightPinchPrev = false;
+                this.m7HeldBreak = false;
+                System.out.println("[VRMC-M7] right pinch carried across a screen "
+                    + (gui ? "open" : "close") + "; ignored until released");
+            }
+        }
+        if (!rightPinchRaw) this.m7PinchCarry = false;
+        boolean rightPinchHeld = rightPinchRaw && !this.m7PinchCarry;
         long actionNow = System.nanoTime();
         boolean riding = m7IsRiding();
         boolean rightFistTap = this.m7Gesture.rightFistTap();
@@ -2122,10 +2170,26 @@ public class VisionVR extends MCVR {
             this.m7LastScreenCloseNs = nowNs;
         }
         setM7Action(VisionInput.KEY_INGAME_MENU, VisionInput.HAND_LEFT, menuAction);
-        setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump());
+        // Seated play: the right middle-finger pinch replaces the head gestures (tap = jump, hold =
+        // sneak) and the left one snap-turns, because a seated operator cannot rise/crouch/turn.
+        boolean seatedJump = false;
+        boolean seatedSneak = false;
+        if (this.seatedPlay && !gui && !seated) {
+            boolean tap = this.visionInput.middleTapPressed(VisionInput.HAND_RIGHT);
+            if (tap && !this.seatedPlayJumpPrev) this.seatedPlayJumpUntilNs = actionNow + 120_000_000L;
+            this.seatedPlayJumpPrev = tap;
+            seatedJump = actionNow < this.seatedPlayJumpUntilNs;
+            seatedSneak = this.visionInput.middlePressed(VisionInput.HAND_RIGHT)
+                && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT);
+        } else {
+            this.seatedPlayJumpPrev = false;
+            this.seatedPlayJumpUntilNs = 0L;
+        }
+        applySeatedPlayTurn(this.seatedPlay && !gui && !seated, actionNow);
+        setM7Action(VisionInput.KEY_JUMP, VisionInput.HAND_RIGHT, this.m7Gesture.jump() || seatedJump);
         // Right-fist tap is context sensitive: on foot = use (mount/interact), riding = sneak (dismount).
         setM7Action(VisionInput.KEY_SNEAK, VisionInput.HAND_RIGHT,
-            this.m7Gesture.sneak() || (actionNow < this.m7FistTapSneakUntilNs));
+            this.m7Gesture.sneak() || seatedSneak || (actionNow < this.m7FistTapSneakUntilNs));
         // M7 left pinch is the movement stick; teleport must not also fire on the same pinch.
         // A dedicated teleport gesture is still TODO, so keep the action released here.
         setM7Action(VisionInput.KEY_TELEPORT, VisionInput.HAND_LEFT, false);
@@ -2222,6 +2286,249 @@ public class VisionVR extends MCVR {
         this.m7StickOriginSet = false;
     }
 
+    /**
+     * Thumb-index distance for the M7 engine. In seated play the middle-finger pinch is a gesture of
+     * its own, and a thumb touching the middle fingertip also sits close to the index fingertip:
+     * the closer fingertip wins, so a jump/sneak/turn pinch is never also read as place/break/walk.
+     */
+    private float m7IndexPinchDistance(int hand) {
+        float index = this.visionInput.pinchDistance(hand);
+        // Only when the middle-finger family is actually live: with it disabled a low middle-tip
+        // distance cannot become a jump/sneak/turn, so it must not suppress the index pinch either.
+        if (!this.seatedPlay || !this.visionInput.middleEnabled()) return index;
+        float middle = this.visionInput.middleDistance(hand);
+        if (Float.isFinite(middle) && Float.isFinite(index) && middle < index
+            && middle < this.visionInput.middleOff()) {
+            return 1.0F; // an open hand as far as the index pinch is concerned
+        }
+        return index;
+    }
+
+    /** Seated play snap turn: left middle-finger pinch tap = left, double tap = right. */
+    private void applySeatedPlayTurn(boolean enabled, long now) {
+        if (enabled) {
+            if (this.visionInput.middleDoubleTapPressed(VisionInput.HAND_LEFT)) {
+                this.rotatePulseDirection = 1;
+                this.rotatePulseUntilNs = now + this.rotatePulseNanos;
+            } else if (this.visionInput.middleTapPressed(VisionInput.HAND_LEFT)
+                && this.rotatePulseDirection == 0) {
+                this.rotatePulseDirection = -1;
+                this.rotatePulseUntilNs = now + this.rotatePulseNanos;
+            }
+        } else if (this.rotatePulseDirection == 0 && this.rotatePulseUntilNs == 0L) {
+            return; // nothing to release (keeps the M4 path's own rotate writes untouched)
+        } else {
+            this.rotatePulseDirection = 0;
+            this.rotatePulseUntilNs = 0L;
+        }
+        boolean pulse = this.rotatePulseDirection != 0 && now < this.rotatePulseUntilNs;
+        VRInputAction rotateLeft = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateLeft);
+        VRInputAction rotateRight = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateRight);
+        if (rotateLeft != null) {
+            writeAnalog1D(rotateLeft, ControllerType.RIGHT.ordinal(),
+                pulse && this.rotatePulseDirection < 0 ? 1.0F : 0.0F, VisionInput.ORIGIN_LEFT);
+        }
+        if (rotateRight != null) {
+            writeAnalog1D(rotateRight, ControllerType.RIGHT.ordinal(),
+                pulse && this.rotatePulseDirection > 0 ? 1.0F : 0.0F, VisionInput.ORIGIN_LEFT);
+        }
+        if (!pulse) {
+            this.rotatePulseDirection = 0;
+            this.rotatePulseUntilNs = 0L;
+        }
+    }
+
+    /** Switch seated play; Vivecraft's keyboard/mouse seated mode always stays off (see field doc). */
+    private void setSeatedPlayInternal(boolean seated, String source) {
+        boolean changed = seated != this.seatedPlay;
+        this.seatedPlay = seated;
+        this.dh.vrSettings.seated = false;
+        if (changed) {
+            this.m7Gesture.resetHeadBaseline();
+            System.out.println("[VRMC-M7] play style=" + (seated ? "seated" : "standing")
+                + " (" + source + "): head jump/sneak " + (seated ? "off; middle-pinch jump/sneak/turn on"
+                    : "on") + "; Vivecraft keyboard-seated mode stays off");
+            if (seated && this.visionInput != null && !this.visionInput.middleEnabled()) {
+                // Seated play moves jump/sneak/turn onto the middle-finger family; with that family
+                // disabled the operator would have no jump/sneak/turn at all. Say so instead of
+                // leaving a silently half-broken control scheme.
+                System.out.println("[VRMC-M7][WARN] seated play enabled while middle gestures are "
+                    + "disabled: jump/sneak/turn are unavailable (enable middle gestures in the launcher)");
+                showGameMessage("[VRMC] Seated play needs middle gestures; enable them in the launcher tuning");
+            }
+        }
+    }
+
+    /**
+     * Vivecraft's own "Seated" toggle (its VR settings screen) switches to keyboard/mouse play and
+     * this provider then releases every hand action - with no keyboard on the headset that leaves no
+     * way to turn it back off. Convert it into seated play instead of leaving the game unusable.
+     */
+    private void guardVivecraftSeated() {
+        try {
+            if (!this.dh.vrSettings.seated) return;
+            setSeatedPlayInternal(true, "vivecraft seated toggle");
+            persistRuntimeSetting("comfort.seated", "true");
+            if (!this.vivecraftSeatedWarned) {
+                this.vivecraftSeatedWarned = true;
+                showGameMessage("[VRMC] Seated play on: hands stay active (see Quick Menu > Gesture guide)");
+            }
+        } catch (Throwable t) {
+            // settings object unavailable during VR (re)initialisation; try again next frame
+        }
+    }
+
+    private void persistRuntimeSetting(String key, String value) {
+        if (this.mc.gameDirectory == null) return;
+        Path file = this.mc.gameDirectory.toPath().resolve(VisionSettingsFile.RUNTIME_FILE);
+        if (!VisionSettingsFile.update(file, key, value)) {
+            System.out.println("[VRMC-M5][WARN] could not persist " + key + "=" + value + " to " + file);
+        }
+    }
+
+    /**
+     * Add the "VRMC Quick Menu" button to the game menu. Screen.addRenderableWidget is protected, so
+     * it is invoked reflectively (Minecraft 26.x ships unobfuscated names); any failure is logged
+     * once and the quick menu stays reachable through the launcher's quick-menu command.
+     *
+     * <p>Any {@code PauseScreen} gets the button, not only the singleplayer one: in multiplayer the
+     * same screen is shown with {@code showsPauseMenu()==false}, and a headset user still needs the
+     * comfort/recovery controls there.
+     */
+    private void updateQuickMenuEntry() {
+        if (this.quickMenuInjectFailed) return;
+        try {
+            net.minecraft.client.gui.screens.Screen screen = this.mc.gui.screen();
+            if (!(screen instanceof net.minecraft.client.gui.screens.PauseScreen)) {
+                this.quickMenuButton = null;
+                return;
+            }
+            if (this.quickMenuButton != null && screen.children().contains(this.quickMenuButton)) return;
+            if (this.addRenderableWidgetMethod == null) {
+                this.addRenderableWidgetMethod = net.minecraft.client.gui.screens.Screen.class
+                    .getDeclaredMethod("addRenderableWidget",
+                        net.minecraft.client.gui.components.events.GuiEventListener.class);
+                this.addRenderableWidgetMethod.setAccessible(true);
+            }
+            final net.minecraft.client.gui.screens.Screen parent = screen;
+            net.minecraft.client.gui.components.Button button = net.minecraft.client.gui.components.Button
+                .builder(net.minecraft.network.chat.Component.literal("VRMC Quick Menu"),
+                    b -> this.mc.gui.setScreen(new VisionQuickMenuScreen(this, parent)))
+                .bounds(screen.width / 2 - 102, Math.max(4, screen.height - 28), 204, 20)
+                .build();
+            this.addRenderableWidgetMethod.invoke(screen, button);
+            this.quickMenuButton = button;
+        } catch (Throwable t) {
+            this.quickMenuInjectFailed = true;
+            this.quickMenuButton = null;
+            System.out.println("[VRMC-M7][WARN] quick menu button unavailable on the pause screen: " + t);
+        }
+    }
+
+    // ---- VisionQuickMenuScreen.Host ----
+
+    @Override public void quickRecenter() { performRecenter(); }
+
+    @Override public void quickCalibrateHeight() {
+        try {
+            AutoCalibration.calibrateManual();
+            this.m7Gesture.resetHeadBaseline();
+            System.out.println("[VRMC-M5] quick menu: manual height calibration performed");
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M5][WARN] quick menu height calibration failed: " + t);
+        }
+    }
+
+    @Override public boolean quickSeatedPlay() { return this.seatedPlay; }
+
+    @Override public void quickSetSeatedPlay(boolean seated) {
+        setSeatedPlayInternal(seated, "quick menu");
+        persistRuntimeSetting("comfort.seated", seated ? "true" : "false");
+    }
+
+    @Override public float quickTurnIncrement() { return this.dh.vrSettings.worldRotationIncrement; }
+
+    @Override public void quickSetTurnIncrement(float degrees) {
+        float clamped = Math.max(0.0F, Math.min(90.0F, degrees));
+        this.dh.vrSettings.worldRotationIncrement = clamped;
+        persistRuntimeSetting("comfort.worldRotationIncrement", String.valueOf(Math.round(clamped)));
+        System.out.println("[VRMC-M5] quick menu: worldRotationIncrement=" + clamped);
+    }
+
+    @Override public float quickWorldScale() { return this.dh.vrSettings.worldScale; }
+
+    @Override public void quickSetWorldScale(float scale) {
+        float clamped = Math.max(0.8F, Math.min(1.5F, scale));
+        this.dh.vrSettings.worldScale = clamped;
+        persistRuntimeSetting("comfort.worldScale",
+            String.format(java.util.Locale.ROOT, "%.2f", clamped));
+        System.out.println("[VRMC-M5] quick menu: worldScale=" + clamped);
+    }
+
+    @Override public int quickRenderDistance() {
+        try {
+            return this.mc.options.renderDistance().get();
+        } catch (Throwable t) {
+            return 12;
+        }
+    }
+
+    @Override public void quickSetRenderDistance(int chunks) {
+        int clamped = Math.max(6, Math.min(24, chunks));
+        try {
+            this.mc.options.renderDistance().set(clamped);
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M5][WARN] quick menu render distance apply failed: " + t);
+            return;
+        }
+        persistRuntimeSetting("performance.renderDistance", String.valueOf(clamped));
+        System.out.println("[VRMC-M5] quick menu: renderDistance=" + clamped);
+    }
+
+    @Override public int quickVignetteLevel() {
+        Path flag = this.mc.gameDirectory == null ? null
+            : VisionSettingsFile.vignetteFlag(this.mc.gameDirectory.toPath());
+        if (flag == null) return -1;
+        try {
+            if (!Files.isRegularFile(flag)) return 0;
+            return VisionSettingsFile.vignetteLevel(Files.readString(flag));
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    @Override public void quickSetVignetteLevel(int level) {
+        Path flag = this.mc.gameDirectory == null ? null
+            : VisionSettingsFile.vignetteFlag(this.mc.gameDirectory.toPath());
+        if (flag == null) return;
+        int index = Math.max(0, Math.min(VisionSettingsFile.VIGNETTE_LEVELS.length - 1, level));
+        try {
+            if (index == 0) {
+                Files.deleteIfExists(flag);
+            } else {
+                Files.writeString(flag, String.format(java.util.Locale.ROOT, "%.2f",
+                    VisionSettingsFile.VIGNETTE_LEVELS[index]));
+            }
+            System.out.println("[VRMC-M5] quick menu: vignette level=" + index + " (" + flag + ")");
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M5][WARN] quick menu vignette write failed: " + t);
+        }
+    }
+
+    @Override public void quickReleaseInput() {
+        this.visionInput = new VisionInput(this.inputTuning);
+        this.m7Gesture.releaseAll();
+        this.bindingActions = null;
+        this.resolvedActionMap = null;
+        this.hotbarWheelActive = false;
+        this.rotatePulseDirection = 0;
+        this.rotatePulseUntilNs = 0L;
+        this.m7PinchCarry = false;
+        System.out.println("[VRMC-M4] quick menu: input engine reset; held actions released");
+    }
+
+    @Override public String[] quickControlsHelp() { return controlsHelpLines(); }
+
     private void setM7Action(String name, int hand, boolean state) {
         VRInputAction action = this.getInputAction(name);
         if (action == null) return;
@@ -2247,7 +2554,7 @@ public class VisionVR extends MCVR {
      * receives the head-ray coordinate.
      */
     private void applyM7GuiClick(boolean gui) {
-        boolean want = gui && this.m7Gesture.guiClick();
+        boolean want = gui && this.m7Gesture.guiClick() && !this.m7PinchCarry;
         if (want && !this.m7GuiClickPressed) {
             this.m7GuiClickPressed = true;
             InputSimulator.pressMouse(MOUSE_BUTTON_LEFT);
@@ -2268,6 +2575,10 @@ public class VisionVR extends MCVR {
 
     private void releaseM7Actions() {
         this.zeroM7Locomotion();
+        this.m7PinchCarry = false;
+        this.seatedPlayJumpPrev = false;
+        this.seatedPlayJumpUntilNs = 0L;
+        applySeatedPlayTurn(false, System.nanoTime());
         this.m7RightPinchPrev = false;
         this.m7HeldBreak = false;
         this.m7ShortAttackUntilNs = 0L;
@@ -2436,16 +2747,34 @@ public class VisionVR extends MCVR {
         }
     }
 
-    /** Compact in-headset control reference (chat lines; actionbar would truncate). */
-    private static String[] controlsHelpLines() {
-        return new String[] {
-            "[VRMC] Pinch thumb+index: attack / GUI click; left hold = teleport.",
-            "[VRMC] Right fist hold = use / bow draw; left fist tap = menu; both fists tap = inventory.",
-            "[VRMC] Middle pinch: left hold+move hand = walk/strafe; right hold = sneak; right tap = jump; left tap/double = snap turn; right double = radial; both tap = climb jump; both double = recenter.",
-            "[VRMC] Both thumb-ring pinches: hotbar wheel (move left hand, release).",
-            "[VRMC] Optional swipes: right horiz = hotbar +/-; right vert = scroll; left up/down = keyboard/chat; left horiz = swap/drop.",
-            "[VRMC] Launcher: settings, tuning, recenter/calibrate, diagnostics. Reload input applies tuning live.",
-        };
+    /** Compact in-headset control reference for the active gesture mode (chat + quick-menu guide). */
+    private String[] controlsHelpLines() {
+        if (!this.m7Mode) {
+            return new String[] {
+                "Pinch thumb+index: attack / GUI click; left hold = teleport.",
+                "Right fist hold = use / bow draw; left fist tap = menu; both fists tap = inventory.",
+                "Middle pinch: left hold+move = walk; right hold = sneak; right tap = jump; left tap/double = snap turn.",
+                "Both thumb-ring pinches: hotbar wheel (move left hand, release).",
+            };
+        }
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add("Look at something to aim. Menus: look + right pinch to click.");
+        lines.add("Right pinch, short: place / use.  Right pinch, hold: break / mine.");
+        lines.add("Right pinch on a mob, or a right-hand punch: attack.");
+        lines.add("Left pinch, hold and move the hand: walk / strafe.");
+        lines.add("Left fist tap: game menu (in a menu: go back).");
+        lines.add("Both fists tap: inventory.  Right fist tap: use / mount / dismount.");
+        lines.add("Touch the hotbar with your right index finger, or tap it in the air: change slot.");
+        lines.add("Bow: hands apart to draw, open the back hand to fire.  Food: right hand to mouth.");
+        if (this.seatedPlay) {
+            lines.add("Seated: right middle-finger pinch tap = jump, hold = sneak.");
+            lines.add("Seated: left middle-finger pinch tap = turn left, double tap = turn right.");
+        } else {
+            lines.add("Standing: rise on your toes = jump, crouch = sneak.");
+        }
+        lines.add("Both middle-finger pinches, double tap: recenter.");
+        lines.add("Game menu > VRMC Quick Menu: comfort, turning, world scale, draw distance, release input.");
+        return lines.toArray(new String[0]);
     }
 
     private void showGameChat(String[] lines) {
@@ -2492,6 +2821,7 @@ public class VisionVR extends MCVR {
             java.lang.reflect.Method m = this.dh.vrPlayer.getClass().getMethod(
                 "snapRoomOriginToPlayerEntity", Entity.class, boolean.class, boolean.class);
             m.invoke(this.dh.vrPlayer, this.mc.player, false, true);
+            this.m7Gesture.resetHeadBaseline();
             System.out.println("[VRMC-M5] recenter: room origin snapped to player (both-middle double-tap)");
             showGameMessage("[VRMC] recenter: room origin snapped to player");
         } catch (Throwable t) {

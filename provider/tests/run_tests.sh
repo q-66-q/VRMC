@@ -95,10 +95,15 @@ step "vkreflect-smoke"
 # + Vulkan struct classes. Used ONLY for the reflection smoke test; the provider jar stays LWJGL-free.
 LWJGL_CP="${LWJGL_CP:-}"
 if [ -z "$LWJGL_CP" ]; then
-  GC="$HOME/.gradle/caches/modules-2"
-  LJ_CORE=$(find "$GC" -path '*org.lwjgl/lwjgl/3.4.1*' -name 'lwjgl-3.4.1.jar' -not -name '*sources*' 2>/dev/null | head -1)
-  LJ_NAT=$(find "$GC" -path '*org.lwjgl/lwjgl/3.4.1*' -name 'lwjgl-3.4.1-natives-macos-arm64.jar' -not -name '*sources*' 2>/dev/null | head -1)
-  LJ_VK=$(find "$GC" -path '*org.lwjgl/lwjgl-vulkan/3.4.1*' -name 'lwjgl-vulkan-3.4.1.jar' -not -name '*sources*' 2>/dev/null | head -1)
+  # Search the Gradle cache first, then the Minecraft launcher's library tree. A missing search root
+  # must not abort the suite (set -e + pipefail): the with-LWJGL half is an explicit SKIP instead.
+  LJ_CORE=""; LJ_NAT=""; LJ_VK=""
+  for GC in "$HOME/.gradle/caches/modules-2" "$HOME/Library/Application Support/minecraft/libraries"; do
+    [ -d "$GC" ] || continue
+    [ -n "$LJ_CORE" ] || LJ_CORE=$(find "$GC" -name 'lwjgl-3.4.1.jar' 2>/dev/null | head -1 || true)
+    [ -n "$LJ_NAT" ] || LJ_NAT=$(find "$GC" -name 'lwjgl-3.4.1-natives-macos-arm64.jar' 2>/dev/null | head -1 || true)
+    [ -n "$LJ_VK" ] || LJ_VK=$(find "$GC" -name 'lwjgl-vulkan-3.4.1.jar' 2>/dev/null | head -1 || true)
+  done
   [ -n "$LJ_CORE" ] && [ -n "$LJ_VK" ] && LWJGL_CP="$LJ_CORE:$LJ_VK${LJ_NAT:+:$LJ_NAT}"
 fi
 mkdir -p "$T/smokeclasses"
@@ -290,6 +295,9 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionLogFormatTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureFuzzTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionM7RegressionTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionSettingsFileTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionQuickMenuReflectionTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/TestJson.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
@@ -395,6 +403,27 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m7-gesture-test\] [0-9]+ checks" "$T/m7-gesture.log"
   else
     cat "$T/m7-gesture.log"; fail "m7-gesture"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionM7RegressionTest > "$T/m7-regression.log" 2>&1 \
+     && grep -q "\[m7-regression-test\] PASS" "$T/m7-regression.log"; then
+    echo "[provider-tests] m7-regression: PASS (posture recovery, seated play, fist-tap vs pinch)"
+    grep -E "\[m7-regression-test\] [0-9]+ checks" "$T/m7-regression.log"
+  else
+    cat "$T/m7-regression.log"; fail "m7-regression"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionSettingsFileTest > "$T/m5-settings-file.log" 2>&1 \
+     && grep -q "\[m5-settings-file-test\] PASS" "$T/m5-settings-file.log"; then
+    echo "[provider-tests] m5-settings-file: PASS (quick-menu settings persistence, turn/vignette steps)"
+    grep -E "\[m5-settings-file-test\] [0-9]+ checks" "$T/m5-settings-file.log"
+  else
+    cat "$T/m5-settings-file.log"; fail "m5-settings-file"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionQuickMenuReflectionTest > "$T/m5-quick-menu-reflection.log" 2>&1 \
+     && grep -q "\[m5-quick-menu-reflection-test\] PASS" "$T/m5-quick-menu-reflection.log"; then
+    echo "[provider-tests] m5-quick-menu-reflection: PASS (pause-screen injection reflection contract)"
+    grep -E "\[m5-quick-menu-reflection-test\] [0-9]+ checks" "$T/m5-quick-menu-reflection.log"
+  else
+    cat "$T/m5-quick-menu-reflection.log"; fail "m5-quick-menu-reflection"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionM7GestureFuzzTest > "$T/m7-fuzz.log" 2>&1 \
      && grep -q "\[m7-fuzz-test\] PASS" "$T/m7-fuzz.log"; then

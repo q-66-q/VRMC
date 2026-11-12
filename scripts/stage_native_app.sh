@@ -24,6 +24,7 @@
 #   VRMC_KEEP_JRE=25  optional experimental: prune other bundled java-*-openjdk runtimes from the
 #                     staged app (reduces bundle size; device launch behavior NOT yet validated)
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FW_SRC="${1:-}"

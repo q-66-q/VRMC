@@ -8,7 +8,8 @@
 #   DEVICE=<udid> scripts/m3c_preflight.sh [--expect-app v14] [--expect-provider-sha <sha256>]
 # Exit: 0 = expectations satisfied; 2 = mismatch/missing; 3 = device not reachable/unlocked.
 set -uo pipefail
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 EXPECT_APP=""
 EXPECT_SHA=""
 while [ "$#" -gt 0 ]; do

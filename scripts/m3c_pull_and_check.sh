@@ -8,9 +8,10 @@
 #
 # Exit: 0 = triage lines printed, no hard regression detected; 2 = depthZero=1 or no presented frame.
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTDIR="${OUTDIR:-/tmp/vrmc-m3c}"
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 FROM=""
 if [ "${1:-}" = "--from" ]; then FROM="${2:?--from needs a directory}"; OUTDIR="$FROM"; fi
 mkdir -p "$OUTDIR"

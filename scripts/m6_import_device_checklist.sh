@@ -6,8 +6,9 @@
 #   export/device-acceptance-status.txt
 # Never claims device PASS by itself; results must be reviewed and recorded in VERIFY.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVICE="${DEVICE_ID:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE_ID:-$VRMC_DEVICE_UDID}"
 BUNDLE="${BUNDLE_ID:-dev.vrmc.vrmc}"
 INPUT=""
 REQUIRE_NO_FAIL=0

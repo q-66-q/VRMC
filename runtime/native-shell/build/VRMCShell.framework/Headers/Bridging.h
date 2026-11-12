@@ -11,6 +11,8 @@ void VRMCCompositor_NotifyGameStopping(void);
 /// phase: 1 active, 2 ended, 3 cancelled; kind: 1 indirectPinch, 2 directPinch, 3 touch.
 void VRMCInput_PublishGazeEvent(uint64_t tileId, int32_t phase, int32_t kind);
 int32_t VRMCCompositor_CurrentGeneration(void);
+/// 1 once the provider has published a usable stereo eye frame (pure read; safe from the main thread).
+int32_t VRMCCompositor_ProviderEyesReady(void);
 #ifdef __cplusplus
 }
 #endif

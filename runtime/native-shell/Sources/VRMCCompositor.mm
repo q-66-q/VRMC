@@ -164,6 +164,19 @@ extern "C" void VRMCInput_PublishGazeEvent(uint64_t tileId, int32_t phase, int32
           (unsigned long long)tileId, phase, kind, rc);
 }
 
+static void resolveBridge(void);
+
+/// 1 when the provider has published a usable stereo eye frame. The shell polls this after the game
+/// starts and opens the immersive space only once there is a real picture to show, instead of after
+/// a fixed delay. Pure read: vrmc_shared_acquire_eyes copies the latest frame under the bridge mutex.
+extern "C" int32_t VRMCCompositor_ProviderEyesReady(void) {
+    resolveBridge();
+    if (gAcquireFn == NULL) return 0;
+    vrmc_shared_eye_frame frame;
+    memset(&frame, 0, sizeof(frame));
+    return (gAcquireFn(&frame) == 0 && frame.eyes.left_texture != 0 && frame.eyes.right_texture != 0) ? 1 : 0;
+}
+
 /// Provider teardown notification: post on the main queue so the SwiftUI shell can dismiss the
 /// immersive space. The bridge calls this directly from nativeSignalGameStopping, and the frame loop
 /// also polls the shared flag as a fallback.
@@ -206,6 +219,9 @@ static void openLog(void) {
 }
 
 static void resolveBridge(void) {
+    // Called from the compositor thread and (VRMCCompositor_ProviderEyesReady) from the main thread.
+    static std::mutex resolveMutex;
+    std::lock_guard<std::mutex> resolveLock(resolveMutex);
     if (gEyeFn != NULL) return;
     NSString *path = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/libvrmc_bridge.dylib"];
     void *h = dlopen(path.UTF8String, RTLD_NOW);
@@ -281,6 +297,27 @@ static BOOL documentFlag(NSString *name) {
     NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *path = [docs.firstObject stringByAppendingPathComponent:name];
     return [[NSFileManager defaultManager] fileExistsAtPath:path] ? YES : NO;
+}
+
+// Release behaviour: every developer surface is OPT-IN. A player must never see the procedural test
+// pattern, the coloured mode badge, the red/green clear colours or pay for periodic GPU readbacks
+// because the game has not published a frame yet or because a stale flag file was left in Documents
+// (device evidence 2026-11-07: two immersive opens showed the test pattern for 715 and 320 frames;
+// a leftover vrmc-drawable-dump.flag was still in the container).
+// Documents/vrmc-diagnostics.flag turns the diagnostics back on; the simulator/self-test harness
+// flags imply it so the existing self-check scripts keep working unchanged.
+static BOOL diagnosticsEnabled(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        cached = (documentFlag(@"vrmc-diagnostics.flag") || documentFlag(@"vrmc-immersive-selftest.flag") ||
+                  documentFlag(@"vrmc-open-on-launch.flag") || documentFlag(@"vrmc-input-sim.flag")) ? 1 : 0;
+    }
+    return cached == 1;
+}
+
+/// A diagnostic flag file only counts while diagnostics are enabled.
+static BOOL diagFlag(NSString *name) {
+    return diagnosticsEnabled() && documentFlag(name);
 }
 
 // -------------------------------------------------------------------------------------------
@@ -846,7 +883,7 @@ static VRMCRayDiag evaluateRay(simd_float4x4 invProjection, simd_float4x4 viewTo
 // so stretching the eye image over the drawable puts the provider's "straight ahead" at the drawable
 // centre, which on Vision Pro lies temporally of the optical axis -> both eyes diverge (exotropia).
 // Instead, every drawable pixel is turned into a device-space ray and looked up in the provider's frustum.
-static NSString *const kShaderSource =
+static NSString *const kShaderBody =
     @"#include <metal_stdlib>\n"
      "using namespace metal;\n"
      "struct ViewParams { float4x4 invProjection; float4x4 viewToDevice; float4 sourceTangents; float4 misc; };\n"
@@ -859,7 +896,9 @@ static NSString *const kShaderSource =
      // red = reprojection, green = flat sampling, blue = test pattern.
      "fragment float4 fmain_flat(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                           sampler s [[sampler(0)]]) {\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.8,0.1), 1.0);\n"
+     "#endif\n"
      "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
      "  return float4(tex.sample(s, uv).rgb, 1.0);\n"
      "}\n"
@@ -882,7 +921,9 @@ static NSString *const kShaderSource =
      "struct FlatFx { float strength; float vignette; float texelW; float texelH; };\n"
      "fragment float4 fmain_flat_sharp(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                                 sampler s [[sampler(0)]], constant FlatFx &fx [[buffer(3)]]) {\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.8,0.1), 1.0);\n"
+     "#endif\n"
      "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
      "  float3 c = tex.sample(s, uv).rgb;\n"
      "  float3 n = tex.sample(s, uv + float2(0.0, -fx.texelH)).rgb;\n"
@@ -901,7 +942,9 @@ static NSString *const kShaderSource =
      "}\n"
      "fragment float4 fmain_reproj(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                             sampler s [[sampler(0)]], constant ViewParams &vp [[buffer(0)]]) {\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.9,0.1,0.1), 1.0);\n"
+     "#endif\n"
      "  float flatU = (in.ndc.x + 1.0) * 0.5;\n"
      "  float flatV = (1.0 - in.ndc.y) * 0.5;\n"
      "  float4 v = vp.invProjection * float4(in.ndc, 0.5, 1.0);\n"
@@ -943,7 +986,9 @@ static NSString *const kShaderSource =
      "    bool edge = (m.x < 4.0 || m.y < 4.0 || m.x > 86.0 || m.y > 86.0);\n"
      "    col = edge ? float3(1.0, 1.0, 1.0) : (isLeft ? float3(1.0, 0.1, 0.1) : float3(0.1, 1.0, 0.1));\n"
      "  }\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.3,1.0), 1.0);\n"
+     "#endif\n"
      "  return float4(col, 1.0);\n"
      "}\n"
      // Present-proof overlay (vrmc-present-proof.flag / vrmc-immersive-selftest.flag): an 8 px
@@ -970,6 +1015,11 @@ static NSString *const kShaderSource =
      "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
      "  return (ushort)mask.sample(s, uv).r;\n"
      "}\n";
+
+/// Shader source with the developer mode badge compiled in only while diagnostics are enabled.
+static NSString *shaderSource(void) {
+    return [NSString stringWithFormat:@"#define VRMC_BADGE %d\n%@", diagnosticsEnabled() ? 1 : 0, kShaderBody];
+}
 
 // Provider FOV is reported as half-angles in radians, OpenXR-style signs (left/down negative).
 static simd_float4 sourceTangentsFromFov(const float fov[4]) {
@@ -1129,7 +1179,7 @@ static BOOL buildPipelines(id<MTLDevice> device, VRMCPipelines *out, MTLPixelFor
     out->colorFormat = colorFormat;
     out->depthFormat = depthFormat;
     NSError *err = nil;
-    id<MTLLibrary> library = [device newLibraryWithSource:kShaderSource options:nil error:&err];
+    id<MTLLibrary> library = [device newLibraryWithSource:shaderSource() options:nil error:&err];
     if (library == nil) {
         compLog("shader library failed: %s", err.description.UTF8String);
         return NO;
@@ -1225,7 +1275,7 @@ static BOOL buildGazeRenderer(id<MTLDevice> device, cp_layer_renderer_t lr, VRMC
         return NO;
     }
     NSError *err = nil;
-    id<MTLLibrary> library = [device newLibraryWithSource:kShaderSource options:nil error:&err];
+    id<MTLLibrary> library = [device newLibraryWithSource:shaderSource() options:nil error:&err];
     if (library == nil) {
         compLog("gaze: shader library failed: %s", err.description.UTF8String);
         return NO;
@@ -1650,38 +1700,42 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
 
     // Diagnostic modes: flag files in Documents/ (see file header). Logged so a device log names them.
     const int reprojMode = readReprojMode();
-    const BOOL debugShading = documentFlag(@"vrmc-reproj-debug.flag");
-    const BOOL forceTestPattern = documentFlag(@"vrmc-test-pattern.flag");
+    const BOOL debugShading = diagFlag(@"vrmc-reproj-debug.flag");
+    const BOOL forceTestPattern = diagFlag(@"vrmc-test-pattern.flag");
     // Diagnostic A/B: skip cp_drawable_set_device_anchor entirely (EV-0073 saw passthrough without an
     // anchor; this isolates whether the anchor/reprojection path is what keeps the content off-screen).
-    const BOOL noDeviceAnchor = documentFlag(@"vrmc-no-anchor.flag");
+    const BOOL noDeviceAnchor = diagFlag(@"vrmc-no-anchor.flag");
     // A/B: use the visionOS-26-deprecated singular cp_frame_query_drawable instead of the array API.
     // The known-good M3A probe (EV-0074, displays on D1) uses the deprecated call; this isolates
     // whether the array-API drawable handling is what keeps our layer off-screen.
-    const BOOL legacySingleDrawable = documentFlag(@"vrmc-legacy-single-drawable.flag");
+    const BOOL legacySingleDrawable = diagFlag(@"vrmc-legacy-single-drawable.flag");
     // ROOT CAUSE (EV-0093): clearing the drawable depth attachment to 0.0 (reverse-Z "infinitely
     // far") makes visionOS 27.2 present the whole layer BLACK even though the colour texture is
     // provably bright and the command buffer completes. The known-good M3A probe (EV-0074) clears to
     // 1.0 (near) and displays. The flat sampled image carries no meaningful per-pixel depth, so 1.0 is
     // both safe and the empirically required value on D1. vrmc-depth-zero.flag restores the old 0.0
     // value for A/B only.
-    const BOOL depthZero = documentFlag(@"vrmc-depth-zero.flag");
-    const BOOL presentProof = documentFlag(@"vrmc-present-proof.flag");
-    const BOOL clearProbe = documentFlag(@"vrmc-clear-probe.flag");
-    const BOOL dumpRawAlways = documentFlag(@"vrmc-drawable-dump.flag");
-    const BOOL presentWait = documentFlag(@"vrmc-present-wait.flag");
-    const BOOL selfTest = documentFlag(@"vrmc-immersive-selftest.flag");
-    const float vignetteStrength = readVignetteStrength();
+    const BOOL depthZero = diagFlag(@"vrmc-depth-zero.flag");
+    const BOOL presentProof = diagFlag(@"vrmc-present-proof.flag");
+    const BOOL clearProbe = diagFlag(@"vrmc-clear-probe.flag");
+    const BOOL dumpRawAlways = diagFlag(@"vrmc-drawable-dump.flag");
+    const BOOL presentWait = diagFlag(@"vrmc-present-wait.flag");
+    const BOOL selfTest = diagFlag(@"vrmc-immersive-selftest.flag");
+    // Re-read while presenting (see the frame loop) so the in-VR quick menu applies it live.
+    float vignetteStrength = readVignetteStrength();
+    const BOOL diagnostics = diagnosticsEnabled();
     static int samplingDisabled = -1;
     if (samplingDisabled < 0) {
-        samplingDisabled = documentFlag(@"vrmc-no-sampling.flag") ? 1 : 0;
+        samplingDisabled = diagFlag(@"vrmc-no-sampling.flag") ? 1 : 0;
     }
     compLog("diagnostics: reprojMode=%d debugShading=%d samplingDisabled=%d forceTestPattern=%d "
             "presentProof=%d clearProbe=%d dumpRaw=%d presentWait=%d selfTest=%d noDeviceAnchor=%d "
-            "legacySingleDrawable=%d depthZero=%d vignette=%.2f",
+            "legacySingleDrawable=%d depthZero=%d vignette=%.2f diagnosticsEnabled=%d "
+            "(release default 0: no test pattern/badge/readbacks; Documents/vrmc-diagnostics.flag enables)",
             reprojMode, (int)debugShading, samplingDisabled, (int)forceTestPattern,
             (int)presentProof, (int)clearProbe, (int)dumpRawAlways, (int)presentWait, (int)selfTest,
-            (int)noDeviceAnchor, (int)legacySingleDrawable, (int)depthZero, (double)vignetteStrength);
+            (int)noDeviceAnchor, (int)legacySingleDrawable, (int)depthZero, (double)vignetteStrength,
+            (int)diagnostics);
 
     // Query the layer's real configuration instead of hardcoding the colour format: the pipeline
     // must match what the drawable actually hands out.
@@ -2566,20 +2620,27 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             BOOL usingCachedEyes = NO;
             if (!haveEyes) {
                 eyesMissingFrames++;
+                // Release: hold the last picture for up to ~3 s (pause/menu transitions make the
+                // provider rebuild its eye targets, which used to flash the test pattern for a
+                // fraction of a second), then go to black. Diagnostics keep the short 30-frame grace.
+                const int eyeGraceFrames = diagnostics ? 30 : 270;
                 if (!forceTestPattern && !samplingDisabled && !selfTest && useFlat &&
-                    lastLeftEye != nil && lastRightEye != nil && eyesMissingFrames <= 30) {
+                    lastLeftEye != nil && lastRightEye != nil && eyesMissingFrames <= eyeGraceFrames) {
                     usingCachedEyes = YES;
                     if (!loggedEyeCacheReuse) {
                         loggedEyeCacheReuse = YES;
-                        compLog("eyes absent: reusing the last sampled eye frame for up to 30 frames "
+                        compLog("eyes absent: reusing the last sampled eye frame for up to %d frames "
                                 "(age=%llu frames; provider render-target rebuild; retained MTLTextures "
-                                "stay alive)",
+                                "stay alive)", eyeGraceFrames,
                                 (unsigned long long)(lastEyesFrame != 0 ? frameCount - lastEyesFrame : 0));
                     }
                 } else if (loggedEyeCacheReuse) {
                     loggedEyeCacheReuse = NO;
-                    compLog("eyes absent for %d frames: last-frame grace expired; "
-                            "falling back to the test pattern until eyes return", eyesMissingFrames);
+                    // Do not keep the (large) cached pair once the grace is over.
+                    lastLeftEye = nil;
+                    lastRightEye = nil;
+                    compLog("eyes absent for %d frames: last-frame grace expired; %s until eyes return",
+                            eyesMissingFrames, diagnostics ? "falling back to the test pattern" : "presenting black");
                 }
             } else {
                 if (eyesMissingFrames > 0) {
@@ -2642,12 +2703,18 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                             (__bridge void *)rightTex, (unsigned long)rightTex.pixelFormat,
                             (unsigned long)rightTex.width, (unsigned long)rightTex.height);
                 }
-                scheduleProviderTextureStats(queue, leftTex, "L", frameCount);
-                scheduleProviderTextureStats(queue, rightTex, "R", frameCount);
+                // GPU->CPU readback: once at the start for the log, periodically only in diagnostics
+                // (a blit + completion handler every 300 frames is a needless hitch in normal play).
+                if (frameCount == 1 || diagnostics) {
+                    scheduleProviderTextureStats(queue, leftTex, "L", frameCount);
+                    scheduleProviderTextureStats(queue, rightTex, "R", frameCount);
+                }
             }
             // If the provider image is measurably black, show the test pattern instead of sampling so a
             // black screen is never ambiguous: pattern visible => presentation alive, provider image black.
-            if (haveEyes && !autoTestPattern &&
+            // Diagnostics only: in normal play a dark cave or a black loading screen measures "black"
+            // too, and this latch never resets - the pattern would replace the game for the session.
+            if (diagnostics && haveEyes && !autoTestPattern &&
                 gTexBlackStreakL.load() >= 2 && gTexBlackStreakR.load() >= 2) {
                 autoTestPattern = YES;
                 compLog("AUTO TEST-PATTERN: provider eye textures measured black twice in a row "
@@ -2655,8 +2722,14 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         (double)gTexMeanL.load(), (double)gTexMeanR.load());
             }
 
-            BOOL testPatternNow = ((!haveEyes && !usingCachedEyes) || samplingDisabled ||
+            // Release: never a test pattern. Without eyes (and past the hold-last-frame grace) the
+            // views are cleared to black and nothing is drawn until the game publishes a frame.
+            BOOL testPatternNow = diagnostics &&
+                                  ((!haveEyes && !usingCachedEyes) || samplingDisabled ||
                                    forceTestPattern || autoTestPattern || selfTest);
+            if ((frameCount % 90) == 0) {
+                vignetteStrength = readVignetteStrength();
+            }
             if (testPatternNow != lastTestPatternState) {
                 lastTestPatternState = testPatternNow;
                 compLog("TEST PATTERN state changed: active=%d haveEyes=%d samplingDisabled=%d "
@@ -2763,10 +2836,13 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         rp.colorAttachments[0].clearColor = isLeftEye
                             ? MTLClearColorMake(1.0, 0.0, 1.0, 1.0)
                             : MTLClearColorMake(0.0, 1.0, 1.0, 1.0);
-                    } else {
+                    } else if (diagnostics) {
+                        // Bright per-eye clears prove an invalid pass in diagnostics (red left, green right).
                         rp.colorAttachments[0].clearColor = isLeftEye
                             ? MTLClearColorMake(0.8, 0.05, 0.05, 1.0)
                             : MTLClearColorMake(0.05, 0.7, 0.1, 1.0);
+                    } else {
+                        rp.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
                     }
                     if (colorTexture.textureType == MTLTextureType2DArray) {
                         rp.colorAttachments[0].slice = sliceIndex;
@@ -2913,18 +2989,23 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 } else if (tex.pixelFormat == MTLPixelFormatBGRA8Unorm) {
                                     srgbViewFormat = MTLPixelFormatBGRA8Unorm_sRGB;
                                 }
-                                static uint32_t gSrgbColorGeneration = 0;
-                                const uint32_t viewGeneration = haveEyes ? eyeFrame.texture_generation : gSrgbColorGeneration;
+                                // Per-eye generation: with one shared counter the left eye's refresh marked
+                                // the generation as current, so the right eye kept a stale view of the old
+                                // texture whenever a rebuilt texture reused the same address.
+                                static uint32_t gSrgbColorGenerationL = 0;
+                                static uint32_t gSrgbColorGenerationR = 0;
+                                uint32_t *generationCache = isLeftEye ? &gSrgbColorGenerationL : &gSrgbColorGenerationR;
+                                const uint32_t viewGeneration = haveEyes ? eyeFrame.texture_generation : *generationCache;
                                 if (linearizeColorEnabled && srgbViewFormat != MTLPixelFormatInvalid) {
                                     __strong id<MTLTexture> *viewCache = isLeftEye ? &gSrgbColorViewL : &gSrgbColorViewR;
                                     uint64_t *handleCache = isLeftEye ? &gSrgbColorHandleL : &gSrgbColorHandleR;
                                     if (*handleCache != handle || *viewCache == nil ||
-                                        gSrgbColorGeneration != viewGeneration) {
+                                        *generationCache != viewGeneration) {
                                         id<MTLTexture> srgbView = [tex newTextureViewWithPixelFormat:srgbViewFormat];
                                         if (srgbView != nil) {
                                             *viewCache = srgbView;
                                             *handleCache = handle;
-                                            gSrgbColorGeneration = viewGeneration;
+                                            *generationCache = viewGeneration;
                                             static int loggedSrgbView = 0;
                                             if (!loggedSrgbView) {
                                                 loggedSrgbView = 1;
@@ -2934,7 +3015,8 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                             }
                                         }
                                     }
-                                    if (*viewCache != nil) tex = *viewCache;
+                                    // Never sample a cached view that belongs to another texture.
+                                    if (*viewCache != nil && *handleCache == handle) tex = *viewCache;
                                 }
                                 if (tex != nil && tex.device != device) {
                                     static int loggedDeviceMismatch = 0;
@@ -2948,6 +3030,12 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 if (tex != nil) {
                                     [enc setFragmentTexture:tex atIndex:0];
                                     [enc setFragmentSamplerState:sampler atIndex:0];
+                                    if (chosen == pipes.flatVignette) {
+                                        // fmain_flat_vignette reads buffer(1); it was never bound, so the
+                                        // vignette path sampled an unbound buffer whenever sharpening was off.
+                                        float vig = vignetteStrength;
+                                        [enc setFragmentBytes:&vig length:sizeof(vig) atIndex:1];
+                                    }
                                     if (chosen == pipes.flatSharp) {
                                         // Fovea-weighted CAS-lite parameters (buffer 3 matches the
                                         // FlatFx struct in kShaderSource).
@@ -2992,7 +3080,8 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     encodedViews++;
 
                     // Ground truth of what is being presented: read back the DRAWN drawable texture.
-                    BOOL shouldProbe = !clearProbe && (frameCount < 3 || (frameCount % 300) == 0);
+                    BOOL shouldProbe = diagnostics && !clearProbe &&
+                                       (frameCount < 3 || (frameCount % 300) == 0);
                     if (shouldProbe && target == (int)cp_drawable_target_built_in) {
                         BOOL dumpRaw = dumpRawAlways || selfTest || (frameCount < 3);
                         NSUInteger probeSlice = (colorTexture.textureType == MTLTextureType2DArray)

@@ -7,16 +7,17 @@
 # falling back to /tmp/vrmc-provider.jar.
 #
 # Env overrides (all optional):
-#   DEVICE      device UDID / name            (default ${VRMC_DEVICE_UDID:-})
+#   DEVICE      device UDID / name            (default $VRMC_DEVICE_UDID)
 #   BUNDLE_ID   target app bundle id          (default dev.vrmc.vrmc)
 #   DEST_REL    destination inside the app data container
 #               (default Documents/instances/default/mods/vrmc-provider.jar)
 #   VERIFY=0    skip the copy-from + sha256 round-trip verification
 #   SKIP_DEVICE_CHECK=1  skip the 'is the device connected' pre-flight
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
 DEST_REL="${DEST_REL:-Documents/instances/default/mods/vrmc-provider.jar}"
 VERIFY="${VERIFY:-1}"

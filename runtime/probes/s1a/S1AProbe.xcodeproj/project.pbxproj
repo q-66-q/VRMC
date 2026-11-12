@@ -63,7 +63,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					456F4C07931380E716D911EF = {
-						DevelopmentTeam = "${VRMC_TEAM_ID}";
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};

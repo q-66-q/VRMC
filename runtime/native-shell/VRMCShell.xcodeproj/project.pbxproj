@@ -7,25 +7,40 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5E29ACF0B05749222A18A040 /* vrmc-provider.jar in Resources */ = {isa = PBXBuildFile; fileRef = 6B545D2478ED6CADAE94E8B9 /* vrmc-provider.jar */; };
 		7ADDED1C3D711FA6D5AE440B /* Bridging.h in Headers */ = {isa = PBXBuildFile; fileRef = DF3C0959A56AD270F1FA0EBA /* Bridging.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		96FDCFBD009A7638240CA001 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D75242DDCE3380BD8191C58 /* Shell.swift */; };
 		B99A916CF9480C882EB81864 /* VRMCCompositor.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5E810E9AF2CBF82102BE18F5 /* VRMCCompositor.mm */; };
+		D8A43FBA7DBFED8F28E6E240 /* ShellSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB412B6C62F0977C40A7592F /* ShellSetup.swift */; };
+		F55B7FB8B279CB7EF067B63D /* ShellUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 619227653065D6EDB12FCFC8 /* ShellUI.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0D75242DDCE3380BD8191C58 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
 		15692F703D900A7AF2106912 /* VRMCShell.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = VRMCShell.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E810E9AF2CBF82102BE18F5 /* VRMCCompositor.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = VRMCCompositor.mm; sourceTree = "<group>"; };
+		619227653065D6EDB12FCFC8 /* ShellUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellUI.swift; sourceTree = "<group>"; };
+		6B545D2478ED6CADAE94E8B9 /* vrmc-provider.jar */ = {isa = PBXFileReference; lastKnownFileType = archive.jar; path = "vrmc-provider.jar"; sourceTree = "<group>"; };
 		DF3C0959A56AD270F1FA0EBA /* Bridging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Bridging.h; sourceTree = "<group>"; };
+		EB412B6C62F0977C40A7592F /* ShellSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellSetup.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		0C649FF3F05699AC3B8841E6 = {
 			isa = PBXGroup;
 			children = (
+				6AD2712421EC7BE7E06EC7B1 /* Resources */,
 				D726EC979CB0CAD9812FDF51 /* Sources */,
 				76312C9B8ECC29721081550C /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		6AD2712421EC7BE7E06EC7B1 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				6B545D2478ED6CADAE94E8B9 /* vrmc-provider.jar */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		76312C9B8ECC29721081550C /* Products */ = {
@@ -41,6 +56,8 @@
 			children = (
 				DF3C0959A56AD270F1FA0EBA /* Bridging.h */,
 				0D75242DDCE3380BD8191C58 /* Shell.swift */,
+				EB412B6C62F0977C40A7592F /* ShellSetup.swift */,
+				619227653065D6EDB12FCFC8 /* ShellUI.swift */,
 				5E810E9AF2CBF82102BE18F5 /* VRMCCompositor.mm */,
 			);
 			path = Sources;
@@ -66,6 +83,7 @@
 			buildPhases = (
 				7293C90F7C0D529332AF72CC /* Headers */,
 				7508195C51DF187DE27496EC /* Sources */,
+				E5E294DCC49C21A2750572EB /* Resources */,
 			);
 			buildRules = (
 			);
@@ -112,12 +130,25 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		E5E294DCC49C21A2750572EB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E29ACF0B05749222A18A040 /* vrmc-provider.jar in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		7508195C51DF187DE27496EC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				96FDCFBD009A7638240CA001 /* Shell.swift in Sources */,
+				D8A43FBA7DBFED8F28E6E240 /* ShellSetup.swift in Sources */,
+				F55B7FB8B279CB7EF067B63D /* ShellUI.swift in Sources */,
 				B99A916CF9480C882EB81864 /* VRMCCompositor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -201,7 +232,7 @@
 				SDKROOT = xros;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 5.9;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 7;
 				XROS_DEPLOYMENT_TARGET = 27.0;
 			};
@@ -268,7 +299,7 @@
 				SDKROOT = xros;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.9;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 7;
 				XROS_DEPLOYMENT_TARGET = 27.0;
 			};

@@ -1,8 +1,9 @@
 #!/bin/bash
 # Pull Gesture Lab recordings/logs from the separate app container (dev.vrmc.s2probe) and analyze.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVICE="${DEVICE_ID:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE_ID:-$VRMC_DEVICE_UDID}"
 OUT="${1:-$ROOT/export/gesturelab-data}"
 mkdir -p "$OUT"
 TMP=$(mktemp -d /tmp/vrmc-lab-list.XXXXXX)

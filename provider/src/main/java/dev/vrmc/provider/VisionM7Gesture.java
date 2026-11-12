@@ -73,6 +73,12 @@ public final class VisionM7Gesture {
     public static final int CTX_EDIBLE_HELD = 8;
     /** Vivecraft reports a climbable / ladder interaction context this frame (informational). */
     public static final int CTX_CLIMBABLE = 16;
+    /**
+     * Seated play: the operator is sitting, so head rise/drop cannot mean jump/sneak. Only the head
+     * gestures are disabled; every hand gesture keeps working (unlike {@link #CTX_SEATED}, which is
+     * Vivecraft's keyboard/mouse seated mode and releases everything).
+     */
+    public static final int CTX_NO_HEAD_GESTURES = 32;
 
     // ---- data-fitted defaults (override via vrmc-input-tune.properties, see M7_ENGINE.md) ----
     /** Thumb-index pinch entry distance (m). Recorded intentional pinches: p05 0.006-0.007 m. */
@@ -181,6 +187,21 @@ public final class VisionM7Gesture {
     public static final float HEAD_MIN_FORWARD_Y = -0.72F;
     /** Jump landing/crouch suppression after a fired jump. */
     public static final long HEAD_JUMP_SNEAK_SUPPRESS_NS = 600_000_000L;
+    /**
+     * Posture recovery. The baseline is frozen outside the deadband so a deliberate crouch cannot
+     * adapt away within seconds, but a frozen baseline also never recovers when the operator's
+     * resting height really changes (sits down, stands up, slouches): the engine then reports a
+     * permanent sneak. Two recovery paths, both only while the head is quiet:
+     *  - a large shift (sit/stand, >= 0.30 m) held still for 1.5 s re-baselines at once;
+     *  - any other out-of-band offset drifts back with a slow 12 s time constant, so a deliberate
+     *    0.25 m crouch still holds for ~19 s (recorded crouches last a few seconds).
+     */
+    public static final float HEAD_POSTURE_SHIFT = 0.30F;
+    public static final long HEAD_POSTURE_SETTLE_NS = 1_500_000_000L;
+    public static final float HEAD_POSTURE_QUIET_VELOCITY = 0.15F;
+    public static final float HEAD_SLOW_TAU_S = 12.0F;
+    /** A confirmed pinch of the same hand within this window is not a fist tap (curled pinch hands). */
+    public static final long FIST_TAP_PINCH_QUIET_NS = 500_000_000L;
 
     // Hotbar: index-fingertip tap with a quiet wrist. Recorded taps: tip window speed p50 1.55 m/s,
     // wrist max 0.65 m/s; attack/jump arm motion moves the wrist far more.
@@ -327,6 +348,7 @@ public final class VisionM7Gesture {
     private long lastFistRTrueNs;
     private long lastWalkNs;
     private long lastPinchActivityRNs;
+    private long lastPinchActivityLNs;
     private long lastAttackFireNs;
     private boolean attackArmed = true;
     private final float[] histWinSpeedR = new float[HIST];
@@ -368,6 +390,16 @@ public final class VisionM7Gesture {
     private long headSneakSinceNs;
     private long headSneakReleaseSinceNs;
     private float headBaseline;
+    /** Start of the current quiet out-of-band head offset (0 = inside the band or moving). */
+    private long headShiftSinceNs;
+    /**
+     * True while the operator rests at a posture well below the last standing baseline (sat down,
+     * knelt, lay back) after posture recovery re-baselined there. Rising out of that posture is a
+     * stand-up, not a head-rise jump, so the jump stays off until a later large rise re-baselines at
+     * standing height. Without this, the posture-recovery fix turns "stand up from a chair" into a
+     * jump (host-reproduced: sit 0.40 m, wait for re-baseline, stand up = jump).
+     */
+    private boolean headPostureLow;
 
     private final StringBuilder summaryBuilder = new StringBuilder(200);
     private String summary = "M7 idle";
@@ -513,11 +545,37 @@ public final class VisionM7Gesture {
         boolean headPitchOk = this.pitchY > HEAD_MIN_FORWARD_Y;
         if (this.prevNs == 0L) this.headBaseline = headY;
         float deviation = headY - this.headBaseline;
+        boolean headGesturesOff = (context & CTX_NO_HEAD_GESTURES) != 0;
         if (Math.abs(deviation) <= HEAD_BASELINE_DEADBAND) {
             float alpha = 1.0F - (float) Math.exp(-dt / HEAD_BASELINE_TAU_S);
             this.headBaseline += deviation * alpha;
+            this.headShiftSinceNs = 0L;
+        } else if (Math.abs(headVel) < HEAD_POSTURE_QUIET_VELOCITY) {
+            // Quiet head outside the band: posture change or a held crouch (see HEAD_POSTURE_SHIFT).
+            if (this.headShiftSinceNs == 0L) this.headShiftSinceNs = nowNs;
+            if (Math.abs(deviation) >= HEAD_POSTURE_SHIFT
+                && nowNs - this.headShiftSinceNs >= HEAD_POSTURE_SETTLE_NS) {
+                // Settling into a new resting posture is not a gesture. Remember which side of the
+                // old baseline we settled on: a low posture disables the head-rise jump until the
+                // operator rises back out of it (a jump-sized rise is only 0.10-0.25 m, a stand-up
+                // is >= HEAD_POSTURE_SHIFT).
+                this.headPostureLow = deviation < 0.0F;
+                this.headBaseline = headY;
+                this.headShiftSinceNs = 0L;
+                this.headJumpUntilNs = Math.max(this.headJumpUntilNs,
+                    nowNs + HEAD_JUMP_COOLDOWN_NS);
+                this.sneakBlockUntilNs = Math.max(this.sneakBlockUntilNs,
+                    nowNs + HEAD_JUMP_SNEAK_SUPPRESS_NS);
+            } else {
+                float alpha = 1.0F - (float) Math.exp(-dt / HEAD_SLOW_TAU_S);
+                this.headBaseline += deviation * alpha;
+            }
+            deviation = headY - this.headBaseline;
+        } else {
+            this.headShiftSinceNs = 0L;
         }
-        if (!gui && !seated && headPitchOk && nowNs >= this.headJumpUntilNs
+        if (!gui && !seated && !headGesturesOff && headPitchOk && nowNs >= this.headJumpUntilNs
+            && !this.headPostureLow
             && deviation > HEAD_JUMP_RISE && headVel > HEAD_JUMP_VELOCITY) {
             this.jumpPulseUntilNs = nowNs + 80_000_000L;
             this.headJumpUntilNs = nowNs + HEAD_JUMP_COOLDOWN_NS;
@@ -530,7 +588,7 @@ public final class VisionM7Gesture {
         // downward transition itself is fast (physical crouch), so it must NOT reset the timer; a
         // rapid rise (standing up / landing bounce) does. Landing-from-jump is excluded separately by
         // the jump sneak-block above.
-        if (!gui && !seated && headPitchOk && nowNs >= this.sneakBlockUntilNs
+        if (!gui && !seated && !headGesturesOff && headPitchOk && nowNs >= this.sneakBlockUntilNs
             && drop > HEAD_SNEAK_DROP && headVel < 0.35F) {
             if (this.headSneakSinceNs == 0L) this.headSneakSinceNs = nowNs;
             if (nowNs - this.headSneakSinceNs >= HEAD_SNEAK_LATCH_NS) this.sneaking = true;
@@ -550,7 +608,7 @@ public final class VisionM7Gesture {
         } else {
             this.headSneakReleaseSinceNs = 0L;
         }
-        if (gui || seated) {
+        if (gui || seated || headGesturesOff) {
             this.sneaking = false;
             this.headSneakSinceNs = 0L;
             this.headSneakReleaseSinceNs = 0L;
@@ -601,7 +659,7 @@ public final class VisionM7Gesture {
                     this.lastBowFireNs = nowNs;
                 }
                 this.bowActive = false;
-        this.bowDrawnFromFists = false;
+                this.bowDrawnFromFists = false;
                 this.lastBowExitNs = nowNs;
             }
         } else if (bowAllowed && !gui && !seated && bothTracked
@@ -749,7 +807,16 @@ public final class VisionM7Gesture {
 
         // ---- left fist tap = Escape/menu (also closes a GUI); plus generic GUI-close pulse ----
         long leftFistTapDuration = this.leftFistPressNs == 0L ? -1L : nowNs - this.leftFistPressNs;
-        boolean leftFistTap = this.prevFistL && !this.fistL && !this.fistR
+        // A pinching hand curls the other fingers to 0.55-0.70, right at the fist threshold, so a
+        // short pinch (move stick / place) can read as a fist tap of the same hand. A confirmed pinch
+        // of that hand shortly before the "tap" means it was the pinch: no menu / close / use.
+        boolean leftPinchQuiet = !this.pinchPressedL
+            && (this.lastPinchActivityLNs == 0L
+                || nowNs - this.lastPinchActivityLNs > FIST_TAP_PINCH_QUIET_NS);
+        boolean rightPinchQuiet = !this.pinchPressedR
+            && (this.lastPinchActivityRNs == 0L
+                || nowNs - this.lastPinchActivityRNs > FIST_TAP_PINCH_QUIET_NS);
+        boolean leftFistTap = this.prevFistL && !this.fistL && !this.fistR && leftPinchQuiet
             && leftFistTapDuration >= LEFT_FIST_TAP_MIN_NS
             && leftFistTapDuration <= LEFT_FIST_TAP_MAX_NS;
         if (gui && leftFistTap && nowNs - this.lastBothFistReleaseNs > 200_000_000L) {
@@ -776,7 +843,7 @@ public final class VisionM7Gesture {
         // triggering break). Boats/interactive entities hit by a short right pinch were classified as
         // "entity" and sent key.attack; this explicit gesture sends key.use instead. ----
         long rightFistTapDuration = this.rightFistPressNs == 0L ? -1L : nowNs - this.rightFistPressNs;
-        boolean rightFistTap = this.prevFistR && !this.fistR && !this.fistL
+        boolean rightFistTap = this.prevFistR && !this.fistR && !this.fistL && rightPinchQuiet
             && rightFistTapDuration >= LEFT_FIST_TAP_MIN_NS
             && rightFistTapDuration <= LEFT_FIST_TAP_MAX_NS
             && !gui && !this.bowActive && !seated
@@ -964,6 +1031,7 @@ public final class VisionM7Gesture {
                     this.leftPinchPressNs = pressNs;
                     this.pinchRaisedL = handReady;
                     this.pinchPressedThisFrameL = true;
+                    this.lastPinchActivityLNs = now;
                 } else {
                     this.rightPinchPressNs = pressNs;
                     this.pinchRaisedR = handReady;
@@ -977,6 +1045,7 @@ public final class VisionM7Gesture {
                 if (left) {
                     this.pinchReleasedThisFrameL = true;
                     this.lastPinchReleaseL = now;
+                    this.lastPinchActivityLNs = now;
                 } else {
                     this.pinchLastDurationR = duration;
                     this.pinchReleasedThisFrameR = true;
@@ -1213,6 +1282,28 @@ public final class VisionM7Gesture {
             this.sneaking);
     }
 
+    /**
+     * Re-baseline the head height at the next frame and drop any head-derived sneak. Call after a
+     * recenter, a height calibration or a standing/seated switch: the old baseline no longer
+     * describes the operator's resting height.
+     */
+    public void resetHeadBaseline() {
+        this.headBaseline = this.headY;
+        this.headShiftSinceNs = 0L;
+        // An explicit recenter/height calibration declares the current posture the new normal, so a
+        // later stand-up from a low rest pose cannot be turned into a jump by this re-baseline.
+        this.headPostureLow = false;
+        this.sneaking = false;
+        this.sneak = false;
+        this.headSneakSinceNs = 0L;
+        this.headSneakReleaseSinceNs = 0L;
+        this.sneakBlockUntilNs = this.nowNs + HEAD_JUMP_SNEAK_SUPPRESS_NS;
+        this.headJumpUntilNs = this.nowNs + HEAD_JUMP_COOLDOWN_NS;
+    }
+
+    /** Current head-height baseline (host diagnostics/tests). */
+    public float headBaseline() { return this.headBaseline; }
+
     /** Release every action immediately (tracking loss, stale input, mode change, destroy). */
     public void releaseAll() {
         this.trackedL = false; this.trackedR = false;
@@ -1247,6 +1338,8 @@ public final class VisionM7Gesture {
         this.lastBothTrackedNs = 0L;
         this.lastWalkNs = 0L;
         this.lastPinchActivityRNs = 0L;
+        this.lastPinchActivityLNs = 0L;
+        this.headShiftSinceNs = 0L;
         this.lastAttackFireNs = 0L;
         this.bowActive = false;
         this.bowSepSinceNs = 0L;

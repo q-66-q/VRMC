@@ -13,9 +13,10 @@
 # Exit: 0 a matching profile now exists (path printed) / 2 usage / 3 Xcode could not provision
 #       (usually: not signed into an Apple ID account, or no network to the developer portal).
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
-TEAM="${TEAM:-${VRMC_TEAM_ID:-}}"
+TEAM="${TEAM:-$VRMC_TEAM_ID}"
 DIR="/tmp/vrmc-profile-renew"
 KEEP=0
 [ "${1:-}" = "--keep" ] && KEEP=1

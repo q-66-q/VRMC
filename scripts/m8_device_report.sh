@@ -18,12 +18,13 @@
 #
 # Exit: 0 report written (even for PARTIAL/FAIL sessions) / 2 usage / 5 device pull failed.
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FROM=""
 OUT="$ROOT/export/m8-device-session-report.md"
 OPERATOR_NOTE=""
 EVIDENCE=0
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 BUNDLE="${BUNDLE:-dev.vrmc.vrmc}"
 OUTDIR="${OUTDIR:-/tmp/vrmc-m8-device}"
 say() { echo "[m8-report] $*"; }

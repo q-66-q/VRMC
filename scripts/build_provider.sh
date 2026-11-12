@@ -15,6 +15,7 @@
 #   VIVECRAFT_STUBS_JAR     Vivecraft stubs jar
 #   JOML_JAR / MIXIN_JAR / ASM_JAR / SLF4J_JAR   explicit dependency jars
 #   GRADLE_CACHE            Gradle cache root (default ~/.gradle/caches)
+#   EXTRA_CP                extra compile-only classpath entries appended last
 #   VERBOSE=1               echo the resolved classpath entries and javac version
 #
 # Reproducible jar: entry timestamps are fixed via jar --date, so the sha256 below is a content hash
@@ -88,6 +89,9 @@ SLF4J_JAR="${SLF4J_JAR:-}"
 
 CP="$MC_JAR:$VIVECRAFT_CLASSES:$JOML_JAR:$MIXIN_JAR:$ASM_JAR:$SLF4J_JAR"
 [ -f "$VIVECRAFT_STUBS_JAR" ] && CP="$CP:$VIVECRAFT_STUBS_JAR"
+# EXTRA_CP: extra compile-only entries (e.g. Fabric API interface stubs when MC_JAR is a Loom
+# merged jar with injected interfaces instead of the plain NeoForm client jar).
+[ -n "${EXTRA_CP:-}" ] && CP="$CP:$EXTRA_CP"
 
 # --- compile + package -----------------------------------------------------
 SOURCES=$(find "$ROOT/provider/src/main/java" -name "*.java" | sort)

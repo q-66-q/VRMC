@@ -5,10 +5,11 @@
 #  - StikDebug idevice_log.txt
 # Usage: DEVICE=<udid> OUTDIR=/tmp/vrmc-logs ./scripts/capture_device_logs.sh
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 : "${DEVICE:?set DEVICE to the device UDID}"
 OUTDIR=${OUTDIR:-/tmp/vrmc-device-logs}
 AMETHYST_BUNDLE_ID=${AMETHYST_BUNDLE_ID:-dev.vrmc.amethyst}
-STIKDEBUG_BUNDLE_ID=${STIKDEBUG_BUNDLE_ID:-com.stik.stikdebug.${VRMC_TEAM_ID:-}}
+STIKDEBUG_BUNDLE_ID=${STIKDEBUG_BUNDLE_ID:-com.stik.stikdebug.$VRMC_TEAM_ID}
 mkdir -p "$OUTDIR"
 
 xcrun devicectl device copy from --device "$DEVICE" \

@@ -8,7 +8,7 @@ settings:
     DEVELOPMENT_TEAM: "${VRMC_TEAM_ID}"
     CODE_SIGN_STYLE: Automatic
     PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.shell
-    SWIFT_VERSION: "5.9"
+    SWIFT_VERSION: "6.0"
     TARGETED_DEVICE_FAMILY: "7"
 targets:
   VRMCShell:
@@ -16,6 +16,11 @@ targets:
     platform: visionOS
     sources:
       - Sources
+      # The VRMC provider mod (LGPL) ships inside the shell so the app can install it on first launch.
+      # scripts/build_shell.sh builds it and copies it here; the jar itself is not committed.
+      - path: Resources/vrmc-provider.jar
+        buildPhase: resources
+        optional: true
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
