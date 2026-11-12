@@ -85,6 +85,20 @@ public final class VisionStatusJson {
         }
     }
 
+    /**
+     * Value for the status document's {@code runningOnVisionOS} field. The provider only ships inside
+     * the visionOS app; on the headset Java reports {@code os.name=Mac OS X} (Darwin kernel), which
+     * made the diagnostic field say "Mac OS X" and look like a desktop run. Report visionOS for the
+     * Apple platforms and keep the raw OS name as a safe fallback if this code ever runs elsewhere.
+     */
+    public static String platformName(String osName) {
+        if (osName == null) return "visionOS";
+        String trimmed = osName.trim();
+        if (trimmed.isEmpty()) return "visionOS";
+        if (trimmed.startsWith("Mac") || trimmed.startsWith("Darwin")) return "visionOS";
+        return trimmed;
+    }
+
     public static String build(Data d, Instant now) {
         StringBuilder json = new StringBuilder(512);
         json.append("{\n");

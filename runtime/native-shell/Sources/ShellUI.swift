@@ -34,6 +34,11 @@ struct RootView: View {
     /// It is switched off before the sheet is presented and back on only after the sheet is gone, so
     /// the two hosts never contest the one controller while the cover animates.
     @State private var launcherHostActive = true
+    /// Exactly one RootView instance (the primary window scene) owns the hidden launcher host and the
+    /// setup refresh loop. Restored duplicate scenes still render the normal UI - so the window the
+    /// guard keeps is never blank - but stay inert until the window-scene guard destroys the extras.
+    @State private var isPrimaryWindow = false
+    @State private var didClaimWindow = false
 
     var body: some View {
         TabView(selection: $tab) {
@@ -50,7 +55,8 @@ struct RootView: View {
                 .tabItem { Label("Help", systemImage: "lifepreserver") }
                 .tag(ShellTab.help)
         }
-        .overlay(alignment: .topLeading) { hiddenLauncherHost }
+        .overlay(alignment: .topLeading) { if isPrimaryWindow { hiddenLauncherHost } }
+        .overlay(alignment: .topLeading) { if isPrimaryWindow { primaryWindowProbe } }
         .fullScreenCover(isPresented: $launcherSetupPresented, onDismiss: {
             // The sheet has finished dismissing: hand the launcher back to the hidden in-window host.
             launcherHostActive = true
@@ -61,14 +67,40 @@ struct RootView: View {
             // The launcher started the game from the setup sheet: leave setup behind.
             if running { launcherSetupPresented = false }
         }
-        .task {
+        .task(id: isPrimaryWindow) {
+            // Only the primary window refreshes setup; duplicate restored scenes must not start loops.
+            guard isPrimaryWindow else { return }
             setup.refresh()
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(4))
                 setup.refresh()
             }
         }
-        .onAppear { shellLog("window UI appeared (release 1.3, single UI)") }
+        .onAppear { claimWindow() }
+    }
+
+    /// 0x0 bridge that reports which UIWindowScene this RootView is hosted in. The coordinator keeps
+    /// that scene in the single-window guard, so the survivor is the window showing this UI and
+    /// owning the hidden launcher host.
+    private var primaryWindowProbe: some View {
+        WindowSceneProbe { scene in
+            shell.notePrimaryWindowScene(scene)
+        }
+        .frame(width: 0, height: 0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func claimWindow() {
+        guard !didClaimWindow else { return }
+        didClaimWindow = true
+        if shell.claimPrimaryWindow() {
+            isPrimaryWindow = true
+            shellLog("window UI appeared (release 1.3.4, single UI, primary scene)")
+        } else {
+            // One line per suppressed duplicate; the window-scene guard destroys these scenes.
+            shellLog("window UI appeared (duplicate restored scene; UI suppressed until the window-scene guard prunes it)")
+        }
     }
 
     /// Deliberate setup entry points only: the Play setup card and Help call this. Play never does.
@@ -89,6 +121,41 @@ struct RootView: View {
             .opacity(0)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+    }
+}
+
+/// 0×0 UIKit bridge that reports the UIWindowScene a SwiftUI root view is hosted in.
+///
+/// SwiftUI's app lifecycle has no scene delegate to ask, and the shell keeps exactly one window scene
+/// (1.3.3 restored eight duplicate scenes). The first RootView reports its scene here; the
+/// coordinator's window-scene guard keeps that scene and destroys the duplicate ones.
+private struct WindowSceneProbe: UIViewRepresentable {
+    final class ProbeView: UIView {
+        var onScene: ((UIWindowScene) -> Void)?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            report()
+        }
+
+        func report() {
+            guard let scene = window?.windowScene else { return }
+            onScene?(scene)
+        }
+    }
+
+    let onScene: (UIWindowScene) -> Void
+
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.isUserInteractionEnabled = false
+        view.onScene = onScene
+        return view
+    }
+
+    func updateUIView(_ view: ProbeView, context: Context) {
+        view.onScene = onScene
+        view.report()
     }
 }
 
@@ -180,6 +247,8 @@ private struct PlayView: View {
     @State private var importing = false
     @State private var playMessage = ""
     @State private var launching = false
+    /// The Play-task is kept so a game that starts through another path stops the stale wait loop.
+    @State private var playTask: Task<Void, Never>?
     @State private var slowStart = false
     @State private var launchFailed = false
 
@@ -204,8 +273,11 @@ private struct PlayView: View {
             if case .success(let url) = result { setup.importVivecraft(from: url) }
         }
         .onChange(of: shell.gameRunning) { _, running in
-            // The game can also be started from Minecraft setup; drop any stale Play-tab state.
+            // The game can also be started from Minecraft setup; drop any stale Play-tab state and
+            // stop the wait loop (otherwise it keeps polling for up to 180 s in the background).
             if running {
+                playTask?.cancel()
+                playTask = nil
                 launching = false
                 slowStart = false
                 launchFailed = false
@@ -227,15 +299,42 @@ private struct PlayView: View {
             Spacer()
             if shell.gameRunning {
                 if !shell.immersiveOpen {
-                    Button {
-                        shell.enterVRManually()
-                    } label: {
-                        Label("Enter VR", systemImage: "visionpro")
+                    if shell.autoOpenPending {
+                        // The automatic entry is expected to win; show its stage instead of a button
+                        // that would invite a premature manual press (the 1.3.3 device bug). Only
+                        // after a bounded wait is the manual fallback offered next to the status.
+                        VStack(alignment: .trailing, spacing: 10) {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                Text(shell.autoOpenStage.isEmpty ? "Entering VR…" : shell.autoOpenStage)
+                            }
                             .font(.title3.weight(.semibold))
-                            .padding(.horizontal, 12)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(shell.autoOpenStage.isEmpty ? "Entering VR" : shell.autoOpenStage)
+                            if shell.autoOpenFallbackAvailable {
+                                Button {
+                                    shell.enterVRManually()
+                                } label: {
+                                    Label("Enter VR now", systemImage: "visionpro")
+                                        .padding(.horizontal, 8)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.large)
+                                .accessibilityHint("Opens VR without waiting for the automatic entry. Use this if it does not open by itself.")
+                            }
+                        }
+                    } else {
+                        Button {
+                            shell.enterVRManually()
+                        } label: {
+                            Label("Enter VR", systemImage: "visionpro")
+                                .font(.title3.weight(.semibold))
+                                .padding(.horizontal, 12)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.extraLarge)
+                        .accessibilityHint("Opens the VR view manually. Use this if it does not open by itself.")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.extraLarge)
                 }
             } else if launching {
                 Button {} label: {
@@ -296,6 +395,7 @@ private struct PlayView: View {
         if let error = shell.lastOpenError { return error }
         if shell.gameRunning {
             if shell.presenting { return "Playing. Left fist tap opens the game menu; the VRMC Quick Menu is in it." }
+            if shell.autoOpenPending { return shell.autoOpenStage.isEmpty ? "Entering VR…" : shell.autoOpenStage }
             return shell.statusMessage
         }
         if !playMessage.isEmpty { return playMessage }
@@ -326,9 +426,11 @@ private struct PlayView: View {
         launchFailed = false
         slowStart = false
         launching = true
-        Task {
+        playTask?.cancel()
+        playTask = Task {
             var pressed = false
             for attempt in 0..<30 {
+                if Task.isCancelled { return }
                 if LauncherBridge.pressPlay() {
                     pressed = true
                     break
@@ -336,6 +438,7 @@ private struct PlayView: View {
                 if attempt >= 2 { playMessage = "Waiting for the launcher…" }
                 try? await Task.sleep(for: .milliseconds(400))
             }
+            guard !Task.isCancelled else { return }
             guard pressed else {
                 launching = false
                 launchFailed = true
@@ -348,6 +451,7 @@ private struct PlayView: View {
             // take minutes (downloads, JIT), so the ceiling is generous and the setup button appears
             // while still starting rather than declaring failure early.
             for tick in 0..<360 {
+                if Task.isCancelled { return }
                 if shell.gameRunning {
                     launching = false
                     slowStart = false
@@ -358,6 +462,7 @@ private struct PlayView: View {
                 if tick == 40 { slowStart = true }
                 try? await Task.sleep(for: .milliseconds(500))
             }
+            guard !Task.isCancelled else { return }
             launching = false
             slowStart = false
             launchFailed = true
@@ -850,7 +955,11 @@ private struct HelpView: View {
                     } label: {
                         Label("Enter VR again", systemImage: "visionpro")
                     }
-                    .disabled(shell.immersiveOpen || !shell.gameRunning)
+                    // While the automatic entry is pending this is the fallback, not an invitation;
+                    // it becomes available when the auto attempt ends (or after its bounded wait) and
+                    // the Play tab then offers it too.
+                    .disabled(shell.immersiveOpen || !shell.gameRunning
+                              || (shell.autoOpenPending && !shell.autoOpenFallbackAvailable))
                     Button {
                         sendGameCommands(["release-input"])
                     } label: {

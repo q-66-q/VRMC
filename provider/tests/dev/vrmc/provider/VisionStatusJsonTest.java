@@ -63,6 +63,16 @@ public final class VisionStatusJsonTest {
                 && String.valueOf(parsed.get("render")).contains("displayHz=120.0"),
                 String.valueOf(parsed.get("render")));
         }
+        // NEW-4: the status document must say visionOS on the headset, where Java reports Mac OS X.
+        check("platform: macOS/Darwin Java reports visionOS",
+            "visionOS".equals(VisionStatusJson.platformName("Mac OS X"))
+                && "visionOS".equals(VisionStatusJson.platformName("Darwin")));
+        check("platform: missing/blank os.name falls back to visionOS",
+            "visionOS".equals(VisionStatusJson.platformName(null))
+                && "visionOS".equals(VisionStatusJson.platformName(""))
+                && "visionOS".equals(VisionStatusJson.platformName("  ")));
+        check("platform: a non-Apple os.name is preserved as a safe fallback",
+            "Linux".equals(VisionStatusJson.platformName("Linux")));
         // Regression shape: the last field must not carry a trailing comma/quote (EV-0144 bug).
         String trimmed = json.trim();
         check("ends with closing brace", trimmed.endsWith("}"));

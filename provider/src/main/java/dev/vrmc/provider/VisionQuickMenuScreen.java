@@ -29,7 +29,7 @@ public final class VisionQuickMenuScreen extends Screen {
         void quickSetSeatedPlay(boolean seated);
         float quickTurnIncrement();
         void quickSetTurnIncrement(float degrees);
-        /** 0 = off .. 3 = strong; -1 when the vignette file is not reachable. */
+        /** 0 = off .. 4 = strong (see {@link VisionSettingsFile#VIGNETTE_LEVELS}); -1 = n/a. */
         int quickVignetteLevel();
         void quickSetVignetteLevel(int level);
         float quickWorldScale();
@@ -40,7 +40,8 @@ public final class VisionQuickMenuScreen extends Screen {
         String[] quickControlsHelp();
     }
 
-    private static final String[] VIGNETTE_NAMES = {"Off", "Light", "Medium", "Strong"};
+    /** Labels for {@link VisionSettingsFile#VIGNETTE_LEVELS}; level 4 ("Strong") is 0.90. */
+    private static final String[] VIGNETTE_NAMES = VisionSettingsFile.VIGNETTE_NAMES;
     private static final int BUTTON_W = 150;
     private static final int BUTTON_H = 20;
     private static final int GAP = 4;

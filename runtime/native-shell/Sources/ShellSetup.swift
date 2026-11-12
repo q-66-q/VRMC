@@ -243,6 +243,75 @@ final class SetupManager {
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
+    // MARK: Minimal zip reader (import validation)
+
+    /// Lists a zip's central-directory entry names. A jar is a zip; the import path uses this to
+    /// prove the picked file is a readable zip and really contains fabric.mod.json instead of only
+    /// checking the first four magic bytes and the size (REVIEW_1.3 R10). Returns nil when the file
+    /// is not a readable zip.
+    nonisolated static func zipEntryNames(of url: URL) -> [String]? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let fileSize = try? handle.seekToEnd(), fileSize > 22 else { return nil }
+        let tailLength = Int(min(fileSize, 65_557))
+        guard let tail = readBytes(from: handle, offset: Int64(fileSize) - Int64(tailLength), count: tailLength),
+              let eocd = lastIndex(of: [0x50, 0x4B, 0x05, 0x06], in: tail) else { return nil }
+        let entryCount = Int(u16(tail, eocd + 10))
+        let directorySize = Int(u32(tail, eocd + 12))
+        let directoryOffset = Int64(u32(tail, eocd + 16))
+        guard entryCount > 0, entryCount <= 20_000, directorySize > 0, directorySize <= 16 * 1024 * 1024,
+              let directory = readBytes(from: handle, offset: directoryOffset, count: directorySize) else {
+            return nil
+        }
+        var names: [String] = []
+        var offset = 0
+        for _ in 0..<entryCount {
+            guard offset + 46 <= directory.count, u32(directory, offset) == 0x0201_4B50 else { return nil }
+            let nameLength = Int(u16(directory, offset + 28))
+            let extraLength = Int(u16(directory, offset + 30))
+            let commentLength = Int(u16(directory, offset + 32))
+            let nameStart = offset + 46
+            guard nameStart + nameLength <= directory.count else { return nil }
+            let nameStartIndex = directory.startIndex + nameStart
+            let nameEndIndex = nameStartIndex + nameLength
+            names.append(String(decoding: directory[nameStartIndex..<nameEndIndex], as: UTF8.self))
+            offset = nameStart + nameLength + extraLength + commentLength
+        }
+        return names
+    }
+
+    nonisolated private static func readBytes(from handle: FileHandle, offset: Int64, count: Int) -> Data? {
+        guard count > 0, offset >= 0 else { return Data() }
+        do {
+            try handle.seek(toOffset: UInt64(offset))
+            return try handle.read(upToCount: count)
+        } catch {
+            return nil
+        }
+    }
+
+    nonisolated private static func u16(_ data: Data, _ index: Int) -> UInt16 {
+        UInt16(data[data.startIndex + index]) | (UInt16(data[data.startIndex + index + 1]) << 8)
+    }
+
+    nonisolated private static func u32(_ data: Data, _ index: Int) -> UInt32 {
+        UInt32(data[data.startIndex + index])
+            | (UInt32(data[data.startIndex + index + 1]) << 8)
+            | (UInt32(data[data.startIndex + index + 2]) << 16)
+            | (UInt32(data[data.startIndex + index + 3]) << 24)
+    }
+
+    nonisolated private static func lastIndex(of needle: [UInt8], in data: Data) -> Int? {
+        guard data.count >= needle.count else { return nil }
+        var index = data.count - needle.count
+        while index >= 0 {
+            let start = data.startIndex + index
+            if Array(data[start..<(start + needle.count)]) == needle { return index }
+            index -= 1
+        }
+        return nil
+    }
+
     // MARK: VRMC mod (provider)
 
     /// Runs before the SwiftUI app starts (no UI yet): file work only.
@@ -362,9 +431,11 @@ final class SetupManager {
     }
 
     /// Hashing 6.7 MB every refresh would be wasteful: cache by path + size + modification date.
-    nonisolated(unsafe) private static var vivecraftHashCache: (key: String, hash: String)?
+    /// Main-actor-only (refresh/install call it on the main actor); the 1.3 download task wrote a
+    /// nonisolated(unsafe) version of this cache from the background while refresh() read it.
+    private static var vivecraftHashCache: (key: String, hash: String)?
 
-    nonisolated private static func inspectVivecraft() -> SetupStatus {
+    private static func inspectVivecraft() -> SetupStatus {
         let jars = installedVivecraftJars()
         guard let jar = jars.first else {
             return .missing("Vivecraft \(vivecraftVersion) is not installed.")
@@ -441,6 +512,7 @@ final class SetupManager {
             self.downloading = false
             switch result {
             case .success:
+                Self.vivecraftHashCache = nil
                 self.lastActionMessage = "Vivecraft \(Self.vivecraftVersion) installed and verified."
                 shellLog("setup: Vivecraft installed and verified")
             case .failure(let error):
@@ -453,6 +525,95 @@ final class SetupManager {
 
     struct SetupError: Error { let message: String }
 
+    /// Buffered streamed download progress. URLSession hands us whole Data chunks: each chunk is
+    /// appended straight to the destination file and progress is computed once per chunk. The 1.3
+    /// path iterated AsyncBytes one byte at a time (~6.7 M async hops for a 6.7 MB jar), which made
+    /// the download slower than the network on device.
+    private final class DownloadProgressDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+        private let handle: FileHandle
+        private let expectedBytes: Int64
+        private let progress: @Sendable (Double) -> Void
+        private let lock = NSLock()
+        private var received: Int64 = 0
+        private var failure: SetupError?
+        private var continuation: CheckedContinuation<Result<Void, SetupError>, Never>?
+
+        init(handle: FileHandle, expectedBytes: Int, progress: @escaping @Sendable (Double) -> Void) {
+            self.handle = handle
+            self.expectedBytes = Int64(expectedBytes)
+            self.progress = progress
+        }
+
+        /// Runs the download to completion. The session is created per download and invalidated when
+        /// the task completes.
+        func run(_ request: URLRequest) async -> Result<Void, SetupError> {
+            await withCheckedContinuation { continuation in
+                lock.lock()
+                self.continuation = continuation
+                lock.unlock()
+                let configuration = URLSessionConfiguration.ephemeral
+                configuration.timeoutIntervalForRequest = 60
+                let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+                session.dataTask(with: request).resume()
+            }
+        }
+
+        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                lock.lock()
+                if failure == nil {
+                    failure = SetupError(message: "Download failed (HTTP \(http.statusCode)). Check the connection, or import the jar from Files.")
+                }
+                lock.unlock()
+                completionHandler(.cancel)
+                return
+            }
+            completionHandler(.allow)
+        }
+
+        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+            lock.lock()
+            let failed = failure != nil
+            lock.unlock()
+            guard !failed else { return }
+            do {
+                try handle.write(contentsOf: data)
+            } catch {
+                lock.lock()
+                if failure == nil { failure = SetupError(message: "Download failed: \(error.localizedDescription)") }
+                lock.unlock()
+                dataTask.cancel()
+                return
+            }
+            lock.lock()
+            received += Int64(data.count)
+            let soFar = received
+            if soFar > expectedBytes * 2, failure == nil {
+                failure = SetupError(message: "Download rejected: the file is larger than expected.")
+            }
+            lock.unlock()
+            progress(min(1.0, Double(soFar) / Double(expectedBytes)))
+            if soFar > expectedBytes * 2 { dataTask.cancel() }
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            session.finishTasksAndInvalidate()
+            lock.lock()
+            guard let continuation else { lock.unlock(); return }
+            self.continuation = nil
+            let failure = self.failure
+            lock.unlock()
+            if let failure {
+                continuation.resume(returning: .failure(failure))
+            } else if let error {
+                continuation.resume(returning: .failure(SetupError(message: "Download failed: \(error.localizedDescription)")))
+            } else {
+                continuation.resume(returning: .success(()))
+            }
+        }
+    }
+
     nonisolated private static func fetchVivecraft(progress: @escaping @Sendable (Double) -> Void) async -> Result<Void, SetupError> {
         var request = URLRequest(url: vivecraftURL)
         request.timeoutInterval = 60
@@ -461,35 +622,14 @@ final class SetupManager {
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("vivecraft-\(UUID().uuidString).jar")
         defer { try? FileManager.default.removeItem(at: temp) }
-        do {
-            let (bytes, response) = try await URLSession.shared.bytes(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-                return .failure(SetupError(message: "Download failed (HTTP \(code)). Check the connection, or import the jar from Files."))
-            }
-            FileManager.default.createFile(atPath: temp.path, contents: nil)
-            let handle = try FileHandle(forWritingTo: temp)
-            defer { try? handle.close() }
-            var buffer = Data()
-            buffer.reserveCapacity(1 << 16)
-            var received = 0
-            for try await byte in bytes {
-                buffer.append(byte)
-                if buffer.count >= 1 << 16 {
-                    received += buffer.count
-                    try handle.write(contentsOf: buffer)
-                    buffer.removeAll(keepingCapacity: true)
-                    progress(min(1.0, Double(received) / Double(vivecraftBytes)))
-                    if received > vivecraftBytes * 2 {
-                        return .failure(SetupError(message: "Download rejected: the file is larger than expected."))
-                    }
-                }
-            }
-            if !buffer.isEmpty { try handle.write(contentsOf: buffer) }
-            try handle.close()
-        } catch {
-            return .failure(SetupError(message: "Download failed: \(error.localizedDescription)"))
+        FileManager.default.createFile(atPath: temp.path, contents: nil)
+        guard let handle = try? FileHandle(forWritingTo: temp) else {
+            return .failure(SetupError(message: "Download failed: could not create the destination file."))
         }
+        let delegate = DownloadProgressDelegate(handle: handle, expectedBytes: vivecraftBytes, progress: progress)
+        let result = await delegate.run(request)
+        try? handle.close()
+        if case .failure(let error) = result { return .failure(error) }
         guard let hash = sha256(of: temp), hash == vivecraftSHA256 else {
             return .failure(SetupError(message: "Download rejected: the file does not match the expected checksum. Nothing was installed."))
         }
@@ -497,25 +637,55 @@ final class SetupManager {
     }
 
     /// Put one Vivecraft jar into mods/ and remove every other Vivecraft jar (Fabric refuses to
-    /// start with two copies of the same mod).
+    /// start with two copies of the same mod). The old jar(s) are moved aside, not deleted, and are
+    /// restored if the final move/verification fails, so a failed install never loses a working mod.
     nonisolated private static func installVivecraft(from source: URL, as name: String) -> Result<Void, SetupError> {
         let fm = FileManager.default
+        let mods = modsDirectory()
+        let destination = mods.appendingPathComponent(name)
+        var staged: URL?
+        var backups: [(backup: URL, original: URL)] = []
         do {
-            try fm.createDirectory(at: modsDirectory(), withIntermediateDirectories: true)
-            let staging = modsDirectory().appendingPathComponent(".vivecraft.jar.tmp")
+            guard let sourceHash = sha256(of: source) else {
+                return .failure(SetupError(message: "Could not read the Vivecraft jar."))
+            }
+            try fm.createDirectory(at: mods, withIntermediateDirectories: true)
+            let staging = mods.appendingPathComponent(".vivecraft.jar.tmp")
             try? fm.removeItem(at: staging)
             try fm.copyItem(at: source, to: staging)
-            for old in installedVivecraftJars() { try fm.removeItem(at: old) }
-            try fm.moveItem(at: staging, to: modsDirectory().appendingPathComponent(name))
-            vivecraftHashCache = nil
+            staged = staging
+            // Move existing jars aside first; do not delete them before the new jar is in place.
+            for (index, old) in installedVivecraftJars().enumerated() {
+                let backup = mods.appendingPathComponent(".\(old.lastPathComponent).bak\(index)")
+                try? fm.removeItem(at: backup)
+                try fm.moveItem(at: old, to: backup)
+                backups.append((backup, old))
+            }
+            try fm.moveItem(at: staging, to: destination)
+            staged = nil
+            guard sha256(of: destination) == sourceHash else {
+                throw SetupError(message: "the installed jar failed verification")
+            }
+            for entry in backups { try? fm.removeItem(at: entry.backup) }
             return .success(())
         } catch {
-            return .failure(SetupError(message: "Could not install Vivecraft: \(error.localizedDescription)"))
+            if let staged { try? fm.removeItem(at: staged) }
+            try? fm.removeItem(at: destination)
+            var restored = 0
+            for entry in backups.reversed() {
+                if (try? fm.moveItem(at: entry.backup, to: entry.original)) != nil { restored += 1 }
+            }
+            shellLog("setup: Vivecraft install FAILED (\(error)); restored \(restored) previous jar(s)")
+            let message = "Could not install Vivecraft: \(error.localizedDescription)."
+                + (restored > 0 ? " The previous mod was restored." : "")
+            return .failure(SetupError(message: message))
         }
     }
 
-    /// Install a Vivecraft jar the user picked in Files. The pinned build is reported as verified;
-    /// any other Vivecraft jar is installed with a clear "untested build" note.
+    /// Install a Vivecraft jar the user picked in Files. Honest validation: the file must be a
+    /// readable zip whose central directory contains fabric.mod.json (a real Fabric mod), and only a
+    /// byte-identical copy of the pinned build is called the tested build - imports are not
+    /// SHA-verified (only the one-tap download is). Other Vivecraft jars install as "untested".
     func importVivecraft(from picked: URL) {
         let scoped = picked.startAccessingSecurityScopedResource()
         defer { if scoped { picked.stopAccessingSecurityScopedResource() } }
@@ -524,22 +694,29 @@ final class SetupManager {
             lastActionMessage = "That is not a Vivecraft jar (expected a file named vivecraft-….jar)."
             return
         }
-        guard let head = try? FileHandle(forReadingFrom: picked).read(upToCount: 4),
-              head.count == 4, head[0] == 0x50, head[1] == 0x4B else {
-            lastActionMessage = "That file is not a valid jar."
-            return
-        }
         let size = ((try? picked.resourceValues(forKeys: [.fileSizeKey]))?.fileSize) ?? 0
         guard size > 100_000, size < 64_000_000 else {
             lastActionMessage = "That file does not look like Vivecraft (unexpected size)."
             return
         }
-        let verified = Self.sha256(of: picked) == Self.vivecraftSHA256
-        switch Self.installVivecraft(from: picked, as: verified ? Self.vivecraftFileName : name) {
+        guard let entries = Self.zipEntryNames(of: picked) else {
+            lastActionMessage = "That file is not a readable jar (damaged or not a zip file)."
+            shellLog("setup: Vivecraft import rejected: not a readable zip")
+            return
+        }
+        guard entries.contains(where: { $0 == "fabric.mod.json" || $0.hasSuffix("/fabric.mod.json") }) else {
+            lastActionMessage = "That jar is not a Fabric mod (it has no fabric.mod.json)."
+            shellLog("setup: Vivecraft import rejected: no fabric.mod.json among \(entries.count) zip entries")
+            return
+        }
+        let pinned = Self.sha256(of: picked) == Self.vivecraftSHA256
+        switch Self.installVivecraft(from: picked, as: pinned ? Self.vivecraftFileName : name) {
         case .success:
-            lastActionMessage = verified ? "Vivecraft \(Self.vivecraftVersion) imported and verified."
-                                         : "\(name) imported. It is not the tested build."
-            shellLog("setup: Vivecraft imported verified=\(verified)")
+            Self.vivecraftHashCache = nil
+            lastActionMessage = pinned
+                ? "Vivecraft \(Self.vivecraftVersion) imported (this is the tested build)."
+                : "\(name) imported. It is not the tested build."
+            shellLog("setup: Vivecraft imported pinned=\(pinned) zipEntries=\(entries.count)")
         case .failure(let error):
             lastActionMessage = error.message
             shellLog("setup: Vivecraft import FAILED: \(error.message)")

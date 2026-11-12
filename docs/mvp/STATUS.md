@@ -437,3 +437,15 @@ release check PASS; package verifier/freshness PASS; release-ready host gates PA
   release 1.3.3 installed in place (codesign PASS, app data preserved). Pending: on-headset launch
   of 1.3.3 + visual tab/Play check (host devicectl launch transport broken; user tap required).
   Evidence `evidence/device-1.3/REPORT.md`, notes `docs/release/1.3-notes.md`.
+
+- 2026-11-11 EV-0299: **VRMC 1.3.4 bug-fix release (host PASS; installed on D1; on-headset launch pending).**
+  Fixes the two regressions the live 1.3.3 run exposed - duplicate window scenes (8 restored
+  scenes/16 UIWindows, now a single-window runtime guard) and the Play-tab UX that made the user
+  press Enter VR during the automatic entry (staged spinner + 25 s bounded fallback) - plus the
+  misleading teardown logs and REVIEW_1.3 findings R1/R2/R3/R5/R6/R12/NEW-4 and ShellSetup
+  robustness R7-R10. Host: provider suite ALL PASS (944 checks), jar 161,999 B `02e3eca9...`
+  3-build reproducible, shell BUILD SUCCEEDED `718b7f19...`, release check PASS. Purple menu/pause
+  flash: shown not to be the release compositor path; release-neutral instrumentation added and a
+  triage protocol documented (no visual guess). Device: 1.3.4 installed in place (identity recorded,
+  app data preserved); launch + R1/R2/R3/R6 spot checks still need one Home View tap. Evidence
+  `evidence/device-1.3/`, notes `docs/release/1.3.4-notes.md`, `docs/plan/RENDER_BUGFIX.md`.

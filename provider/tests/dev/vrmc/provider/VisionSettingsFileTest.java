@@ -72,9 +72,35 @@ public final class VisionSettingsFileTest {
             && VisionSettingsFile.vignetteLevel("0") == 0 && VisionSettingsFile.vignetteLevel("abc") == 0
             && VisionSettingsFile.vignetteLevel("NaN") == 0);
         check("vignette: empty legacy flag = medium", VisionSettingsFile.vignetteLevel("") == 2);
-        check("vignette: strengths map to the nearest level", VisionSettingsFile.vignetteLevel("0.30") == 1
-            && VisionSettingsFile.vignetteLevel("0.50\n") == 2 && VisionSettingsFile.vignetteLevel("0.9") == 3
-            && VisionSettingsFile.vignetteLevel("0.1") == 1);
+        check("vignette: five levels with the compositor maximum 0.90 as 'Strong'",
+            VisionSettingsFile.VIGNETTE_LEVELS.length == 5
+                && VisionSettingsFile.VIGNETTE_NAMES.length == 5
+                && VisionSettingsFile.VIGNETTE_LEVELS[0] == 0.0F
+                && VisionSettingsFile.VIGNETTE_LEVELS[4] == 0.90F
+                && "Strong".equals(VisionSettingsFile.VIGNETTE_NAMES[4]));
+        boolean roundTrips = true;
+        for (int i = 1; i < VisionSettingsFile.VIGNETTE_LEVELS.length; i++) {
+            String stored = String.format(java.util.Locale.ROOT, "%.2f", VisionSettingsFile.VIGNETTE_LEVELS[i]);
+            roundTrips &= VisionSettingsFile.vignetteLevel(stored) == i;
+        }
+        check("vignette: every level round-trips through the flag file format", roundTrips);
+        // R2: a launcher-written 0.90 (the ShellUI slider maximum) must read as the top level whose
+        // stored strength IS 0.90, not as the old 0.70 "Strong" level.
+        check("vignette: launcher-written 0.9 reads as the true top level (R2)",
+            VisionSettingsFile.vignetteLevel("0.9") == 4
+                && VisionSettingsFile.VIGNETTE_LEVELS[VisionSettingsFile.vignetteLevel("0.9")] == 0.90F);
+        check("vignette: launcher slider steps map to the nearest level",
+            VisionSettingsFile.vignetteLevel("0.70") == 3 && VisionSettingsFile.vignetteLevel("0.75") == 3
+                && VisionSettingsFile.vignetteLevel("0.50\n") == 2 && VisionSettingsFile.vignetteLevel("0.45") == 2
+                && VisionSettingsFile.vignetteLevel("0.30") == 1 && VisionSettingsFile.vignetteLevel("0.10") == 1
+                && VisionSettingsFile.vignetteLevel("0.05") == 1);
+        check("vignette: strengths above the compositor maximum clamp to the top level",
+            VisionSettingsFile.vignetteLevel("0.95") == 4 && VisionSettingsFile.vignetteLevel("1.0") == 4
+                && VisionSettingsFile.vignetteLevel("2") == 4);
+        check("vignette: pressing the button from a launcher-written 0.9 stores 0.90 next (not a lie)",
+            (VisionSettingsFile.vignetteLevel("0.9") + 1) % VisionSettingsFile.VIGNETTE_LEVELS.length == 0
+                && VisionSettingsFile.VIGNETTE_LEVELS[
+                    (VisionSettingsFile.vignetteLevel("0.7") + 1) % VisionSettingsFile.VIGNETTE_LEVELS.length] == 0.90F);
 
         Path documents = dir.resolve("Documents");
         Path game = documents.resolve("instances").resolve("default");

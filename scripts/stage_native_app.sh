@@ -217,6 +217,11 @@ if [ "$DRY_RUN" != "1" ]; then
       || die "could not set CFBundleVersion=$APP_BUILD"
     note "CFBundleVersion -> $APP_BUILD"
   fi
+  # NOTE: do NOT force UIApplicationSupportsMultipleScenes=false here. The Apple visionOS
+  # "Foveated Streaming App" template (CompositorServices) sets it TRUE and declares the
+  # UISceneSessionRoleImmersiveSpaceApplication role; the immersive space is an additional scene, so
+  # forcing false risks breaking Enter VR. Duplicate window scenes are pruned at runtime by the
+  # shell instead (ShellWindowSceneGuard), which only destroys extra windowApplication scenes.
 fi
 run cp "$PROFILE" "$DEST_APP/embedded.mobileprovision"
 

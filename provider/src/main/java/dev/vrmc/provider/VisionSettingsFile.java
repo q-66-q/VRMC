@@ -101,10 +101,21 @@ public final class VisionSettingsFile {
         return WORLD_SCALES[(nearest + 1) % WORLD_SCALES.length];
     }
 
-    /** Comfort vignette levels shared by the quick menu and the compositor flag file. */
-    public static final float[] VIGNETTE_LEVELS = {0.0F, 0.30F, 0.50F, 0.70F};
+    /**
+     * Comfort vignette levels shared by the quick menu and the compositor flag file. The compositor
+     * clamps the flag value to 0..0.9 and the launcher slider spans 0.10..0.90, so 0.90 is the
+     * strongest level: the old 4-level ladder stopped at 0.70 and displayed a launcher-written 0.90
+     * as its "Strong" level (0.70), then the next press wrapped to Off (R2).
+     */
+    public static final float[] VIGNETTE_LEVELS = {0.0F, 0.30F, 0.50F, 0.70F, 0.90F};
 
-    /** Nearest level index (0 = off) for a stored strength; missing/unparsable = off. */
+    /** Quick-menu labels for {@link #VIGNETTE_LEVELS}; "Strong" is the compositor maximum (0.90). */
+    public static final String[] VIGNETTE_NAMES = {"Off", "Light", "Medium", "High", "Strong"};
+
+    /**
+     * Nearest level index (0 = off) for a stored strength; missing/unparsable = off. A positive
+     * strength always maps to at least Light, so an enabled launcher value never displays as Off.
+     */
     public static int vignetteLevel(String stored) {
         if (stored == null) return 0;
         float value;

@@ -2667,18 +2667,37 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             uint32_t drawRightHeight = haveEyes ? eyeFrame.eyes.right_height
                 : (usingCachedEyes ? (uint32_t)lastRightEye.height : 0);
             const vrmc_eye_targets *eyesPtr = &eyeFrame.eyes;
-            static uint32_t loggedTextureGeneration = 0;
+            // Log every provider eye-texture swap by comparing the per-eye handles.
+            //
+            // NOT the bridge texture generation: vrmc_shared_clear_eye_textures() zeroes
+            // texture_generation before each provider eye-target rebuild and the next publish sets it
+            // back to 1, so a "generation != lastGeneration" test only fires on the first frame and
+            // hides every later swap (the 2026-11-07 M8 device run rebuilt 15 times but logged one
+            // generation line). The handle is what actually changes on a rebuild, and it is also the
+            // key of the cached sRGB texture view, so this line gives the purple-menu-flash
+            // investigation an exact "which texture was sampled after which swap" timeline.
+            static uint64_t loggedEyeHandleL = 0;
+            static uint64_t loggedEyeHandleR = 0;
             static int loggedEyeTextureUsage = 0;
-            if (haveEyes && eyeFrame.texture_generation != loggedTextureGeneration) {
-                id<MTLTexture> generationLeft =
-                    (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.left_texture;
-                id<MTLTexture> generationRight =
-                    (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.right_texture;
-                compLog("provider eye textures changed: generation=%u publish=%llu L=%p R=%p "
-                        "(handles are re-acquired every frame, never cached)",
+            // Frame of the most recent swap; the diagnostics Probe below reads the drawn drawable for
+            // the first frames after it (the suspected flash window) without waiting for the 300-frame
+            // cadence.
+            static uint64_t eyeTextureChangeFrame = 0;
+            if (haveEyes && (eyeFrame.eyes.left_texture != loggedEyeHandleL ||
+                             eyeFrame.eyes.right_texture != loggedEyeHandleR)) {
+                compLog("provider eye textures changed: generation=%u publish=%llu "
+                        "L=0x%llx->0x%llx R=0x%llx->0x%llx size=%ux%u "
+                        "(handles are re-acquired every frame, never cached; "
+                        "generation is reset to 1 by the bridge clear)",
                         eyeFrame.texture_generation, (unsigned long long)eyeFrame.publish_sequence,
-                        (__bridge void *)generationLeft, (__bridge void *)generationRight);
-                loggedTextureGeneration = eyeFrame.texture_generation;
+                        (unsigned long long)loggedEyeHandleL,
+                        (unsigned long long)eyeFrame.eyes.left_texture,
+                        (unsigned long long)loggedEyeHandleR,
+                        (unsigned long long)eyeFrame.eyes.right_texture,
+                        eyeFrame.eyes.left_width, eyeFrame.eyes.left_height);
+                loggedEyeHandleL = eyeFrame.eyes.left_texture;
+                loggedEyeHandleR = eyeFrame.eyes.right_texture;
+                eyeTextureChangeFrame = frameCount;
             }
             if (haveEyes && !loggedEyeTextureUsage) {
                 loggedEyeTextureUsage = 1;
@@ -2999,19 +3018,58 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 if (linearizeColorEnabled && srgbViewFormat != MTLPixelFormatInvalid) {
                                     __strong id<MTLTexture> *viewCache = isLeftEye ? &gSrgbColorViewL : &gSrgbColorViewR;
                                     uint64_t *handleCache = isLeftEye ? &gSrgbColorHandleL : &gSrgbColorHandleR;
+                                    // A cached view is only valid for the exact texture it was created from:
+                                    // same provider handle, same pixel format, same extent. The bridge
+                                    // generation cannot be relied on for this - vrmc_shared_clear_eye_textures()
+                                    // resets texture_generation to 0 and the next publish makes it 1 again,
+                                    // so it usually looks unchanged across an eye-target rebuild. Requiring
+                                    // format+extent as well as the handle means a stale view can never be
+                                    // sampled even if a provider texture address were reused.
+                                    const BOOL cachedViewStale =
+                                        (*viewCache != nil) &&
+                                        (*handleCache != handle ||
+                                         (*viewCache).pixelFormat != srgbViewFormat ||
+                                         (*viewCache).width != tex.width ||
+                                         (*viewCache).height != tex.height);
                                     if (*handleCache != handle || *viewCache == nil ||
-                                        *generationCache != viewGeneration) {
+                                        *generationCache != viewGeneration || cachedViewStale) {
                                         id<MTLTexture> srgbView = [tex newTextureViewWithPixelFormat:srgbViewFormat];
                                         if (srgbView != nil) {
+                                            static int loggedSrgbView = 0;
+                                            static int loggedSrgbRebuilds = 0;
+                                            const uint64_t previousHandle = *handleCache;
+                                            const BOOL previousViewWasOtherTexture =
+                                                (previousHandle != handle && *viewCache != nil);
                                             *viewCache = srgbView;
                                             *handleCache = handle;
                                             *generationCache = viewGeneration;
-                                            static int loggedSrgbView = 0;
                                             if (!loggedSrgbView) {
                                                 loggedSrgbView = 1;
                                                 compLog("color: sRGB->linear applied via texture view (provider fmt=%lu -> view fmt=%lu %lux%lu)",
                                                         (unsigned long)tex.pixelFormat, (unsigned long)srgbView.pixelFormat,
                                                         (unsigned long)srgbView.width, (unsigned long)srgbView.height);
+                                            }
+                                            // Per-swap line (bounded to 64): a device log can now prove which
+                                            // texture/view the compositor sampled after each eye-target
+                                            // rebuild, and whether the previous view belonged to a different
+                                            // texture. This is the confirmation hook for the "purple flash
+                                            // appeared after the colour correction" report.
+                                            if (loggedSrgbRebuilds < 64) {
+                                                loggedSrgbRebuilds++;
+                                                compLog("color: sRGB view rebuilt %s handle=0x%llx fmt=%lu %lux%lu gen=%u previousHandle=0x%llx previousViewOtherTexture=%d",
+                                                        isLeftEye ? "L" : "R",
+                                                        (unsigned long long)handle,
+                                                        (unsigned long)tex.pixelFormat,
+                                                        (unsigned long)srgbView.width, (unsigned long)srgbView.height,
+                                                        viewGeneration, (unsigned long long)previousHandle,
+                                                        (int)previousViewWasOtherTexture);
+                                            }
+                                        } else {
+                                            static int loggedSrgbViewFailure = 0;
+                                            if (!loggedSrgbViewFailure) {
+                                                loggedSrgbViewFailure = 1;
+                                                compLog("color: sRGB view creation FAILED (handle=0x%llx fmt=%lu); sampling the raw provider texture (no gamma decode)",
+                                                        (unsigned long long)handle, (unsigned long)tex.pixelFormat);
                                             }
                                         }
                                     }
@@ -3080,8 +3138,16 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     encodedViews++;
 
                     // Ground truth of what is being presented: read back the DRAWN drawable texture.
+                    // In diagnostics, also probe the first 3 drawn frames after an eye-texture swap:
+                    // that is exactly where a texture-view/format switch would flash (the 2026-11-07 M8
+                    // purple menu/pause flash was reported after the sRGB texture-view colour fix).
+                    // Release is unchanged: diagnostics is false, so the periodic cadence still governs.
+                    const BOOL afterEyeTextureSwap = (eyeTextureChangeFrame > 0) &&
+                        frameCount >= eyeTextureChangeFrame &&
+                        (frameCount - eyeTextureChangeFrame) <= 2;
                     BOOL shouldProbe = diagnostics && !clearProbe &&
-                                       (frameCount < 3 || (frameCount % 300) == 0);
+                                       (frameCount < 3 || (frameCount % 300) == 0 ||
+                                        afterEyeTextureSwap);
                     if (shouldProbe && target == (int)cp_drawable_target_built_in) {
                         BOOL dumpRaw = dumpRawAlways || selfTest || (frameCount < 3);
                         NSUInteger probeSlice = (colorTexture.textureType == MTLTextureType2DArray)

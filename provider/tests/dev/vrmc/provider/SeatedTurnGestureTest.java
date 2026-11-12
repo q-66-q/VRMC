@@ -6,7 +6,8 @@ package dev.vrmc.provider;
  * <p>The vision input emits a single-tap pulse on the first tap even when a second tap follows (the
  * double-tap pulse arrives later), so acting immediately on the single tap made "double tap = turn
  * right" turn left and then right = net zero. These checks pin the deferral and the net-one-turn
- * behavior without a game instance.
+ * behavior without a game instance. The same helper now also drives the M4 fallback snap turn
+ * (R6/R12), so the sequence at the end of the file is the M4 signal timeline.
  */
 public final class SeatedTurnGestureTest {
     private static int checks;
@@ -30,6 +31,7 @@ public final class SeatedTurnGestureTest {
         separateTapsTurnLeftTwice();
         disabledCancelsPending();
         doublePulseWithoutPendingTurnsRightOnce();
+        m4FallbackDoubleTapNetsOneRightTurn();
 
         System.out.println("[m7-seated-turn-test] " + checks + " checks, " + failures + " failed");
         System.out.println(failures == 0
@@ -153,5 +155,32 @@ public final class SeatedTurnGestureTest {
         check("double pulse turns right", g.update(true, false, true, t, DOUBLE_WINDOW_NS) == SeatedTurnGesture.RIGHT);
         t += FRAME_NS;
         check("the next frame is idle", g.update(true, false, false, t, DOUBLE_WINDOW_NS) == SeatedTurnGesture.NONE);
+    }
+
+    /**
+     * R6/R12: the M4 fallback path (VisionVR.applyLocomotion) feeds exactly these two engine signals
+     * into the same helper. The old inline handling turned left on the first tap's single-tap pulse
+     * and right on the later double-tap pulse, so a double tap netted zero rotation; here it must be
+     * exactly one right turn and no deferred left turn.
+     */
+    private static void m4FallbackDoubleTapNetsOneRightTurn() {
+        System.out.println("[m7-seated-turn-test] M4 fallback: left-middle double tap = exactly one right turn");
+        SeatedTurnGesture g = new SeatedTurnGesture();
+        long t = T0;
+        check("M4 first tap defers (no immediate left turn)",
+            g.update(true, true, false, t, DOUBLE_WINDOW_NS) == SeatedTurnGesture.NONE && g.pending());
+        t += FRAME_NS;
+        check("M4 second pulse frame still defers",
+            g.update(true, true, false, t, DOUBLE_WINDOW_NS) == SeatedTurnGesture.NONE);
+        t += 120_000_000L; // second tap release -> the engine reports the double-tap pulse
+        int turn = g.update(true, false, true, t, DOUBLE_WINDOW_NS);
+        check("M4 double tap turns right immediately", turn == SeatedTurnGesture.RIGHT && !g.pending());
+        boolean leaked = false;
+        for (int i = 0; i < 60; i++) {
+            t += FRAME_NS;
+            int decision = g.update(true, false, false, t, DOUBLE_WINDOW_NS);
+            if (decision != SeatedTurnGesture.NONE) leaked = true;
+        }
+        check("no delayed left turn afterwards (the old M4 path netted zero)", !leaked);
     }
 }

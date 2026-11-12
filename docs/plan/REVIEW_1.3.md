@@ -168,7 +168,7 @@ in scripts/build_provider.sh.
   matching vivecraftBytes/vivecraftSHA256 in ShellSetup.swift. The one-tap download+verify path will
   accept the real artifact.
 
-## 5. Findings reported, not fixed (low; no code change)
+## 5. Findings reported by the 1.3 review (all fixed in the 1.3.4 bug-fix pass - see VERIFY EV-0299)
 
 | # | Sev | Finding | Location |
 |---|---|---|---|

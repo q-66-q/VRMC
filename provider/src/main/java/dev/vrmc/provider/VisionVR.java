@@ -208,11 +208,10 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     /**
      * A right pinch that was already held when a screen opened or closed belongs to the previous
      * context: clicking "Back to Game" must not place a block / start mining when the menu closes,
-     * and a pinch held while the inventory opens must not click whatever is under the cursor. Set on
-     * the GUI<->world transition, cleared when the pinch is released.
+     * and a pinch held while the inventory opens must not click whatever is under the cursor. The
+     * guard also owns the case where the pinch is released on the exact transition frame (R1).
      */
-    private boolean m7PinchCarry;
-    private boolean m7PrevGui;
+    private final PinchCarryGuard m7PinchCarry = new PinchCarryGuard();
     /**
      * Seated play (launcher/quick-menu "Play style: Seated"): hands keep working, head rise/drop
      * jump+sneak are off, and the middle-finger pinches take over (right tap = jump, right hold =
@@ -227,11 +226,20 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
      * double tap nets ONE right turn instead of left-then-right (see {@link SeatedTurnGesture}).
      */
     private final SeatedTurnGesture seatedTurn = new SeatedTurnGesture();
+    /**
+     * M4 fallback snap turn uses the same deferral as the seated path (R6/R12): the engine emits the
+     * single-tap pulse on the first tap of a double tap, so acting on it immediately made a double
+     * tap turn left then right (net zero). A separate instance keeps the two modes independent.
+     */
+    private final SeatedTurnGesture m4Turn = new SeatedTurnGesture();
     private boolean vivecraftSeatedWarned;
     /** Pause-screen entry point of the in-VR quick menu (re-added after every screen re-init). */
     private Object quickMenuButton;
     private java.lang.reflect.Method addRenderableWidgetMethod;
-    private boolean quickMenuInjectFailed;
+    /** R5: transient injection failures are retried instead of permanently disabling the button. */
+    private final QuickMenuInjectionRetry quickMenuInjection = new QuickMenuInjectionRetry();
+    private static final int QUICK_MENU_BUTTON_WIDTH = 204;
+    private static final int QUICK_MENU_BUTTON_HEIGHT = 20;
     /** M7 GUI click edge state: dispatched directly through vanilla MouseHandler (not the VR binding). */
     private boolean m7GuiClickPressed;
     private int m7GuiClickLogCount;
@@ -472,7 +480,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_LEFT),
             this.visionInput != null && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT),
             this.mc.player != null,
-            System.getProperty("os.name", ""),
+            VisionStatusJson.platformName(System.getProperty("os.name")),
             this.runtimeSettings.summary(),
             this.hotbarRange,
             this.visionInput == null ? "" : this.visionInput.tuningSummary(),
@@ -664,6 +672,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         this.bindingActions = null;
         this.resolvedActionMap = null;
         this.hotbarWheelActive = false;
+        this.m4Turn.reset();
         this.m7Mode = gestureModeM7(tuned, System.out::println);
         this.m7Gesture = buildM7Gesture(tuned);
         logInputTuning(this.visionInput);
@@ -822,6 +831,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
                     this.hotbarWheelActive = false;
                     this.rotatePulseDirection = 0;
                     this.rotatePulseUntilNs = 0L;
+                    this.m4Turn.reset();
                     detail = "input engine reset; held actions released (sources re-arm on fresh gestures)";
                     System.out.println("[VRMC-M4] " + detail);
                     showGameMessage("[VRMC] " + detail);
@@ -2107,19 +2117,16 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         applyM7Locomotion();
         boolean moving = this.m7LocomotionEngaged;
         boolean rightPinchRaw = this.m7Gesture.rightPinchHeld();
-        if (gui != this.m7PrevGui) {
-            this.m7PrevGui = gui;
-            if (rightPinchRaw) {
-                this.m7PinchCarry = true;
-                // Forget the old context's press so its duration cannot become a place/break here.
-                this.m7RightPinchPrev = false;
-                this.m7HeldBreak = false;
-                System.out.println("[VRMC-M7] right pinch carried across a screen "
-                    + (gui ? "open" : "close") + "; ignored until released");
-            }
+        boolean rightPinchHeld = this.m7PinchCarry.update(gui, rightPinchRaw);
+        if (this.m7PinchCarry.carriedNow()) {
+            // Forget the old context's press so its duration/release cannot become a place/break
+            // here. R1: this also covers a pinch released on the exact GUI-transition frame.
+            this.m7RightPinchPrev = false;
+            this.m7HeldBreak = false;
+            System.out.println("[VRMC-M7] right pinch carried across a screen "
+                + (gui ? "open" : "close")
+                + (rightPinchRaw ? "; ignored until released" : "; released on the transition frame"));
         }
-        if (!rightPinchRaw) this.m7PinchCarry = false;
-        boolean rightPinchHeld = rightPinchRaw && !this.m7PinchCarry;
         long actionNow = System.nanoTime();
         boolean riding = m7IsRiding();
         boolean rightFistTap = this.m7Gesture.rightFistTap();
@@ -2333,6 +2340,15 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             this.rotatePulseDirection = 0;
             this.rotatePulseUntilNs = 0L;
         }
+        writeSnapTurnPulse(now);
+    }
+
+    /**
+     * Shared snap-turn pulse writer used by the seated play path and the M4 fallback. Vivecraft reads
+     * the rotate bindings as an analog pulse (getAxis1DUseTracked), so the decided direction is held
+     * for {@link #rotatePulseNanos} and then released.
+     */
+    private void writeSnapTurnPulse(long now) {
         boolean pulse = this.rotatePulseDirection != 0 && now < this.rotatePulseUntilNs;
         VRInputAction rotateLeft = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateLeft);
         VRInputAction rotateRight = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateRight);
@@ -2400,41 +2416,79 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
 
     /**
      * Add the "VRMC Quick Menu" button to the game menu. Screen.addRenderableWidget is protected, so
-     * it is invoked reflectively (Minecraft 26.x ships unobfuscated names); any failure is logged
-     * once and the quick menu stays reachable through the launcher's quick-menu command.
+     * it is invoked reflectively (Minecraft 26.x ships unobfuscated names). A transient failure is
+     * logged (first few attempts) and retried rather than disabling the in-VR entry point; the
+     * launcher's quick-menu command remains the fallback. The button position is chosen against the
+     * widgets already on the screen so it cannot hide the vanilla/Vivecraft rows.
      *
      * <p>Any {@code PauseScreen} gets the button, not only the singleplayer one: in multiplayer the
      * same screen is shown with {@code showsPauseMenu()==false}, and a headset user still needs the
      * comfort/recovery controls there.
      */
     private void updateQuickMenuEntry() {
-        if (this.quickMenuInjectFailed) return;
+        long now = System.nanoTime();
         try {
             net.minecraft.client.gui.screens.Screen screen = this.mc.gui.screen();
             if (!(screen instanceof net.minecraft.client.gui.screens.PauseScreen)) {
                 this.quickMenuButton = null;
+                this.quickMenuInjection.reset();
                 return;
             }
             if (this.quickMenuButton != null && screen.children().contains(this.quickMenuButton)) return;
+            // R5: retry a transient injection failure after a cooldown, and immediately on a new
+            // pause screen, instead of disabling the button for the rest of the session.
+            if (!this.quickMenuInjection.shouldAttempt(now, screen)) return;
             if (this.addRenderableWidgetMethod == null) {
                 this.addRenderableWidgetMethod = net.minecraft.client.gui.screens.Screen.class
                     .getDeclaredMethod("addRenderableWidget",
                         net.minecraft.client.gui.components.events.GuiEventListener.class);
                 this.addRenderableWidgetMethod.setAccessible(true);
             }
+            int[] pos = this.quickMenuButtonPosition(screen);
             final net.minecraft.client.gui.screens.Screen parent = screen;
             net.minecraft.client.gui.components.Button button = net.minecraft.client.gui.components.Button
                 .builder(net.minecraft.network.chat.Component.literal("VRMC Quick Menu"),
                     b -> this.mc.gui.setScreen(new VisionQuickMenuScreen(this, parent)))
-                .bounds(screen.width / 2 - 102, Math.max(4, screen.height - 28), 204, 20)
+                .bounds(pos[0], pos[1], QUICK_MENU_BUTTON_WIDTH, QUICK_MENU_BUTTON_HEIGHT)
                 .build();
             this.addRenderableWidgetMethod.invoke(screen, button);
             this.quickMenuButton = button;
+            this.quickMenuInjection.recordSuccess();
         } catch (Throwable t) {
-            this.quickMenuInjectFailed = true;
             this.quickMenuButton = null;
-            System.out.println("[VRMC-M7][WARN] quick menu button unavailable on the pause screen: " + t);
+            this.quickMenuInjection.recordFailure(now);
+            // R5: the launcher quick-menu command remains the fallback; retry quietly after the
+            // first few attempts (a permanent failure would otherwise spam every cooldown).
+            if (this.quickMenuInjection.shouldLogFailure()) {
+                System.out.println("[VRMC-M7][WARN] quick menu button unavailable on the pause screen"
+                    + " (attempt " + this.quickMenuInjection.attempts() + ", retrying): " + t);
+            }
         }
+    }
+
+    /**
+     * R3: place the quick-menu button where it does not overlap the widgets the vanilla/Vivecraft
+     * pause screen already laid out (the Vivecraft-modified grid reaches the bottom edge on small GUI
+     * scales). Falls back to the historical bottom-centre spot when no free position exists.
+     */
+    private int[] quickMenuButtonPosition(net.minecraft.client.gui.screens.Screen screen) {
+        java.util.List<? extends net.minecraft.client.gui.components.events.GuiEventListener> children =
+            screen.children();
+        int[] rects = new int[children.size() * 4];
+        int n = 0;
+        for (int i = 0; i < children.size(); i++) {
+            net.minecraft.client.gui.components.events.GuiEventListener child = children.get(i);
+            if (child == this.quickMenuButton) continue;
+            if (!(child instanceof net.minecraft.client.gui.components.AbstractWidget widget)) continue;
+            if (!widget.visible) continue;
+            rects[n++] = widget.getX();
+            rects[n++] = widget.getY();
+            rects[n++] = widget.getWidth();
+            rects[n++] = widget.getHeight();
+        }
+        if (n != rects.length) rects = java.util.Arrays.copyOf(rects, n);
+        return QuickMenuPlacement.find(screen.width, screen.height,
+            QUICK_MENU_BUTTON_WIDTH, QUICK_MENU_BUTTON_HEIGHT, rects);
     }
 
     // ---- VisionQuickMenuScreen.Host ----
@@ -2535,7 +2589,8 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         this.hotbarWheelActive = false;
         this.rotatePulseDirection = 0;
         this.rotatePulseUntilNs = 0L;
-        this.m7PinchCarry = false;
+        this.m4Turn.reset();
+        this.m7PinchCarry.reset();
         System.out.println("[VRMC-M4] quick menu: input engine reset; held actions released");
     }
 
@@ -2566,7 +2621,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
      * receives the head-ray coordinate.
      */
     private void applyM7GuiClick(boolean gui) {
-        boolean want = gui && this.m7Gesture.guiClick() && !this.m7PinchCarry;
+        boolean want = gui && this.m7Gesture.guiClick() && !this.m7PinchCarry.carrying();
         if (want && !this.m7GuiClickPressed) {
             this.m7GuiClickPressed = true;
             InputSimulator.pressMouse(MOUSE_BUTTON_LEFT);
@@ -2587,7 +2642,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
 
     private void releaseM7Actions() {
         this.zeroM7Locomotion();
-        this.m7PinchCarry = false;
+        this.m7PinchCarry.reset();
         this.seatedPlayJumpPrev = false;
         this.seatedPlayJumpUntilNs = 0L;
         applySeatedPlayTurn(false, System.nanoTime());
@@ -2729,34 +2784,25 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         if (strafe != null) {
             writeAnalog2D(strafe, ControllerType.RIGHT.ordinal(), x, y, VisionInput.ORIGIN_LEFT);
         }
-        // Snap turn: a tap = left, a double-tap = right. The action data is a short pulse because
-        // MCVR reads getAxis1DUseTracked() (vector1) rather than a digital edge.
+        // Snap turn: a tap = left, a double-tap = right (R6/R12). The decision is deferred by the
+        // engine's middle double-tap window through {@link SeatedTurnGesture}, exactly like the M7
+        // seated path: the engine emits the single-tap pulse on the first tap of a double tap, so the
+        // old immediate handling turned left and then right and a double tap netted zero rotation.
         if (usable) {
-            if (this.visionInput.middleDoubleTapPressed(VisionInput.HAND_LEFT)) {
-                this.rotatePulseDirection = 1;
-                this.rotatePulseUntilNs = now + this.rotatePulseNanos;
-            } else if (this.visionInput.middleTapPressed(VisionInput.HAND_LEFT)) {
-                this.rotatePulseDirection = -1;
+            int turn = this.m4Turn.update(true,
+                this.visionInput.middleTapPressed(VisionInput.HAND_LEFT),
+                this.visionInput.middleDoubleTapPressed(VisionInput.HAND_LEFT),
+                now, this.visionInput.middleDoubleMillis() * 1_000_000L);
+            if (turn != SeatedTurnGesture.NONE) {
+                this.rotatePulseDirection = turn;
                 this.rotatePulseUntilNs = now + this.rotatePulseNanos;
             }
         } else {
+            this.m4Turn.update(false, false, false, now, 0L); // cancel a deferred turn (GUI/seated/input loss)
             this.rotatePulseDirection = 0;
             this.rotatePulseUntilNs = 0L;
         }
-        boolean pulse = this.rotatePulseDirection != 0 && now < this.rotatePulseUntilNs;
-        VRInputAction rotateLeft = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateLeft);
-        VRInputAction rotateRight = this.getInputAction(VivecraftVRMod.INSTANCE.keyRotateRight);
-        if (rotateLeft != null) {
-            writeAnalog1D(rotateLeft, ControllerType.RIGHT.ordinal(),
-                pulse && this.rotatePulseDirection < 0 ? 1.0F : 0.0F, VisionInput.ORIGIN_LEFT);
-        }
-        if (rotateRight != null) {
-            writeAnalog1D(rotateRight, ControllerType.RIGHT.ordinal(),
-                pulse && this.rotatePulseDirection > 0 ? 1.0F : 0.0F, VisionInput.ORIGIN_LEFT);
-        }
-        if (!pulse) {
-            this.rotatePulseDirection = 0;
-        }
+        writeSnapTurnPulse(now);
     }
 
     /** Compact in-headset control reference for the active gesture mode (chat + quick-menu guide). */

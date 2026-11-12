@@ -8,13 +8,18 @@ This is a **development/sideload** project, not an App Store submission.
 
 ## Current status
 
-- **VRMC 1.3 UI release: installed on D1 as 1.3.3 (2026-11-11); on-headset launch check pending.**
-  The window is now one native visionOS console (Play / Comfort / Controls / Help) and pressing Play
-  starts Minecraft in place instead of switching to the Amethyst launcher UI. Automatic setup
-  (hash-verified provider, pinned Vivecraft download) and an in-VR quick menu are included. Host
-  gates PASS; the visual tab-bar/Play check needs the headset because the host's
-  `devicectl device process launch` transport is currently broken for all apps. See
-  [`docs/release/1.3-notes.md`](docs/release/1.3-notes.md) and `VERIFY.md` EV-0298.
+- **VRMC 1.3.4 bug-fix release: installed on D1 (2026-11-11).**
+  The 1.3.3 headset run (single window UI confirmed, Play starts Minecraft in place, automatic setup
+  installed the reviewed provider, 19,517 immersive frames, clean quit) exposed and this build fixes
+  the duplicate-window-scene regression (8 restored scenes / 16 UIWindows), the Play-tab UX that made
+  the user press "Enter VR" during the automatic entry, misleading teardown logs, and the reviewer
+  findings R1/R2/R3/R5/R6/R10/R7/R8/R9. The purple menu/pause flash is instrumented for the next
+  device A/B (see `docs/plan/RENDER_BUGFIX.md`); no visual guess was made. Host gates PASS (provider
+  suite 944 checks, reproducible jar `02e3eca9…`, shell BUILD SUCCEEDED `718b7f19…`, release check
+  PASS). On-headset launch of 1.3.4 and the R1/R2/R3/R6 spot checks still need the headset because the
+  host's `devicectl device process launch` transport is broken for all apps. See
+  [`docs/release/1.3.4-notes.md`](docs/release/1.3.4-notes.md), [`docs/release/1.3-notes.md`](docs/release/1.3-notes.md)
+  and `VERIFY.md` EV-0298/EV-0299.
 - **M7 hand-input mapping: device PASS**
 - **M5/M6 acceptance: 22/22 rows PASS** ([`docs/mvp/M6_ACCEPTANCE.md`](docs/mvp/M6_ACCEPTANCE.md))
 - **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)

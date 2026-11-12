@@ -596,6 +596,11 @@ final class ShellCoordinator {
     @ObservationIgnored private var windowSceneActive = false
     /// Generation of the most recent successful immersive open (0 = never opened).
     @ObservationIgnored private var lastOpenGeneration: Int32 = 0
+    /// Generation of the most recent session that actually presented at least one compositor frame.
+    /// gameDidStop() clears `presenting` before the compositor's VRMCImmersiveEnded notification
+    /// arrives, so compositorDidEnd() must not mistake that reset for "never presented" (the 1.3.3
+    /// run logged "presentation never confirmed" after presenting 19,517 frames).
+    @ObservationIgnored private var lastPresentedGeneration: Int32 = 0
     @ObservationIgnored private var lastOpenAt: Date = .distantPast
     @ObservationIgnored private var autoRetries = 0
     /// True while a previous immersive space still needs an explicit dismiss before a reopen.
@@ -641,12 +646,52 @@ final class ShellCoordinator {
     /// Last failure to open the immersive space, shown in the window so errors stay actionable.
     private(set) var lastOpenError: String?
 
+    /// Automatic VR entry state for the Play tab (release 1.3.4, bug B). The 1.3.3 device run shows
+    /// the user pressing "Enter VR" at +14 s while the automatic open was still waiting for the first
+    /// game frame: the button must not be offered while the automatic attempt is expected to win.
+    private(set) var autoOpenPending = false
+    /// Human-readable automatic-open stage ("Waiting for the game picture…" -> "Entering VR…").
+    private(set) var autoOpenStage = ""
+    /// After a bounded wait the manual fallback is offered next to the status (a cold start took
+    /// 14 s in 1.3.3; the automatic wait can legitimately take longer, but never indefinitely quiet).
+    private(set) var autoOpenFallbackAvailable = false
+    @ObservationIgnored private var autoOpenFallbackTask: Task<Void, Never>?
+
+    private func beginAutoOpenPending() {
+        autoOpenPending = true
+        autoOpenStage = "Waiting for the game picture…"
+        autoOpenFallbackAvailable = false
+        autoOpenFallbackTask?.cancel()
+        autoOpenFallbackTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(25))
+            guard let self, !Task.isCancelled, self.autoOpenPending else { return }
+            self.autoOpenFallbackAvailable = true
+            self.shellLogSafe("auto open still pending after 25 s; offering the manual Enter VR fallback")
+        }
+    }
+
+    private func clearAutoOpenPending() {
+        autoOpenPending = false
+        autoOpenStage = ""
+        autoOpenFallbackAvailable = false
+        autoOpenFallbackTask?.cancel()
+        autoOpenFallbackTask = nil
+    }
+
+    /// Advances the pending stage; ignored once the automatic attempt was superseded/cleared.
+    private func setAutoOpenStage(_ stage: String) {
+        guard autoOpenPending else { return }
+        autoOpenStage = stage
+    }
+
     /// Manual "Enter VR" (staged immersive entry): open the immersive space on demand, independent of
     /// the game/JIT path, so the CompositorServices renderer can be validated on its own. The automatic
     /// path (after the game starts, i.e. after JIT readiness) stays enabled; this button is also the
     /// recovery path when the automatic open fails.
     func enterVRManually() {
         shellLog("MANUAL: Enter VR pressed (immersive=\(immersiveOpen) opening=\(opening) appActive=\(appActive) windowActive=\(windowSceneActive) presenting=\(presenting))")
+        // A deliberate press supersedes the automatic attempt; the UI shows the manual path from here.
+        clearAutoOpenPending()
         guard openAction != nil else {
             lastOpenError = "Immersive space is not bound yet; try again in a moment."
             statusMessage = "VR unavailable"
@@ -679,10 +724,17 @@ final class ShellCoordinator {
         observe(UIApplication.didEnterBackgroundNotification) { $0.didEnterBackground() }
         observe(UIApplication.didBecomeActiveNotification) { $0.appDidBecomeActive() }
         observe(UIApplication.didFinishLaunchingNotification) { $0.refreshActivityStates("didFinishLaunching") }
-        observe(UIScene.didActivateNotification) { $0.refreshActivityStates("UIScene.didActivate") }
+        observe(UIScene.didActivateNotification) {
+            $0.refreshActivityStates("UIScene.didActivate")
+            $0.noteWindowSceneActivation()
+        }
         observe(UIScene.willDeactivateNotification) { $0.refreshActivityStates("UIScene.willDeactivate") }
+        observeSceneConnect(UIScene.willConnectNotification)
         observe(ProcessInfo.thermalStateDidChangeNotification) { $0.logThermal("thermal-state-changed") }
         refreshActivityStates("init")
+        // Startup pass: the single-window guard also runs without waiting for a lifecycle callback
+        // (covers a restored duplicate that never posts UIScene.didActivate).
+        scheduleWindowScenePrune()
         shellLog("coordinator ready chromeMode=\(chromeMode) selftest=\(selftestMode) noParking=\(noParking) hideWindowsOptIn=\(hideWindowsOptIn)")
         startThermalMonitor()
         startHeartbeatWatchdog()
@@ -719,6 +771,16 @@ final class ShellCoordinator {
         })
     }
 
+    /// UIScene.willConnect carries the attaching scene in the notification object, which the generic
+    /// observers drop. The scene guard only needs to know that a window scene may be attaching; the
+    /// prune inspects UIApplication.shared.connectedScenes itself (nothing non-Sendable crosses into
+    /// the main-actor task).
+    private func observeSceneConnect(_ name: Notification.Name) {
+        observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+            Task { @MainActor in ShellCoordinator.shared.noteWindowSceneConnect() }
+        })
+    }
+
     /// Called from the App body so the coordinator always holds the current environment actions.
     func bind(open: OpenImmersiveSpaceAction, dismiss: DismissImmersiveSpaceAction) {
         openAction = open
@@ -727,19 +789,37 @@ final class ShellCoordinator {
 
     // MARK: - Activity state
 
+    /// Every connected window scene. Only .windowApplication scenes are the shell's 2D window(s);
+    /// CPSceneSessionRoleImmersiveSpaceApplication is the immersive space and must never be pruned
+    /// or parked.
+    private func connectedWindowScenes() -> [UIWindowScene] {
+        UIApplication.shared.connectedScenes.compactMap { scene in
+            guard scene.session.role == .windowApplication else { return nil }
+            return scene as? UIWindowScene
+        }
+    }
+
+    /// Compact window listing for the logs. The 1.3.3 device run had 8 restored scenes / 16 windows
+    /// and every state line repeated the whole list (making logs unreadable and huge); cap the
+    /// detailed part at two scenes with two windows each and keep the totals.
     private func windowStateDescription() -> String {
+        let scenes = connectedWindowScenes()
+        let windowCount = scenes.reduce(0) { $0 + $1.windows.count }
         var parts: [String] = []
-        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes
-            where scene.session.role == .windowApplication {
+        for scene in scenes.prefix(2) {
             var desc = "scene(\(scene.windows.count))"
-            for (index, window) in scene.windows.enumerated() {
+            for (index, window) in scene.windows.prefix(2).enumerated() {
                 desc += String(format: " w%d[hidden=%@ alpha=%.2f level=%.1f]",
                                index, window.isHidden ? "true" : "false",
                                window.alpha, window.windowLevel.rawValue)
             }
+            if scene.windows.count > 2 { desc += " +\(scene.windows.count - 2) more windows" }
             parts.append(desc)
         }
-        return parts.isEmpty ? "windows=no-window-scenes" : "windows=" + parts.joined(separator: " ")
+        if scenes.count > 2 { parts.append("+\(scenes.count - 2) more scenes") }
+        guard !parts.isEmpty else { return "windows=no-window-scenes" }
+        return "windows=" + parts.joined(separator: " ")
+            + " (total \(scenes.count) scenes/\(windowCount) windows)"
     }
 
     private func refreshActivityStates(_ reason: String) {
@@ -756,8 +836,9 @@ final class ShellCoordinator {
     /// whether the immersive-space scene (CPSceneSessionRoleImmersiveSpaceApplication) is actually active
     /// and therefore whether the system should be displaying our CompositorServices layer.
     private func sceneStateDescription() -> String {
+        let scenes = UIApplication.shared.connectedScenes
         var parts: [String] = []
-        for scene in UIApplication.shared.connectedScenes {
+        for scene in scenes.prefix(2) {
             let role = scene.session.role.rawValue
             let state: String
             switch scene.activationState {
@@ -769,7 +850,135 @@ final class ShellCoordinator {
             }
             parts.append("\(role):\(state)")
         }
+        if scenes.count > 2 { parts.append("+\(scenes.count - 2) more scenes") }
         return parts.joined(separator: ",")
+    }
+
+    // MARK: - Single window scene guard (release 1.3.4, bug A)
+
+    /// The 1.3.3 device run restored EIGHT .windowApplication scenes: the app plist allows multiple
+    /// scenes and every window session left behind by earlier launches is restored and reconnected,
+    /// each one mounting its own RootView (8 duplicate UIs, 16 windows, log lines repeating the whole
+    /// scene list). The guard keeps exactly one window scene and destroys the extras through the
+    /// public requestSceneSessionDestruction API. The immersive space is a separate scene role
+    /// (CPSceneSessionRoleImmersiveSpaceApplication) and is never touched - the shipped plist must
+    /// keep UIApplicationSupportsMultipleScenes=true for it.
+    @ObservationIgnored private var primaryWindowClaimed = false
+    @ObservationIgnored private var primaryWindowScene: UIWindowScene?
+    @ObservationIgnored private var firstActivatedWindowScene: UIWindowScene?
+    @ObservationIgnored private var windowScenePruneTask: Task<Void, Never>?
+    @ObservationIgnored private var windowScenePruneAttempts = 0
+    @ObservationIgnored private var windowScenePruneInFlight = false
+
+    /// Called once by the first RootView to appear: it owns the single UI (hidden launcher host and
+    /// the setup refresh loop). Later restored scenes still render but stay inert until the guard
+    /// prunes them, so the user always has one working window.
+    func claimPrimaryWindow() -> Bool {
+        guard !primaryWindowClaimed else { return false }
+        primaryWindowClaimed = true
+        return true
+    }
+
+    /// The primary RootView's window scene (reported by a 0x0 UIViewRepresentable probe). The guard
+    /// keeps this scene, so the survivor is the one that actually owns the UI/launcher host, never a
+    /// restored duplicate. Ignored once a scene has been recorded.
+    func notePrimaryWindowScene(_ scene: UIWindowScene) {
+        guard primaryWindowClaimed, primaryWindowScene == nil else { return }
+        primaryWindowScene = scene
+        shellLog("window-scene guard: primary window scene id=\(scene.session.persistentIdentifier.prefix(8)) connected=\(connectedWindowScenes().count)")
+        scheduleWindowScenePrune()
+    }
+
+    /// A UIScene.willConnect notification: re-arm the debounced prune. Never prune synchronously from
+    /// a lifecycle callback - the launch restore burst connects several scenes in a row.
+    private func noteWindowSceneConnect() {
+        scheduleWindowScenePrune()
+    }
+
+    private func noteWindowSceneActivation() {
+        let scenes = connectedWindowScenes()
+        if firstActivatedWindowScene == nil,
+           let scene = scenes.first(where: { $0.activationState == .foregroundActive }) {
+            firstActivatedWindowScene = scene
+        }
+        scheduleWindowScenePrune()
+    }
+
+    /// One debounced pass at a time: wait for the restore burst to settle, then prune. Destruction is
+    /// asynchronous, so a single verification pass follows; later activations trigger further passes
+    /// instead of a tight loop.
+    private func scheduleWindowScenePrune() {
+        guard windowScenePruneTask == nil, !windowScenePruneInFlight else { return }
+        windowScenePruneTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else { return }
+            self.windowScenePruneTask = nil
+            self.pruneExtraWindowScenes()
+        }
+    }
+
+    private func choosePrimaryWindowScene(_ scenes: [UIWindowScene]) -> UIWindowScene? {
+        if let claimed = primaryWindowScene, scenes.contains(where: { $0 === claimed }) { return claimed }
+        if let key = scenes.first(where: { $0.windows.contains(where: { $0.isKeyWindow }) }) { return key }
+        if let first = firstActivatedWindowScene, scenes.contains(where: { $0 === first }) { return first }
+        return scenes.first
+    }
+
+    private func pruneExtraWindowScenes() {
+        let scenes = connectedWindowScenes()
+        guard scenes.count > 1, let keeper = choosePrimaryWindowScene(scenes) else { return }
+        // Never restructure scenes while the immersive session is live; re-check after it ends.
+        guard !immersiveOpen, !presenting else {
+            shellLog("window-scene guard: deferred while immersive is open/presenting (windowScenes=\(scenes.count))")
+            deferWindowScenePrune(after: 3)
+            return
+        }
+        guard appActive else {
+            shellLog("window-scene guard: deferred until the app is active (windowScenes=\(scenes.count))")
+            deferWindowScenePrune(after: 2)
+            return
+        }
+        windowScenePruneAttempts += 1
+        let keeperID = keeper.session.persistentIdentifier
+        var requested = 0
+        for scene in scenes where scene !== keeper {
+            let session = scene.session
+            // Belt and braces: only .windowApplication scenes are duplicates of our 2D UI.
+            guard session.role == .windowApplication else { continue }
+            requested += 1
+            let id = session.persistentIdentifier
+            shellLog("window-scene guard: destroying duplicate window scene id=\(id.prefix(8)) windows=\(scene.windows.count)")
+            UIApplication.shared.requestSceneSessionDestruction(session, options: nil) { error in
+                shellLog("window-scene guard: destruction of scene id=\(id.prefix(8)) failed (ignored): \(error.localizedDescription)")
+            }
+        }
+        shellLog("window-scene guard: keeping session \(keeperID.prefix(8)), destroying \(requested) duplicate window scene(s) (before=\(scenes.count), after-request=\(scenes.count - requested), attempt=\(windowScenePruneAttempts))")
+        scheduleWindowScenePruneVerification()
+    }
+
+    private func deferWindowScenePrune(after seconds: Int) {
+        windowScenePruneInFlight = true
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard let self else { return }
+            self.windowScenePruneInFlight = false
+            self.scheduleWindowScenePrune()
+        }
+    }
+
+    private func scheduleWindowScenePruneVerification() {
+        guard windowScenePruneAttempts < 3 else { return }
+        windowScenePruneInFlight = true
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self else { return }
+            self.windowScenePruneInFlight = false
+            let remaining = self.connectedWindowScenes().count
+            if remaining > 1 {
+                shellLog("window-scene guard: \(remaining) window scene(s) still connected after the prune attempt; retrying once")
+            }
+            self.scheduleWindowScenePrune()
+        }
     }
 
     /// Periodic scene/immersion state while the immersive session is live (objective display evidence).
@@ -792,6 +1001,11 @@ final class ShellCoordinator {
         gameStarted = true
         writeSessionState("running")
         statusMessage = "Starting Minecraft…"
+        // Automatic VR entry is the expected path, but it waits for the provider's first game frame
+        // (14 s in the 1.3.3 cold start, up to 90 s by design). Publish that state so the Play tab can
+        // show progress instead of inviting a manual "Enter VR" press while the auto attempt runs.
+        clearAutoOpenPending()
+        if !safeMode { beginAutoOpenPending() }
         gameOpenTask?.cancel()
         gameOpenTask = Task { [weak self] in
             // Open the immersive space when the game has a picture to show. The old fixed 15 s wait
@@ -806,6 +1020,7 @@ final class ShellCoordinator {
                 waited += 0.5
             }
             guard let self, !Task.isCancelled, self.gameStarted else { return }
+            self.setAutoOpenStage("Entering VR…")
             self.shellLogSafe("game frame \(VRMCCompositor_ProviderEyesReady() != 0 ? "ready" : "NOT ready") after \(String(format: "%.1f", waited)) s; opening immersive space")
             self.openVR(reason: "auto")
         }
@@ -1033,10 +1248,12 @@ final class ShellCoordinator {
         presenting = true
         statusMessage = "Playing in VR"
         lastOpenError = nil
+        clearAutoOpenPending()
         // The auto-retry after a layer that dies right after opening compares generations. The open
         // request happens before the compositor thread exists (generation 0), so the real generation is
         // only known here, at the first presented frame.
         lastOpenGeneration = VRMCCompositor_CurrentGeneration()
+        lastPresentedGeneration = lastOpenGeneration
         // Audible canary: the operator can confirm the first presented frame even if they are not
         // looking at the centre of the field of view (diagnostic only; system sound, no asset).
         if shellDocumentFlag("vrmc-audible-canary.flag") { AudioServicesPlaySystemSound(1057) }
@@ -1067,6 +1284,7 @@ final class ShellCoordinator {
     private func gameDidStop(reason: String) {
         shellLog("VRMCGameStopped received reason=\(reason) gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
         gameOpenTask?.cancel(); gameOpenTask = nil
+        clearAutoOpenPending()
         gameStarted = false
         writeSessionState("ended")
         wantsImmersive = false
@@ -1089,14 +1307,20 @@ final class ShellCoordinator {
         setGameWindowsVisible(true, log: "window restored after game stop")
         Task { [weak self] in
             guard let self else { return }
-            await self.dismissIfCurrent(myEpoch: myEpoch)
-            self.shellLogSafe("immersive space dismissed after game stop epoch=\(myEpoch)")
+            if await self.dismissIfCurrent(myEpoch: myEpoch) {
+                self.shellLogSafe("immersive space dismissed after game stop epoch=\(myEpoch)")
+            }
         }
     }
 
     private func compositorDidEnd(generation: Int32?) {
         let current = VRMCCompositor_CurrentGeneration()
-        shellLog("VRMCImmersiveEnded generation=\(generation.map(String.init) ?? "nil") current=\(current) presenting=\(presenting) \(windowStateDescription())")
+        let generationText = generation.map(String.init) ?? "nil"
+        // gameDidStop() clears `presenting` before this notification arrives (teardown requests the
+        // compositor stop first), so "did this session ever present?" comes from the snapshot taken
+        // at the first presented frame, not from the already-reset presentation flag.
+        let hadPresentedFrame = presenting || (generation != nil && generation == lastPresentedGeneration)
+        shellLog("VRMCImmersiveEnded generation=\(generationText) current=\(current) presenting=\(presenting) hadPresentedFrame=\(hadPresentedFrame) \(windowStateDescription())")
         // A session that ended after a newer one was opened must not close the newer one.
         if let generation, generation != current {
             shellLog("ignoring stale generation=\(generation) current=\(current)")
@@ -1104,7 +1328,6 @@ final class ShellCoordinator {
         }
         epoch += 1
         let myEpoch = epoch
-        let hadPresentedFrame = presenting
         presenting = false
         statusMessage = gameStarted ? "VR paused — game still running" : "VR ended"
         if shellDocumentFlag("vrmc-audible-canary.flag") { AudioServicesPlaySystemSound(1073) }
@@ -1134,9 +1357,11 @@ final class ShellCoordinator {
         Task { [weak self] in
             guard let self else { return }
             // The compositor may have exited on a stop request while SwiftUI still has the space open;
-            // dismiss so a later openImmersiveSpace is not rejected.
-            await self.dismissIfCurrent(myEpoch: myEpoch)
-            self.shellLogSafe("immersive space dismissed epoch=\(myEpoch)")
+            // dismiss so a later openImmersiveSpace is not rejected. Log only a dismissal that this
+            // path actually performed (game stop may have dismissed it a moment earlier).
+            if await self.dismissIfCurrent(myEpoch: myEpoch) {
+                self.shellLogSafe("immersive space dismissed epoch=\(myEpoch)")
+            }
             if self.epoch != myEpoch { return }
             if shouldAutoRetry {
                 try? await Task.sleep(for: .seconds(2))
@@ -1151,12 +1376,19 @@ final class ShellCoordinator {
         }
     }
 
-    private func dismissIfCurrent(myEpoch: Int) async {
-        guard epoch == myEpoch, needsDismiss else { return }
-        if let dismissAction {
-            await dismissAction()
+    /// Dismisses the immersive space when this task is still the current epoch and a dismiss is
+    /// pending. Returns true only when a dismiss call was actually made, so the two teardown paths
+    /// (game stop and compositor end) do not both log "immersive space dismissed" for one dismissal.
+    @discardableResult
+    private func dismissIfCurrent(myEpoch: Int) async -> Bool {
+        guard epoch == myEpoch, needsDismiss else { return false }
+        guard let dismissAction else {
+            if epoch == myEpoch { needsDismiss = false }
+            return false
         }
+        await dismissAction()
         if epoch == myEpoch { needsDismiss = false }
+        return true
     }
 
     private func stopForBackground(_ reason: String) {
@@ -1165,6 +1397,8 @@ final class ShellCoordinator {
         shellLog("\(reason) gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
         appActive = false
         windowSceneActive = false
+        // Backgrounding cancels the pending automatic open (the reopen-on-activation path takes over).
+        clearAutoOpenPending()
         // Reopen on return whenever VR was active in this process. The immersive session may already
         // have been invalidated by the system just before didEnterBackground (observed: layer ended a
         // beat before willResignActive), so immersiveOpen can be false here while the user still expects
@@ -1235,10 +1469,16 @@ final class ShellCoordinator {
         if safeMode && (reason == "auto" || reason == "onlaunch") {
             shellLog("SAFE MODE: automatic VR open suppressed (previous sessions did not shut down cleanly); use Enter VR")
             statusMessage = "Safe mode: tap Enter VR to continue"
+            clearAutoOpenPending()
             return
         }
         guard let openAction else {
             shellLog("\(reason): openImmersiveSpace action not bound yet")
+            if reason == "auto" {
+                clearAutoOpenPending()
+                lastOpenError = "VR is not available yet. Tap Enter VR to retry."
+                statusMessage = "VR unavailable"
+            }
             return
         }
         let startEpoch = epoch
@@ -1261,30 +1501,47 @@ final class ShellCoordinator {
                 if reason == "manual" {
                     self.lastOpenError = "The VRMC window must be in front. Look at the app and tap Enter VR again."
                 }
+                // The deferred case is a real outcome: stop showing "auto open pending" and let the
+                // fallback button come back (the automatic retry still happens on the next activation).
+                if reason == "auto" { self.clearAutoOpenPending() }
                 return
             }
             // Give the scene time to finish activating/transitioning; auto/selftest run immediately.
             if reason != "auto" && reason != "selftest" {
                 try? await Task.sleep(for: .seconds(2))
             }
-            if self.epoch != startEpoch { self.shellLogSafe("\(reason): aborted before open (epoch changed)"); return }
+            if self.epoch != startEpoch {
+                self.shellLogSafe("\(reason): aborted before open (epoch changed)")
+                if reason == "auto" { self.clearAutoOpenPending() }
+                return
+            }
             // A previous space may still be registered with SwiftUI; dismiss it first and settle.
             if self.needsDismiss {
                 if let dismissAction = self.dismissAction { await dismissAction() }
-                if self.epoch != startEpoch { self.shellLogSafe("\(reason): aborted after dismiss (epoch changed)"); return }
+                if self.epoch != startEpoch {
+                    self.shellLogSafe("\(reason): aborted after dismiss (epoch changed)")
+                    if reason == "auto" { self.clearAutoOpenPending() }
+                    return
+                }
                 self.needsDismiss = false
                 try? await Task.sleep(for: .milliseconds(500))
             }
             for attempt in 1...4 {
-                if self.epoch != startEpoch { self.shellLogSafe("\(reason): aborted attempt \(attempt) (epoch changed)"); return }
+                if self.epoch != startEpoch {
+                    self.shellLogSafe("\(reason): aborted attempt \(attempt) (epoch changed)")
+                    if reason == "auto" { self.clearAutoOpenPending() }
+                    return
+                }
                 guard self.appActive, self.windowSceneActive else {
                     self.shellLogSafe("\(reason): app no longer foreground-active; deferring open")
+                    if reason == "auto" { self.clearAutoOpenPending() }
                     return
                 }
                 let result = await openAction(id: "vr")
                 self.shellLogSafe("\(reason) attempt \(attempt) openImmersiveSpace result=\(result) epoch=\(self.epoch) \(self.windowStateDescription())")
                 if case .opened = result {
                     self.opening = false
+                    self.clearAutoOpenPending()
                     self.immersiveOpen = true
                     self.wantsImmersive = true
                     self.presenting = false
@@ -1300,6 +1557,7 @@ final class ShellCoordinator {
                 }
                 if case .userCancelled = result {
                     self.statusMessage = "VR open cancelled"
+                    self.clearAutoOpenPending()
                     if reason == "manual" { self.lastOpenError = "Immersive space open was cancelled by the system." }
                     return
                 }
@@ -1309,6 +1567,7 @@ final class ShellCoordinator {
                 try? await Task.sleep(for: .seconds(2))
             }
             if reason == "manual" || reason == "auto" || reason == "selftest" {
+                self.clearAutoOpenPending()
                 self.lastOpenError = "Could not open the immersive space (4 attempts). The window stays usable; tap Enter VR to retry."
                 self.statusMessage = "VR open failed"
             }

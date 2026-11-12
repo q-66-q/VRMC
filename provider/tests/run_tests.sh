@@ -297,8 +297,11 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7RegressionTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/SeatedTurnGestureTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/PinchCarryGuardTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionSettingsFileTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionQuickMenuReflectionTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/QuickMenuPlacementTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/QuickMenuInjectionRetryTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/TestJson.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionInputFixtureTest.java"; then
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionInputLayoutTest > "$T/m4-layout.log" 2>&1 \
@@ -419,6 +422,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
   else
     cat "$T/m7-seated-turn.log"; fail "m7-seated-turn"
   fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.PinchCarryGuardTest > "$T/m7-pinch-carry.log" 2>&1 \
+     && grep -q "\[m7-pinch-carry-test\] PASS" "$T/m7-pinch-carry.log"; then
+    echo "[provider-tests] m7-pinch-carry: PASS (GUI-transition pinch carry incl. release-on-transition-frame)"
+    grep -E "\[m7-pinch-carry-test\] [0-9]+ checks" "$T/m7-pinch-carry.log"
+  else
+    cat "$T/m7-pinch-carry.log"; fail "m7-pinch-carry"
+  fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionSettingsFileTest > "$T/m5-settings-file.log" 2>&1 \
      && grep -q "\[m5-settings-file-test\] PASS" "$T/m5-settings-file.log"; then
     echo "[provider-tests] m5-settings-file: PASS (quick-menu settings persistence, turn/vignette steps)"
@@ -432,6 +442,20 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m5-quick-menu-reflection-test\] [0-9]+ checks" "$T/m5-quick-menu-reflection.log"
   else
     cat "$T/m5-quick-menu-reflection.log"; fail "m5-quick-menu-reflection"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.QuickMenuPlacementTest > "$T/m5-quick-menu-placement.log" 2>&1 \
+     && grep -q "\[m5-quick-menu-placement-test\] PASS" "$T/m5-quick-menu-placement.log"; then
+    echo "[provider-tests] m5-quick-menu-placement: PASS (button placed around the vanilla/Vivecraft pause rows)"
+    grep -E "\[m5-quick-menu-placement-test\] [0-9]+ checks" "$T/m5-quick-menu-placement.log"
+  else
+    cat "$T/m5-quick-menu-placement.log"; fail "m5-quick-menu-placement"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.QuickMenuInjectionRetryTest > "$T/m5-quick-menu-retry.log" 2>&1 \
+     && grep -q "\[m5-quick-menu-retry-test\] PASS" "$T/m5-quick-menu-retry.log"; then
+    echo "[provider-tests] m5-quick-menu-retry: PASS (transient injection failure retried, never permanently disabled)"
+    grep -E "\[m5-quick-menu-retry-test\] [0-9]+ checks" "$T/m5-quick-menu-retry.log"
+  else
+    cat "$T/m5-quick-menu-retry.log"; fail "m5-quick-menu-retry"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionM7GestureFuzzTest > "$T/m7-fuzz.log" 2>&1 \
      && grep -q "\[m7-fuzz-test\] PASS" "$T/m7-fuzz.log"; then
