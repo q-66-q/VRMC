@@ -4,6 +4,7 @@ import UIKit
 import Observation
 import Foundation
 import AudioToolbox
+import AVFAudio
 import CryptoKit
 
 /// Entry point called from the Amethyst C main() (iOS-compat binary) via dlopen/dlsym.
@@ -586,6 +587,8 @@ final class ShellCoordinator {
     @ObservationIgnored private var gameOpenTask: Task<Void, Never>?
     /// Set when the immersive session was ended by backgrounding/resigning; cleared once reopened.
     @ObservationIgnored private var reopenOnActive = false
+    /// The app went to the background since the last activation (headset sleep / removed).
+    @ObservationIgnored private var sawBackground = false
     /// True once an immersive session has been opened in this process (any reason: game, manual, selftest,
     /// open-on-launch). Used so background/foreground re-entry also works for the manual/diagnostic paths.
     @ObservationIgnored private var wantsImmersive = false
@@ -723,6 +726,23 @@ final class ShellCoordinator {
         observe(UIApplication.willResignActiveNotification) { $0.willResignActive() }
         observe(UIApplication.didEnterBackgroundNotification) { $0.didEnterBackground() }
         observe(UIApplication.didBecomeActiveNotification) { $0.appDidBecomeActive() }
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { note in
+            let raw = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? NSNumber)?.uintValue
+            guard raw == AVAudioSession.InterruptionType.ended.rawValue else { return }
+            Task { @MainActor in
+                let shell = ShellCoordinator.shared
+                if shell.gameStarted { shell.requestAudioReset(reason: "audio interruption ended") }
+            }
+        })
+        // visionOS 27 replacement for the interruption notification: the system recommends resuming.
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVAudioSession.resumptionRecommendationNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in
+                let shell = ShellCoordinator.shared
+                if shell.gameStarted { shell.requestAudioReset(reason: "audio resumption recommended") }
+            }
+        })
         observe(UIApplication.didFinishLaunchingNotification) { $0.refreshActivityStates("didFinishLaunching") }
         observe(UIScene.didActivateNotification) {
             $0.refreshActivityStates("UIScene.didActivate")
@@ -1439,8 +1459,25 @@ final class ShellCoordinator {
     private func didEnterBackground() {
         resignGraceTask?.cancel()
         resignGraceTask = nil
+        sawBackground = true
         if gameStarted { writeSessionState("background") }
         stopForBackground("didEnterBackground")
+    }
+
+    /// Headset sleep interrupts audio. The audio session gets re-activated, but Minecraft's OpenAL
+    /// output stays stopped (1.3.8 device log: muted after reopening). Re-activate the session and
+    /// ask the provider to restart the sound engine on the new session.
+    private func requestAudioReset(reason: String) {
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            shellLog("audio session re-activation failed (\(reason)): \(error)")
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            _ = shellQueueGameCommand("audio-reset")
+            shellLog("audio reset requested (\(reason))")
+        }
     }
 
     private func appDidBecomeActive() {
@@ -1452,6 +1489,10 @@ final class ShellCoordinator {
         appActive = true
         if gameStarted { writeSessionState("running") }
         refreshActivityStates("didBecomeActive")
+        if gameStarted && sawBackground {
+            sawBackground = false
+            requestAudioReset(reason: "didBecomeActive after background")
+        }
         shellLog("didBecomeActive gameStarted=\(gameStarted) immersive=\(immersiveOpen) reopen=\(reopenOnActive) windowActive=\(windowSceneActive)")
         if selftestMode && !immersiveOpen && !opening {
             openVR(reason: "selftest")

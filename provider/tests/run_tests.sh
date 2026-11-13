@@ -296,6 +296,7 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7GestureFuzzTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionM7RegressionTest.java" \
+     "$ROOT/provider/tests/dev/vrmc/provider/VisionHandMeshTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/SeatedTurnGestureTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/PinchCarryGuardTest.java" \
      "$ROOT/provider/tests/dev/vrmc/provider/VisionSettingsFileTest.java" \
@@ -414,6 +415,13 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$T/m4classes" \
     grep -E "\[m7-regression-test\] [0-9]+ checks" "$T/m7-regression.log"
   else
     cat "$T/m7-regression.log"; fail "m7-regression"
+  fi
+  if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.VisionHandMeshTest > "$T/hand-mesh.log" 2>&1 \
+     && grep -q "\[hand-mesh-test\] PASS" "$T/hand-mesh.log"; then
+    echo "[provider-tests] hand-mesh: PASS (arm/palm/fingers geometry, feedback colours, fallbacks, fuzz)"
+    grep -E "\[hand-mesh-test\] [0-9]+ checks" "$T/hand-mesh.log"
+  else
+    cat "$T/hand-mesh.log"; fail "hand-mesh"
   fi
   if "$JAVA" -cp "$M4_CP" dev.vrmc.provider.SeatedTurnGestureTest > "$T/m7-seated-turn.log" 2>&1 \
      && grep -q "\[m7-seated-turn-test\] PASS" "$T/m7-seated-turn.log"; then

@@ -24,7 +24,7 @@ public final class VisionCommandFile {
     public static final List<String> COMMANDS = List.of(
         "recenter", "calibrate-height", "reload-settings", "reload-input", "diag", "status", "controls",
         "restore-performance", "calibrate-hands", "apply-hand-calibration", "release-input",
-        "quick-menu");
+        "quick-menu", "audio-reset");
 
     private VisionCommandFile() {}
 

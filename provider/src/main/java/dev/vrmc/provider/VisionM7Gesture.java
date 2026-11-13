@@ -1327,6 +1327,20 @@ public final class VisionM7Gesture {
     /** True when the LEFT hand was the front (bow) hand of the current/last draw. */
     public boolean bowFrontIsLeft() { return this.bowFrontLeft; }
     public boolean guiClick() { return this.guiClick; }
+    /** Fist closed on that hand (hand-model feedback). */
+    public boolean fist(boolean left) { return left ? this.fistL : this.fistR; }
+    /**
+     * Charge of the right-fist radial hold for the hand model: 0 until a hold is clearly longer
+     * than a tap could be, rising to 1 at {@link #RADIAL_HOLD_NS}; 1 while the menu is open.
+     */
+    public float radialHoldProgress() {
+        if (this.radialHeld) return 1.0F;
+        if (!this.fistR || this.fistL || this.radialBlockedUntilOpen || this.rightFistPressNs == 0L) return 0.0F;
+        long held = this.nowNs - this.rightFistPressNs;
+        long start = 250_000_000L;
+        if (held <= start) return 0.0F;
+        return Math.min(1.0F, (float) (held - start) / (float) (RADIAL_HOLD_NS - start));
+    }
     public boolean leftPinchHeld() { return this.pinchEngagedL; }
     public boolean rightPinchHeld() { return this.pinchEngagedR; }
     public boolean rightPinchPressedFrame() { return this.pinchPressedThisFrameR; }

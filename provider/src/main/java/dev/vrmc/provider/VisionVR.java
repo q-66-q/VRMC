@@ -186,6 +186,12 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private boolean m7RadialSavedHoldMode = true;
     private boolean m7RadialRestorePending;
     private int m7RadialLogCount;
+    private int m7RadialCursorLogCount;
+    private int m7RadialCursorWarn;
+    private final Vector3f m7RadialOrigin = new Vector3f();
+    private final Vector3f m7RadialDir = new Vector3f();
+    private java.lang.reflect.Field radialPointedR;
+    private java.lang.reflect.Field radialPointedL;
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     /** Menu-hand gray box correction: our pose forward is -Z, while Vivecraft's gray box grows +Z. */
     private static final float M7_MENU_HAND_SHIFT_M = 0.18F;
@@ -196,8 +202,22 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     /** Bow roll for the left hand (tune bow.roll.left, degrees) - the left hand pose is mirrored. */
     private float m7BowRollLeftDeg = M7_BOW_ROLL_DEG;
     private float m7BowRollRightDeg = M7_BOW_ROLL_DEG;
+    private final VisionHandMesh[] handMeshes = {new VisionHandMesh(), new VisionHandMesh()};
+    private final VisionHandMesh.Feedback[] handFeedback = {new VisionHandMesh.Feedback(),
+        new VisionHandMesh.Feedback()};
+    private final boolean[] handMeshShow = new boolean[2];
+    private final Vector3f m7HeadRightTmp = new Vector3f();
+    /** Tune hands.model=vivecraft keeps Vivecraft's own blocky arms. */
+    private boolean handModelVrmc = true;
+    private boolean handModelLogged;
+    private long lastSoundRestartNs;
+    private long soundRestartDueNs;
+    private long lastPollWallNs;
     /** Selected main-hand bow drawn in the left hand (see VRArmHelperMixin). */
     private boolean m7BowLeft;
+    private final Vector3f bowHandFwd = new Vector3f();
+    private final org.joml.Quaternionf bowAlignRot = new org.joml.Quaternionf();
+    private final Matrix4f bowAlignTmp = new Matrix4f();
     private long m7BowLeftSinceNs;
     private boolean m7BowRenderHookSeen;
     private boolean m7BowHookWarned;
@@ -836,6 +856,45 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         }
     }
 
+    /**
+     * Restart Minecraft's sound engine (re-opens the OpenAL device). Device log 1.3.8: after the
+     * headset slept, visionOS interrupted audio; the launcher re-activated the audio session
+     * ("[Audio] interruption ended") but OpenAL's stopped CoreAudio output never restarted, so the
+     * game stayed muted. A reload builds a new output on the re-activated session. Debounced.
+     */
+    private boolean restartSoundEngine(String reason) {
+        long now = System.nanoTime();
+        if (this.lastSoundRestartNs != 0L && now - this.lastSoundRestartNs < 5_000_000_000L) return false;
+        this.lastSoundRestartNs = now;
+        this.soundRestartDueNs = 0L;
+        try {
+            this.mc.getSoundManager().reload();
+            System.out.println("[VRMC-M5] audio: sound engine restarted (" + reason + ")");
+            return true;
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M5][WARN] audio: sound engine restart failed: " + t);
+            return false;
+        }
+    }
+
+    /**
+     * Backstop for a missed shell signal: a multi-second stall of the frame loop is the headset
+     * sleeping / the app in the background. Restart the sound engine shortly after frames resume.
+     */
+    private void watchAudioResume() {
+        long now = System.nanoTime();
+        if (this.lastPollWallNs != 0L && now - this.lastPollWallNs > 3_000_000_000L) {
+            this.soundRestartDueNs = now + 1_500_000_000L;
+            System.out.println("[VRMC-M5] audio: frame loop resumed after "
+                + (now - this.lastPollWallNs) / 1_000_000L + " ms; sound engine restart scheduled");
+        }
+        this.lastPollWallNs = now;
+        if (this.soundRestartDueNs != 0L && now >= this.soundRestartDueNs) {
+            restartSoundEngine("frame loop resumed after a stall");
+            this.soundRestartDueNs = 0L;
+        }
+    }
+
     /** M5 command file: consume at most one command every 500 ms; never throws into the frame loop. */
     private void pollCommandFile() {
         long now = System.nanoTime();
@@ -856,6 +915,10 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
                 case "quick-menu" -> {
                     this.mc.gui.setScreen(new VisionQuickMenuScreen(this, this.mc.gui.screen()));
                     detail = "quick menu opened";
+                }
+                case "audio-reset" -> {
+                    detail = restartSoundEngine("shell: app active again / audio interruption ended")
+                        ? "sound engine restarted" : "sound engine restart skipped (debounced)";
                 }
                 case "reload-settings" -> {
                     this.runtimeSettings = VisionRuntimeSettings.load(this.mc.gameDirectory, System.out::println);
@@ -1190,6 +1253,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         }
         guardVivecraftSeated();
         updateQuickMenuEntry();
+        watchAudioResume();
         pollCommandFile();
         pollThermalState();
         updateHandCalibration();
@@ -1316,6 +1380,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         }
 
         this.updateControllerPoses();
+        this.updateHandMeshes();
         this.logPoseDiagnostics();
         this.logInputDiagnostics();
     }
@@ -1394,7 +1459,63 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
                 || (this.seatedHmdPointer && this.dh.vrSettings.seated);
         }
         applyBowAim(nowNs);
+        alignBowToCrosshair(nowNs);
         updateBowDrawView();
+    }
+
+    /**
+     * VRMC hand model (VisionHandMesh): rebuilt every frame from the tracked joints plus gesture
+     * feedback; drawn by VRArmHelperMixin instead of Vivecraft's blocky first-person arms.
+     */
+    private void updateHandMeshes() {
+        if (this.visionInput == null) return;
+        this.m7HeadRightTmp.set(1.0F, 0.0F, 0.0F);
+        this.hmdPose.transformDirection(this.m7HeadRightTmp);
+        this.m7HeadRightTmp.y = 0.0F;
+        if (this.m7HeadRightTmp.lengthSquared() < 1.0E-8F) this.m7HeadRightTmp.set(1.0F, 0.0F, 0.0F);
+        this.m7HeadRightTmp.normalize();
+        boolean drawing = this.m7Mode && this.m7Gesture.bowDraw();
+        for (int hand = 0; hand < VisionInput.HAND_COUNT; hand++) {
+            boolean right = hand == VisionInput.HAND_RIGHT;
+            VisionHandMesh mesh = this.handMeshes[hand];
+            this.handMeshShow[hand] = false;
+            if (!this.visionInput.isHandTracked(hand)) continue;
+            // While drawing the bow, the draw (back) hand sits at the cheek: do not draw it in front
+            // of the eye (1.3.6 report "the hand blocks my view").
+            if (drawing && right == this.m7Gesture.bowFrontIsLeft()) continue;
+            VisionHandMesh.Feedback fb = this.handFeedback[hand];
+            fb.clear();
+            if (this.m7Mode) {
+                fb.pinchProximity = VisionHandMesh.pinchProximity(this.visionInput.pinchDistance(hand),
+                    VisionM7Gesture.PINCH_ON, 0.060F);
+                fb.pinchHeld = right ? this.m7Gesture.rightPinchHeld() : this.m7Gesture.leftPinchHeld();
+                fb.breaking = right && this.m7HeldBreak;
+                fb.fist = this.m7Gesture.fist(!right);
+                fb.radialProgress = right ? this.m7Gesture.radialHoldProgress() : 0.0F;
+                fb.middleHeld = this.visionInput.middlePressed(hand);
+            }
+            this.handMeshShow[hand] = mesh.build(this.visionInput.joints(hand), right,
+                this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32(),
+                this.m7HeadRightTmp.x, this.m7HeadRightTmp.z, fb);
+        }
+    }
+
+    /** VRArmHelperMixin: the hand-model hook ran (logged once, for device evidence). */
+    public void noteHandModelRendered() {
+        if (!this.handModelLogged) {
+            this.handModelLogged = true;
+            System.out.println("[VRMC-M7] hand model: VRMC arms/hands/fingers active (tune hands.model="
+                + "vivecraft restores Vivecraft's arms)");
+        }
+    }
+
+    /** VRArmHelperMixin: the VRMC hand model replaces Vivecraft's first-person arms. */
+    public boolean handModelEnabled() { return this.handModelVrmc && this.visionInput != null; }
+
+    /** VRArmHelperMixin: the hand mesh to draw (room space), or null when that hand is not shown. */
+    public VisionHandMesh handMesh(boolean right) {
+        int hand = right ? VisionInput.HAND_RIGHT : VisionInput.HAND_LEFT;
+        return this.handModelVrmc && this.handMeshShow[hand] ? this.handMeshes[hand] : null;
     }
 
     /** True when the selected main-hand bow should be drawn in the left hand this frame. */
@@ -1406,6 +1527,26 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         // During a draw the front hand is the bow hand (M7_GESTURES.md #9); a right-hand-front
         // (mirrored) draw shows the bow in the right hand.
         return !(this.m7Gesture.bowDraw() && !this.m7Gesture.bowFrontIsLeft());
+    }
+
+    /**
+     * While the bow is drawn, point the bow hand exactly along the shot (the crosshair ray). Device
+     * feedback 1.3.8: "the bow should align with the crosshair". The bow hand (left controller) is
+     * turned by the smallest rotation that maps its forward axis onto the aim direction, so the
+     * operator's own wrist roll is kept; only the draw window is affected (the hotbar is not used
+     * while drawing).
+     */
+    private void alignBowToCrosshair(long nowNs) {
+        if (!this.m7BowLeft || nowNs >= this.bowAimUntilNs) return;
+        Matrix4f pose = this.controllerPose[LEFT_CONTROLLER];
+        pose.transformDirection(0.0F, 0.0F, -1.0F, this.bowHandFwd);
+        if (this.bowHandFwd.lengthSquared() < 1.0E-8F || this.bowAimDir.lengthSquared() < 1.0E-8F) return;
+        this.bowHandFwd.normalize();
+        this.bowAlignRot.rotationTo(this.bowHandFwd, this.bowAimDir);
+        float px = pose.m30(), py = pose.m31(), pz = pose.m32();
+        pose.setTranslation(0.0F, 0.0F, 0.0F);
+        this.bowAlignTmp.rotation(this.bowAlignRot).mul(pose, pose);
+        pose.setTranslation(px, py, pz);
     }
 
     /**
@@ -2432,6 +2573,75 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         return held || RadialHandler.isShowing();
     }
 
+    /**
+     * RadialHandlerMixin: drive the radial menu with ONE head-ray cursor (the main-hand cursor, which
+     * Vivecraft's hold-mode release clicks with) and hide the second hand cursor.
+     *
+     * @return true when handled (Vivecraft's two-controller cursor update must be skipped)
+     */
+    public boolean m7RadialHeadCursor() {
+        if (!this.m7Mode || this.dh.vrSettings == null || this.dh.vrSettings.seated) return false;
+        if (!RadialHandler.isShowing() || RadialHandler.UI == null || RadialHandler.POS_ROOM == null
+            || RadialHandler.ROTATION_ROOM == null) {
+            return false;
+        }
+        try {
+            this.m7RadialOrigin.set(this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32());
+            this.m7RadialDir.set(0.0F, 0.0F, -1.0F);
+            this.hmdPose.transformDirection(this.m7RadialDir);
+            float aspect = (float) this.mc.getWindow().getGuiScaledHeight()
+                / (float) this.mc.getWindow().getGuiScaledWidth();
+            Vector2f uv = VisionGazeMath.intersectGuiPlane(this.m7RadialOrigin, this.m7RadialDir,
+                RadialHandler.POS_ROOM, RadialHandler.ROTATION_ROOM, GuiHandler.GUI_SCALE, aspect);
+            var ui = RadialHandler.UI;
+            boolean pointed = uv != null;
+            if (pointed) {
+                float x = (int) (uv.x * GuiHandler.GUI_WIDTH);
+                float y = (int) (uv.y * GuiHandler.GUI_HEIGHT);
+                if (ui.cursorX1 >= 0.0F && ui.cursorY1 >= 0.0F) {
+                    // Same light smoothing Vivecraft applies to controller cursors.
+                    x = ui.cursorX1 * 0.7F + x * 0.3F;
+                    y = ui.cursorY1 * 0.7F + y * 0.3F;
+                }
+                ui.cursorX1 = x;
+                ui.cursorY1 = y;
+            } else {
+                ui.cursorX1 = -1.0F;
+                ui.cursorY1 = -1.0F;
+            }
+            ui.cursorX2 = -1.0F;
+            ui.cursorY2 = -1.0F;
+            setRadialPointed(pointed);
+            if (this.m7RadialCursorLogCount++ < 3) {
+                System.out.println("[VRMC-M7] radial menu: head-ray cursor " + (pointed
+                    ? String.format(java.util.Locale.ROOT, "uv=(%.2f,%.2f)", uv.x, uv.y) : "off the menu")
+                    + " (hand cursors hidden)");
+            }
+            return true;
+        } catch (Throwable t) {
+            if (this.m7RadialCursorWarn++ < 3) {
+                System.out.println("[VRMC-M7][WARN] radial head-ray cursor failed; using Vivecraft's: " + t);
+            }
+            return false;
+        }
+    }
+
+    /** RadialHandler.POINTED_R/L are private: set them reflectively (fail-soft). */
+    private void setRadialPointed(boolean right) {
+        try {
+            if (this.radialPointedR == null) {
+                this.radialPointedR = RadialHandler.class.getDeclaredField("POINTED_R");
+                this.radialPointedL = RadialHandler.class.getDeclaredField("POINTED_L");
+                this.radialPointedR.setAccessible(true);
+                this.radialPointedL.setAccessible(true);
+            }
+            this.radialPointedR.setBoolean(null, right);
+            this.radialPointedL.setBoolean(null, false);
+        } catch (Throwable t) {
+            // Only the non-hold click path reads these; hold mode (forced by VRMC) clicks on release.
+        }
+    }
+
     /** Close the radial overlay without choosing (before the key release can click). */
     private void closeM7RadialWithoutChoice(String why) {
         if (!this.m7RadialPressed) return;
@@ -2636,6 +2846,8 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     }
 
     private void applyBowMode() {
+        String handsModel = this.inputTuning == null ? null : this.inputTuning.get("hands.model");
+        this.handModelVrmc = handsModel == null || !handsModel.trim().equalsIgnoreCase("vivecraft");
         String hand = this.inputTuning == null ? null : this.inputTuning.get("bow.hand");
         this.m7BowLeftHand = hand == null || !hand.trim().equalsIgnoreCase("right");
         this.m7BowRollLeftDeg = bowRollTune("bow.roll.left");

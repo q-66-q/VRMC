@@ -21,7 +21,7 @@ import UniformTypeIdentifiers
 // the game to reload them, so changes apply without restarting.
 
 enum ShellTab: Hashable {
-    case play, comfort, controls, help
+    case play, mods, comfort, controls, help
 }
 
 struct RootView: View {
@@ -45,6 +45,9 @@ struct RootView: View {
             PlayView(shell: shell, setup: setup, presentLauncherSetup: presentLauncherSetup)
                 .tabItem { Label("Play", systemImage: "play.circle") }
                 .tag(ShellTab.play)
+            ModsView(shell: shell)
+                .tabItem { Label("Mods", systemImage: "shippingbox") }
+                .tag(ShellTab.mods)
             ComfortView(shell: shell)
                 .tabItem { Label("Comfort", systemImage: "figure.seated.side") }
                 .tag(ShellTab.comfort)
