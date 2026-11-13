@@ -360,15 +360,47 @@ public final class VisionM7GestureTest {
                 VisionM7Gesture.CTX_BOW_HELD);
         }
         check("bow draw with a bow held", g.bowDraw());
-        // Holding a bow does not require both hands to be fists: open hands held apart draw too.
+        check("left hand in front is the bow hand", g.bowFrontIsLeft());
+        // Operator plan (M7_GESTURES.md #9): the draw needs BOTH FISTS; open hands apart do nothing.
         VisionM7Gesture open = new VisionM7Gesture();
         long[] ot = {6_050_000_000L};
+        boolean openDraw = false;
         for (int i = 0; i < 40; i++) {
             stepCtx(open, ot, joints(false, -0.15F, 1.35F, -0.55F),
                 joints(false, 0.15F, 1.40F, -0.05F), true, true, 0.20F, 0.20F,
                 VisionM7Gesture.CTX_BOW_HELD);
+            openDraw |= open.bowDraw();
         }
-        check("bow draw with open hands and a bow held", open.bowDraw());
+        check("open hands held apart do not draw the bow (plan: both fists)", !openDraw);
+        // Opening the FRONT (bow) hand alone does not fire: only the back fist releases the arrow.
+        VisionM7Gesture front = new VisionM7Gesture();
+        long[] frt = {6_060_000_000L};
+        for (int i = 0; i < 40; i++) {
+            stepCtx(front, frt, bowFront(), bowBack(), true, true, 0.20F, 0.20F,
+                VisionM7Gesture.CTX_BOW_HELD);
+        }
+        boolean frontFired = false;
+        for (int i = 0; i < 10; i++) {
+            stepCtx(front, frt, joints(false, -0.15F, 1.35F, -0.55F), bowBack(), true, true, 0.20F, 0.20F,
+                VisionM7Gesture.CTX_BOW_HELD);
+            frontFired |= front.bowFire();
+        }
+        check("opening the front hand keeps the draw (no fire)", !frontFired && front.bowDraw());
+        // Mirrored draw: right hand in front.
+        VisionM7Gesture mirror = new VisionM7Gesture();
+        long[] mt = {6_070_000_000L};
+        for (int i = 0; i < 40; i++) {
+            stepCtx(mirror, mt, joints(true, -0.15F, 1.40F, -0.05F), joints(true, 0.15F, 1.35F, -0.55F),
+                true, true, 0.20F, 0.20F, VisionM7Gesture.CTX_BOW_HELD);
+        }
+        check("right hand in front draws too and is the bow hand", mirror.bowDraw() && !mirror.bowFrontIsLeft());
+        boolean mirrorFire = false;
+        for (int i = 0; i < 3; i++) {
+            stepCtx(mirror, mt, joints(false, -0.15F, 1.40F, -0.05F), joints(true, 0.15F, 1.35F, -0.55F),
+                true, true, 0.20F, 0.20F, VisionM7Gesture.CTX_BOW_HELD);
+            mirrorFire |= mirror.bowFire();
+        }
+        check("opening the back (left) fist fires the mirrored draw", mirrorFire);
         // Back hand = the one pulled towards the body (+Z, smaller forward offset): open it -> fire.
         stepCtx(g, t, bowFront(), joints(false, 0.15F, 1.40F, -0.05F), true, true, 0.20F, 0.20F,
             VisionM7Gesture.CTX_BOW_HELD);

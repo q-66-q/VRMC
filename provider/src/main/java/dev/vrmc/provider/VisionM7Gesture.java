@@ -340,6 +340,8 @@ public final class VisionM7Gesture {
     // ---- bow ----
     private boolean bowActive;
     private boolean bowDrawnFromFists;
+    /** Which hand was in front when the draw started (the bow hand); fixed for the whole draw. */
+    private boolean bowFrontLeft;
     private long bowSepSinceNs;
     private long bowStartNs;
     private long bowFireUntilNs;
@@ -656,13 +658,17 @@ public final class VisionM7Gesture {
         float absSepFwd = Math.abs(sepFwd);
         float maxUp = Math.max(this.relL[1], this.relR[1]);
         if (this.bowActive) {
-            // Draw hysteresis: keep while projected separation stays above the off threshold and the
-            // hands stay in front at chest height. Releasing the held use (any exit) fires the arrow,
-            // matching Minecraft's hold-to-draw semantics and all 16 recorded draw cycles.
-            boolean handsOk = this.bowDrawnFromFists ? both : bothTrackedGrace;
-            boolean drawStillHeld = bowAllowed && !gui && !seated && handsOk
-                && absSepFwd > BOW_SEPARATION_OFF
-                && maxUp > BOW_MIN_MAX_UP - 0.10F;
+            // Operator plan (M7_GESTURES.md #9): both fists, one hand in front and the other behind;
+            // pulling the back hand back draws, OPENING THE BACK FIST fires. The draw is held while
+            // the back fist stays closed and the hands stay apart in front at chest height; short
+            // tracking dropouts are bridged (the recorded draws lose a hand for up to ~150 ms).
+            // Releasing the held use (any exit) fires the arrow (Minecraft hold-to-draw semantics).
+            boolean backFist = this.bowFrontLeft ? this.fistR : this.fistL;
+            boolean backTracked = this.bowFrontLeft ? trackedR : trackedL;
+            boolean dropout = !bothTracked && bothTrackedGrace;
+            boolean backHeld = backFist || (!backTracked && bothTrackedGrace);
+            boolean apart = dropout || (absSepFwd > BOW_SEPARATION_OFF && maxUp > BOW_MIN_MAX_UP - 0.10F);
+            boolean drawStillHeld = bowAllowed && !gui && !seated && backHeld && apart;
             if (!drawStillHeld) {
                 // A draw must have been armed for at least half the arm time before an exit fires;
                 // one-frame tracking flicker at the start must not release the bow.
@@ -676,12 +682,14 @@ public final class VisionM7Gesture {
                 this.bowDrawnFromFists = false;
                 this.lastBowExitNs = nowNs;
             }
-        } else if (bowAllowed && !gui && !seated && bothTracked
+        } else if (bowAllowed && !gui && !seated && bothTracked && both
             && absSepFwd > BOW_SEPARATION && maxUp > BOW_MIN_MAX_UP) {
+            // Draw start needs BOTH FISTS (plan), hands apart along the head-forward axis.
             if (this.bowSepSinceNs == 0L) this.bowSepSinceNs = nowNs;
             if (nowNs - this.bowSepSinceNs >= BOW_ARM_NS) {
                 this.bowActive = true;
-                this.bowDrawnFromFists = both;
+                this.bowDrawnFromFists = true;
+                this.bowFrontLeft = sepFwd > 0.0F;
                 this.bowStartNs = nowNs;
             }
         } else if (!this.bowActive
@@ -1244,6 +1252,8 @@ public final class VisionM7Gesture {
     public boolean hotbarPrev() { return this.hotbarPrev; }
     public boolean bowDraw() { return this.bowDraw; }
     public boolean bowFire() { return this.bowFire; }
+    /** True when the LEFT hand was the front (bow) hand of the current/last draw. */
+    public boolean bowFrontIsLeft() { return this.bowFrontLeft; }
     public boolean guiClick() { return this.guiClick; }
     public boolean leftPinchHeld() { return this.pinchEngagedL; }
     public boolean rightPinchHeld() { return this.pinchEngagedR; }

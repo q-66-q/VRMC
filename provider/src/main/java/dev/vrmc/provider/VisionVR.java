@@ -205,6 +205,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     /** VR-state the probe was measured in: the onMove scale only applies while VR_RUNNING. */
     private boolean m7CursorCalibVrRunning;
     private long m7LastScreenCloseNs;
+    private int m7CursorRescaleLogs;
     /**
      * A right pinch that was already held when a screen opened or closed belongs to the previous
      * context: clicking "Back to Game" must not place a block / start mining when the menu closes,
@@ -1407,9 +1408,47 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private void centerM7GuiCursor() {
         int winW = Math.max(1, this.mc.getWindow().getScreenWidth());
         int winH = Math.max(1, this.mc.getWindow().getScreenHeight());
-        InputSimulator.setMousePos(
-            winW * 0.5D / this.m7CursorScaleX,
-            (winH * (0.5D + M7_GUI_CURSOR_DOWN)) / this.m7CursorScaleY);
+        double tx = winW * 0.5D;
+        double ty = winH * (0.5D + M7_GUI_CURSOR_DOWN);
+        setM7CursorClosedLoop(tx, ty, tx / this.m7CursorScaleX, ty / this.m7CursorScaleY);
+    }
+
+    /**
+     * Place the cursor so MouseHandler stores (targetX, targetY), correcting the runtime onMove scale
+     * every time. The scale depends on the native game-surface size, which changes during a session
+     * (window resize/parking): the old one-shot probe measured 0.60 at menu open and the real factor
+     * later became 1.8, so the head-ray cursor and its clicks landed off-screen (device log
+     * 2026-11-12: clicks at x=2680 on a 1280-wide screen). Set -> read back -> if off, re-measure
+     * from this very pair and set again (the mapping is proportional, so one correction converges).
+     */
+    private void setM7CursorClosedLoop(double targetX, double targetY, double guessX, double guessY) {
+        InputSimulator.setMousePos(guessX, guessY);
+        double rx = this.mc.mouseHandler.xpos();
+        double ry = this.mc.mouseHandler.ypos();
+        boolean offX = Math.abs(rx - targetX) > 0.75D;
+        boolean offY = Math.abs(ry - targetY) > 0.75D;
+        if (!offX && !offY) return;
+        double sx = this.m7CursorScaleX;
+        double sy = this.m7CursorScaleY;
+        if (offX && Math.abs(guessX) > 1.0D) {
+            double m = rx / guessX;
+            if (Double.isFinite(m) && m > 0.05D && m < 20.0D) sx = m;
+        }
+        if (offY && Math.abs(guessY) > 1.0D) {
+            double m = ry / guessY;
+            if (Double.isFinite(m) && m > 0.05D && m < 20.0D) sy = m;
+        }
+        if (Math.abs(sx - this.m7CursorScaleX) > 0.01D || Math.abs(sy - this.m7CursorScaleY) > 0.01D) {
+            if (this.m7CursorRescaleLogs++ < 10) {
+                System.out.printf("[VRMC-M7] cursor scale re-measured (%.3f,%.3f) -> (%.3f,%.3f) "
+                        + "target=(%.1f,%.1f) readback=(%.1f,%.1f) win=(%d,%d)%n",
+                    this.m7CursorScaleX, this.m7CursorScaleY, sx, sy, targetX, targetY, rx, ry,
+                    this.mc.getWindow().getScreenWidth(), this.mc.getWindow().getScreenHeight());
+            }
+            this.m7CursorScaleX = sx;
+            this.m7CursorScaleY = sy;
+        }
+        InputSimulator.setMousePos(targetX / this.m7CursorScaleX, targetY / this.m7CursorScaleY);
     }
 
     /**
@@ -1499,7 +1538,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             System.out.printf("[VRMC-M7] head cursor uv=(%.4f,%.4f) screenPx=(%d,%d) mouse=(%.1f,%.1f) screen=%s%n",
                 uv.x, uv.y, winW, winH, mx, my, this.mc.gui.screen().getClass().getSimpleName());
         }
-        InputSimulator.setMousePos(mx, my);
+        setM7CursorClosedLoop(uv.x * (double) winW, uvY * (double) winH, mx, my);
         // Slow diagnostic cadence: enough to prove the mapping on device without flooding the log.
         if ((this.m7GuiDebugFrameCount++ % 300) == 0) {
             System.out.printf(
@@ -2417,29 +2456,25 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         }
     }
 
-    /** Point the right controller from the back hand to the front hand while the bow is drawn. */
+    /**
+     * Aim the shot where the player points the bow: from the head (eye) through the front (bow) hand.
+     * 1.3.5 aimed along the back-hand -> front-hand line; with the bow held out in one hand and the
+     * draw anchored at the opposite cheek that line points sideways (device report: "the bow turns
+     * right when I launch it"). The front hand is the one that was in front when the draw started.
+     */
     private void applyBowAim(long nowNs) {
         if (!this.m7Mode || this.visionInput == null) return;
         boolean drawing = this.m7Gesture.bowDraw();
-        boolean bothTracked = this.visionInput.isHandTracked(VisionInput.HAND_LEFT)
-            && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT);
-        if (drawing && bothTracked) {
-            float lx = this.visionInput.wristX(VisionInput.HAND_LEFT);
-            float ly = this.visionInput.wristY(VisionInput.HAND_LEFT);
-            float lz = this.visionInput.wristZ(VisionInput.HAND_LEFT);
-            float rx = this.visionInput.wristX(VisionInput.HAND_RIGHT);
-            float ry = this.visionInput.wristY(VisionInput.HAND_RIGHT);
-            float rz = this.visionInput.wristZ(VisionInput.HAND_RIGHT);
-            this.bowAimTmp.set(0.0F, 0.0F, -1.0F);
-            this.hmdPose.transformDirection(this.bowAimTmp);
-            float hx = this.hmdPose.m30(), hy = this.hmdPose.m31(), hz = this.hmdPose.m32();
-            float leftFwd = (lx - hx) * this.bowAimTmp.x + (ly - hy) * this.bowAimTmp.y + (lz - hz) * this.bowAimTmp.z;
-            float rightFwd = (rx - hx) * this.bowAimTmp.x + (ry - hy) * this.bowAimTmp.y + (rz - hz) * this.bowAimTmp.z;
-            float dx = leftFwd >= rightFwd ? lx - rx : rx - lx;
-            float dy = leftFwd >= rightFwd ? ly - ry : ry - ly;
-            float dz = leftFwd >= rightFwd ? lz - rz : rz - lz;
+        int front = this.m7Gesture.bowFrontIsLeft() ? VisionInput.HAND_LEFT : VisionInput.HAND_RIGHT;
+        if (drawing && this.visionInput.isHandTracked(front)) {
+            float fx = this.visionInput.wristX(front);
+            float fy = this.visionInput.wristY(front);
+            float fz = this.visionInput.wristZ(front);
+            float dx = fx - this.hmdPose.m30();
+            float dy = fy - this.hmdPose.m31();
+            float dz = fz - this.hmdPose.m32();
             float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (len > 0.10F && Float.isFinite(len)) {
+            if (len > 0.15F && Float.isFinite(len)) {
                 this.bowAimDir.set(dx / len, dy / len, dz / len);
                 this.bowAimUntilNs = nowNs + 250_000_000L;
             }
