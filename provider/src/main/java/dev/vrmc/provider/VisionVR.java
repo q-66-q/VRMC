@@ -219,6 +219,16 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
      * enabled here: it is the keyboard/mouse mode and would release every hand action.
      */
     private boolean seatedPlay;
+    private int invalidTrackingLogs;
+    /**
+     * Bow aim: while the two-hand bow gesture is drawn (and briefly after, so the release frame that
+     * fires the arrow is covered) the right controller - which Vivecraft uses as the shooting hand
+     * for the vanilla bow - points along the line from the back hand to the front hand.
+     */
+    private long bowAimUntilNs;
+    private final Vector3f bowAimDir = new Vector3f(0.0F, 0.0F, -1.0F);
+    private final Vector3f bowAimTmp = new Vector3f();
+    private boolean bowModeLogged;
     private boolean seatedPlayJumpPrev;
     private long seatedPlayJumpUntilNs;
     /**
@@ -491,8 +501,9 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             this.lastFrameP50Ms,
             this.lastFrameP95Ms,
             this.lastMissed90Frames,
-            this.dh.vrPlayer != null && this.dh.bowTracker != null && this.mc.player != null
-                && this.dh.bowTracker.isActive(this.mc.player),
+            (this.m7Mode && this.m7Gesture.bowDraw())
+                || (this.dh.vrPlayer != null && this.dh.bowTracker != null && this.mc.player != null
+                    && this.dh.bowTracker.isActive(this.mc.player)),
             this.dh.vrPlayer != null && this.dh.bowTracker != null && this.dh.bowTracker.isNotched(),
             this.dh.vrPlayer == null || this.dh.bowTracker == null ? 0.0F
                 : Math.max(0.0F, Math.min(1.0F, this.dh.bowTracker.getDrawPercent())),
@@ -602,6 +613,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
                 System.out.println("[VRMC-M7][WARN] could not enable autoJump: " + t);
             }
         }
+        applyBowMode();
         if (settings == null) return;
         if (settings.hasSeated) setSeatedPlayInternal(settings.seated, "settings");
         if (settings.hasSeatedFreeMove) this.dh.vrSettings.seatedFreeMove = settings.seatedFreeMove;
@@ -650,6 +662,8 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private String reloadInputTuning() {
         Map<String, String> tuned = loadInputTuning();
         this.inputTuning = tuned;
+        this.bowModeLogged = false;
+        applyBowMode();
         this.hotbarRange = floatValue(tuned, "hotbar.range", "vrmc.input.hotbar.range", this.hotbarRange);
         this.holdLastPoseNanos = (long) (Math.max(0.0F, Math.min(2000.0F,
             floatValue(tuned, "tracking.holdLastPoseMs", "vrmc.input.tracking.holdLastPoseMs",
@@ -1174,17 +1188,24 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         float qx = this.tracking.getFloat(o), qy = this.tracking.getFloat(o + 4);
         float qz = this.tracking.getFloat(o + 8), qw = this.tracking.getFloat(o + 12);
         float px = this.tracking.getFloat(o + 16), py = this.tracking.getFloat(o + 20), pz = this.tracking.getFloat(o + 24);
-        this.hmdPose.rotation(this.rot.set(qx, qy, qz, qw));
+        // An invalid sample (zero/NaN quaternion, non-finite position) used to throw on the render
+        // thread and crash the game. Keep the last good pose instead (never invent one), report the
+        // head as not tracking for this frame, and log the first few occurrences.
+        float qLen = qx * qx + qy * qy + qz * qz + qw * qw;
+        boolean valid = Float.isFinite(qLen) && qLen > 1.0e-6F
+            && Float.isFinite(px) && Float.isFinite(py) && Float.isFinite(pz);
+        if (!valid) {
+            this.headIsTracking = false;
+            if (this.invalidTrackingLogs++ < 5) {
+                System.out.println("[VRMC-M2][WARN] invalid head tracking sample from bridge (q=" + qx + ","
+                    + qy + "," + qz + "," + qw + " p=" + px + "," + py + "," + pz + "); keeping the last pose");
+            }
+            return;
+        }
+        this.hmdPose.rotation(this.rot.set(qx, qy, qz, qw).normalize());
         this.hmdPose.setTranslation(px, py, pz);
         this.hmdRotation.rotation(this.rot);
-        this.headIsTracking = (qw != 0.0F);
-        // Fail loudly if the bridge returned no usable tracking data (never silently invent poses).
-        if (qw == 0.0F || !Float.isFinite(qw) || !Float.isFinite(px) || !Float.isFinite(py) || !Float.isFinite(pz)) {
-            String msg = "VRMC: invalid/missing head tracking data from bridge (q=" + qx + "," + qy
-                + "," + qz + "," + qw + " p=" + px + "," + py + "," + pz + ")";
-            System.out.println("[VRMC-M2][FATAL] " + msg);
-            throw new IllegalStateException(msg);
-        }
+        this.headIsTracking = true;
         float bridgeIpd = this.tracking.getFloat(8 + 84);
         if (bridgeIpd > 0.0F) {
             this.ipd = bridgeIpd;
@@ -1336,6 +1357,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             this.controllerTracking[c] = tracked
                 || (this.seatedHmdPointer && this.dh.vrSettings.seated);
         }
+        applyBowAim(nowNs);
     }
 
     /**
@@ -2364,6 +2386,70 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             this.rotatePulseDirection = 0;
             this.rotatePulseUntilNs = 0L;
         }
+    }
+
+    /**
+     * Vivecraft's roomscale bow (bowMode ON/VANILLA) only draws when its bow interact module sees one
+     * controller "notched" against the other at a fixed angle. Controller poses derived from ARKit
+     * hands do not satisfy that geometry reliably, and in that mode the use key VRMC presses for the
+     * two-hand bow gesture is ignored, so the bow never fired on device. VRMC drives bows itself
+     * (hold use = draw, release = fire, aimed along the hands), so Vivecraft's mode is set to OFF.
+     * Tune key bow.mode=vivecraft keeps Vivecraft's setting for A/B.
+     */
+    private void applyBowMode() {
+        try {
+            String mode = this.inputTuning == null ? null : this.inputTuning.get("bow.mode");
+            if (mode != null && mode.trim().equalsIgnoreCase("vivecraft")) {
+                if (!this.bowModeLogged) {
+                    this.bowModeLogged = true;
+                    System.out.println("[VRMC-M7] bow: keeping Vivecraft bowMode="
+                        + this.dh.vrSettings.bowMode + " (bow.mode=vivecraft)");
+                }
+                return;
+            }
+            if (this.dh.vrSettings.bowMode != VRSettings.BowMode.OFF) {
+                System.out.println("[VRMC-M7] bow: Vivecraft bowMode " + this.dh.vrSettings.bowMode
+                    + " -> OFF (VRMC two-hand bow gesture: hold = draw, release = fire)");
+                this.dh.vrSettings.bowMode = VRSettings.BowMode.OFF;
+            }
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M7][WARN] could not set Vivecraft bow mode: " + t);
+        }
+    }
+
+    /** Point the right controller from the back hand to the front hand while the bow is drawn. */
+    private void applyBowAim(long nowNs) {
+        if (!this.m7Mode || this.visionInput == null) return;
+        boolean drawing = this.m7Gesture.bowDraw();
+        boolean bothTracked = this.visionInput.isHandTracked(VisionInput.HAND_LEFT)
+            && this.visionInput.isHandTracked(VisionInput.HAND_RIGHT);
+        if (drawing && bothTracked) {
+            float lx = this.visionInput.wristX(VisionInput.HAND_LEFT);
+            float ly = this.visionInput.wristY(VisionInput.HAND_LEFT);
+            float lz = this.visionInput.wristZ(VisionInput.HAND_LEFT);
+            float rx = this.visionInput.wristX(VisionInput.HAND_RIGHT);
+            float ry = this.visionInput.wristY(VisionInput.HAND_RIGHT);
+            float rz = this.visionInput.wristZ(VisionInput.HAND_RIGHT);
+            this.bowAimTmp.set(0.0F, 0.0F, -1.0F);
+            this.hmdPose.transformDirection(this.bowAimTmp);
+            float hx = this.hmdPose.m30(), hy = this.hmdPose.m31(), hz = this.hmdPose.m32();
+            float leftFwd = (lx - hx) * this.bowAimTmp.x + (ly - hy) * this.bowAimTmp.y + (lz - hz) * this.bowAimTmp.z;
+            float rightFwd = (rx - hx) * this.bowAimTmp.x + (ry - hy) * this.bowAimTmp.y + (rz - hz) * this.bowAimTmp.z;
+            float dx = leftFwd >= rightFwd ? lx - rx : rx - lx;
+            float dy = leftFwd >= rightFwd ? ly - ry : ry - ly;
+            float dz = leftFwd >= rightFwd ? lz - rz : rz - lz;
+            float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (len > 0.10F && Float.isFinite(len)) {
+                this.bowAimDir.set(dx / len, dy / len, dz / len);
+                this.bowAimUntilNs = nowNs + 250_000_000L;
+            }
+        }
+        if (nowNs >= this.bowAimUntilNs) return;
+        Matrix4f pose = this.controllerPose[RIGHT_CONTROLLER];
+        float px = pose.m30(), py = pose.m31(), pz = pose.m32();
+        // Local -Z is the aim axis of these poses (R*(0,0,-1) = aim): align local +Z with -dir.
+        pose.translation(px, py, pz).rotateTowards(-this.bowAimDir.x, -this.bowAimDir.y,
+            -this.bowAimDir.z, 0.0F, 1.0F, 0.0F);
     }
 
     /** Switch seated play; Vivecraft's keyboard/mouse seated mode always stays off (see field doc). */

@@ -112,6 +112,22 @@ public class VisionRenderer extends VRRenderer {
     private long frameIndex;
     private boolean polled;
     private boolean loggedNoHandle;
+
+    // ---- Export ring (tearing / unrendered-frame fix) -------------------------------------------
+    // Vivecraft renders every frame into the same framebufferEye[0/1] textures. Publishing those to
+    // the compositor meant it sampled a texture the game was drawing into (torn frames while turning
+    // the head) and, right after an eye-target resize, a brand-new texture nothing had been drawn
+    // into yet (a whole-view flash of undefined memory - the purple flash at the title screen, where
+    // the auto resolution resizes several times). Each frame is now GPU-copied into the next of
+    // EXPORT_RING textures per eye and that copy is published; a published texture is not written
+    // again for EXPORT_RING-1 frames, and the compositor only shows a frame once a newer one exists.
+    private static final int EXPORT_RING = 3;
+    private final VRTextureTarget[][] exportRing = new VRTextureTarget[EXPORT_RING][2];
+    private final long[][] exportHandles = new long[EXPORT_RING][2];
+    private int exportWidth;
+    private int exportHeight;
+    private int exportSlot;
+    private boolean exportRingDisabled;
     /** Latest headset per-eye frustum tangents {left,right,up,down} (signed; left/down negative). */
     private final float[][] eyeFovTan = new float[2][4];
     private volatile boolean hasDisplayViews;
@@ -242,13 +258,21 @@ public class VisionRenderer extends VRRenderer {
         if (this.framebufferEye[0] == null || this.framebufferEye[1] == null) {
             return;
         }
-        long lt = textureHandle(this.framebufferEye[0]);
-        long rt = textureHandle(this.framebufferEye[1]);
+        long lt;
+        long rt;
+        int slot = exportFrame();
+        if (slot >= 0) {
+            lt = this.exportHandles[slot][0];
+            rt = this.exportHandles[slot][1];
+        } else {
+            lt = textureHandle(this.framebufferEye[0]);
+            rt = textureHandle(this.framebufferEye[1]);
+        }
         if (lt != 0 && rt != 0) {
             // A framebuffer reinit replaces both VkImages; the bridge keeps the previous (now destroyed)
             // handles until this submit, so the compositor may sample a stale/freed texture for a frame.
             // Log the transition so a device log proves/disproves that window.
-            if (this.lastLeftHandle != -1L &&
+            if (slot < 0 && this.lastLeftHandle != -1L &&
                 (lt != this.lastLeftHandle || rt != this.lastRightHandle)) {
                 System.out.printf(
                     "[VRMC-DIAG] eye target handles changed L=0x%x->0x%x R=0x%x->0x%x (framebuffer reinit)%n",
@@ -947,8 +971,81 @@ public class VisionRenderer extends VRRenderer {
         reinitFrameBuffers("VRMC M8 eye target " + target[0] + "x" + target[1]);
     }
 
+    /**
+     * Copy this frame's eye images into the next export-ring slot and return the slot, or -1 to
+     * publish framebufferEye directly (ring disabled after a failure, e.g. a backend that cannot copy
+     * textures; that is the pre-1.3.5 behaviour and logs once).
+     */
+    private int exportFrame() {
+        if (this.exportRingDisabled) return -1;
+        try {
+            int w = this.framebufferEye[0].width;
+            int h = this.framebufferEye[0].height;
+            if (w <= 0 || h <= 0) return -1;
+            var device = RenderSystem.getDevice();
+            var encoder = device.createCommandEncoder();
+            if (w != this.exportWidth || h != this.exportHeight || this.exportRing[0][0] == null) {
+                closeExportRing();
+                Vector4f black = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
+                for (int s = 0; s < EXPORT_RING; s++) {
+                    for (int eye = 0; eye < 2; eye++) {
+                        VRTextureTarget t = VRTextureTarget.builder("VRMC export " + (eye == 0 ? "L" : "R") + s)
+                            .withSize(w, h)
+                            .withFormat(GpuFormat.RGBA8_UNORM)
+                            .build();
+                        // Never expose undefined memory: every slot starts opaque black.
+                        encoder.clearColorTexture(t.getColorTexture(), black);
+                        this.exportRing[s][eye] = t;
+                        this.exportHandles[s][eye] = textureHandle(t);
+                        if (this.exportHandles[s][eye] == 0L) {
+                            throw new IllegalStateException("export slot " + s + " has no texture handle");
+                        }
+                    }
+                }
+                this.exportWidth = w;
+                this.exportHeight = h;
+                this.exportSlot = 0;
+                System.out.println("[VRMC-M8] export ring: " + EXPORT_RING + " x 2 eye textures " + w + "x" + h
+                    + " (game never draws into a texture the compositor may be showing)");
+            }
+            int slot = this.exportSlot;
+            for (int eye = 0; eye < 2; eye++) {
+                encoder.copyTextureToTexture(this.framebufferEye[eye].getColorTexture(),
+                    this.exportRing[slot][eye].getColorTexture(), 0, 0, 0, 0, 0, w, h);
+            }
+            this.exportSlot = (slot + 1) % EXPORT_RING;
+            return slot;
+        } catch (Throwable t) {
+            this.exportRingDisabled = true;
+            closeExportRing();
+            System.out.println("[VRMC-M8][WARN] export ring unavailable (" + t
+                + "); publishing the eye targets directly");
+            return -1;
+        }
+    }
+
+    private void closeExportRing() {
+        for (int s = 0; s < EXPORT_RING; s++) {
+            for (int eye = 0; eye < 2; eye++) {
+                VRTextureTarget t = this.exportRing[s][eye];
+                this.exportRing[s][eye] = null;
+                this.exportHandles[s][eye] = 0L;
+                if (t != null) {
+                    try {
+                        t.destroyBuffers();
+                    } catch (Throwable ignored) {
+                        // best effort: the compositor retains what it still shows
+                    }
+                }
+            }
+        }
+        this.exportWidth = 0;
+        this.exportHeight = 0;
+    }
+
     @Override
     public void destroy() {
+        closeExportRing();
         GpuEyeSync sync = this.gpuSync;
         this.gpuSync = null;
         if (sync != null) {

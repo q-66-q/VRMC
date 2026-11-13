@@ -160,8 +160,23 @@ public final class VisionRenderSettingsTest {
             !VisionRenderSettings.canResizeNow(true, 500L, true, VisionRenderSettings.MIN_RESIZE_FRAME - 1));
         check("no resize in a loading screen (no level, not menu room)",
             !VisionRenderSettings.canResizeNow(false, -1L, false, 600L));
-        check("resize allowed in the menu room after warm-up",
-            VisionRenderSettings.canResizeNow(false, -1L, true, 600L));
+        check("no resize in the menu room (title screen / menu world build)",
+            !VisionRenderSettings.canResizeNow(false, 0L, true, 10_000L));
+        check("45 Hz measured cadence still budgets for 90 Hz (no 45 Hz lock)",
+            Math.abs(VisionRenderSettings.targetIntervalMs(45.0f) - 11.1111) < 1e-3);
+        check("60 Hz measured cadence budgets for 90 Hz",
+            Math.abs(VisionRenderSettings.targetIntervalMs(60.0f) - 11.1111) < 1e-3);
+        check("explicit 60 Hz override is still honoured",
+            Math.abs(VisionRenderSettings.targetIntervalMsFor(90.0f, 60) - 16.6667) < 1e-3);
+        check("auto scale never steps below the auto floor",
+            Math.abs(VisionRenderSettings.nextAutoScale(0.40f, 240, 240, 40.0, 11.111)
+                - VisionRenderSettings.AUTO_MIN_SCALE) < 1e-5
+            && Math.abs(VisionRenderSettings.nextAutoScale(VisionRenderSettings.AUTO_MIN_SCALE, 240, 240,
+                40.0, 11.111) - VisionRenderSettings.AUTO_MIN_SCALE) < 1e-5);
+        check("explicit low scale is not pushed further down",
+            Math.abs(VisionRenderSettings.nextAutoScale(0.25f, 240, 240, 40.0, 11.111) - 0.25f) < 1e-5);
+        check("world-load spikes do not resize for ~7 s",
+            !VisionRenderSettings.canResizeNow(true, 300L, false, 5000L));
         check("no resize in the first frames of a loaded world",
             !VisionRenderSettings.canResizeNow(true, 30L, false, 600L));
         check("resize allowed once the loaded world is stable",

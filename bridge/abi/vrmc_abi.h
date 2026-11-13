@@ -89,6 +89,10 @@ typedef struct {
 
 typedef struct {
     uint32_t frame_index;
+    /* Pose time: vrmc_tracking_state.presentation_time_ns of the head pose this frame was rendered
+     * from. 0 from the provider means "unknown"; the bridge then stamps the pose time it last served
+     * to the provider (vrmc_get_tracking), which is the pose read at the start of the rendered frame.
+     * (Historical name kept for ABI compatibility; the field was never used as a deadline.) */
     int64_t presentation_deadline_ns;
     uint64_t left_texture;  /* opaque Metal texture handle exported by the bridge/renderer */
     uint64_t right_texture; /* opaque Metal texture handle */

@@ -25,6 +25,7 @@
 #include <string.h>
 #include <dlfcn.h>
 #include <pthread.h>
+#include <stdatomic.h>
 
 static int32_t g_initialized = 0;
 static uint64_t g_frames = 0;
@@ -49,6 +50,12 @@ static uint32_t g_texture_generation = 0;
 static pthread_mutex_t g_tracking_mutex = PTHREAD_MUTEX_INITIALIZER;
 static vrmc_tracking_state g_tracking_override;
 static int g_has_tracking_override = 0;
+/* Pose timestamp (vrmc_tracking_state.presentation_time_ns) of the tracking state most recently
+ * handed to the provider. The provider renders a frame from the pose it read at the start of that
+ * frame, so the next eye publish is stamped with this value; the compositor then tells visionOS which
+ * head pose the picture belongs to, and the system reprojects it to the display pose. Without the
+ * stamp every frame was presented as if it matched the newest head pose, so head rotation judders. */
+static _Atomic uint64_t g_served_pose_time_ns = 0;
 
 /* Display views: written by the compositor thread, read by the JVM render thread. */
 static pthread_mutex_t g_display_views_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -114,12 +121,15 @@ int32_t vrmc_get_tracking(vrmc_tracking_state *out, uint64_t timestamp_ns) {
     pthread_mutex_lock(&g_tracking_mutex);
     if (g_has_tracking_override) {
         *out = g_tracking_override;
+        atomic_store(&g_served_pose_time_ns, g_tracking_override.presentation_time_ns);
         pthread_mutex_unlock(&g_tracking_mutex);
         return 0;
     }
-    pthread_mutex_unlock(&g_tracking_mutex);
-    g_tracking.presentation_time_ns = timestamp_ns;
+    /* Fallback stub pose: copy first (the old code wrote the caller's timestamp into the shared
+     * global without the lock). */
     *out = g_tracking;
+    pthread_mutex_unlock(&g_tracking_mutex);
+    out->presentation_time_ns = timestamp_ns;
     return 0;
 }
 
@@ -153,6 +163,9 @@ static int32_t publish_eyes_locked(const vrmc_eye_targets *targets, const vrmc_s
     vrmc_shared_eye_frame frame;
     memset(&frame, 0, sizeof(frame));
     frame.eyes = *targets;
+    if (frame.eyes.presentation_deadline_ns == 0) {
+        frame.eyes.presentation_deadline_ns = (int64_t)atomic_load(&g_served_pose_time_ns);
+    }
     if (sync != NULL && sync->valid != 0) {
         frame.sync = *sync;
         frame.sync.valid = 1;
