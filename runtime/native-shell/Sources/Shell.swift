@@ -585,6 +585,9 @@ final class ShellCoordinator {
     }
     /// Cancels the wait-for-first-game-frame task when the game stops or a new one starts.
     @ObservationIgnored private var gameOpenTask: Task<Void, Never>?
+    /// VR was turned off from inside the game (game still running): waits for the provider's next
+    /// frame after VR is turned back on and re-enters VR.
+    @ObservationIgnored private var vrResumeTask: Task<Void, Never>?
     /// Set when the immersive session was ended by backgrounding/resigning; cleared once reopened.
     @ObservationIgnored private var reopenOnActive = false
     /// The app went to the background since the last activation (headset sleep / removed).
@@ -1018,6 +1021,7 @@ final class ShellCoordinator {
 
     private func gameDidStart() {
         shellLog("VRMCGameStarted received")
+        vrResumeTask?.cancel(); vrResumeTask = nil
         gameStarted = true
         writeSessionState("running")
         statusMessage = "Starting Minecraft…"
@@ -1302,11 +1306,21 @@ final class ShellCoordinator {
     /// Game provider teardown (or the compositor's eyes-lost fallback): stop presenting the immersive
     /// space and return to the launcher instead of leaving a stale test-pattern scene and beeping.
     private func gameDidStop(reason: String) {
-        shellLog("VRMCGameStopped received reason=\(reason) gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
+        let vrState = Self.providerVRState()
+        shellLog("VRMCGameStopped received reason=\(reason) vrState=\(vrState ?? "none") gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
         gameOpenTask?.cancel(); gameOpenTask = nil
         clearAutoOpenPending()
-        gameStarted = false
-        writeSessionState("ended")
+        // VR turned off from inside the game (Vivecraft's VR toggle): the game keeps running, so do
+        // not treat it as ended; close the immersive space and come back by itself when VR is
+        // turned on again (1.4.0 report: re-enabling VR looked like a crash).
+        let vrOffOnly = vrState == "off" && (gameStarted || vrResumeTask != nil)
+        if vrOffOnly {
+            startVRResumeWatch()
+        } else {
+            vrResumeTask?.cancel(); vrResumeTask = nil
+            gameStarted = false
+            writeSessionState("ended")
+        }
         wantsImmersive = false
         reopenOnActive = false
         autoRetries = 0
@@ -1323,12 +1337,41 @@ final class ShellCoordinator {
         needsDismiss = true
         immersiveOpen = false
         presenting = false
-        statusMessage = "Game ended"
-        setGameWindowsVisible(true, log: "window restored after game stop")
+        statusMessage = vrOffOnly ? "VR is off — turn VR on in Minecraft to come back" : "Game ended"
+        setGameWindowsVisible(true, log: vrOffOnly ? "window restored (VR turned off in game)" : "window restored after game stop")
         Task { [weak self] in
             guard let self else { return }
             if await self.dismissIfCurrent(myEpoch: myEpoch) {
                 self.shellLogSafe("immersive space dismissed after game stop epoch=\(myEpoch)")
+            }
+        }
+    }
+
+    /// The provider's VR state hand-off ("on", "off" = VR toggled off mid-game, "exit" = quitting).
+    nonisolated static func providerVRState() -> String? {
+        let url = SetupManager.gameDirectory().appendingPathComponent("vrmc-vr-state.txt")
+        return (try? String(contentsOf: url, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// While VR is off in a running game: re-enter VR once the provider publishes eye frames again
+    /// (VisionVR.destroy clears them; VisionVR.init + first frame publishes new ones).
+    private func startVRResumeWatch() {
+        vrResumeTask?.cancel()
+        statusMessage = "VR is off — turn VR on in Minecraft to come back"
+        shellLog("VR turned off in game; watching for VR to be turned back on")
+        vrResumeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            while !Task.isCancelled {
+                guard let self, self.gameStarted else { return }
+                if self.immersiveOpen || self.opening { self.vrResumeTask = nil; return }
+                if Self.providerVRState() == "exit" { return }
+                if Self.providerVRState() == "on" && VRMCCompositor_ProviderEyesReady() != 0 {
+                    self.shellLogSafe("VR turned back on in game; game frame ready, re-entering VR")
+                    self.vrResumeTask = nil
+                    self.openVR(reason: "vr-resumed")
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(500))
             }
         }
     }

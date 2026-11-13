@@ -466,6 +466,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         this.initialized = true;
         this.initSuccess = true;
         appendShutdownLog("init", "bridgeReady=" + this.bridgeReady + " abi=" + VrmcBridge.ABI_VERSION);
+        writeVrState("on");
         // Do NOT write the status document here: dh.vrPlayer/trackers are still being constructed during
         // VRState.initializeVR, and tracker queries (e.g. ClimbTracker.isClimbeyClimb) NPE until vrPlayer
         // exists. statusAutoWritePending writes it on the first update after init returns.
@@ -475,8 +476,16 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
 
     @Override
     public void destroy() {
+        // VR turned off from the game (Vivecraft's VR toggle) vs the game closing: Vivecraft tears VR
+        // down from exitWorldAndClose only after Minecraft.stop() cleared the running flag, while the
+        // toggle runs mid-game. The launcher reads this to keep the game "running, VR off" and to
+        // re-enter VR by itself when VR is turned back on (1.4.0 device report: re-enabling VR left
+        // the immersive space closed, which looked like a crash).
+        boolean gameExiting = this.mc == null || !this.mc.isRunning();
+        writeVrState(gameExiting ? "exit" : "off");
         appendShutdownLog("destroy-start", "bridgeReady=" + this.bridgeReady
-            + " displayViewsGen=" + this.displayViewsGen + " trackedFrames=" + this.trackedFrames);
+            + " displayViewsGen=" + this.displayViewsGen + " trackedFrames=" + this.trackedFrames
+            + " reason=" + (gameExiting ? "game-exit" : "vr-off"));
         // Shutdown ordering (M4 follow-up, EV-0096 defect): drop the eye-texture handles BEFORE the
         // renderer/VkImages are destroyed so the compositor cannot sample a freed MTLTexture.
         try {
@@ -578,6 +587,21 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
      * to distinguish a clean quit from a JVM crash (a crash leaves no destroy-complete line) and to
      * correlate the shell/game logs. Never throws into game code.
      */
+    /** Launcher hand-off: "on" after VR init, "off" when VR is turned off mid-game, "exit" on quit. */
+    private void writeVrState(String state) {
+        try {
+            File dir = this.mc == null ? null : this.mc.gameDirectory;
+            if (dir == null) return;
+            Path path = dir.toPath().resolve("vrmc-vr-state.txt");
+            Path tmp = dir.toPath().resolve("vrmc-vr-state.txt.tmp");
+            Files.writeString(tmp, state);
+            Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M6][WARN] could not write vrmc-vr-state.txt: " + t);
+        }
+    }
+
     private void appendShutdownLog(String event, String detail) {
         try {
             File dir = this.mc.gameDirectory;
