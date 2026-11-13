@@ -170,12 +170,42 @@ public final class VisionM7GestureTest {
         check("held right pinch release does not place", !h.place());
         check("held right pinch release clears break", !h.breakHeld());
 
-        // 349 ms places; 351 ms breaks (boundary regression, with a fresh engine each time).
+        // Past PLACE_MAX_NS (380 ms) a release does not place (boundary regression, fresh engine).
         VisionM7Gesture b349 = new VisionM7Gesture();
         long[] b1 = {1_400_000_000L};
-        for (int i = 0; i < 32; i++) step(b349, b1, l, r, true, true, 0.20F, 0.02F, false, false); // 352 ms
+        for (int i = 0; i < 37; i++) step(b349, b1, l, r, true, true, 0.20F, 0.02F, false, false); // 396 ms
         step(b349, b1, l, r, true, true, 0.20F, 0.20F, false, false);
         check("held pinch does not place after threshold", !b349.place());
+
+        // 1.3.6 device report: a short place pinch turned into a break with the fingers already apart.
+        // Relaxed fingers rest 2-4 cm apart - inside the fixed 4.5 cm release - so the pinch stayed
+        // held. The relative release ends it once the fingers open 1.5 cm past the closest point.
+        VisionM7Gesture rel = new VisionM7Gesture();
+        long[] rt = {1_600_000_000L};
+        for (int i = 0; i < 12; i++) step(rel, rt, l, r, true, true, 0.20F, 0.008F, false, false); // ~130 ms
+        step(rel, rt, l, r, true, true, 0.20F, 0.034F, false, false); // fingers apart, still < 0.045
+        check("opened fingers below the fixed release still release the pinch", rel.place());
+        for (int i = 0; i < 40; i++) step(rel, rt, l, r, true, true, 0.20F, 0.034F, false, false);
+        check("resting fingers after a place never become a break", !rel.breakHeld());
+
+        // A firm pinch with small tracking noise (+/- 4 mm) stays held and breaks.
+        VisionM7Gesture noisy = new VisionM7Gesture();
+        long[] nt = {1_700_000_000L};
+        for (int i = 0; i < 40; i++) {
+            step(noisy, nt, l, r, true, true, 0.20F, (i % 2 == 0) ? 0.008F : 0.016F, false, false);
+        }
+        check("noisy firm pinch stays held and breaks", noisy.breakHeld());
+        check("noisy firm pinch does not place", !noisy.place());
+
+        // Release threshold math: never below on + band, never above the fixed off threshold.
+        VisionM7Gesture th = new VisionM7Gesture();
+        check("release min band", Math.abs(th.pinchReleaseDistance(0.002F)
+            - (VisionM7Gesture.PINCH_ON + VisionM7Gesture.PINCH_RELEASE_MIN_BAND)) < 1e-6F);
+        check("release relative", Math.abs(th.pinchReleaseDistance(0.020F) - 0.035F) < 1e-6F);
+        check("release capped at off", Math.abs(th.pinchReleaseDistance(0.040F)
+            - VisionM7Gesture.PINCH_OFF) < 1e-6F);
+        check("release without a minimum uses off", Math.abs(th.pinchReleaseDistance(Float.NaN)
+            - VisionM7Gesture.PINCH_OFF) < 1e-6F);
 
         // Single-frame pinch jitter is rejected by the debounce.
         VisionM7Gesture jitter = new VisionM7Gesture();

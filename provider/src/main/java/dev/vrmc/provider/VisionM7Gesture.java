@@ -10,7 +10,7 @@ package dev.vrmc.provider;
  *
  * <p>Operator mapping (docs/mvp/M7_GESTURES.md):
  * <ul>
- *   <li>short right pinch (&lt;350 ms) = place/select; held right pinch (&ge;350 ms) = break/mine;</li>
+ *   <li>short right pinch (&lt;380 ms) = place/select; held right pinch (&ge;380 ms) = break/mine;</li>
  *   <li>left pinch hold = teleport aim, release commits; left fist tap = Escape/menu (also in GUI);</li>
  *   <li>right fist tap = use/interact (mount boat, doors, buttons) without the attack path;</li>
  *   <li>both-fist short tap (&lt;450 ms) = inventory; both fists + alternating swing = walk forward;</li>
@@ -83,8 +83,17 @@ public final class VisionM7Gesture {
     // ---- data-fitted defaults (override via vrmc-input-tune.properties, see M7_ENGINE.md) ----
     /** Thumb-index pinch entry distance (m). Recorded intentional pinches: p05 0.006-0.007 m. */
     public static final float PINCH_ON = 0.025F;
-    /** Pinch release distance (m); Schmitt hysteresis to stop threshold chatter. */
+    /** Pinch release distance (m); Schmitt hysteresis to stop threshold chatter (upper bound). */
     public static final float PINCH_OFF = 0.045F;
+    /**
+     * Relative release: a pinch also ends once the fingers open this far past the closest distance
+     * reached during the pinch (but never below PINCH_ON + PINCH_RELEASE_MIN_BAND). 1.3.6 device
+     * report: "short pinch to place starts breaking even with my fingers apart" - relaxed fingers
+     * after a pinch rest 2-4 cm apart, inside the old fixed 4.5 cm release, so the pinch stayed held
+     * past PLACE_MAX_NS and became a break.
+     */
+    public static final float PINCH_RELEASE_RISE = 0.015F;
+    public static final float PINCH_RELEASE_MIN_BAND = 0.005F;
     public static final long PINCH_DEBOUNCE_NS = 20_000_000L;
     public static final long PINCH_ARM_NS = 60_000_000L;
     /**
@@ -106,7 +115,7 @@ public final class VisionM7Gesture {
      */
     public static final float FIST_OFF = 0.65F;
     /** Short right pinch below this duration places/selects; at or above it breaks/mines. */
-    public static final long PLACE_MAX_NS = 320_000_000L;
+    public static final long PLACE_MAX_NS = 380_000_000L;
     public static final long INVENTORY_TAP_MAX_NS = 450_000_000L;
     public static final long LEFT_FIST_TAP_MIN_NS = 60_000_000L;
     /** Recorded left-fist taps (Escape) ran 0.11-0.56 s; other left holds are longer and cannot fire. */
@@ -298,6 +307,8 @@ public final class VisionM7Gesture {
 
     // ---- pinch (debounced + armed, Schmitt trigger) ----
     private boolean rawPinchL, rawPinchR;
+    /** Closest thumb-index distance of the current raw pinch (relative release reference). */
+    private float pinchMinL = Float.NaN, pinchMinR = Float.NaN;
     private boolean pinchPressedL, pinchPressedR;
     private boolean pinchArmedL = true, pinchArmedR = true;
     private long pinchRawSinceL, pinchRawSinceR;
@@ -1019,7 +1030,20 @@ public final class VisionM7Gesture {
             raw = false;
         } else {
             boolean wasRaw = left ? this.rawPinchL : this.rawPinchR;
-            raw = wasRaw ? distance < this.pinchOff : distance < this.pinchOn;
+            if (wasRaw) {
+                float min = left ? this.pinchMinL : this.pinchMinR;
+                raw = distance < pinchReleaseDistance(min);
+            } else {
+                raw = distance < this.pinchOn;
+            }
+        }
+        if (raw) {
+            boolean wasRaw = left ? this.rawPinchL : this.rawPinchR;
+            float min = left ? this.pinchMinL : this.pinchMinR;
+            float next = wasRaw && Float.isFinite(min) ? Math.min(min, distance) : distance;
+            if (left) this.pinchMinL = next; else this.pinchMinR = next;
+        } else {
+            if (left) this.pinchMinL = Float.NaN; else this.pinchMinR = Float.NaN;
         }
         boolean pressed = left ? this.pinchPressedL : this.pinchPressedR;
         boolean armed = left ? this.pinchArmedL : this.pinchArmedR;
@@ -1099,6 +1123,16 @@ public final class VisionM7Gesture {
             if (lost) this.pinchLostR = true;
         }
         return pressed && (handReady || guiOpen);
+    }
+
+    /**
+     * Release distance for a pinch whose closest point so far was {@code minDistance}: the fixed
+     * Schmitt upper bound, or earlier once the fingers clearly opened (see PINCH_RELEASE_RISE).
+     */
+    float pinchReleaseDistance(float minDistance) {
+        if (!Float.isFinite(minDistance)) return this.pinchOff;
+        float relative = Math.max(this.pinchOn + PINCH_RELEASE_MIN_BAND, minDistance + PINCH_RELEASE_RISE);
+        return Math.min(this.pinchOff, relative);
     }
 
     private void normalizeHeadBasis(float rx, float ry, float rz, float fx, float fy, float fz) {
@@ -1334,6 +1368,7 @@ public final class VisionM7Gesture {
         this.fistL = false; this.fistR = false;
         this.prevFistL = false; this.prevFistR = false;
         this.rawPinchL = false; this.rawPinchR = false;
+        this.pinchMinL = Float.NaN; this.pinchMinR = Float.NaN;
         this.pinchPressedL = false; this.pinchPressedR = false;
         this.pinchArmedL = true; this.pinchArmedR = true;
         this.pinchRawSinceL = 0L; this.pinchRawSinceR = 0L;

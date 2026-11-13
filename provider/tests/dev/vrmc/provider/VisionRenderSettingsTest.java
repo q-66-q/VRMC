@@ -155,6 +155,29 @@ public final class VisionRenderSettingsTest {
         check("auto scale ignores empty window", Math.abs(
             VisionRenderSettings.nextAutoScale(base, 0, 0, 0.0, 11.111) - base) < 1e-5);
 
+        // ---- 1.3.7: display-paced frames + loading-time decisions ---------------------------------
+        // Device trace 1.3.6: interval p50 11.10-11.14 ms at 90 Hz all session -> never raised.
+        double h = VisionRenderSettings.headroomMs(0, 11.12, 5.8, 11.111);
+        check("paced frames with light render work show headroom", !Double.isNaN(h) && h == 5.8);
+        check("paced headroom raises the scale", VisionRenderSettings.nextAutoScale(0.35f, 0, 240, h,
+            11.111) > 0.35f);
+        check("paced frames with heavy render work show no headroom",
+            Double.isNaN(VisionRenderSettings.headroomMs(0, 11.12, 9.0, 11.111)));
+        check("missed frames never count as headroom",
+            Double.isNaN(VisionRenderSettings.headroomMs(5, 11.12, 4.0, 11.111)));
+        check("unpaced fast frames keep the interval as headroom",
+            VisionRenderSettings.headroomMs(0, 8.0, Double.NaN, 11.111) == 8.0);
+        check("slow interval is not headroom even with a light busy time",
+            Double.isNaN(VisionRenderSettings.headroomMs(0, 13.0, 4.0, 11.111)));
+        check("no busy samples is no headroom on paced frames",
+            Double.isNaN(VisionRenderSettings.headroomMs(0, 11.12, Double.NaN, 11.111)));
+        check("no adaptation before a world is loaded (title screen / loading)",
+            !VisionRenderSettings.adaptAllowed(false, -1L));
+        check("no adaptation in the first seconds of a world",
+            !VisionRenderSettings.adaptAllowed(true, VisionRenderSettings.MIN_LEVEL_STABLE_FRAMES - 1));
+        check("adaptation once the world is stable",
+            VisionRenderSettings.adaptAllowed(true, VisionRenderSettings.MIN_LEVEL_STABLE_FRAMES));
+
         // ---- resize safety policy (world load / menu room / warm-up) -------------------------------
         check("no resize during session warm-up",
             !VisionRenderSettings.canResizeNow(true, 500L, true, VisionRenderSettings.MIN_RESIZE_FRAME - 1));

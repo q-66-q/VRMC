@@ -77,6 +77,39 @@ public final class VisionRenderSettings {
     /** A loaded world must be stable this long before a resize may rebuild every render target. */
     /** ~7 s at 90 Hz: chunk loading right after joining a world is not a resolution problem. */
     public static final long MIN_LEVEL_STABLE_FRAMES = 600L;
+    /**
+     * Frames are paced to the display (1.3.6 device trace: interval p50 11.10-11.14 ms at 90 Hz for a
+     * whole session), so the interval can never show headroom and the policy never raised the scale
+     * again after a drop. A raise is judged on the provider's render work time (poll -> endFrame)
+     * instead: its p95 must fit well inside the frame budget.
+     */
+    public static final double BUSY_HEADROOM_FRACTION = 0.70;
+    /** After a struggling window the scale may not climb back above the struggling level for ~3 min. */
+    public static final int STRUGGLE_CEILING_WINDOWS = 75;
+
+    /**
+     * The auto policy only learns from representative frames: a loaded world that has been stable for
+     * {@link #MIN_LEVEL_STABLE_FRAMES}. 1.3.6 device log: world loading (22 ms frames on a placeholder
+     * 1024x1024 target) drove the scale 0.50 -> 0.35 before the real eye targets even existed.
+     */
+    public static boolean adaptAllowed(boolean levelLoaded, long framesSinceLevelLoad) {
+        return levelLoaded && framesSinceLevelLoad >= MIN_LEVEL_STABLE_FRAMES;
+    }
+
+    /**
+     * Headroom figure for a raise decision: the frame interval when frames are not display-paced,
+     * otherwise the render work time p95 (scaled so the {@link #nextAutoScale} 0.85/0.75 thresholds
+     * map onto {@link #BUSY_HEADROOM_FRACTION}). Returns NaN when there is no headroom evidence.
+     */
+    public static double headroomMs(int missedFrames, double intervalP50Ms, double busyP95Ms,
+                                     double targetIntervalMs) {
+        if (!(targetIntervalMs > 0.0) || missedFrames > 1) return Double.NaN;
+        if (intervalP50Ms > 0.0 && intervalP50Ms < targetIntervalMs * 0.85) return intervalP50Ms;
+        if (!(intervalP50Ms > 0.0) || intervalP50Ms > targetIntervalMs * 1.05) return Double.NaN;
+        if (!(busyP95Ms > 0.0) || busyP95Ms >= targetIntervalMs * BUSY_HEADROOM_FRACTION) return Double.NaN;
+        // busy p95 < 0.70 x budget reads as "strong headroom" (< 0.75) in nextAutoScale.
+        return busyP95Ms;
+    }
 
     public final boolean valid;
     public final int frameIndex;

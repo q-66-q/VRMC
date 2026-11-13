@@ -71,6 +71,14 @@ public class VisionRenderer extends VRRenderer {
     private final java.nio.ByteBuffer renderSettingsBuffer =
         java.nio.ByteBuffer.allocateDirect(VrmcBridge.RENDER_SETTINGS_BYTES).order(java.nio.ByteOrder.LITTLE_ENDIAN);
     private final VisionFrameStats renderFrameStats = new VisionFrameStats(240);
+    /** Render work time per frame (VR poll -> endFrame), excluding the display-pacing wait. */
+    private final VisionFrameStats renderBusyStats = new VisionFrameStats(240);
+    private long polledNanos;
+    private double lastBusyP50Ms;
+    private double lastBusyP95Ms;
+    /** Scale ceiling after a struggling window (see VisionRenderSettings.STRUGGLE_CEILING_WINDOWS). */
+    private float struggleCeiling = VisionRenderSettings.MAX_SCALE;
+    private int struggleCeilingWindows;
     private long lastFrameNanos;
     private VisionRenderSettings renderSettings = VisionRenderSettings.none();
     private boolean loggedRenderSettings;
@@ -246,7 +254,13 @@ public class VisionRenderer extends VRRenderer {
     @Override
     public void endFrame() {
         final long frameNanos = System.nanoTime();
-        if (this.lastFrameNanos != 0L) this.renderFrameStats.record(frameNanos - this.lastFrameNanos);
+        if (this.lastFrameNanos != 0L) {
+            this.renderFrameStats.record(frameNanos - this.lastFrameNanos);
+            // Only a poll inside this frame is a valid start point for the work time.
+            if (this.polledNanos > this.lastFrameNanos) {
+                this.renderBusyStats.record(frameNanos - this.polledNanos);
+            }
+        }
         this.lastFrameNanos = frameNanos;
         // Track when a world level first becomes available; eye-target resizes are held back until the
         // world has been stable for a moment (see VisionRenderSettings.canResizeNow).
@@ -385,13 +399,15 @@ public class VisionRenderer extends VRRenderer {
             System.out.println(String.format(java.util.Locale.ROOT,
                 "[VRMC-M8] render state frame=%d eyeTarget=%dx%d logical=%dx%d drawable=%dx%d "
                     + "foveation=%d rateMaps=%d displayHz=%.1f target=%d(%s) quality=%.2f/%.2f "
-                    + "scale=%.2f(%s) resizes=%d contentFirst=%d(%d)",
+                    + "scale=%.2f(%s) resizes=%d contentFirst=%d(%d) busyP50=%.2fms busyP95=%.2fms "
+                    + "ceiling=%.2f",
                 this.frameIndex, this.currentEyeWidth, this.currentEyeHeight,
                 rs.leftLogicalWidth, rs.leftLogicalHeight, rs.drawableWidth, rs.drawableHeight,
                 rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz, this.targetHzOverride,
                 this.targetHzSource, rs.renderQuality, rs.maxRenderQuality, this.eyeScale,
                 this.eyeScaleSource, this.eyeResizeCount,
-                this.contentGovernor.enabled() ? 1 : 0, this.contentGovernor.reductions()));
+                this.contentGovernor.enabled() ? 1 : 0, this.contentGovernor.reductions(),
+                this.lastBusyP50Ms, this.lastBusyP95Ms, this.struggleCeiling));
         } else if (!this.loggedM8State) {
             this.loggedM8State = true;
             System.out.println("[VRMC-M8] render state: no display feedback yet (compositor immersive "
@@ -802,10 +818,24 @@ public class VisionRenderer extends VRRenderer {
         final double targetMs = VisionRenderSettings.targetIntervalMsFor(settings.displayHz,
             this.targetHzOverride);
         VisionFrameStats.Snapshot stats = this.renderFrameStats.snapshotAndReset(targetMs);
+        VisionFrameStats.Snapshot busy = this.renderBusyStats.snapshotAndReset(targetMs);
+        this.lastBusyP50Ms = busy.p50Ms;
+        this.lastBusyP95Ms = busy.p95Ms;
         if (stats.samples <= 0) return;
+        final boolean levelLoadedNow = this.levelLoadedFrame >= 0L;
+        if (!VisionRenderSettings.adaptAllowed(levelLoadedNow,
+            levelLoadedNow ? this.frameIndex - this.levelLoadedFrame : -1L)) {
+            // Loading / menu room / fresh world: frames are IO/CPU bound and not representative of the
+            // resolution cost. Record the window for the trace but never adapt from it.
+            appendTraceRow(settings, stats);
+            this.headroomWindows = 0;
+            return;
+        }
         final boolean struggling = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
             || stats.p50Ms > targetMs * 1.25;
-        final boolean headroom = stats.missedTargetFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
+        final double headroomMs = VisionRenderSettings.headroomMs(stats.missedTargetFrames, stats.p50Ms,
+            busy.samples > 0 ? busy.p95Ms : Double.NaN, targetMs);
+        final boolean headroom = !Double.isNaN(headroomMs);
         // Content-first pressure: broader than the resolution policy's "struggling" (any window
         // materially over budget counts), so scene cost is cut before resolution when frames drift
         // above the target; the governor also decays pressure instead of hard-resetting, so an
@@ -870,18 +900,25 @@ public class VisionRenderer extends VRRenderer {
             this.raiseHoldWindows = 3;
             return;
         }
+        if (this.struggleCeilingWindows > 0 && --this.struggleCeilingWindows == 0) {
+            this.struggleCeiling = VisionRenderSettings.MAX_SCALE;
+        }
         if (struggling) {
             this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale,
                 stats.missedTargetFrames, stats.samples, stats.p50Ms, targetMs);
+            // Do not climb straight back into the level that just struggled (resize oscillation).
+            this.struggleCeiling = Math.max(VisionRenderSettings.AUTO_MIN_SCALE,
+                previous - VisionRenderSettings.AUTO_STEP_UP);
+            this.struggleCeilingWindows = VisionRenderSettings.STRUGGLE_CEILING_WINDOWS;
             this.headroomWindows = 0;
             this.raiseHoldWindows = 3;
         } else if (this.raiseHoldWindows > 0) {
             this.raiseHoldWindows--;
-        } else if (headroom) {
+        } else if (headroom && this.eyeScale < this.struggleCeiling - 1.0e-3f) {
             this.headroomWindows++;
             if (this.headroomWindows >= 2) {
-                this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale, 0, stats.samples,
-                    stats.p50Ms, targetMs);
+                this.eyeScale = Math.min(this.struggleCeiling, VisionRenderSettings.nextAutoScale(
+                    this.eyeScale, 0, stats.samples, headroomMs, targetMs));
                 this.headroomWindows = 0;
                 this.raiseHoldWindows = 1;
             }
@@ -891,9 +928,10 @@ public class VisionRenderer extends VRRenderer {
         if (Math.abs(this.eyeScale - previous) > 1.0e-3f) {
             System.out.println(String.format(java.util.Locale.ROOT,
                 "[VRMC-M8] eye scale auto: %.2f -> %.2f (displayHz=%.1f target=%.2fms %s p50=%.2fms "
-                    + "p95=%.2fms missed=%d/%d)", previous, this.eyeScale, settings.displayHz,
-                targetMs, this.targetHzSource, stats.p50Ms, stats.p95Ms,
-                stats.missed90HzFrames, stats.samples));
+                    + "p95=%.2fms busyP50=%.2fms busyP95=%.2fms missed=%d/%d ceiling=%.2f)", previous,
+                this.eyeScale, settings.displayHz, targetMs, this.targetHzSource, stats.p50Ms,
+                stats.p95Ms, busy.p50Ms, busy.p95Ms, stats.missed90HzFrames, stats.samples,
+                this.struggleCeiling));
         }
     }
 
@@ -1056,6 +1094,7 @@ public class VisionRenderer extends VRRenderer {
 
     void markPolled() {
         this.polled = true;
+        this.polledNanos = System.nanoTime();
     }
 
     @Override public boolean providesStencilMask() { return false; }
