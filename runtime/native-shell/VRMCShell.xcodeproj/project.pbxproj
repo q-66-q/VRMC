@@ -10,6 +10,7 @@
 		7ADDED1C3D711FA6D5AE440B /* Bridging.h in Headers */ = {isa = PBXBuildFile; fileRef = DF3C0959A56AD270F1FA0EBA /* Bridging.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		96FDCFBD009A7638240CA001 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D75242DDCE3380BD8191C58 /* Shell.swift */; };
 		B99A916CF9480C882EB81864 /* VRMCCompositor.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5E810E9AF2CBF82102BE18F5 /* VRMCCompositor.mm */; };
+		EEDDD4E3DDDE5D9045DE597F /* ModProvisioner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66FF966EBE70C87A81F70DB /* ModProvisioner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -17,6 +18,7 @@
 		15692F703D900A7AF2106912 /* VRMCShell.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = VRMCShell.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E810E9AF2CBF82102BE18F5 /* VRMCCompositor.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = VRMCCompositor.mm; sourceTree = "<group>"; };
 		DF3C0959A56AD270F1FA0EBA /* Bridging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Bridging.h; sourceTree = "<group>"; };
+		E66FF966EBE70C87A81F70DB /* ModProvisioner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModProvisioner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -40,6 +42,7 @@
 			isa = PBXGroup;
 			children = (
 				DF3C0959A56AD270F1FA0EBA /* Bridging.h */,
+				E66FF966EBE70C87A81F70DB /* ModProvisioner.swift */,
 				0D75242DDCE3380BD8191C58 /* Shell.swift */,
 				5E810E9AF2CBF82102BE18F5 /* VRMCCompositor.mm */,
 			);
@@ -117,6 +120,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EEDDD4E3DDDE5D9045DE597F /* ModProvisioner.swift in Sources */,
 				96FDCFBD009A7638240CA001 /* Shell.swift in Sources */,
 				B99A916CF9480C882EB81864 /* VRMCCompositor.mm in Sources */,
 			);

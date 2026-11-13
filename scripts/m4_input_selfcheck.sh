@@ -73,7 +73,7 @@ run provider-build env OUT_DIR="$OUT/provider" "$ROOT/scripts/build_provider.sh"
 
 step "4/5 provider JVM tests (+ cross-language fixture contract)"
 if [ -f "$FIXTURE" ]; then
-  run provider-tests env PROVIDER_OUT="$OUT/provider" VRMC_INPUT_FIXTURE="$FIXTURE" VRMC_INPUT_FIXTURE_FRAMES="$FIXTURE.frames" "$ROOT/provider/tests/run_tests.sh"
+  run provider-tests env VRMC_REQUIRE_GAME_CP=1 PROVIDER_OUT="$OUT/provider" VRMC_INPUT_FIXTURE="$FIXTURE" VRMC_INPUT_FIXTURE_FRAMES="$FIXTURE.frames" "$ROOT/provider/tests/run_tests.sh"
 else
   failed "provider-tests (no fixture generated in step 2)"
 fi

@@ -21,6 +21,9 @@
 #   DEVICE      UDID expected in the profile    (default ${VRMC_DEVICE_UDID:-}; '' to skip)
 #   ALLOW_PLATFORM_MISMATCH=1   skip the visionOS (platform 11) check on framework/dylib
 #   DRY_RUN=1   print the plan, change nothing
+#   PROVIDER_JAR  provider jar to embed at <app>/vrmc/vrmc-provider.jar for launcher auto-provisioning
+#                 (default: \$OUT_DIR-style /tmp/vrmc-provider-build/vrmc-provider.jar when present;
+#                  PROVIDER_JAR='' embeds nothing and the shell reports provider "noBundle")
 #   VRMC_KEEP_JRE=25  optional experimental: prune other bundled java-*-openjdk runtimes from the
 #                     staged app (reduces bundle size; device launch behavior NOT yet validated)
 set -euo pipefail
@@ -35,6 +38,10 @@ BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
 DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
 ALLOW_PLATFORM_MISMATCH="${ALLOW_PLATFORM_MISMATCH:-0}"
 DRY_RUN="${DRY_RUN:-0}"
+if [ -z "${PROVIDER_JAR+set}" ] && [ -f /tmp/vrmc-provider-build/vrmc-provider.jar ]; then
+  PROVIDER_JAR=/tmp/vrmc-provider-build/vrmc-provider.jar
+fi
+PROVIDER_JAR="${PROVIDER_JAR:-}"
 TMP="$(mktemp -d /tmp/vrmc-stage.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -204,6 +211,34 @@ if [ "$DRY_RUN" != "1" ]; then
   fi
 fi
 run cp "$PROFILE" "$DEST_APP/embedded.mobileprovision"
+
+# --- 2b. launcher auto-provisioning payload (ModProvisioner.swift) ------------------------------
+# <app>/vrmc/vrmc-provider.jar is installed/upgraded into instances/default/mods on first launch;
+# <app>/vrmc/provisioning.json carries the Vivecraft pin from versions.env. Both sit inside the
+# sealed bundle, so they are covered by the app signature below.
+if [ -n "$PROVIDER_JAR" ]; then
+  [ -f "$PROVIDER_JAR" ] || die "PROVIDER_JAR not found: $PROVIDER_JAR"
+  unzip -l "$PROVIDER_JAR" fabric.mod.json >/dev/null 2>&1 || die "PROVIDER_JAR has no fabric.mod.json: $PROVIDER_JAR"
+  run mkdir -p "$DEST_APP/vrmc"
+  run cp "$PROVIDER_JAR" "$DEST_APP/vrmc/vrmc-provider.jar"
+  note "provider jar embedded for auto-provisioning: sha256 $(shasum -a 256 "$PROVIDER_JAR" | awk '{print $1}')"
+else
+  note "no PROVIDER_JAR: the app will not auto-install the provider (dev pushes still work)"
+fi
+# shellcheck disable=SC1091
+VIVECRAFT_VERSION=$(. "$ROOT/versions.env"; echo "$VIVECRAFT_VERSION")
+VIVECRAFT_JAR_SHA256=$(. "$ROOT/versions.env"; echo "$VIVECRAFT_JAR_SHA256")
+if [ "$DRY_RUN" != "1" ]; then
+  mkdir -p "$DEST_APP/vrmc"
+  printf '{"vivecraftFileName":"vivecraft-%s-fabric.jar","vivecraftSha256":"%s"}\n' \
+    "$VIVECRAFT_VERSION" "$VIVECRAFT_JAR_SHA256" > "$DEST_APP/vrmc/provisioning.json"
+  # Expose Documents in the Files app so users can drop the Vivecraft jar there (idempotent).
+  for key in UIFileSharingEnabled LSSupportsOpeningDocumentsInPlace; do
+    /usr/libexec/PlistBuddy -c "Set :$key true" "$DEST_APP/Info.plist" 2>/dev/null \
+      || /usr/libexec/PlistBuddy -c "Add :$key bool true" "$DEST_APP/Info.plist"
+  done
+  note "provisioning manifest: vivecraft-$VIVECRAFT_VERSION-fabric.jar pin ${VIVECRAFT_JAR_SHA256:0:12}…; Files-app sharing on"
+fi
 
 # --- 3. re-sign: every Mach-O file, then every nested framework bundle, then the app bundle ----
 if [ "$DRY_RUN" = "1" ]; then

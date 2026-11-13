@@ -112,9 +112,11 @@ private func shellRuntimeSettingsURL() -> URL {
         .appendingPathComponent("vrmc-runtime.properties")
 }
 
-private func shellReadRuntimeSettings() -> [String: String] {
+/// Minimal `key=value` .properties reader shared by the launcher-owned settings files: skips blank,
+/// `#` and `!` comment lines and lines without `=`; later duplicates win (java.util.Properties order).
+private func shellReadProperties(_ url: URL) -> [String: String] {
     var values: [String: String] = [:]
-    guard let text = try? String(contentsOf: shellRuntimeSettingsURL(), encoding: .utf8) else { return values }
+    guard let text = try? String(contentsOf: url, encoding: .utf8) else { return values }
     for line in text.split(whereSeparator: \.isNewline) {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty || trimmed.hasPrefix("#") || trimmed.hasPrefix("!") { continue }
@@ -124,6 +126,10 @@ private func shellReadRuntimeSettings() -> [String: String] {
         if !key.isEmpty { values[key] = value }
     }
     return values
+}
+
+private func shellReadRuntimeSettings() -> [String: String] {
+    return shellReadProperties(shellRuntimeSettingsURL())
 }
 
 /// Queue an M5 provider command (recenter / calibrate-height / reload-settings / diag / status).
@@ -193,6 +199,8 @@ private func shellBuildDiagnosticsBundle() -> URL? {
     let providerJar = game.appendingPathComponent("mods/vrmc-provider.jar")
     let providerHash = shellFileSHA256(providerJar).map { String($0.prefix(32)) } ?? "missing"
     text += "providerJarSha256Prefix=\(providerHash) path=\(providerJar.path)\n"
+    let provisioning = ShellProvisioning.lastReport ?? ShellProvisioning.run()
+    for line in provisioning.lines { text += "provisioning: \(line)\n" }
     text += "note=fully local; contains logs and runtime settings only, no telemetry\n\n"
     for (name, url, cap) in entries {
         text += "===== \(name): \(url.lastPathComponent) =====\n"
@@ -262,17 +270,7 @@ private func shellInputTuneURL() -> URL {
 }
 
 private func shellReadInputTune() -> [String: String] {
-    var values: [String: String] = [:]
-    guard let text = try? String(contentsOf: shellInputTuneURL(), encoding: .utf8) else { return values }
-    for line in text.split(whereSeparator: \.isNewline) {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty || trimmed.hasPrefix("#") || trimmed.hasPrefix("!") { continue }
-        guard let eq = trimmed.firstIndex(of: "=") else { continue }
-        let key = String(trimmed[..<eq]).trimmingCharacters(in: .whitespaces)
-        let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
-        if !key.isEmpty { values[key] = value }
-    }
-    return values
+    return shellReadProperties(shellInputTuneURL())
 }
 
 @discardableResult
@@ -387,6 +385,33 @@ private func rotateSessionLog(_ name: String, prev: String) {
     }
 }
 
+/// Launcher mod auto-provisioning (ModProvisioner.swift): bundled provider install/upgrade and
+/// hash-verified Vivecraft import. The latest report feeds the launcher's Mods panel and diagnostics.
+enum ShellProvisioning {
+    private(set) static var lastReport: ModProvisionReport?
+    private(set) static var vivecraftFileName = ModProvisioningManifest.builtIn.vivecraftFileName
+
+    static func makeProvisioner() -> ModProvisioner {
+        let docs = shellDocumentsURL()
+        let bundleDir = Bundle.main.bundleURL.appendingPathComponent("vrmc")
+        return ModProvisioner(
+            documentsDir: docs,
+            modsDir: docs.appendingPathComponent("instances/default/mods"),
+            bundledProvider: bundleDir.appendingPathComponent(ModProvisioner.providerFileName),
+            manifest: ModProvisioningManifest.load(from: bundleDir.appendingPathComponent("provisioning.json")),
+            log: shellLog)
+    }
+
+    @discardableResult
+    static func run() -> ModProvisionReport {
+        let provisioner = makeProvisioner()
+        let report = provisioner.run()
+        lastReport = report
+        vivecraftFileName = provisioner.manifest.vivecraftFileName
+        return report
+    }
+}
+
 @_cdecl("vrmc_shell_start")
 public func vrmcShellStart() -> Int32 {
     rotateSessionLog("vrmc-shell.log", prev: "vrmc-shell.prev.log")
@@ -395,6 +420,8 @@ public func vrmcShellStart() -> Int32 {
     shellLog("vrmc_shell_start invoked")
     // Must run before VRMCShellApp.main() so no autolaunch/on-launch flag survives this process.
     neutralizeDiagnosticFlagsIfRequested()
+    // Before the launcher UI exists, so the first game launch already sees a provisioned mods/ dir.
+    ShellProvisioning.run()
     VRMCShellApp.main()
     return 0
 }
@@ -1354,6 +1381,7 @@ struct VRControlOverlay: View {
     @State private var exportStatus = ""
     @State private var statusLine = ""
     @State private var diagnosticTail: [String] = []
+    @State private var modsReport: ModProvisionReport? = ShellProvisioning.lastReport
 
     private var acceptanceSummary: String {
         let pass = acceptanceItems.filter { $0.status == "PASS" }.count
@@ -1361,6 +1389,31 @@ struct VRControlOverlay: View {
         let partial = acceptanceItems.filter { $0.status == "PARTIAL" }.count
         let notRun = acceptanceItems.filter { $0.status == "NOT RUN" }.count
         return "PASS=\(pass) PARTIAL=\(partial) FAIL=\(fail) NOT RUN=\(notRun)"
+    }
+
+    /// Required-mods status: a green "ready" or orange "action needed" summary; expanding it shows the
+    /// per-mod lines and, when Vivecraft is absent/rejected, exactly what a fresh install must do.
+    @ViewBuilder private var modsPanel: some View {
+        if let report = modsReport {
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(report.lines.enumerated()), id: \.offset) { _, line in
+                        Text(line).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
+                            .lineLimit(3)
+                    }
+                    if !report.vivecraftPresent {
+                        Text("Vivecraft is not redistributed. Download \(ShellProvisioning.vivecraftFileName) from the Vivecraft project, save it to On My Apple Vision Pro > VRMC in the Files app (or AirDrop it), then tap Re-check.")
+                            .font(.caption2).foregroundStyle(.orange)
+                    }
+                    Button("Re-check mods") { modsReport = ShellProvisioning.run() }
+                        .font(.caption2).buttonStyle(.bordered)
+                }
+            } label: {
+                Text(report.ready ? "Mods: ready" : "Mods: action needed")
+                    .font(.caption).foregroundStyle(report.ready ? Color.green : Color.orange)
+            }
+            .font(.caption)
+        }
     }
 
     var body: some View {
@@ -1398,6 +1451,7 @@ struct VRControlOverlay: View {
             if !providerStatusLine.isEmpty {
                 Text(providerStatusLine).font(.caption2).foregroundStyle(.secondary)
             }
+            modsPanel
             if !diagnosticTail.isEmpty {
                 DisclosureGroup("Recent diagnostics") {
                     VStack(alignment: .leading, spacing: 1) {

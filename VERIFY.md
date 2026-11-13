@@ -5,7 +5,7 @@ release sign-off. Where it conflicts with `AGENT.md` on acceptance, this file wi
 **Last updated:** 2026-11-05.
 **Baseline commit:** `a96e13b` (repo reset; no product code).
 **Release candidate:** none.
-**Next evidence ID:** `EV-0298`.
+**Next evidence ID:** `EV-0299`.
 **Valid evidence:** only entries listed in §6. An ID cited elsewhere but absent from §6 is
 unallocated and must not be used.
 
@@ -6538,6 +6538,33 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 
 **Limitations:** Development/sideload package; not App Store. Caveats: K3 waiver, manual mod restore on fresh install, bow visual known bug.
 
+### EV-0298 — Launcher mod auto-provisioning (host) + provider pure-Java test mode
+
+| Field | Value |
+|---|---|
+| Date | 2026-11-12 |
+| Commit | base `31bd21b` + this change (branch `claude/project-enhancement-refactor-84d9ea`) |
+| Dirty state | n/a (recorded with the change) |
+| Device | none (host only) |
+| Host | Mac16,7 / Xcode 27.2 |
+| Status | `PARTIAL` (host PASS; device NOT RUN) |
+
+**Procedure:**
+
+1. `runtime/native-shell/tests/run_tests.sh` — compiles `Sources/ModProvisioner.swift` for macOS and runs the policy tests + `scripts/check_provisioning_pins.sh`
+2. mutation check: forcing the "installed == last provisioned" upgrade branch true must fail the suite
+3. `xcodebuild -scheme VRMCShell -destination generic/platform=visionOS CODE_SIGNING_ALLOWED=NO build`
+4. `provider/tests/run_tests.sh` on a host without the Minecraft 26.2 jar; `VRMC_REQUIRE_GAME_CP=1` variant
+5. `bridge/tests/run_tests.sh`; `scripts/m6_release_check.sh`
+
+**Expected:** provider jar installed/upgraded from the app bundle without ever overwriting a user-pushed jar; Vivecraft imported into `mods/` only on a sha256 match with `versions.env`; visionOS build clean; provider suite runs its pure-Java subset instead of aborting.
+
+**Actual:** shell suite ALL PASS (53 provisioning checks: fresh install, adopt identical jar, upgrade only when untouched, user-managed jar kept, reset flag, no bundle, Documents + Inbox import, tampered jar rejected/left in place, `TBD`/empty pin disables import, unverified installed jar kept, duplicate-jar warnings, manifest fallback/unsafe names; pin guard OK). Mutation run: 2 failures as intended. visionOS framework BUILD SUCCEEDED, 0 warnings in changed files. Provider suite: PURE-JAVA PASS (19 game-free sources; 30 test steps pass incl. m7-fuzz 200k frames / m4-fuzz 20k / settings+JSON fuzz 100k, render-settings C->Java fixture 23/23; 10 game-dependent steps explicitly SKIP); strict mode exits 1 as before. Bridge suite ALL PASS. Release check: new pin guard OK; provider reproducibility FAIL only because this host cannot build the provider (no MC jar), unchanged by this work.
+
+**Artifacts:** none bundled (host test logs only; rerun the commands above).
+
+**Limitations:** Not device evidence. The fresh-install flow on D1 (bundled provider auto-install, Files-app/AirDrop Vivecraft import, Mods panel) is NOT RUN; the next staged build must be produced with `PROVIDER_JAR` set. The tracked `runtime/native-shell/build/VRMCShell.framework` was not rebuilt (needs `scripts/build_shell.sh` with D1). The Vivecraft pin is the hash already published in README; no new jar was downloaded or hashed here. The full provider suite (game classpath) was not run on this host.
+
 ## 7. Status dashboard
 
 | Area | Status | Basis |
@@ -6830,6 +6857,7 @@ tracking polled 8400+ frames, no crash (operator-stopped), no SteamVR. First run
 | 2026-11-07 | **EV-0295 (`PARTIAL`, device): sRGB colour fix active** — hardware sRGB texture view confirmed, operator reported menu purple flash; sharpening still off (parse-order bug found later). |
 | 2026-11-07 | **EV-0296 (`PARTIAL`, device): final session with sharpening active** — A6 PASS, A7 PASS, A9 PASS, A8 PARTIAL 90 Hz; `sharpen=0.43` in feedback, 420 trace windows; operator: colour PASS, sharper PASS, boat PASS; known <1 s purple menu flash bug. |
 | 2026-11-07 | **EV-0297 (`PARTIAL`, device): fixes validated + platform limit + known bug** — 4K-class foveated rendering, sharpening, colour parity and boat mount/dismount work on D1 at the platform max 90 Hz (Apple doc: up to 90 frames a second for custom immersive Metal); purple menu flash recorded as known cosmetic bug; package rebuilt (zip f0943eab...). Next ID EV-0298. |
+| 2026-11-12 | **EV-0298 (`PARTIAL`, host): launcher mod auto-provisioning + provider pure-Java test mode** — shell `ModProvisioner` installs/upgrades the bundled provider (never overwrites a user-pushed jar; `vrmc-provider-reset.flag` restores), imports Vivecraft from Documents/Inbox only on a sha256 match with `versions.env` (pin filled from README), warns on duplicate jars; Mods panel + diagnostics lines; staging embeds `vrmc/vrmc-provider.jar` + `provisioning.json` and enables Files-app sharing. Shell host suite 53/53 + pin guard, visionOS build PASS; provider suite gains a labelled pure-Java mode (30 steps PASS, 10 SKIP) when the MC jar is absent. **Device NOT RUN.** Next ID `EV-0299`. |
 
 ---
 

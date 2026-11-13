@@ -95,19 +95,21 @@ Pro is required; the app must be signed for that device.
 
 1. Install the app (or unpack the development package).
 2. Open **StikDebug**, enable JIT for the app, then launch VRMC.
-3. The launcher creates the Minecraft/Fabric instance.
-4. **Fresh-install gap:** the launcher does not yet auto-provision Vivecraft or the VRMC provider.
-   Copy both jars into the instance:
-
-   ```
-   Documents/instances/default/mods/vivecraft-26.2-1.3.15-fabric.jar
-   Documents/instances/default/mods/vrmc-provider.jar
-   ```
-
-   The provider jar is included in the development package. Vivecraft is **not redistributed**;
-   obtain it from the Vivecraft project and verify:
-   `e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb`.
-
+3. The launcher creates the Minecraft/Fabric instance. On every start the shell **auto-provisions**
+   `Documents/instances/default/mods/` (`runtime/native-shell/Sources/ModProvisioner.swift`):
+   - **VRMC provider** — installed from the app bundle (`<app>/vrmc/vrmc-provider.jar`, embedded by
+     `scripts/stage_native_app.sh`) when missing, and upgraded when the app ships a newer one. A jar
+     you pushed yourself (`scripts/push_provider_jar.sh`) is never overwritten; create
+     `Documents/vrmc-provider-reset.flag` to force the bundled jar back.
+   - **Vivecraft** is **not redistributed**. Download `vivecraft-26.2-1.3.15-fabric.jar` from the
+     Vivecraft project and save it to *On My Apple Vision Pro › VRMC* in the Files app (or AirDrop it).
+     It is moved into `mods/` only if its sha256 matches the pin in [`versions.env`](versions.env):
+     `e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb`; anything else is rejected
+     and left in place.
+   - The launcher's **Mods** panel shows the result (ready / action needed, duplicate-jar warnings)
+     with a *Re-check mods* button; the diagnostics export includes the same lines.
+4. Manual fallback (builds staged without an embedded provider, or the pre-provisioning app): copy
+   both jars into `Documents/instances/default/mods/` yourself.
 5. Launch the Fabric instance, create/load a world, and enter immersive mode.
 
 The installed app on D1 is currently in a **clean, freshly-installed state** (no account, worlds,
@@ -123,7 +125,8 @@ external inputs before rebuilding.
 scripts/build_provider.sh              # provider mod jar
 scripts/build_shell.sh                 # native visionOS shell
 scripts/build_bridge.sh                # ABI v3 bridge
-provider/tests/run_tests.sh            # host provider suite
+provider/tests/run_tests.sh            # host provider suite (pure-Java subset if no MC jar)
+runtime/native-shell/tests/run_tests.sh  # shell host suite (mod provisioning policy + pin guard)
 scripts/m6_release_check.sh            # release/licensing/source checks
 scripts/m6_release_ready.sh --zip …    # full host + acceptance gate
 ```
@@ -155,8 +158,9 @@ Host tests are **not** device evidence. Device-only claims are recorded in
   deferred because the shipped MoltenVK has no `VK_KHR_fragment_shading_rate`; see
   [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md).
 - Bow visual model orientation (parallel to hand) — accepted non-blocking bug.
-- Fresh install requires manual Vivecraft/provider jar restore; launcher auto-provisioning is the
-  next engineering priority.
+- Launcher auto-provisioning (bundled provider + hash-verified Vivecraft import) is **host-tested
+  only** (`runtime/native-shell/tests/run_tests.sh`, visionOS build PASS); the fresh-install flow on
+  D1 has not been re-run with it yet. Vivecraft still has to be downloaded by the user.
 - Hand tracking can drop when hands are outside the ARKit camera view; actions release safely.
 - K3 latency-rig gate and the full 60-minute soak were explicitly waived/covered by a reduced
   10-minute operator-accepted soak.
