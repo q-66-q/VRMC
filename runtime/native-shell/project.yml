@@ -10,6 +10,8 @@ settings:
     PRODUCT_BUNDLE_IDENTIFIER: dev.vrmc.shell
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "7"
+    # Do not bake host search paths (home dir, DerivedData) into the committed .swiftmodule.
+    SWIFT_SERIALIZE_DEBUGGING_OPTIONS: NO
 targets:
   VRMCShell:
     type: framework

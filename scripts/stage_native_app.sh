@@ -11,14 +11,14 @@
 # Env overrides (all optional):
 #   SRC_APP     app bundle to copy              (default /tmp/VRMC-native-v14-auditfix.app)
 #   DEST_APP    staged output bundle            (default /tmp/VRMC-native-next.app)
-#   IDENTITY    codesigning identity            (default ${VRMC_SIGN_IDENTITY:-})
+#   IDENTITY    codesigning identity            (default $VRMC_SIGN_IDENTITY, see scripts/local.env.example)
 #   PROFILE     provisioning profile            (default: SRC_APP/embedded.mobileprovision, else the
 #                                                newest matching profile under Xcode's profile dir)
 #   XCENT       entitlements plist              (default: extracted from SRC_APP's signature, else
 #                                                generated with get-task-allow=true for JIT)
 #   BUNDLE_ID   expected/forced bundle id       (default dev.vrmc.vrmc)
 #   DISPLAY_NAME  set CFBundleDisplayName/CFBundleName (default: leave whatever SRC_APP has)
-#   DEVICE      UDID expected in the profile    (default ${VRMC_DEVICE_UDID:-}; '' to skip)
+#   DEVICE      UDID expected in the profile    (default $VRMC_DEVICE_UDID; '' to skip)
 #   ALLOW_PLATFORM_MISMATCH=1   skip the visionOS (platform 11) check on framework/dylib
 #   DRY_RUN=1   print the plan, change nothing
 #   PROVIDER_JAR  provider jar to embed at <app>/vrmc/vrmc-provider.jar for launcher auto-provisioning
@@ -27,15 +27,16 @@
 #   VRMC_KEEP_JRE=25  optional experimental: prune other bundled java-*-openjdk runtimes from the
 #                     staged app (reduces bundle size; device launch behavior NOT yet validated)
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FW_SRC="${1:-}"
 BRIDGE_SRC="${2:-}"
 SRC_APP="${SRC_APP:-/tmp/VRMC-native-v14-auditfix.app}"
 DEST_APP="${DEST_APP:-/tmp/VRMC-native-next.app}"
-IDENTITY="${IDENTITY:-${VRMC_SIGN_IDENTITY:-}}"
+IDENTITY="${IDENTITY:-$VRMC_SIGN_IDENTITY}"
 BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 ALLOW_PLATFORM_MISMATCH="${ALLOW_PLATFORM_MISMATCH:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 if [ -z "${PROVIDER_JAR+set}" ] && [ -f /tmp/vrmc-provider-build/vrmc-provider.jar ]; then
@@ -51,6 +52,7 @@ run() { if [ "$DRY_RUN" = "1" ]; then echo "  DRY-RUN: $*"; else "$@"; fi; }
 platform_of() { otool -l "$1" 2>/dev/null | awk "/LC_BUILD_VERSION/{f=1} f&&/platform/{print \$2; exit}"; }
 minos_of()    { otool -l "$1" 2>/dev/null | awk "/LC_BUILD_VERSION/{f=1} f&&/minos/{print \$2; exit}"; }
 
+[ -n "$IDENTITY" ] || die "no signing identity: set IDENTITY or VRMC_SIGN_IDENTITY (copy scripts/local.env.example to scripts/local.env)"
 [ -n "$FW_SRC" ] || die "usage: stage_native_app.sh <VRMCShell.framework> [libvrmc_bridge.dylib]"
 [ -d "$FW_SRC" ] || die "framework not found: $FW_SRC"
 [ -f "$FW_SRC/Info.plist" ] || die "not a framework (no Info.plist): $FW_SRC"
@@ -117,7 +119,7 @@ if [ -z "${PROFILE:-}" ]; then
   if [ -f "$SRC_APP/embedded.mobileprovision" ]; then
     PROFILE="$SRC_APP/embedded.mobileprovision"
   else
-    PROFILE=$(find_profile_for "$BUNDLE_ID" "${VRMC_TEAM_ID:-}" "$DEVICE" || true)
+    PROFILE=$(find_profile_for "$BUNDLE_ID" "$VRMC_TEAM_ID" "$DEVICE" || true)
   fi
 fi
 [ -n "${PROFILE:-}" ] && [ -f "$PROFILE" ] || die "provisioning profile not found (set PROFILE=...; no matching profile for $BUNDLE_ID in Xcode profile dirs)"
@@ -148,8 +150,8 @@ else
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>application-identifier</key><string>${VRMC_TEAM_ID:-}.$BUNDLE_ID</string>
-  <key>com.apple.developer.team-identifier</key><string>${VRMC_TEAM_ID:-}</string>
+  <key>application-identifier</key><string>$VRMC_TEAM_ID.$BUNDLE_ID</string>
+  <key>com.apple.developer.team-identifier</key><string>$VRMC_TEAM_ID</string>
   <key>get-task-allow</key><true/>
 </dict></plist>
 PLIST

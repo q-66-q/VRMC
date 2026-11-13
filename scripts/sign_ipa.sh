@@ -4,10 +4,11 @@
 #
 # Usage (one line): BUNDLE_ID=... TEAM_ID=... IDENTITY=... XCENT=... PROFILE=... scripts/sign_ipa.sh App.app
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 
 APP=${1:?usage: sign_ipa.sh <App.app>}
 BUNDLE_ID=${BUNDLE_ID:-dev.vrmc.vrmc}
-TEAM_ID=${TEAM_ID:-${VRMC_TEAM_ID:-}}
+TEAM_ID=${TEAM_ID:-$VRMC_TEAM_ID}
 IDENTITY=${IDENTITY:?set IDENTITY to a codesigning identity}
 XCENT=${XCENT:?set XCENT to the Xcode-generated .xcent}
 PROFILE=${PROFILE:?set PROFILE to the .mobileprovision}

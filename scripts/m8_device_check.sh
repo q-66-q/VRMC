@@ -6,7 +6,7 @@
 #   DEVICE=<udid> scripts/m8_device_check.sh                 # pull from D1 into OUTDIR + analyse
 #   scripts/m8_device_check.sh --from <dir>                  # analyse an existing pull / simulator case
 #
-# Options/env: DEVICE (default ${VRMC_DEVICE_UDID:-}), BUNDLE (default dev.vrmc.vrmc),
+# Options/env: DEVICE (default $VRMC_DEVICE_UDID), BUNDLE (default dev.vrmc.vrmc),
 #              OUTDIR (default /tmp/vrmc-m8-device).
 # Exit: 0 = PASS (A6-A9), 2 = PARTIAL (M8 running, a row not satisfied e.g. 90 Hz/no foveation),
 #       3 = NOT RUN (no M8 evidence / old build / logs not pulled), 4 = FAIL (hard regression),
@@ -14,8 +14,9 @@
 #
 # Device procedure and what counts as evidence: docs/mvp/M8_DEVICE_RUN.md (M8_PLAN.md §5/§7).
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 BUNDLE="${BUNDLE:-dev.vrmc.vrmc}"
 OUTDIR="${OUTDIR:-/tmp/vrmc-m8-device}"
 FROM=""

@@ -121,6 +121,11 @@ The repository contains source, docs, scripts and release metadata. Third-party 
 vendor builds and staged app artifacts were removed to keep the repo clean; restore/fetch those
 external inputs before rebuilding.
 
+Device and signing scripts read your device UDID, team ID and signing identity from
+`scripts/local.env` (git-ignored): `cp scripts/local.env.example scripts/local.env` and fill it in, or
+export `VRMC_DEVICE_UDID` / `VRMC_TEAM_ID` / `VRMC_SIGN_IDENTITY`. XcodeGen projects take the team from
+`VRMC_TEAM_ID`.
+
 ```bash
 scripts/build_provider.sh              # provider mod jar
 scripts/build_shell.sh                 # native visionOS shell

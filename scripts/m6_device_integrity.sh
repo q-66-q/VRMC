@@ -3,8 +3,9 @@
 # matches the locally built jar, and that the app bundle is installed. Does NOT launch the game or
 # require the device to be unlocked. Behavior/acceptance gates remain separate.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVICE="${DEVICE_ID:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE_ID:-$VRMC_DEVICE_UDID}"
 BUNDLE="${BUNDLE_ID:-dev.vrmc.vrmc}"
 LOCAL="${PROVIDER_JAR:-/tmp/vrmc-current/vrmc-provider.jar}"
 while [ "$#" -gt 0 ]; do

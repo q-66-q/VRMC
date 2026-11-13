@@ -17,6 +17,7 @@
 #
 # Exit: 0 PASS / 2 usage or validation error / 3 package exists without --replace.
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="${APP:-/tmp/VRMC-native-m8.app}"
 PROVIDER_JAR="${PROVIDER_JAR:-/tmp/vrmc-provider-build/vrmc-provider.jar}"
@@ -115,9 +116,9 @@ A6–A9 are still NOT RUN.
 ## Install / run (from the repository checkout)
 
 ```bash
-DEVICE=${VRMC_DEVICE_UDID:-} APP="$(pwd)/export/m8-device-package/VRMC-native-m8.app" \
+DEVICE=<device-udid> APP="$(pwd)/export/m8-device-package/VRMC-native-m8.app" \
   scripts/install_device.sh "$APP" dev.vrmc.vrmc
-DEVICE=${VRMC_DEVICE_UDID:-} BUNDLE_ID=dev.vrmc.vrmc \
+DEVICE=<device-udid> BUNDLE_ID=dev.vrmc.vrmc \
   scripts/push_provider_jar.sh "$(pwd)/export/m8-device-package/vrmc-provider.jar"
 # or, in one command (validates this manifest, installs and pushes):
 APP="$(pwd)/export/m8-device-package/VRMC-native-m8.app" \

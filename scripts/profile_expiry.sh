@@ -10,6 +10,7 @@
 # Exit: 0 profile valid / 1 missing or expired / 2 usage / 3 cannot decode.
 # Output line: "profile=<name> expires=<UTC> days_left=<n> provisions=<udid|...>"
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 TARGET="${1:-}"
 WARN_DAYS=7
 shift || true
@@ -36,6 +37,7 @@ security cms -D -i "$PROFILE" > "$PLIST" 2>/dev/null || { echo "[profile] ERROR:
 # Parse the decoded plist with Python (plistlib turns <date> into a tz-aware datetime, unlike
 # PlistBuddy's human-readable "Sat Nov 07 22:53:50 HST 2026" output).
 python3 - "$PLIST" "$WARN_DAYS" <<'PY'
+import os
 import plistlib, sys, datetime
 path, warn = sys.argv[1], int(sys.argv[2])
 try:
@@ -47,7 +49,8 @@ except Exception as error:
 name = str(doc.get("Name", "unknown"))
 exp = doc.get("ExpirationDate")
 devices = doc.get("ProvisionedDevices") or []
-has_d1 = "yes" if "${VRMC_DEVICE_UDID:-}" in devices else "no"
+d1 = os.environ.get("VRMC_DEVICE_UDID", "")
+has_d1 = "yes" if d1 and d1 in devices else "no"
 if not isinstance(exp, datetime.datetime):
     print("[profile] ERROR: profile has no usable ExpirationDate", file=sys.stderr)
     sys.exit(3)

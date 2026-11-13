@@ -1,5 +1,9 @@
 # Device/build helper scripts (Sprint-1 T2)
 
+Per-developer identity (device UDID, team ID, signing identity) comes from `scripts/local.env`
+(git-ignored; template `scripts/local.env.example`), loaded by `scripts/lib/local_env.sh`; variables
+already set in the environment win.
+
 One usage line: set the environment (`DEVICE=<udid>`, and where relevant `BUNDLE_ID`, `TEAM_ID`, `IDENTITY`,
 `XCENT`, `PROFILE`, `STIKDEBUG_BUNDLE_ID`, `AMETHYST_BUNDLE_ID`, `OUTDIR`, `DRY_RUN=1`) and run the script.
 

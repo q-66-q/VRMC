@@ -28,8 +28,9 @@
 #
 # Session procedure/acceptance: docs/mvp/M8_DEVICE_RUN.md. Evidence: VERIFY.md.
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVICE="${DEVICE:-${VRMC_DEVICE_UDID:-}}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
 BUNDLE_ID="${BUNDLE_ID:-dev.vrmc.vrmc}"
 APP="${APP:-/tmp/VRMC-native-m8.app}"
 PROVIDER_JAR="${PROVIDER_JAR:-/tmp/vrmc-provider-build/vrmc-provider.jar}"

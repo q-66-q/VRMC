@@ -2,9 +2,10 @@
 # Build the visionOS SwiftUI shell framework (M3-W2) and place it in runtime/native-shell/build/.
 # The Amethyst native app embeds it under Frameworks/VRMCShell.framework and main.m dlopens it.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIR="$ROOT/runtime/native-shell"
-DEVICE_UDID="${DEVICE_UDID:-${VRMC_DEVICE_UDID:-}}"
+DEVICE_UDID="${DEVICE_UDID:-$VRMC_DEVICE_UDID}"
 cd "$DIR"
 xcodegen generate >/dev/null
 xcodebuild -project VRMCShell.xcodeproj -scheme VRMCShell -configuration Debug \

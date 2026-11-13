@@ -3,7 +3,8 @@
 # installed app data container for offline review. Does NOT launch the game or require unlock.
 # Usage: scripts/m6_device_diagnostics_pull.sh [OUT_DIR]
 set -euo pipefail
-DEVICE="${DEVICE_ID:-${VRMC_DEVICE_UDID:-}}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
+DEVICE="${DEVICE_ID:-$VRMC_DEVICE_UDID}"
 BUNDLE="${BUNDLE_ID:-dev.vrmc.vrmc}"
 OUT="${1:-/tmp/vrmc-device-diag-$(date +%s)}"
 mkdir -p "$OUT"

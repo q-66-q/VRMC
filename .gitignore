@@ -52,3 +52,6 @@ runtime/probes/*/build/
 
 # device soak artifacts are evidence, not source
 /export/soak-*/
+
+# Per-developer identity (device UDID, team ID, signing identity); template: scripts/local.env.example
+/scripts/local.env

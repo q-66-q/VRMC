@@ -5,15 +5,16 @@
 #   BOOTJDK       JDK 8 bin directory
 #   PROFILE       visionOS provisioning profile for dev.vrmc.vrmc
 #   XCENT         matching .xcent entitlements file
-#   IDENTITY      signing identity (default: Apple Development: ... <cert-id>)
+#   IDENTITY      signing identity (default: $VRMC_SIGN_IDENTITY, see scripts/local.env.example)
 #   DEVICE        device UDID for install
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/../../scripts/lib/local_env.sh"   # per-developer identity (scripts/local.env)
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 AME_SRC=${AME_SRC:?set AME_SRC to the patched Amethyst 1.2.0 source tree}
 BOOTJDK=${BOOTJDK:?set BOOTJDK to the JDK 8 bin directory}
 PROFILE=${PROFILE:?set PROFILE to the dev.vrmc.vrmc visionOS provisioning profile}
 XCENT=${XCENT:?set XCENT to the matching .xcent}
-IDENTITY=${IDENTITY:-"${VRMC_SIGN_IDENTITY:-}"}
+IDENTITY=${IDENTITY:-"$VRMC_SIGN_IDENTITY"}
 DEVICE=${DEVICE:?set DEVICE to the Vision Pro UDID}
 BUILD_DIR=${BUILD_DIR:-/tmp/vrmc-native-build}
 APP=/tmp/VRMC-native.app
