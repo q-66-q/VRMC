@@ -54,7 +54,7 @@ Output: `artifacts/Payload/AngelAuraAmethyst.app` (bundled `java_runtimes/java-{
 ## 3a. Branding assets
 
 `assets/branding/` contains the VRMC app-icon PNGs; `scripts/build_launcher.sh` copies them into
-`Natives/Assets.xcassets/` before the build (regenerate with `scripts/make_icon.py <Amethyst tree>`).
+`Natives/Assets.xcassets/` before the build (regenerate with `swift scripts/make_icon.swift`; add `--preview DIR` for circle-masked visionOS previews).
 The app is branded as `dev.vrmc.vrmc` / display name VRMC in the signing step below.
 
 ## 4. Branding and signing
