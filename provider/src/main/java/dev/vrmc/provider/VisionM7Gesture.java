@@ -121,6 +121,10 @@ public final class VisionM7Gesture {
     /** Recorded left-fist taps (Escape) ran 0.11-0.56 s; other left holds are longer and cannot fire. */
     public static final long LEFT_FIST_TAP_MAX_NS = 550_000_000L;
     public static final float INVENTORY_MAX_HAND_SEP = 0.50F;
+    /** Right fist held this long (still hand, no left fist) opens Vivecraft's radial menu. */
+    public static final long RADIAL_HOLD_NS = 650_000_000L;
+    /** A punch/swing is not a menu hold. */
+    public static final float RADIAL_MAX_SPEED = 0.60F;
     /** A teleport pinch must be a deliberate hold, not a resting thumb-index touch. */
     public static final long TELEPORT_MIN_HOLD_NS = 120_000_000L;
 
@@ -333,6 +337,11 @@ public final class VisionM7Gesture {
     private long leftFistTapPulseUntilNs;
     /** Right-fist tap pulse: discrete use/interact (mount boat, doors, buttons; not attack). */
     private long rightFistTapPulseUntilNs;
+    // ---- right-fist hold radial menu ----
+    private boolean radialHeld;
+    private boolean radialCancelThisFrame;
+    /** After a cancel, the fist must open once before the menu can open again. */
+    private boolean radialBlockedUntilOpen;
     private boolean bothFistPrev;
     private long bothFistStartNs;
     private float bothMaxSep;
@@ -886,6 +895,31 @@ public final class VisionM7Gesture {
             this.rightFistTapPulseUntilNs = nowNs + 120_000_000L;
         }
 
+        // ---- right fist hold = Vivecraft radial (shortcut) menu: hold, point, open to choose ----
+        // Longer than any right-fist tap (LEFT_FIST_TAP_MAX_NS), so a tap never opens it and a hold
+        // never taps. A second (left) fist means a bow draw / inventory chord: cancel, never select.
+        this.radialCancelThisFrame = false;
+        if (this.radialHeld) {
+            boolean chord = this.fistL;
+            if (!trackedR || gui || seated || chord) {
+                this.radialHeld = false;
+                this.radialCancelThisFrame = true;
+                this.radialBlockedUntilOpen = true;
+            } else if (!this.fistR) {
+                this.radialHeld = false; // opened fist = choose the pointed item
+            }
+        } else if (!this.fistR) {
+            this.radialBlockedUntilOpen = false;
+        } else if (!this.radialBlockedUntilOpen && trackedR && !gui && !seated && !this.fistL
+            && !this.bowActive && !walkingNow && !this.climbGrabR
+            && (context & CTX_CLIMBABLE) == 0
+            && this.rightFistPressNs != 0L && nowNs - this.rightFistPressNs >= RADIAL_HOLD_NS
+            && winSpeedR < RADIAL_MAX_SPEED
+            && nowNs - this.lastAttackFireNs > 500_000_000L
+            && nowNs - this.lastBothFistReleaseNs > 300_000_000L) {
+            this.radialHeld = true;
+        }
+
         // ---- both-fist inventory: short tap, hands together, never walk/bow/climb ----
         if (this.bothFistPrev && !both && !gui && !walkingNow && !this.bowActive
             && !this.climbGrabL && !this.climbGrabR && !this.bothHadTrackingLoss
@@ -1281,6 +1315,10 @@ public final class VisionM7Gesture {
     public boolean leftFistTap() { return this.nowNs < this.leftFistTapPulseUntilNs; }
     /** Right-fist tap pulse: discrete use/interact (boat, door, button); never attack. */
     public boolean rightFistTap() { return this.nowNs < this.rightFistTapPulseUntilNs; }
+    /** Right fist held: Vivecraft radial menu open; false again = choose (unless cancelled). */
+    public boolean radialHeld() { return this.radialHeld; }
+    /** The radial hold ended without a choice this frame (tracking loss, screen, second fist). */
+    public boolean radialCancelled() { return this.radialCancelThisFrame; }
     public boolean inventory() { return this.inventory; }
     public boolean hotbarNext() { return this.hotbarNext; }
     public boolean hotbarPrev() { return this.hotbarPrev; }
@@ -1383,6 +1421,9 @@ public final class VisionM7Gesture {
         this.leftPinchPressNs = 0L; this.rightPinchPressNs = 0L;
         this.leftFistPressNs = 0L; this.rightFistPressNs = 0L;
         this.leftFistTapPulseUntilNs = 0L; this.rightFistTapPulseUntilNs = 0L;
+        if (this.radialHeld) this.radialCancelThisFrame = true;
+        this.radialHeld = false;
+        this.radialBlockedUntilOpen = false;
         this.bothFistPrev = false;
         this.bothFistStartNs = 0L;
         this.bothMaxSep = 0.0F;
@@ -1467,6 +1508,7 @@ public final class VisionM7Gesture {
             .append(" tele=").append(this.teleportHold ? 1 : 0)
             .append(" bow=").append(this.bowDraw ? 1 : 0)
             .append(" eat=").append(this.eat ? 1 : 0)
+            .append(" radial=").append(this.radialHeld ? 1 : 0)
             .append(" climb=").append(this.climbGrabL ? 'L' : '-').append(this.climbGrabR ? 'R' : '-');
         return b.toString();
     }

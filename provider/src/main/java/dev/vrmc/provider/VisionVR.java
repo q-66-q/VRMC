@@ -180,6 +180,12 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private boolean m7FistTapPrev;
     private long m7FistTapUseUntilNs;
     private long m7FistTapSneakUntilNs;
+    /** Right-fist radial menu (see applyM7Radial). */
+    private boolean m7RadialPressed;
+    private boolean m7RadialHoldModeForced;
+    private boolean m7RadialSavedHoldMode = true;
+    private boolean m7RadialRestorePending;
+    private int m7RadialLogCount;
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     /** Menu-hand gray box correction: our pose forward is -Z, while Vivecraft's gray box grows +Z. */
     private static final float M7_MENU_HAND_SHIFT_M = 0.18F;
@@ -189,8 +195,12 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private boolean m7BowLeftHand = true;
     /** Bow roll for the left hand (tune bow.roll.left, degrees) - the left hand pose is mirrored. */
     private float m7BowRollLeftDeg = M7_BOW_ROLL_DEG;
-    private boolean m7BowSwapped;
-    private final Matrix4f poseSwapTmp = new Matrix4f();
+    private float m7BowRollRightDeg = M7_BOW_ROLL_DEG;
+    /** Selected main-hand bow drawn in the left hand (see VRArmHelperMixin). */
+    private boolean m7BowLeft;
+    private long m7BowLeftSinceNs;
+    private boolean m7BowRenderHookSeen;
+    private boolean m7BowHookWarned;
     /** Height of the bow sight above the bow-hand middle knuckle (aim line passes over the fist). */
     private static final float M7_BOW_SIGHT_UP_M = 0.035F;
     private final Vector3f bowSightUp = new Vector3f();
@@ -420,7 +430,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             + " (tune gesture.mode / -Dvrmc.gesture.mode; operator mapping)");
         if (this.m7Mode) {
             System.out.println("[VRMC-M7] mapping: short right pinch=place/use (attack on a mob), held right "
-                + "pinch=break, right fist tap=use (mount/interact; dismount while riding), left pinch "
+                + "pinch=break, right fist tap=use (mount/interact; dismount while riding), right fist hold=radial menu (point, open to choose), left pinch "
                 + "hold+move=walk/strafe, left fist tap=menu/back, both-fist tap=inventory, head "
                 + "rise/lower=jump/sneak (standing), right middle pinch tap/hold=jump/sneak and left "
                 + "middle tap/double=snap turn (seated play), right swing=attack, hotbar touch/index "
@@ -462,6 +472,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         // Leaving VR while a gesture is held must not leave a pressed key behind.
         this.releaseAllImmediately();
         this.restoreBowDrawView();
+        this.closeM7RadialWithoutChoice("shutdown");
         if (this.poseSmoothers != null) {
             for (VisionPoseSmoother smoother : this.poseSmoothers) {
                 smoother.reset();
@@ -1316,16 +1327,21 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
      */
     private void updateControllerPoses() {
         long nowNs = System.nanoTime();
-        // A main-hand bow is shown and aimed from the bow hand (left by default, device feedback
-        // "the bow should be in the left hand while it is selected"): swap the two hand poses so
-        // Vivecraft's main-hand slot follows the bow hand. Mirrored draws (right hand in front) keep
-        // the bow in the right hand. Never while a screen is open or a teleport arc is aimed.
-        boolean swapBowHand = bowHandSwapWanted();
-        if (swapBowHand != this.m7BowSwapped) {
-            // Smoothing runs per physical hand before the swap, so no smoother reset is needed.
-            this.m7BowSwapped = swapBowHand;
-            System.out.println("[VRMC-M7] bow hand: " + (swapBowHand ? "left (main-hand bow shown in the "
-                + "left hand)" : "right (normal hand mapping)"));
+        // A selected main-hand bow is drawn in the left hand with the arrow in the right hand
+        // (VRArmHelperMixin, Vivecraft's own roomscale-bow presentation). Controller poses are NOT
+        // swapped: the wrist hotbar stays on the left wrist and the right hand keeps aiming.
+        boolean bowLeft = bowInLeftHandWanted();
+        if (bowLeft && !this.m7BowRenderHookSeen && this.m7BowLeftSinceNs != 0L
+            && nowNs - this.m7BowLeftSinceNs > 3_000_000_000L && !this.m7BowHookWarned) {
+            this.m7BowHookWarned = true;
+            System.out.println("[VRMC-M7][WARN] bow render hook (VRArmHelperMixin) did not run; the bow "
+                + "stays in the right hand (Vivecraft version mismatch?)");
+        }
+        if (bowLeft != this.m7BowLeft) {
+            this.m7BowLeft = bowLeft;
+            this.m7BowLeftSinceNs = bowLeft ? nowNs : 0L;
+            System.out.println("[VRMC-M7] bow hand: " + (bowLeft ? "left (bow in the left hand, arrow in "
+                + "the right hand)" : "normal (item in the hand that holds it)"));
         }
         for (int hand = 0; hand < VisionInput.HAND_COUNT; hand++) {
             int c = hand == VisionInput.HAND_LEFT ? LEFT_CONTROLLER : RIGHT_CONTROLLER;
@@ -1364,17 +1380,8 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
                         this.controllerPose[c]);
                 }
             }
-            // Bow grip: our controller local +Z is the back of the hand; the vanilla bow model is
-            // authored for a controller roll that lands parallel to the fingers here. Roll the
-            // bow-holding hand(s) 90 deg around local forward so the bow crosses the hand.
-            boolean bowHand = swapBowHand
-                ? hand == VisionInput.HAND_LEFT
-                : (hand == VisionInput.HAND_LEFT && (this.m7BowHandMask & 2) != 0)
-                    || (hand == VisionInput.HAND_RIGHT && (this.m7BowHandMask & 1) != 0);
-            if (bowHand) {
-                float roll = hand == VisionInput.HAND_LEFT ? this.m7BowRollLeftDeg : M7_BOW_ROLL_DEG;
-                this.controllerPose[c].rotateZ((float) Math.toRadians(roll));
-            }
+            // Bow grip roll is applied to the bow model only (VivecraftItemRenderingMixin): rolling
+            // the controller pose also rotated the wrist hotbar hanging off the left controller.
             // Menu hands: Vivecraft's gray box grows along local +Z, but this hand pose uses
             // -Z as forward (R*(0,0,-1)=aim). Shift the menu-hand origin to the fingertip along
             // local -Z so the gray box covers the hand instead of floating behind the wrist.
@@ -1386,37 +1393,48 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             this.controllerTracking[c] = tracked
                 || (this.seatedHmdPointer && this.dh.vrSettings.seated);
         }
-        if (swapBowHand) {
-            this.poseSwapTmp.set(this.controllerPose[RIGHT_CONTROLLER]);
-            this.controllerPose[RIGHT_CONTROLLER].set(this.controllerPose[LEFT_CONTROLLER]);
-            this.controllerPose[LEFT_CONTROLLER].set(this.poseSwapTmp);
-            boolean t = this.controllerTracking[RIGHT_CONTROLLER];
-            this.controllerTracking[RIGHT_CONTROLLER] = this.controllerTracking[LEFT_CONTROLLER];
-            this.controllerTracking[LEFT_CONTROLLER] = t;
-        }
         applyBowAim(nowNs);
         updateBowDrawView();
     }
 
-    /** Physical hand whose pose currently drives Vivecraft controller {@code controllerIndex}. */
-    private int physicalHandFor(int controllerIndex) {
-        boolean right = controllerIndex == RIGHT_CONTROLLER;
-        if (this.m7BowSwapped) right = !right;
-        return right ? VisionInput.HAND_RIGHT : VisionInput.HAND_LEFT;
-    }
-
-    /** True when the main-hand bow should be shown in (and aimed from) the left hand this frame. */
-    private boolean bowHandSwapWanted() {
+    /** True when the selected main-hand bow should be drawn in the left hand this frame. */
+    private boolean bowInLeftHandWanted() {
         if (!this.m7Mode || this.visionInput == null || !this.m7BowLeftHand) return false;
         // Main-hand bow only; a bow in the off hand already sits in the left hand.
         if ((this.m7BowHandMask & 1) == 0 || (this.m7BowHandMask & 2) != 0) return false;
         if (this.mc.gui.screen() != null) return false;
-        if (this.m7Gesture.teleportHeld()) return false;
         // During a draw the front hand is the bow hand (M7_GESTURES.md #9); a right-hand-front
-        // (mirrored) draw keeps the normal mapping.
-        if (this.m7Gesture.bowDraw() && !this.m7Gesture.bowFrontIsLeft()) return false;
-        return this.visionInput.isHandTracked(VisionInput.HAND_LEFT);
+        // (mirrored) draw shows the bow in the right hand.
+        return !(this.m7Gesture.bowDraw() && !this.m7Gesture.bowFrontIsLeft());
     }
+
+    /**
+     * VivecraftItemRenderingMixin: grip roll (degrees) for a bow rendered in the given hand slot, NaN
+     * for anything else. Our hand pose's local +Z is the back of the hand while the vanilla bow model
+     * is authored for a controller roll that lands it parallel to the fingers, so the bow is rolled
+     * 90 deg around local forward to cross the hand (tunes bow.roll.left / bow.roll.right).
+     */
+    public float m7BowRenderRollDeg(Object stack, boolean offHandSlot) {
+        if (!this.m7Mode || !VisionM7ItemContext.isBowStack(this.mc.player, stack)) return Float.NaN;
+        return offHandSlot ? this.m7BowRollLeftDeg : this.m7BowRollRightDeg;
+    }
+
+    /** VRArmHelperMixin: draw the selected main-hand bow in the left hand, the arrow in the right. */
+    public boolean m7BowInLeftHand() { return this.m7BowLeft; }
+
+    /**
+     * VRArmHelperMixin: the stack to draw in a hand while the bow is shown in the left hand - the bow
+     * for the off (left) hand; for the main (right) hand the arrow it would shoot, or nothing while
+     * drawing (the drawn bow model carries the arrow). Null = no override / nothing to show.
+     */
+    public Object m7BowRenderStack(boolean offHand) {
+        this.m7BowRenderHookSeen = true;
+        Object bow = VisionM7ItemContext.mainHandStack(this.mc.player);
+        if (offHand || bow == null) return bow;
+        if (this.m7Mode && this.m7Gesture.bowDraw()) return null;
+        return VisionM7ItemContext.projectileFor(this.mc.player, bow);
+    }
+
 
     /**
      * While the bow is drawn: hide the floating first-person hands (the draw hand sits at the cheek,
@@ -1683,9 +1701,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
      * touches the bar and dwells briefly (a deliberate tap), never while a GUI is open or seated.
      */
     private void updateM7TouchHotbar() {
-        // The wrist HUD hangs off Vivecraft's off-hand controller; while a main-hand bow is shown in
-        // the left hand that controller is the right hand, so the left index finger touches the bar.
-        final int touchHand = this.m7BowSwapped ? VisionInput.HAND_LEFT : VisionInput.HAND_RIGHT;
+        final int touchHand = VisionInput.HAND_RIGHT;
         if (!this.m7Mode || this.mc.player == null || this.mc.gui.screen() != null
             || this.visionInput == null || this.dh.vrSettings == null
             || this.dh.vrSettings.seated
@@ -2308,10 +2324,11 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         }
         long rightPinchDuration = rightPinchHeld ? actionNow - this.m7RightPinchStartNs : 0L;
         this.m7HeldBreak = !gui && !seated && rightPinchHeld
-            && rightPinchDuration >= 350_000_000L;
+            && rightPinchDuration >= VisionM7Gesture.PLACE_MAX_NS;
         if (!rightPinchHeld && this.m7RightPinchPrev) {
             long releasedDuration = actionNow - this.m7RightPinchStartNs;
-            if (!gui && !seated && releasedDuration > 0L && releasedDuration < 350_000_000L) {
+            if (!gui && !seated && releasedDuration > 0L
+                && releasedDuration < VisionM7Gesture.PLACE_MAX_NS) {
                 // Short pinch never breaks a block: on an entity it attacks, on a block/air it
                 // places/uses; hold >=350 ms is break/mine.
                 if (targetEntity) {
@@ -2325,9 +2342,10 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         boolean use = (actionNow < this.m7ShortUseUntilNs)
             || this.m7Gesture.eat() || this.m7Gesture.bowDraw()
             || (actionNow < this.m7FistTapUseUntilNs);
-        boolean attack = (actionNow < this.m7ShortAttackUntilNs)
+        boolean radialOpen = applyM7Radial(gui);
+        boolean attack = !radialOpen && ((actionNow < this.m7ShortAttackUntilNs)
             || this.m7HeldBreak
-            || (this.m7Gesture.attack() && !this.m7Gesture.breakHeld());
+            || (this.m7Gesture.attack() && !this.m7Gesture.breakHeld()));
         if (!gui && !seated && (rightPinchHeld || attack || use)) {
             this.m7LastRightActionNs = actionNow;
         }
@@ -2372,6 +2390,74 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
         setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_LEFT, this.m7Gesture.climbGrabLeft());
         setM7Action(VisionInput.KEY_CLIMBEY_GRAB, VisionInput.HAND_RIGHT, this.m7Gesture.climbGrabRight());
         setM7Action(VisionInput.KEY_CLIMBEY_JUMP, VisionInput.HAND_NONE, this.m7Gesture.climbJump());
+    }
+
+    /**
+     * Right fist hold = Vivecraft's radial (shortcut) menu - chat, commands, screenshots and the other
+     * entries Vivecraft ships by default. The fist drives Vivecraft's own radial-menu key in hold
+     * mode: holding opens the menu at the right hand, pointing the fist highlights an entry, opening
+     * the fist chooses it (Vivecraft clicks on key release). A cancelled hold (second fist, lost
+     * tracking, a screen) closes the menu first so the release never chooses anything.
+     *
+     * @return true while VRMC holds the radial menu open
+     */
+    private boolean applyM7Radial(boolean gui) {
+        boolean held = this.m7Gesture.radialHeld() && !gui;
+        if (this.m7Gesture.radialCancelled() || (this.m7RadialPressed && gui)) {
+            closeM7RadialWithoutChoice("cancelled");
+            held = false;
+        }
+        if (held && !this.m7RadialPressed) {
+            try {
+                // VRMC's gesture needs hold mode (release = choose); restore the operator's mode after.
+                this.m7RadialSavedHoldMode = this.dh.vrSettings.radialModeHold;
+                this.dh.vrSettings.radialModeHold = true;
+                this.m7RadialHoldModeForced = true;
+            } catch (Throwable t) {
+                this.m7RadialHoldModeForced = false;
+            }
+            if (this.m7RadialLogCount++ < 10) {
+                System.out.println("[VRMC-M7] radial menu: right fist hold -> open (point, open the fist to "
+                    + "choose)");
+            }
+        }
+        if (!held && this.m7RadialPressed) {
+            this.m7RadialRestorePending = true;
+        }
+        this.m7RadialPressed = held;
+        setM7Action(VisionInput.KEY_RADIAL_MENU, VisionInput.HAND_RIGHT, held);
+        if (this.m7RadialRestorePending && !held && !RadialHandler.isShowing()) {
+            restoreM7RadialMode();
+        }
+        return held || RadialHandler.isShowing();
+    }
+
+    /** Close the radial overlay without choosing (before the key release can click). */
+    private void closeM7RadialWithoutChoice(String why) {
+        if (!this.m7RadialPressed) return;
+        try {
+            if (RadialHandler.isShowing()) {
+                RadialHandler.setOverlayShowing(false, null);
+            }
+        } catch (Throwable t) {
+            System.out.println("[VRMC-M7][WARN] could not close the radial menu: " + t);
+        }
+        if (this.m7RadialLogCount++ < 10) {
+            System.out.println("[VRMC-M7] radial menu: closed without a choice (" + why + ")");
+        }
+        this.m7RadialPressed = false;
+        restoreM7RadialMode();
+    }
+
+    private void restoreM7RadialMode() {
+        this.m7RadialRestorePending = false;
+        if (!this.m7RadialHoldModeForced) return;
+        try {
+            this.dh.vrSettings.radialModeHold = this.m7RadialSavedHoldMode;
+        } catch (Throwable ignored) {
+            // settings gone during shutdown
+        }
+        this.m7RadialHoldModeForced = false;
     }
 
     /**
@@ -2535,21 +2621,25 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
      * (hold use = draw, release = fire, aimed along the hands), so Vivecraft's mode is set to OFF.
      * Tune key bow.mode=vivecraft keeps Vivecraft's setting for A/B.
      */
-    private void applyBowMode() {
-        String hand = this.inputTuning == null ? null : this.inputTuning.get("bow.hand");
-        this.m7BowLeftHand = hand == null || !hand.trim().equalsIgnoreCase("right");
-        String roll = this.inputTuning == null ? null : this.inputTuning.get("bow.roll.left");
+    private float bowRollTune(String key) {
+        String roll = this.inputTuning == null ? null : this.inputTuning.get(key);
         float rollDeg = M7_BOW_ROLL_DEG;
         if (roll != null) {
             try {
                 rollDeg = Float.parseFloat(roll.trim());
             } catch (NumberFormatException e) {
-                System.out.println("[VRMC-M7][WARN] bow.roll.left=" + roll + " is not a number; using "
+                System.out.println("[VRMC-M7][WARN] " + key + "=" + roll + " is not a number; using "
                     + M7_BOW_ROLL_DEG);
             }
         }
-        this.m7BowRollLeftDeg = Float.isFinite(rollDeg) ? Math.max(-180.0F, Math.min(180.0F, rollDeg))
-            : M7_BOW_ROLL_DEG;
+        return Float.isFinite(rollDeg) ? Math.max(-180.0F, Math.min(180.0F, rollDeg)) : M7_BOW_ROLL_DEG;
+    }
+
+    private void applyBowMode() {
+        String hand = this.inputTuning == null ? null : this.inputTuning.get("bow.hand");
+        this.m7BowLeftHand = hand == null || !hand.trim().equalsIgnoreCase("right");
+        this.m7BowRollLeftDeg = bowRollTune("bow.roll.left");
+        this.m7BowRollRightDeg = bowRollTune("bow.roll.right");
         try {
             String mode = this.inputTuning == null ? null : this.inputTuning.get("bow.mode");
             if (mode != null && mode.trim().equalsIgnoreCase("vivecraft")) {
@@ -2887,6 +2977,8 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     }
 
     private void releaseM7Actions() {
+        // Lost/stale hands must close the radial menu without choosing (hold mode clicks on release).
+        closeM7RadialWithoutChoice("input lost");
         this.zeroM7Locomotion();
         this.m7PinchCarry.reset();
         this.seatedPlayJumpPrev = false;
@@ -2908,7 +3000,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             VisionInput.KEY_INVENTORY, VisionInput.KEY_INGAME_MENU, VisionInput.KEY_JUMP,
             VisionInput.KEY_SNEAK, VisionInput.KEY_TELEPORT, VisionInput.KEY_HOTBAR_NEXT,
             VisionInput.KEY_HOTBAR_PREV, VisionInput.KEY_GUI_LEFT_CLICK,
-            VisionInput.KEY_CLIMBEY_GRAB, VisionInput.KEY_CLIMBEY_JUMP}) {
+            VisionInput.KEY_CLIMBEY_GRAB, VisionInput.KEY_CLIMBEY_JUMP, VisionInput.KEY_RADIAL_MENU}) {
             VRInputAction action = this.getInputAction(name);
             if (action == null) continue;
             if (action.isHanded()) {
@@ -3386,7 +3478,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     @Override
     public Matrix4fc getControllerComponentTransform(int controllerIndex, String componentName) {
         if (this.handComponentJoints && "tip".equals(componentName) && this.visionInput != null) {
-            int hand = physicalHandFor(controllerIndex);
+            int hand = controllerIndex == RIGHT_CONTROLLER ? VisionInput.HAND_RIGHT : VisionInput.HAND_LEFT;
             if (this.visionInput.isHandTracked(hand)) {
                 VisionHandPose.tipOffset(this.visionInput.joints(hand), this.controllerPose[controllerIndex],
                     this.tipOffsetTmp);

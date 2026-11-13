@@ -118,10 +118,72 @@ public final class VisionM7GestureTest {
         testAttack();
         testClimb();
         testGuiAndSafety();
+        testRadialHold();
 
         System.out.println("[m7-gesture-test] " + checks + " checks, " + failures + " failed");
         System.out.println(failures == 0 ? "[m7-gesture-test] PASS" : "[m7-gesture-test] FAIL");
         if (failures != 0) System.exit(1);
+    }
+
+    // ---- right fist hold = Vivecraft radial menu ----------------------------------------------
+
+    private static void testRadialHold() {
+        float[] l = leftHand(false);
+        float[] rOpen = rightHand(false, 0.0F);
+        float[] rFist = rightHand(true, 0.0F);
+
+        // Hold the right fist still: opens after RADIAL_HOLD_NS, opening the fist chooses.
+        VisionM7Gesture g = new VisionM7Gesture();
+        long[] t = {9_000_000_000L};
+        for (int i = 0; i < 10; i++) step(g, t, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        for (int i = 0; i < 40; i++) step(g, t, l, rFist, true, true, 0.20F, 0.20F, false, false); // 440 ms
+        check("radial not open before the hold time", !g.radialHeld());
+        boolean opened = false;
+        for (int i = 0; i < 30; i++) { // +330 ms
+            step(g, t, l, rFist, true, true, 0.20F, 0.20F, false, false);
+            opened |= g.radialHeld();
+        }
+        check("right fist hold opens the radial menu", opened && g.radialHeld());
+        step(g, t, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        check("opening the fist ends the hold (choose)", !g.radialHeld() && !g.radialCancelled());
+        check("a radial hold is never a right-fist tap", !g.rightFistTap());
+
+        // A short right-fist tap never opens it.
+        VisionM7Gesture tap = new VisionM7Gesture();
+        long[] tt = {9_500_000_000L};
+        for (int i = 0; i < 10; i++) step(tap, tt, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        boolean tapOpened = false;
+        for (int i = 0; i < 20; i++) {
+            step(tap, tt, l, rFist, true, true, 0.20F, 0.20F, false, false);
+            tapOpened |= tap.radialHeld();
+        }
+        step(tap, tt, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        check("short right-fist tap does not open the radial", !tapOpened);
+
+        // A second (left) fist cancels without a choice and blocks re-opening until the fist opens.
+        VisionM7Gesture chord = new VisionM7Gesture();
+        long[] ct = {10_000_000_000L};
+        for (int i = 0; i < 10; i++) step(chord, ct, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        for (int i = 0; i < 70; i++) step(chord, ct, l, rFist, true, true, 0.20F, 0.20F, false, false);
+        check("chord test: radial open", chord.radialHeld());
+        step(chord, ct, leftHand(true), rFist, true, true, 0.20F, 0.20F, false, false);
+        check("left fist cancels the radial", !chord.radialHeld() && chord.radialCancelled());
+        for (int i = 0; i < 70; i++) step(chord, ct, l, rFist, true, true, 0.20F, 0.20F, false, false);
+        check("cancelled radial does not reopen while the fist stays closed", !chord.radialHeld());
+
+        // Tracking loss cancels.
+        VisionM7Gesture lost = new VisionM7Gesture();
+        long[] lt = {10_500_000_000L};
+        for (int i = 0; i < 10; i++) step(lost, lt, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        for (int i = 0; i < 70; i++) step(lost, lt, l, rFist, true, true, 0.20F, 0.20F, false, false);
+        step(lost, lt, l, rFist, true, false, 0.20F, Float.NaN, false, false);
+        check("right-hand tracking loss cancels the radial", !lost.radialHeld() && lost.radialCancelled());
+
+        // Never in a GUI.
+        VisionM7Gesture gui = new VisionM7Gesture();
+        long[] gt = {11_000_000_000L};
+        for (int i = 0; i < 80; i++) step(gui, gt, l, rFist, true, true, 0.20F, 0.20F, true, false);
+        check("no radial while a screen is open", !gui.radialHeld());
     }
 
     // ---- place / break -----------------------------------------------------------------------
