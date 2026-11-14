@@ -7,12 +7,17 @@ import simd
 /// not to be the production gesture engine.
 struct LabHandFeatures {
     var tracked = false
+    /// Thumb-tip to index-tip distance, metres.
     var pinch: Float = 1
+    /// Lab-only curl metric (fingertip→knuckle / wrist→knuckle, fist below 0.55). NOT the provider's
+    /// `VisionInput.fistRatio` (fingertip→wrist / palm, fist below ~1.25): the two must not be mixed,
+    /// which is why scripts/m7_lab_stats_hands.py recomputes the fist metric from raw joints.
     var fistRatio: Float = 1
     var isFist = false
     var isPinch = false
     var wristWorld = SIMD3<Float>(repeating: 0)
     var indexTipWorld = SIMD3<Float>(repeating: 0)
+    /// Wrist speed in m/s (world space) and its vertical component (+ up).
     var speed: Float = 0
     var verticalSpeed: Float = 0
 }
@@ -24,9 +29,8 @@ struct LabClassifierOutput {
 
 @MainActor
 final class LabClassifier {
+    /// Last wrist sample per hand ("L"/"R"), for finite-difference speeds.
     private var previous: [String: (position: SIMD3<Float>, time: TimeInterval)] = [:]
-    private var previousRight: SIMD3<Float>?
-    private var previousTime: TimeInterval = 0
 
     func update(left: HandAnchor?, right: HandAnchor?, head: SIMD3<Float>?, time: TimeInterval) -> (LabHandFeatures, LabHandFeatures, LabClassifierOutput) {
         let lf = features(hand: left, key: "L", time: time)
@@ -37,7 +41,10 @@ final class LabClassifier {
         if rf.isPinch { reasons.append("right pinch") }
         if lf.isFist { reasons.append("left fist") }
         if rf.isFist { reasons.append("right fist") }
+        // Precedence: both fists > single pinch > single fist; a fast right swing (> 1.4 m/s) overrides
+        // everything below because a swing usually passes through pinch/fist-looking poses.
         if lf.isFist && rf.isFist {
+            // Alternating vertical wrist motion (opposite directions, combined > 0.25 m/s) = walk.
             let alternating = abs(lf.verticalSpeed) + abs(rf.verticalSpeed) > 0.25
                 && abs(lf.verticalSpeed - rf.verticalSpeed) > 0.10
             out.label = alternating ? "WALK_BOTH_FISTS" : "BOTH_FISTS"
@@ -100,6 +107,7 @@ final class LabClassifier {
         f.isFist = f.fistRatio < 0.55
         let previous = self.previous[key]
         if let previous {
+            // Clamp dt: both hands' anchors can arrive in the same tick and would otherwise divide by ~0.
             let dt = max(1.0 / 240.0, time - previous.time)
             let delta = wrist - previous.position
             f.speed = simd_length(delta) / Float(dt)

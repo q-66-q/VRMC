@@ -427,6 +427,9 @@ int32_t vrmc_shared_acquire_render_settings(vrmc_render_settings *out) {
 
 typedef void (*PFN_vrmc_vkGetMTLTextureMVK)(uint64_t image, void **out_texture);
 
+/* Find MoltenVK's vkGetMTLTextureMVK (VkImage -> backing MTLTexture). The game's MoltenVK is normally
+ * already loaded, so the global namespace is searched first; otherwise fall back to the app bundle
+ * (Frameworks/ or the bundle root, via $BUNDLE_PATH). The pointer is cached after the first success. */
 static PFN_vrmc_vkGetMTLTextureMVK resolve_get_mtl_texture(void) {
     static PFN_vrmc_vkGetMTLTextureMVK fn;
     if (fn != NULL) return fn;

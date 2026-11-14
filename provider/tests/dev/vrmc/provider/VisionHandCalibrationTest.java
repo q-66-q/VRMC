@@ -20,9 +20,10 @@ public final class VisionHandCalibrationTest {
         check("pinch phase", c.phaseAt(t0 + (VisionHandCalibration.OPEN_MS + VisionHandCalibration.FIST_MS) * 1_000_000L + 1) == 2);
         check("done phase", c.phaseAt(t0 + VisionHandCalibration.TOTAL_MS * 1_000_000L + 1) == VisionHandCalibration.PHASE_DONE);
         check("not enough data", !c.hasEnoughData());
-        // Open: pinch open ~0.09, fist ratio ~1.05; fists: ratio ~1.9; pinch closed ~0.015.
-        for (int i = 0; i < 20; i++) c.record(0, 0.09F, 1.05F);
-        for (int i = 0; i < 20; i++) c.record(1, 0.08F, 1.90F);
+        // Real-hand orientation (VisionInput.fistRatio: lower = more curled): open hands ~1.90,
+        // fists ~1.05; pinch open ~0.09 m, pinch closed ~0.015 m.
+        for (int i = 0; i < 20; i++) c.record(0, 0.09F, 1.90F);
+        for (int i = 0; i < 20; i++) c.record(1, 0.08F, 1.05F);
         for (int i = 0; i < 20; i++) c.record(2, 0.015F, 1.70F);
         check("enough data", c.hasEnoughData());
         check("pinch on separates", c.suggestedPinchOn() > 0.015F && c.suggestedPinchOn() < 0.09F,
@@ -31,6 +32,12 @@ public final class VisionHandCalibrationTest {
         check("fist on separates", c.suggestedFistOn() > 1.05F && c.suggestedFistOn() < 1.90F,
             String.valueOf(c.suggestedFistOn()));
         check("fist off > on", c.suggestedFistOff() > c.suggestedFistOn() + 0.049F);
+        // Regression: thresholds must sit nearer the fist edge so an open hand (1.90) never presses
+        // (press is metric < on) and a fist (1.05) always does.
+        check("fist on below midpoint", c.suggestedFistOn() < (1.05F + 1.90F) / 2F,
+            String.valueOf(c.suggestedFistOn()));
+        check("fist off below open hand", c.suggestedFistOff() < 1.90F, String.valueOf(c.suggestedFistOff()));
+        check("fist presses on observed fist", 1.05F < c.suggestedFistOn());
         String report = c.report(t0 + VisionHandCalibration.TOTAL_MS * 1_000_000L);
         check("report valid", report.contains("valid=yes"), report);
         check("report contains suggested keys", report.contains("pinch.on=") && report.contains("fist.on="));

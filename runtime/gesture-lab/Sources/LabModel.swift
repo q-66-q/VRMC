@@ -5,6 +5,10 @@ import ARKit
 import simd
 import AVFoundation
 
+/// Gesture Lab: a standalone visionOS app that records labelled ARKit hand-skeleton + head data so the
+/// M7 gesture thresholds can be fitted offline (scripts/m7_lab_*.py, scripts/m7_eval_replay.py) and
+/// replayed through the real engine (provider M7LabReplay). Recordings are JSON Lines files in the
+/// app's Documents (`gesturelab-<LABEL>-<timestamp>.jsonl`), pulled with scripts/m7_pull_lab_data.sh.
 @MainActor
 final class LabModel: ObservableObject {
     @Published private(set) var running = false
@@ -147,6 +151,8 @@ final class LabModel: ObservableObject {
         log("session stopped")
     }
 
+    /// Spoken walkthrough of every action: 2 s to get ready, 5 s recorded per label, 1.5 s rest.
+    /// The label names are the dataset keys the analysis/replay scripts look for; keep them in sync.
     func startGuidedCapture() {
         guard running, !recording, !guidedActive else { return }
         let actions = ["MENU_RIGHT_PINCH", "ESCAPE_LEFT_FIST", "WALK_BOTH_FISTS", "JUMP_HEAD",
@@ -236,6 +242,10 @@ final class LabModel: ObservableObject {
         log("recording stopped: \(recordFile) samples=\(sampleCount)")
     }
 
+    /// Appends one JSONL sample: `t` (Unix seconds), `label`, head position + 4x4 world matrix, each
+    /// hand's joints as 16-float column-major world matrices, the live features and the lab classifier
+    /// output. Throttled to ~20 Hz (one line per 50 ms), which keeps files small while still resolving
+    /// taps and swings.
     private func writeSample(left: HandAnchor?, right: HandAnchor?, lf: LabHandFeatures, rf: LabHandFeatures) {
         guard recording, let handle = fileHandle else { return }
         let now = Date().timeIntervalSince1970
@@ -285,7 +295,11 @@ final class LabModel: ObservableObject {
          "isPinch": f.isPinch, "isFist": f.isFist, "speed": f.speed, "verticalSpeed": f.verticalSpeed]
     }
 
+    /// Called for every hand-anchor update (each hand updates independently): refreshes the head pose,
+    /// moves the joint/bone debug visuals (entities are created once and reused), runs the classifier on
+    /// the latest snapshot of both hands, and records a sample when recording.
     private func ingest(_ anchor: HandAnchor) {
+        // queryDeviceAnchor expects the system uptime clock (the same clock ARKit timestamps use).
         syncHead(timestamp: ProcessInfo.processInfo.systemUptime)
         guard anchor.isTracked, let skeleton = anchor.handSkeleton else { return }
         let handKey = anchor.chirality == .left ? "L" : "R"
@@ -327,6 +341,7 @@ final class LabModel: ObservableObject {
                         root.addChild(bone)
                         boneEntities[boneKey] = bone
                     }
+                    // Unit cylinder along +Y, rotated onto the parent→joint segment and scaled to its length.
                     let rotation = simd_quatf(from: SIMD3<Float>(0, 1, 0), to: delta / length)
                     bone.transform = Transform(scale: SIMD3<Float>(1, length, 1),
                                                rotation: rotation,

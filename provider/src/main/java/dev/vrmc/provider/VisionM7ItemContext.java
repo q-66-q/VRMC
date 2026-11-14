@@ -35,11 +35,16 @@ final class VisionM7ItemContext {
             if (componentsReady && (isEdible(main) || isEdible(off))) out |= 2;
             if (isBlock(main)) out |= 4;
         } catch (Throwable t) {
-            return 0;
+            return 0;   // degrade to "no context" for this frame; the engine falls back to geometry
         }
         return out;
     }
 
+    /**
+     * Resolves the reflective handles once per concrete player class (Method handles are tied to the
+     * class they were looked up on). A failed probe is not retried for the same class, so a missing
+     * API costs one warning line instead of one per frame.
+     */
     private static synchronized boolean init(Class<?> playerClass) {
         if (attempted && resolvedPlayerClass == playerClass) return ready;
         attempted = true;
@@ -83,6 +88,7 @@ final class VisionM7ItemContext {
         return stack == null ? null : stackGetItem.invoke(stack);
     }
 
+    /** {@code Items.BOW} is a registry singleton, so identity is exact (crossbows are deliberately excluded). */
     private static boolean isBow(Object stack) throws ReflectiveOperationException {
         Object item = item(stack);
         return item != null && item == bowItem;
@@ -106,6 +112,7 @@ final class VisionM7ItemContext {
         return item != null && blockItemClass != null && blockItemClass.isInstance(item);
     }
 
+    /** FOOD marks edible items; CONSUMABLE also covers drinks (potions, milk), which use the same mouth gesture. */
     private static boolean isEdible(Object stack) throws ReflectiveOperationException {
         if (!componentsReady || stack == null) return false;
         Object map = stackGetComponents.invoke(stack);

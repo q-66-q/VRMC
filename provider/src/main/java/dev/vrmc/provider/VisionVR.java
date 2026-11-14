@@ -1301,6 +1301,11 @@ public class VisionVR extends MCVR {
         return this.m7Mode && this.mc != null && this.mc.gui.screen() != null;
     }
 
+    /**
+     * M7 head-ray GUI cursor: while a screen is open, the mouse cursor follows where the head's forward
+     * ray meets Vivecraft's room-space GUI quad (hand aim is not used). Opening a screen recalibrates
+     * the window-to-mouse scale and centres the cursor; closing it resets the state.
+     */
     private void updateM7GuiCursor() {
         if (this.mc.gui.screen() == null || GuiHandler.GUI_POS_ROOM == null
             || GuiHandler.GUI_ROTATION_ROOM == null) {
@@ -1384,6 +1389,7 @@ public class VisionVR extends MCVR {
         this.m7CursorCalibVrRunning = VRState.VR_RUNNING;
     }
 
+    /** HMD forward (-Z) ray from the head position, intersected with the GUI plane, mapped to window pixels. */
     private void updateM7GuiCursorImpl() {
         this.m7GuiOrigin.set(this.hmdPose.m30(), this.hmdPose.m31(), this.hmdPose.m32());
         this.m7GuiDir.set(0.0F, 0.0F, -1.0F);
@@ -1444,6 +1450,10 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /**
+     * Inventory selected-slot accessors are looked up reflectively (once; the result is cached) so the
+     * provider does not hard-link to them; fingertip hotbar selection is skipped if they cannot be resolved.
+     */
     private boolean resolveM7InventoryReflection() {
         if (this.m7InventoryReflectionTried) {
             return this.m7InventoryMethod != null && this.m7GetSelectedSlotMethod != null
@@ -1693,6 +1703,7 @@ public class VisionVR extends MCVR {
         this.gazeSuppressUntilNs = now + 500_000_000L;
     }
 
+    /** True for 500 ms after a gaze click, so the same system pinch is not also delivered as a hand-pinch click. */
     private boolean gazeGuiClickSuppressed() {
         return this.gazeSuppressUntilNs != 0L && System.nanoTime() < this.gazeSuppressUntilNs;
     }
@@ -2061,6 +2072,11 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /**
+     * Per-frame M7 dispatch: turns the gesture engine's state into Vivecraft action data (locomotion,
+     * attack/use/break timing, fist-tap latches, menu/inventory, hotbar, GUI clicks). Only called while
+     * input is healthy and at least one hand is tracked; otherwise {@link #releaseM7Actions()} runs.
+     */
     private void applyM7Actions() {
         boolean gui = this.mc.gui.screen() != null;
         boolean seated = this.dh.vrSettings.seated;
@@ -2222,6 +2238,10 @@ public class VisionVR extends MCVR {
         this.m7StickOriginSet = false;
     }
 
+    /**
+     * Writes a digital state into the slot Vivecraft reads: the hand's controller slot for handed
+     * actions, slot 0 otherwise. The origin always records which hand produced it.
+     */
     private void setM7Action(String name, int hand, boolean state) {
         VRInputAction action = this.getInputAction(name);
         if (action == null) return;
@@ -2266,6 +2286,10 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /**
+     * No-stuck-input guarantee: whenever hand input is unhealthy, stale or untracked, release every action
+     * M7 can hold, clear all press latches and timers, and lift a held GUI mouse button.
+     */
     private void releaseM7Actions() {
         this.zeroM7Locomotion();
         this.m7RightPinchPrev = false;
@@ -2364,6 +2388,7 @@ public class VisionVR extends MCVR {
         }
     }
 
+    /** Selects a hotbar slot through the inventory's selected-slot setter (reflective, see above). */
     private void commitHotbarSlot(int slot) {
         Object player = this.mc.player;
         if (player == null) return;
@@ -2528,6 +2553,10 @@ public class VisionVR extends MCVR {
         }
     }
 
+    // Analog/digital writers into Vivecraft's per-slot action data (what MCOpenVR fills from SteamVR).
+    // NOTE: the analog delta is written as "minus the previous value", i.e. relative to a released axis,
+    // not newValue - previousValue, so isChanged reflects "was non-zero last frame". Consumers that read
+    // absolute axes (locomotion) are unaffected; revisit before using analog deltas for anything else.
     private static void writeAnalog2D(VRInputAction action, int slot, float x, float y, long origin) {
         VRInputAction.AnalogData a = action.analogData[slot];
         a.deltaX = -a.x;
@@ -2552,6 +2581,7 @@ public class VisionVR extends MCVR {
         a.activeOrigin = origin;
     }
 
+    /** Digital write; also zeroes the slot's analog axes so a button never carries a stale stick value. */
     private static void writeDigital(VRInputAction action, int slot, boolean active, boolean state, long origin) {
         VRInputAction.DigitalData d = action.digitalData[slot];
         d.isChanged = d.state != state;

@@ -701,6 +701,8 @@ final class ShellCoordinator {
         return parts.isEmpty ? "windows=no-window-scenes" : "windows=" + parts.joined(separator: " ")
     }
 
+    /// Re-reads app and window-scene activation from UIKit (the notifications alone are not reliable on
+    /// visionOS while an immersive space owns focus) and logs the full window/scene picture.
     private func refreshActivityStates(_ reason: String) {
         appActive = UIApplication.shared.applicationState == .active
         windowSceneActive = false
@@ -854,6 +856,12 @@ final class ShellCoordinator {
         shellDocumentsURL().appendingPathComponent("vrmc-crash-count.txt")
     }
 
+    /// M6 crash guard, run once at launch. The provider appends `event=…` lines to
+    /// instances/default/vrmc-shutdown.log and writes `destroy-complete` only on a clean teardown, so a
+    /// last line without it means the previous JVM died mid-session. Consecutive unclean sessions are
+    /// counted in Documents/vrmc-crash-count.txt; at two, safe mode suppresses the automatic immersive
+    /// open (and writes vrmc-safe-mode.flag) until a clean session or "Clear crash safe mode". A
+    /// missing journal (first run) leaves the count untouched.
     private func evaluateCrashGuard() {
         let docs = shellDocumentsURL()
         let gameDir = docs.appendingPathComponent("instances/default")
@@ -1074,6 +1082,8 @@ final class ShellCoordinator {
         }
     }
 
+    /// Dismisses the SwiftUI immersive space only if no newer open/close happened since `myEpoch` was
+    /// captured, so a late dismiss from an old session can never close a freshly reopened one.
     private func dismissIfCurrent(myEpoch: Int) async {
         guard epoch == myEpoch, needsDismiss else { return }
         if let dismissAction {
@@ -1082,6 +1092,9 @@ final class ShellCoordinator {
         if epoch == myEpoch { needsDismiss = false }
     }
 
+    /// Real backgrounding: remember whether VR should come back, invalidate in-flight tasks (epoch) and
+    /// ask the compositor to stop. The immersive space itself is dismissed when the compositor reports
+    /// it has ended (compositorDidEnd).
     private func stopForBackground(_ reason: String) {
         resignGraceTask?.cancel()
         resignGraceTask = nil

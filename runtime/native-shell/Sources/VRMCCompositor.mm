@@ -205,6 +205,10 @@ static void openLog(void) {
     gLog = fopen(path.UTF8String, "a");
 }
 
+/// Binds the bridge's native-shared entry points at runtime from <app>/Frameworks/libvrmc_bridge.dylib.
+/// The JVM loads that same dylib for JNI, so dlopen returns the one already-mapped image and the
+/// compositor and provider share a single copy of the eye/tracking/input state. Any symbol missing
+/// from an older bridge stays NULL and its feature is skipped (logged below), never a crash.
 static void resolveBridge(void) {
     if (gEyeFn != NULL) return;
     NSString *path = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/libvrmc_bridge.dylib"];
@@ -326,6 +330,8 @@ static void presentationStatsReset(VRMCPresentationStats *stats) {
     memset(stats, 0, sizeof(*stats));
 }
 
+/// Adds one presentation timestamp to the rolling interval window. Intervals outside 0.5–200 ms are
+/// dropped: duplicates of the same timestamp and pauses (backgrounding, loading) would skew p50/p95.
 static void presentationStatsRecord(VRMCPresentationStats *stats, CFTimeInterval presentationSeconds) {
     if (!isfinite(presentationSeconds)) return;
     const double ms = presentationSeconds * 1000.0;
@@ -1351,6 +1357,8 @@ static void encodeGazeTrackingAreas(VRMCGazeRenderer *gaze, cp_drawable_t drawab
     }
 }
 
+/// IEEE 754 binary16 → float (zero/subnormal/inf/NaN handled); used to read back RGBA16Float drawables
+/// for the diagnostic dumps.
 static inline float halfToFloat(uint16_t h) {
     uint32_t sign = (uint32_t)(h >> 15) & 1u;
     uint32_t exp = (uint32_t)(h >> 10) & 0x1fu;

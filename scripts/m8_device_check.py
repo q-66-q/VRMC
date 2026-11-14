@@ -138,6 +138,9 @@ def find_ints(pattern, text, group_count=0):
 
 
 def parse_compositor(text):
+    """Extract M8 facts from one compositor session log: the layer configuration (foveation,
+    maxRenderQuality), per-view rate maps, the display geometry, the most recent render-feedback
+    cadence summary (old and new line layouts), and publish/command-buffer failure counts."""
     info = {
         "configured_foveation": None,
         "max_render_quality": None,
@@ -210,6 +213,8 @@ def parse_shell(text):
 
 
 def parse_provider(text):
+    """Extract M8 facts from the game log: the provider's render settings line, every eye-target
+    resize, the last render-state line, the last M5 diag pacing window and JVM/game crash markers."""
     info = {
         "settings_line": None,
         "resizes": [],
@@ -267,6 +272,9 @@ def status_int(render, key):
 
 
 def check_a6(comp, shell, status_render):
+    """A6 foveation active. PASS: the layer was configured with foveation=1, rate maps were created and
+    the display geometry reports them (vrmc-status.json may stand in for rotated logs). NOT RUN when
+    the layer reports no foveation support at all (simulator/environment, not a regression); else FAIL."""
     reasons = []
     ok = True
     if shell.get("supports_foveation") is False:
@@ -297,6 +305,10 @@ def check_a6(comp, shell, status_render):
 
 
 def check_a7(comp, provider, status_render):
+    """A7 4K-class display + provider eye targets. PASS: logical per-eye size meets the 4K-class
+    threshold, the provider logged its render settings, resized its eye target at least once but not
+    more than MAX_RESIZES times (no thrash), and ended at or above the pre-M8 1024 px baseline.
+    Missing evidence is PARTIAL, never FAIL. Also returns the logical size for the report."""
     reasons = []
     ok = True
     geom = comp.get("display_geometry")
@@ -341,6 +353,10 @@ def check_a7(comp, provider, status_render):
 
 
 def check_a8(comp, status_render, trace_last):
+    """A8 display cadence, always the measured rate, never the requested target. PASS at 120 Hz class;
+    PARTIAL at 90 Hz (the visionOS limit for custom immersive Metal rendering), below 90 Hz, or with too
+    many repeated frames. Falls back to vrmc-status.json, then the last frame-trace row, before
+    reporting NOT RUN. Also returns the measured Hz."""
     feedback = comp.get("last_feedback")
     reasons = []
     if not feedback:
@@ -396,6 +412,9 @@ def check_a8(comp, status_render, trace_last):
 
 
 def check_a9(comp, provider, status_doc, status_render):
+    """A9 pacing / regressions. FAIL on any hard failure (feedback publish or command-buffer failure,
+    crash markers). Otherwise PASS when the provider's p95 frame time is within 1.5x the target-cadence
+    budget, PARTIAL when above it or when no pacing data exists. Missed frames are reported only."""
     reasons = []
     ok = True
     hard_failure = False
@@ -432,7 +451,7 @@ def check_a9(comp, provider, status_doc, status_render):
         reasons.append("provider: p95=%.2f ms above the 1.5x %.0f Hz budget (%.2f ms)" %
                        (p95, target_hz, budget))
         ok = False
-    if diag.get("missedTarget", 0) > max(3.0, 0):
+    if diag.get("missedTarget", 0) > 3.0:
         # report only; a few missed frames in a window are normal on a shared device
         reasons.append("provider: missedTarget=%d in the last window" % int(diag["missedTarget"]))
     if not reasons:

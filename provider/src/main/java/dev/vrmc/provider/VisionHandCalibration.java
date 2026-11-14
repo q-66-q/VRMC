@@ -9,6 +9,11 @@ import java.util.Locale;
  * provider runs the command; the result suggests pinch/fist thresholds with separation margins. This is
  * advisory only: the operator can copy the suggested keys into vrmc-input-tune.properties or use the
  * launcher sliders.
+ *
+ * <p>Metric directions (same as {@link VisionInput}): the pinch metric is the thumb-to-index tip
+ * distance in metres and the fist metric is the mean fingertip-to-wrist distance divided by palm
+ * length. Both are <em>lower</em> when the gesture is made; the engine presses below {@code on} and
+ * releases above {@code off}, so every suggestion must satisfy {@code on < off}.
  */
 public final class VisionHandCalibration {
     public static final long OPEN_MS = 3_000L;
@@ -19,10 +24,12 @@ public final class VisionHandCalibration {
 
     private long startNs;
     private boolean started;
-    private float openPinchMax = Float.NaN;
-    private float openFistMin = Float.NaN;
-    private float fistFistMax = Float.NaN;
-    private float pinchPinchMin = Float.NaN;
+    // Per-phase extremes. For the fist these are the inner edges of the gap between the two
+    // distributions: the most curled open-hand sample and the least curled fist sample.
+    private float openPinchMax = Float.NaN;    // widest thumb-index spread with open hands
+    private float openFistMin = Float.NaN;     // lowest (most curled) fist ratio with open hands
+    private float fistFistMax = Float.NaN;     // highest (least curled) fist ratio with fists
+    private float pinchPinchMin = Float.NaN;   // tightest pinch distance
     private int openSamples;
     private int fistSamples;
     private int pinchSamples;
@@ -88,26 +95,37 @@ public final class VisionHandCalibration {
             && Float.isFinite(this.fistFistMax) && Float.isFinite(this.pinchPinchMin);
     }
 
+    /** Press at 25% of the way from the tightest pinch towards the open spread. */
     public float suggestedPinchOn() {
         float range = Math.max(0.005F, this.openPinchMax - this.pinchPinchMin);
         return clamp(this.pinchPinchMin + 0.25F * range, 0.010F, 0.080F);
     }
 
+    /** Release at 55% of the way (at least 8 mm above {@code on}) so tracking jitter cannot chatter. */
     public float suggestedPinchOff() {
         float range = Math.max(0.005F, this.openPinchMax - this.pinchPinchMin);
         return clamp(Math.max(suggestedPinchOn() + 0.008F, this.pinchPinchMin + 0.55F * range),
             suggestedPinchOn() + 0.008F, 0.120F);
     }
 
+    /**
+     * Press at 25% of the gap above the least-curled fist, so every observed fist presses while the
+     * threshold stays well below any observed open hand. If the two distributions overlap, the gap is
+     * floored at 0.05 and the thresholds sit just above the fist edge.
+     */
     public float suggestedFistOn() {
-        float range = Math.max(0.05F, this.fistFistMax - this.openFistMin);
-        return clamp(this.openFistMin + 0.25F * range, 0.60F, 2.00F);
+        return clamp(this.fistFistMax + 0.25F * fistGap(), 0.60F, 2.00F);
     }
 
+    /** Release at 50% of the gap (at least 0.05 above {@code on}), still below the open-hand edge. */
     public float suggestedFistOff() {
-        float range = Math.max(0.05F, this.fistFistMax - this.openFistMin);
-        return clamp(Math.max(suggestedFistOn() + 0.05F, this.openFistMin + 0.50F * range),
-            suggestedFistOn() + 0.05F, 2.50F);
+        float on = suggestedFistOn();
+        return clamp(Math.max(on + 0.05F, this.fistFistMax + 0.50F * fistGap()), on + 0.05F, 2.50F);
+    }
+
+    /** Separation between open hands and fists (open is the higher ratio). */
+    private float fistGap() {
+        return Math.max(0.05F, this.openFistMin - this.fistFistMax);
     }
 
     /** Human/machine readable report saved to the game directory for launcher/export review. */

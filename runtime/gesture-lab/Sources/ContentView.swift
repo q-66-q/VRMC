@@ -6,6 +6,7 @@ struct ContentView: View {
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @State private var immersiveOpen = false
 
+    /// Manual label picker: IDLE plus the same dataset labels LabModel.startGuidedCapture walks through.
     private let labels = [
         "IDLE",
         "MENU_RIGHT_PINCH",

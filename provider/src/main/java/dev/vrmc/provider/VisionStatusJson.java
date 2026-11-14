@@ -5,25 +5,37 @@ import java.time.Instant;
 /**
  * M5 diagnostics status document (pure builder, host-tested). The launcher/diagnostics parse
  * {@code vrmc-status.json}; keeping generation in one tested place prevents invalid JSON regressions.
+ *
+ * <p>Contract with the launcher: every key the shell reads ({@code obj["…"]} in Shell.swift) must be
+ * written here; {@code scripts/check_status_fields.sh} fails the release check on drift. Prefer
+ * adding keys to renaming them, so an older launcher can still read a newer provider's status.
  */
 public final class VisionStatusJson {
     private VisionStatusJson() {}
 
     public static final class Data {
+        /** ISO-8601 timestamp; null means "use the build time passed to {@link #build}". */
         public final String generatedAt;
+        /** Native bridge ABI version the provider was compiled against. */
         public final int abi;
         public final boolean bridgeReady;
         public final boolean initialized;
+        /** Generation of the compositor's per-eye display views last adopted; -1 before the first. */
         public final long displayViewsGen;
+        /** Head-pose frames consumed since the session started. */
         public final int trackedFrames;
         public final boolean seated;
         public final boolean inputHealthy;
         public final boolean handLeftTracked;
         public final boolean handRightTracked;
         public final boolean playerPresent;
+        /** The JVM's {@code os.name} (key name kept for launcher compatibility). */
         public final String runningOnVisionOS;
+        /** One-line summary of the parsed vrmc-runtime.properties. */
         public final String runtimeSettings;
+        /** Hotbar touch reach in metres. */
         public final float hotbarRange;
+        /** One-line summary of the active gesture thresholds. */
         public final String inputTuning;
         public final String thermalState;
         public final String thermalResponse;
@@ -31,12 +43,15 @@ public final class VisionStatusJson {
         public final boolean adaptiveFramerateApplied;
         public final float frameP50Ms;
         public final float frameP95Ms;
+        /** Frames in the last stats window that missed the 11.1 ms (90 Hz) budget. */
         public final int missed90Frames;
+        /** Active gesture engine and enabled gesture families. */
         public final String gestures;
         public final boolean bowActive;
         public final boolean bowNotched;
         public final float bowDrawPercent;
         public final boolean climbGrabbing;
+        /** Vivecraft "Climbey" mode (climb claws equipped / server allows it). */
         public final boolean climbeyClimb;
         public final boolean climbActive;
         /** M8 renderer/display summary (eye target, display logical size, foveation, cadence, resizes). */
@@ -85,6 +100,7 @@ public final class VisionStatusJson {
         }
     }
 
+    /** Pretty-printed, always-valid JSON; key order is stable so diffs of pulled status files stay readable. */
     public static String build(Data d, Instant now) {
         StringBuilder json = new StringBuilder(512);
         json.append("{\n");
@@ -136,6 +152,7 @@ public final class VisionStatusJson {
         out.append("  \"").append(key).append("\": ").append(value).append(comma ? ",\n" : "\n");
     }
 
+    /** JSON has no NaN/Infinity literals; a non-finite stat (e.g. empty window) is written as 0. */
     private static void rawNumber(StringBuilder out, String key, float value, boolean comma) {
         if (!Float.isFinite(value)) value = 0.0F;
         out.append("  \"").append(key).append("\": ").append(value).append(comma ? ",\n" : "\n");
@@ -145,6 +162,7 @@ public final class VisionStatusJson {
         out.append("  \"").append(key).append("\": ").append(value).append(comma ? ",\n" : "\n");
     }
 
+    /** RFC 8259 string escaping: quotes, backslash and every control character below U+0020. */
     private static void escape(StringBuilder out, String value) {
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
