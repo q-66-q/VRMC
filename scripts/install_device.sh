@@ -1,11 +1,13 @@
 #!/bin/bash
 # Install an .app on the paired device (optionally replacing an existing app).
 # Usage (one line): DEVICE=<udid> scripts/install_device.sh /path/App.app [bundle-id-to-uninstall]
-# Environment: DEVICE (required), DRY_RUN=1 to print the commands instead of running them.
+# Environment: DEVICE (default $VRMC_DEVICE_UDID from scripts/local.env), DRY_RUN=1 to print the commands instead of running them.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/local_env.sh"   # per-developer device/team/identity (scripts/local.env)
 APP=${1:?usage: install_device.sh <App.app> [bundle-id-to-uninstall]}
 UNINSTALL_BUNDLE_ID=${2:-}
-: "${DEVICE:?set DEVICE to the device UDID}"
+DEVICE="${DEVICE:-$VRMC_DEVICE_UDID}"
+: "${DEVICE:?set DEVICE or VRMC_DEVICE_UDID (scripts/local.env) to the device UDID}"
 
 if [ "${DRY_RUN:-0}" = "1" ]; then
   echo "[install] dry-run: xcrun devicectl device install app --device $DEVICE $APP"

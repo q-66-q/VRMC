@@ -1,188 +1,156 @@
 # VRMC — Minecraft VR on Apple Vision Pro
 
-VRMC runs **Minecraft: Java Edition 26.2 + Fabric + the real Vivecraft mod natively on Apple
-Vision Pro**, with head-tracked stereo and ARKit hand-tracked input. There is no PC and no
-streaming.
+## Introduction
 
-This is a **development/sideload** project, not an App Store submission.
+VRMC runs **Minecraft: Java Edition with Fabric and the unmodified Vivecraft mod natively on Apple
+Vision Pro**: no PC, no streaming. The Java game runs on the headset with a JIT-enabled JVM and
+renders through Vulkan (MoltenVK) into a CompositorServices immersive space, with head-tracked stereo
+and ARKit hand tracking as the controller.
 
-## Current status
-
-- **M7 hand-input mapping: device PASS**
-- **M5/M6 acceptance: 22/22 rows PASS** ([`docs/mvp/M6_ACCEPTANCE.md`](docs/mvp/M6_ACCEPTANCE.md))
-- **Release gate: RELEASE READY** (`scripts/m6_release_ready.sh --zip …`)
-- **M8 foveated 4K/120 rendering: host+simulator PASS; DEVICE PARTIAL 2026-11-07 (foveation + 4K-class per eye + sharpening/colour/boat PASS; 90 Hz platform cap, 120 Hz not attainable for custom immersive rendering)** —
-  [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md). The hashes/package below describe the **last
-  release-ready build (pre-M8)**; the M8 provider jar (`2cc9626a…`, 144,529 B, reproducible) and the
-  rendering pipeline have no device acceptance yet. Device verification is a one-command classify:
-  `scripts/m8_device_check.sh` (runbook [`docs/mvp/M8_DEVICE_RUN.md`](docs/mvp/M8_DEVICE_RUN.md)).
-  The compositor's foveation sampling path is validated on host Metal against a real rasterization
-  rate map plus its M8.6 foveated-sharpening upscale metrics and the combined foveated-drawable +
-  sharpening pass ([probe](runtime/probes/m8-foveation/README.md)), by a cross-language render-feedback ABI
-  fixture (C struct -> Java parser), by a 120k-case payload fuzz test and classifier robustness cases, and by
-  an upscale quality ladder
-  ([probe](runtime/probes/m8-quality-ladder/README.md): PSNR/acutance per eye-target scale), with a generated
-  device tuning guide ([`M8_TUNING.md`](docs/mvp/M8_TUNING.md): budgets + A/B commands),
-  and the provider's display-feedback → eye-target resize path is validated in a real Minecraft client
-  ([host Fabric harness](docs/mvp/M8_HOST_HARNESS.md)), including the resize texture-lifetime safety
-  and the compositor's resize grace (no test-pattern flash during an eye-target rebuild; simulator
-  `eyedrop` scenario), and the provider can be aimed at 120 Hz explicitly (`vrmc-target-hz.txt`,
-  live; achieved rate still measured) with an opt-in content-first governor that keeps the 4K-class eye
-  target by cutting scene cost first (`vrmc-content-first.txt`) and a startup super-sampling knob for
-  jagged edges (`vrmc-world-supersample.txt`, SSAA — Minecraft 26.2 has no MSAA); a signed M8 device
-  candidate is staged and ready to install
-  ([`export/m8-device-candidate.txt`](export/m8-device-candidate.txt)), and a durable handoff package
-  (app + provider jar + checksums, `scripts/m8_device_package.sh`) plus
-  [`M8_DEVICE_HANDOFF.md`](docs/mvp/M8_DEVICE_HANDOFF.md) capture everything needed to finish on the
-  headset; the next device session is one command each way (`scripts/m8_device_session.sh prepare` /
-  `collect --report`), with device eye-tracked foveation and cadence still unverified.
-- Current provider: `4e92b3067c1bb67ba1d00ce35d70bbb3cf14d83faa3a7b6ba23fd20a755d5351`
-  (127,258 bytes)
-- Current app tree: `a4663e16b8dc57d16c67ccd72be770f15f2846dc0fdb3c913fa5203283ba7bfb`
-- Current development package:
-  `sha256 0fa384d9a40e1a3b001799d6d3b376ddb1de67a09d4b201abaa99236a45ca764`,
-  206,567,700 bytes. See [`export/release-package-dev.txt`](export/release-package-dev.txt).
-
-Evidence authority: [`VERIFY.md`](VERIFY.md). Navigation summary:
-[`docs/mvp/STATUS.md`](docs/mvp/STATUS.md).
-
-## What works
-
-### Interaction (M7)
-
-- **Look/head ray** drives the IDE cursor; cursor sits slightly below view centre for bottom-row
-  selection.
-- **Short right pinch** — GUI left-click; in world: attack an entity, or place/use on a block.
-- **Hold right pinch (≥350 ms)** — break/mine; release stops.
-- **Left pinch hold + move left hand** — player-relative movement (forward/back + strafe).
-- **Left fist tap** — open/close menu.
-- **Both-fist tap** — inventory; **right pinch** picks up/places stacks.
-- **Right-hand swing** — alternate attack.
-- **Head rise/lower** — jump/sneak.
-- **Hotbar** — touch the rendered bar with the right index fingertip; air index tap fallback.
-- **Both hands apart (bow held)** — draw; release by opening the back fist or bringing hands
-  together to fire.
-- **Right hand near head** — eat/drink; alternating closed hands — climb.
-
-Teleport was **descoped** by the operator. Bow draw/fire works, but the bow **visual orientation**
-is a known non-blocking bug (it renders parallel to the hand; see EV-0263).
-
-### Runtime
-
-- Native visionOS shell + CompositorServices immersive presentation
-- On-device JVM with JIT (StikDebug), Minecraft 26.2, Fabric, Vivecraft
-- LGPL VRMC provider mod (M7 gesture engine + Vivecraft integration)
-- ABI v3 bridge: hand tracking, eye handoff, display views, immersive input
-- Crash guard, clean-shutdown journal, diagnostics bundle, comfort/settings/acceptance checklist
-
-## Stack
+- **Stereo VR:** per-eye rendering with foveation and display-sized eye targets, presented at the
+  headset's 90 Hz.
+- **Hands as controllers:** pinch, fist and hand-motion gestures drive Vivecraft's actions (see
+  [Hand controls](#hand-controls)); actions release safely when tracking drops.
+- **Launcher:** a branded build of the Amethyst launcher with a VRMC shell for accounts, the game
+  instance, mod setup, comfort settings and diagnostics.
+- **Comfort:** vignette, snap or smooth turn, seated mode and recenter are always reachable.
 
 | Component | Version |
 |---|---|
-| Minecraft Java | 26.2 |
-| Java runtime | 25.0.4 (bundled) |
-| Fabric loader | 0.20.1 on the tested instance (pin in [`versions.env`](versions.env)) |
+| Minecraft: Java Edition | 26.2 |
+| Fabric loader | 0.20.1 |
 | Vivecraft | 26.2-1.3.15 |
+| Java runtime | OpenJDK 25 (bundled) |
 | visionOS | 27.x |
 
-Pins are in [`versions.env`](versions.env). Third-party reference sources and vendor build trees
-are intentionally not committed.
+Exact pins live in [`versions.env`](versions.env). VRMC is a development, sideloaded app, not an App
+Store product, and it is not affiliated with Mojang, Microsoft, Vivecraft, Valve, Sony or Apple.
 
-## Install / run
+## Instructions
 
-VRMC is a sideloaded development app. A provisioning profile that matches the target Apple Vision
-Pro is required; the app must be signed for that device.
+### Requirements
 
-1. Install the app (or unpack the development package).
-2. Open **StikDebug**, enable JIT for the app, then launch VRMC.
-3. The launcher creates the Minecraft/Fabric instance. On every start the shell **auto-provisions**
-   `Documents/instances/default/mods/` (`runtime/native-shell/Sources/ModProvisioner.swift`):
-   - **VRMC provider** — installed from the app bundle (`<app>/vrmc/vrmc-provider.jar`, embedded by
-     `scripts/stage_native_app.sh`) when missing, and upgraded when the app ships a newer one. A jar
-     you pushed yourself (`scripts/push_provider_jar.sh`) is never overwritten; create
-     `Documents/vrmc-provider-reset.flag` to force the bundled jar back.
-   - **Vivecraft** is **not redistributed**. Download `vivecraft-26.2-1.3.15-fabric.jar` from the
-     Vivecraft project and save it to *On My Apple Vision Pro › VRMC* in the Files app (or AirDrop it).
-     It is moved into `mods/` only if its sha256 matches the pin in [`versions.env`](versions.env):
-     `e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb`; anything else is rejected
-     and left in place.
-   - The launcher's **Mods** panel shows the result (ready / action needed, duplicate-jar warnings)
-     with a *Re-check mods* button; the diagnostics export includes the same lines.
-4. Manual fallback (builds staged without an embedded provider, or the pre-provisioning app): copy
-   both jars into `Documents/instances/default/mods/` yourself.
-5. Launch the Fabric instance, create/load a world, and enter immersive mode.
+- Apple Vision Pro on visionOS 27.x.
+- A Mac with Xcode 27.2 to build, sign and install the app.
+- An Apple developer account (a free personal team works; its profiles expire after 7 days and the
+  app must be re-signed).
+- [StikDebug](https://github.com/StephenDev0/StikDebug) on the headset to enable JIT.
+- A Minecraft: Java Edition account (you must own the game).
+- The official `vivecraft-26.2-1.3.15-fabric.jar`, downloaded by you (VRMC does not redistribute it).
 
-The installed app on D1 is currently in a **clean, freshly-installed state** (no account, worlds,
-mods, logs or test data).
+### Install and run
 
-## Build / test
+1. **Set your identity once.** Device and signing scripts read your headset UDID, team ID and
+   signing identity from `scripts/local.env`, which git ignores:
 
-The repository contains source, docs, scripts and release metadata. Third-party reference trees,
-vendor builds and staged app artifacts were removed to keep the repo clean; restore/fetch those
-external inputs before rebuilding.
+   ```bash
+   cp scripts/local.env.example scripts/local.env   # then edit the three values
+   ```
 
-Device and signing scripts read your device UDID, team ID and signing identity from
-`scripts/local.env` (git-ignored): `cp scripts/local.env.example scripts/local.env` and fill it in, or
-export `VRMC_DEVICE_UDID` / `VRMC_TEAM_ID` / `VRMC_SIGN_IDENTITY`. XcodeGen projects take the team from
-`VRMC_TEAM_ID`.
+2. **Build and stage the app** (see [Build from source](#build-from-source)), then install it on the
+   headset:
+
+   ```bash
+   scripts/install_device.sh /tmp/VRMC-native-next.app
+   ```
+
+3. **Enable JIT:** open StikDebug, enable JIT for VRMC, then launch VRMC.
+4. **Sign in** with your Microsoft account; the launcher creates the Minecraft/Fabric instance.
+5. **Add Vivecraft:** save the official Vivecraft jar to *Files › On My Apple Vision Pro › VRMC* (or
+   AirDrop it to the headset) and tap **Re-check mods** in the launcher's **Mods** panel. VRMC
+   installs it only if its SHA-256 matches the pin in `versions.env`
+   (`e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb`); any other file is rejected
+   and left in place. The VRMC provider mod ships inside the app and is installed automatically.
+6. **Play:** launch the Fabric instance, create or load a world, and choose **Enter VR**.
+
+If the Mods panel reports a problem, the manual fallback is to copy both jars into
+`Documents/instances/default/mods/` (`vrmc-provider.jar` and the Vivecraft jar).
+
+### Hand controls
+
+| Gesture | Action |
+|---|---|
+| Look | Moves the menu cursor (head ray, slightly below centre) |
+| Short right pinch | Menu click; in the world, attack an entity or use/place on a block |
+| Hold right pinch | Break/mine; release to stop |
+| Left pinch held + move left hand | Walk and strafe |
+| Raise / lower head | Jump / sneak |
+| Left fist tap | Open or close the pause menu |
+| Both fists tap | Inventory (right pinch picks up and places stacks) |
+| Right fingertip on the hotbar | Select a slot (air tap as fallback) |
+| Right-hand swing | Alternate attack |
+| Hands apart with a bow | Draw; open the back fist or bring hands together to fire |
+| Right hand near head | Eat or drink |
+| Alternating closed hands | Climb |
+
+### Build from source
+
+Third-party trees are not committed: you need the Amethyst 1.2.0 source tree (with its submodules) to
+build the launcher, and the Minecraft 26.2 client jar plus Vivecraft classes to compile the provider
+mod. [`docs/mvp/LAUNCHER_BUILD.md`](docs/mvp/LAUNCHER_BUILD.md) has the full recipe.
 
 ```bash
-scripts/build_provider.sh              # provider mod jar
-scripts/build_shell.sh                 # native visionOS shell
-scripts/build_bridge.sh                # ABI v3 bridge
-provider/tests/run_tests.sh            # host provider suite (pure-Java subset if no MC jar)
-runtime/native-shell/tests/run_tests.sh  # shell host suite (mod provisioning policy + pin guard)
-scripts/m6_release_check.sh            # release/licensing/source checks
-scripts/m6_release_ready.sh --zip …    # full host + acceptance gate
+# 1. Launcher app (native visionOS build of the patched Amethyst tree)
+AME_SRC=/path/to/Amethyst-1.2.0 BOOTJDK=/path/to/jdk8/bin PLATFORM=11 scripts/build_launcher.sh
+# 2. VRMC components
+scripts/build_provider.sh        # provider mod jar      -> /tmp/vrmc-provider-build/vrmc-provider.jar
+scripts/build_bridge.sh          # native bridge dylib   -> /tmp/vrmc-bridge-build/libvrmc_bridge.dylib
+scripts/build_shell.sh           # visionOS shell        -> runtime/native-shell/build/VRMCShell.framework
+# 3. Combine, embed the provider, sign for your headset -> /tmp/VRMC-native-next.app
+SRC_APP=.build/launcher/artifacts/Payload/AngelAuraAmethyst.app DISPLAY_NAME=VRMC \
+  scripts/stage_native_app.sh runtime/native-shell/build/VRMCShell.framework /tmp/vrmc-bridge-build/libvrmc_bridge.dylib
 ```
 
-Host tests are **not** device evidence. Device-only claims are recorded in
-[`VERIFY.md`](VERIFY.md).
+Host test suites (no headset needed):
 
-## Repository layout
+```bash
+provider/tests/run_tests.sh              # provider mod (runs a pure-Java subset without the MC jar)
+bridge/tests/run_tests.sh                # native bridge
+runtime/native-shell/tests/run_tests.sh  # shell: mod provisioning policy
+scripts/m6_release_check.sh              # licensing, source and release checks
+```
 
-| Path | Purpose |
-|---|---|
-| [`AGENT.md`](AGENT.md) | Operating manual, architecture, milestone rules |
-| [`VERIFY.md`](VERIFY.md) | Requirements, test suites, evidence log |
-| [`docs/mvp/`](docs/mvp/) | MVP plans, acceptance, device runbooks |
-| [`provider/`](provider/) | LGPL-3.0 Vivecraft companion mod + M7 gesture engine |
-| [`runtime/`](runtime/) | visionOS shell, CompositorServices compositor, probes |
-| [`bridge/`](bridge/) | Native VR bridge (ABI v3) |
-| [`scripts/`](scripts/) | Build, test, release and diagnostics tooling |
-| [`assets/`](assets/) | Branding and Vulkan headers |
-| [`export/`](export/) | Tracked summaries, release metadata, acceptance readiness |
-| [`evidence/`](evidence/) | Local acceptance evidence bundles referenced by `VERIFY.md` |
+Host tests are not device evidence; device results are recorded in [`VERIFY.md`](VERIFY.md).
 
 ## Known issues
 
-- **M8 rendering is not device-verified yet:** foveation is requested when the layer supports it and
-  the display path is configured for maximum render quality; the provider sizes its eye targets from
-  the compositor's logical display feedback (adaptive scale). Whether a session presents at 120 Hz is
-  measured on device (`displayHz=` in `vrmc-compositor.log`), not claimed. Engine-side foveation is
-  deferred because the shipped MoltenVK has no `VK_KHR_fragment_shading_rate`; see
-  [`docs/mvp/M8_PLAN.md`](docs/mvp/M8_PLAN.md).
-- Bow visual model orientation (parallel to hand) — accepted non-blocking bug.
-- Launcher auto-provisioning (bundled provider + hash-verified Vivecraft import) is **host-tested
-  only** (`runtime/native-shell/tests/run_tests.sh`, visionOS build PASS); the fresh-install flow on
-  D1 has not been re-run with it yet. Vivecraft still has to be downloaded by the user.
-- Hand tracking can drop when hands are outside the ARKit camera view; actions release safely.
-- K3 latency-rig gate and the full 60-minute soak were explicitly waived/covered by a reduced
-  10-minute operator-accepted soak.
-- This is a development/sideload package, not App Store distribution.
+- **90 Hz, not 120 Hz:** visionOS caps custom immersive Metal rendering at 90 frames per second, so
+  the 120 Hz target is not reachable. Engine-side foveation is also unavailable, because the shipped
+  MoltenVK lacks `VK_KHR_fragment_shading_rate`.
+- **Menu flash:** a brief (under one second) purple-ish flash can appear on immersive menu and pause
+  screens.
+- **Bow orientation:** the bow model renders parallel to the hand; drawing and firing work.
+- **Hand tracking range:** tracking drops when hands leave the headset cameras' view; held actions
+  release safely.
+- **Teleport** is not part of the hand control scheme.
+- **Automatic mod setup** has passed host tests only; the fresh-install flow has not yet been re-run
+  on a headset. Vivecraft must always be downloaded by the user.
+- **Sideloading:** JIT must be enabled through StikDebug for each launch, and free developer profiles
+  expire after 7 days.
 
-## Licensing
+## Repository structure
 
-- VRMC application code: **GPL-3.0** ([`LICENSE`](LICENSE)), derived from Amethyst.
-- `provider/`: **LGPL-3.0** ([`provider/LICENSE`](provider/LICENSE)), distributed as a separate,
-  replaceable artifact with source.
-- Minecraft is proprietary; users must own it. No Minecraft binaries or assets are distributed.
-- Vivecraft is installed by the user and used unmodified.
-- See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md),
-  [`SOURCE_OFFER.md`](SOURCE_OFFER.md) and [`PRIVACY.md`](PRIVACY.md).
+| Path | Contents |
+|---|---|
+| [`provider/`](provider/) | VRMC provider: the LGPL-3.0 Fabric mod that plugs Vision Pro into Vivecraft (head pose, eye images, hand gesture engine) |
+| [`runtime/`](runtime/) | visionOS shell and CompositorServices compositor (`native-shell/`), Gesture Lab app, JIT script, spikes and probes |
+| [`bridge/`](bridge/) | Native VR bridge (C ABI v3 + JNI) between the compositor and the provider |
+| [`patches/`](patches/) | VRMC patches applied to the Amethyst 1.2.0 launcher source |
+| [`launcher/`](launcher/) | Notes for the planned SwiftUI launcher |
+| [`scripts/`](scripts/) | Build, sign, install, device diagnostics, test and release tooling |
+| [`assets/`](assets/) | App icon set and Vulkan headers |
+| [`docs/`](docs/) | Architecture decisions (`adr/`), milestone plans and runbooks (`mvp/`), analyses |
+| [`export/`](export/) | Tracked release metadata, build identity and acceptance summaries |
+| [`AGENT.md`](AGENT.md) | Project operating manual and architecture |
+| [`VERIFY.md`](VERIFY.md) | Requirements, test suites and the evidence log |
+| [`versions.env`](versions.env) | Pinned versions and artifact hashes |
 
-## Safety
+## License
 
-VR can cause discomfort. VRMC provides comfort settings (vignette, snap/smooth turn, seated mode)
-and keeps exit/recenter reachable. VRMC is not affiliated with Mojang, Microsoft, Vivecraft, Valve,
-Sony, or Apple.
+- VRMC application code is **GPL-3.0** ([`LICENSE`](LICENSE)); the launcher is derived from Amethyst.
+- The provider mod in `provider/` is **LGPL-3.0** ([`provider/LICENSE`](provider/LICENSE)) and ships
+  as a separate, replaceable jar with source.
+- Minecraft is proprietary: you must own it, and no Minecraft binaries or assets are distributed.
+  Vivecraft is installed by the user and used unmodified.
+- See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), [`SOURCE_OFFER.md`](SOURCE_OFFER.md) and
+  [`PRIVACY.md`](PRIVACY.md).
