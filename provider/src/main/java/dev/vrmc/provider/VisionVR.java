@@ -192,6 +192,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     private final Vector3f m7RadialDir = new Vector3f();
     private java.lang.reflect.Field radialPointedR;
     private java.lang.reflect.Field radialPointedL;
+    private java.lang.reflect.Field radialActiveController;
     private static final float M7_GUI_CURSOR_DOWN = 0.08F;
     /** Menu-hand gray box correction: our pose forward is -Z, while Vivecraft's gray box grows +Z. */
     private static final float M7_MENU_HAND_SHIFT_M = 0.18F;
@@ -2598,8 +2599,16 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     }
 
     /**
-     * RadialHandlerMixin: drive the radial menu with ONE head-ray cursor (the main-hand cursor, which
-     * Vivecraft's hold-mode release clicks with) and hide the second hand cursor.
+     * RadialHandlerMixin: drive the radial menu with ONE head-ray cursor and hide the other one.
+     *
+     * <p>The head ray must go into the cursor slot of the hand that opened the menu, because that is
+     * the slot Vivecraft clicks with. In Vivecraft 26.2-1.3.15 {@code TwoHandedScreen.processCursor(..,
+     * left)} stores the LEFT controller in cursorX1/Y1 and the RIGHT controller in cursorX2/Y2, and the
+     * hold-mode release in {@code RadialHandler.processBindings} clicks at cursor 1 only when
+     * {@code ACTIVE_CONTROLLER == LEFT}, otherwise at cursor 2. VRMC opens the menu with the right
+     * fist, so the click reads cursor 2. Writing the head ray into cursor 1 (1.3.8-1.4.1) drew a
+     * working highlight, but every release clicked the hidden cursor 2 = (-1,-1), clamped to the
+     * top-left corner, so no option could ever be chosen.
      *
      * @return true when handled (Vivecraft's two-controller cursor update must be skipped)
      */
@@ -2618,28 +2627,32 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
             Vector2f uv = VisionGazeMath.intersectGuiPlane(this.m7RadialOrigin, this.m7RadialDir,
                 RadialHandler.POS_ROOM, RadialHandler.ROTATION_ROOM, GuiHandler.GUI_SCALE, aspect);
             var ui = RadialHandler.UI;
+            boolean leftHand = radialActiveIsLeft();
+            float prevX = leftHand ? ui.cursorX1 : ui.cursorX2;
+            float prevY = leftHand ? ui.cursorY1 : ui.cursorY2;
+            float x = -1.0F;
+            float y = -1.0F;
             boolean pointed = uv != null;
             if (pointed) {
-                float x = (int) (uv.x * GuiHandler.GUI_WIDTH);
-                float y = (int) (uv.y * GuiHandler.GUI_HEIGHT);
-                if (ui.cursorX1 >= 0.0F && ui.cursorY1 >= 0.0F) {
+                x = (int) (uv.x * GuiHandler.GUI_WIDTH);
+                y = (int) (uv.y * GuiHandler.GUI_HEIGHT);
+                if (prevX >= 0.0F && prevY >= 0.0F) {
                     // Same light smoothing Vivecraft applies to controller cursors.
-                    x = ui.cursorX1 * 0.7F + x * 0.3F;
-                    y = ui.cursorY1 * 0.7F + y * 0.3F;
+                    x = prevX * 0.7F + x * 0.3F;
+                    y = prevY * 0.7F + y * 0.3F;
                 }
-                ui.cursorX1 = x;
-                ui.cursorY1 = y;
-            } else {
-                ui.cursorX1 = -1.0F;
-                ui.cursorY1 = -1.0F;
             }
-            ui.cursorX2 = -1.0F;
-            ui.cursorY2 = -1.0F;
-            setRadialPointed(pointed);
+            // The clicking hand's slot gets the head ray; the other slot stays hidden (-1).
+            ui.cursorX1 = leftHand ? x : -1.0F;
+            ui.cursorY1 = leftHand ? y : -1.0F;
+            ui.cursorX2 = leftHand ? -1.0F : x;
+            ui.cursorY2 = leftHand ? -1.0F : y;
+            setRadialPointed(pointed, leftHand);
             if (this.m7RadialCursorLogCount++ < 3) {
                 System.out.println("[VRMC-M7] radial menu: head-ray cursor " + (pointed
-                    ? String.format(java.util.Locale.ROOT, "uv=(%.2f,%.2f)", uv.x, uv.y) : "off the menu")
-                    + " (hand cursors hidden)");
+                    ? String.format(java.util.Locale.ROOT, "uv=(%.2f,%.2f) gui=(%.0f,%.0f)", uv.x, uv.y, x, y)
+                    : "off the menu")
+                    + " slot=" + (leftHand ? "cursor1/left" : "cursor2/right") + " (hand cursors hidden)");
             }
             return true;
         } catch (Throwable t) {
@@ -2651,7 +2664,7 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
     }
 
     /** RadialHandler.POINTED_R/L are private: set them reflectively (fail-soft). */
-    private void setRadialPointed(boolean right) {
+    private void setRadialPointed(boolean pointed, boolean leftHand) {
         try {
             if (this.radialPointedR == null) {
                 this.radialPointedR = RadialHandler.class.getDeclaredField("POINTED_R");
@@ -2659,10 +2672,27 @@ public class VisionVR extends MCVR implements VisionQuickMenuScreen.Host {
                 this.radialPointedR.setAccessible(true);
                 this.radialPointedL.setAccessible(true);
             }
-            this.radialPointedR.setBoolean(null, right);
-            this.radialPointedL.setBoolean(null, false);
+            this.radialPointedR.setBoolean(null, pointed && !leftHand);
+            this.radialPointedL.setBoolean(null, pointed && leftHand);
         } catch (Throwable t) {
             // Only the non-hold click path reads these; hold mode (forced by VRMC) clicks on release.
+        }
+    }
+
+    /**
+     * RadialHandler.ACTIVE_CONTROLLER is private: read it reflectively. Anything but LEFT (including a
+     * failed lookup) means the right hand: VRMC opens the menu with the right fist, and Vivecraft's
+     * own release path also clicks with the right-hand cursor unless the active hand is LEFT.
+     */
+    private boolean radialActiveIsLeft() {
+        try {
+            if (this.radialActiveController == null) {
+                this.radialActiveController = RadialHandler.class.getDeclaredField("ACTIVE_CONTROLLER");
+                this.radialActiveController.setAccessible(true);
+            }
+            return this.radialActiveController.get(null) == ControllerType.LEFT;
+        } catch (Throwable t) {
+            return false;
         }
     }
 

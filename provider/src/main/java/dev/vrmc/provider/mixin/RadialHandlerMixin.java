@@ -12,8 +12,9 @@ import org.vivecraft.client_vr.provider.MCVR;
  * Radial (shortcut) menu with one head-ray cursor. Vivecraft's processGui moves a cursor for EACH
  * hand controller every frame (device report 1.3.8: "the shortcut menu has two cursors, use only
  * head-ray"). While VRMC drives hand tracking, VisionVR projects the head ray onto the radial plane
- * into the main-hand cursor (the one Vivecraft clicks with on release) and hides the other one;
- * the original method is skipped. require = 0: a renamed method only loses the head cursor.
+ * into the cursor slot of the hand that opened the menu (cursor 2 for the right hand: the slot
+ * Vivecraft's hold-mode release clicks with) and hides the other one; the original method is
+ * skipped. require = 0: a renamed method only loses the head cursor.
  */
 @Mixin(RadialHandler.class)
 public class RadialHandlerMixin {
