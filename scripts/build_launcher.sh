@@ -36,6 +36,9 @@ rsync -a --exclude build --exclude artifacts --exclude depends "$AME_SRC/" "$BUI
 if [ -d "$ROOT/assets/branding" ]; then
   echo "[build] installing VRMC branding assets"
   rsync -a "$ROOT/assets/branding/" "$BUILD_DIR/Natives/Assets.xcassets/"
+  # Drop Amethyst's own cube logo: VRMC ships only its own branding. The launcher code asks for
+  # "AppLogo" (no such asset), so nothing loads AppLogo-Vector by name.
+  rm -rf "$BUILD_DIR/Natives/Assets.xcassets/AppLogo-Vector.imageset"
 fi
 if [ -d "$ROOT/assets/vulkan_include" ]; then
   echo "[build] installing Vulkan headers (S4a-device probe)"
