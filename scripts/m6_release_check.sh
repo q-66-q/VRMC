@@ -67,7 +67,7 @@ fi
 if scripts/check_provisioning_pins.sh >/tmp/vrmc-provisioning-pins.log 2>&1; then
   ok "provisioning Vivecraft pin matches versions.env"
 else
-  cat /tmp/vrmc-provisioning-pins.log; bad "launcher provisioning pin drift (ModProvisioner.swift vs versions.env)"
+  cat /tmp/vrmc-provisioning-pins.log; bad "launcher Vivecraft pin drift (ShellSetup.swift vs versions.env)"
 fi
 
 # 5. Release manifest can be generated (dirty tree is reported, not a release-blocker for this check).

@@ -61,6 +61,13 @@ public final class VisionRenderSettings {
     public static final float AUTO_INITIAL_SCALE = 0.5f;
     public static final float AUTO_STEP_UP = 0.05f;
     public static final float AUTO_STEP_DOWN = 0.10f;
+    /**
+     * Lowest scale the AUTO policy may choose. Device trace 2026-11-11: loading hitches (25-45 ms
+     * frames that are CPU/IO bound, not resolution bound) drove the policy to 0.25 - a 4x upscale
+     * that looked jagged and blurry for ~40 s while it climbed back. An explicit eye-scale knob can
+     * still go down to MIN_SCALE.
+     */
+    public static final float AUTO_MIN_SCALE = 0.35f;
     /** Only request a resize when a dimension moves more than this fraction (avoids thrash). */
     public static final float CHANGE_THRESHOLD = 0.06f;
     /** Fallback display cadence when the compositor has not measured one yet. */
@@ -68,7 +75,41 @@ public final class VisionRenderSettings {
     /** Never resize before this many rendered frames of the session (warm-up/shaders). */
     public static final long MIN_RESIZE_FRAME = 60L;
     /** A loaded world must be stable this long before a resize may rebuild every render target. */
-    public static final long MIN_LEVEL_STABLE_FRAMES = 120L;
+    /** ~7 s at 90 Hz: chunk loading right after joining a world is not a resolution problem. */
+    public static final long MIN_LEVEL_STABLE_FRAMES = 600L;
+    /**
+     * Frames are paced to the display (1.3.6 device trace: interval p50 11.10-11.14 ms at 90 Hz for a
+     * whole session), so the interval can never show headroom and the policy never raised the scale
+     * again after a drop. A raise is judged on the provider's render work time (poll -> endFrame)
+     * instead: its p95 must fit well inside the frame budget.
+     */
+    public static final double BUSY_HEADROOM_FRACTION = 0.70;
+    /** After a struggling window the scale may not climb back above the struggling level for ~3 min. */
+    public static final int STRUGGLE_CEILING_WINDOWS = 75;
+
+    /**
+     * The auto policy only learns from representative frames: a loaded world that has been stable for
+     * {@link #MIN_LEVEL_STABLE_FRAMES}. 1.3.6 device log: world loading (22 ms frames on a placeholder
+     * 1024x1024 target) drove the scale 0.50 -> 0.35 before the real eye targets even existed.
+     */
+    public static boolean adaptAllowed(boolean levelLoaded, long framesSinceLevelLoad) {
+        return levelLoaded && framesSinceLevelLoad >= MIN_LEVEL_STABLE_FRAMES;
+    }
+
+    /**
+     * Headroom figure for a raise decision: the frame interval when frames are not display-paced,
+     * otherwise the render work time p95 (scaled so the {@link #nextAutoScale} 0.85/0.75 thresholds
+     * map onto {@link #BUSY_HEADROOM_FRACTION}). Returns NaN when there is no headroom evidence.
+     */
+    public static double headroomMs(int missedFrames, double intervalP50Ms, double busyP95Ms,
+                                     double targetIntervalMs) {
+        if (!(targetIntervalMs > 0.0) || missedFrames > 1) return Double.NaN;
+        if (intervalP50Ms > 0.0 && intervalP50Ms < targetIntervalMs * 0.85) return intervalP50Ms;
+        if (!(intervalP50Ms > 0.0) || intervalP50Ms > targetIntervalMs * 1.05) return Double.NaN;
+        if (!(busyP95Ms > 0.0) || busyP95Ms >= targetIntervalMs * BUSY_HEADROOM_FRACTION) return Double.NaN;
+        // busy p95 < 0.70 x budget reads as "strong headroom" (< 0.75) in nextAutoScale.
+        return busyP95Ms;
+    }
 
     public final boolean valid;
     public final int frameIndex;
@@ -195,7 +236,10 @@ public final class VisionRenderSettings {
     /** Target frame interval for the measured (or fallback) display cadence, in milliseconds. */
     public static double targetIntervalMs(float displayHz) {
         if (isFinite(displayHz) && displayHz >= 30.0f && displayHz <= 240.0f) {
-            return 1000.0 / (double)displayHz;
+            // Never budget for less than the 90 Hz the headset is built for. When the game misses
+            // frames the compositor can measure a halved cadence (45 Hz); budgeting for that let the
+            // policy RAISE resolution to 100% and lock the session at 45 Hz (device trace 2026-11-11).
+            return 1000.0 / Math.max((double)displayHz, FALLBACK_DISPLAY_HZ);
         }
         return 1000.0 / FALLBACK_DISPLAY_HZ;
     }
@@ -248,7 +292,10 @@ public final class VisionRenderSettings {
         boolean struggling = missedFrames >= Math.max(3, sampleCount / 10) ||
             p50Ms > targetIntervalMs * 1.25;
         boolean headroom = missedFrames <= 1 && p50Ms < targetIntervalMs * 0.85;
-        if (struggling) return Math.max(MIN_SCALE, scale - AUTO_STEP_DOWN);
+        if (struggling) {
+            // Never step below the auto floor; a scale already below it (explicit knob) is kept.
+            return scale <= AUTO_MIN_SCALE ? scale : Math.max(AUTO_MIN_SCALE, scale - AUTO_STEP_DOWN);
+        }
         if (headroom) {
             // Strong headroom (well inside the frame budget on the measured cadence): take a bigger
             // step so a capable device reaches the native logical resolution in a few seconds, not a
@@ -274,7 +321,10 @@ public final class VisionRenderSettings {
                                        boolean inMenuRoom, long frameIndex) {
         if (frameIndex < MIN_RESIZE_FRAME) return false;
         if (levelLoaded) return framesSinceLevelLoad >= MIN_LEVEL_STABLE_FRAMES;
-        return inMenuRoom;
+        // Title screen / menu room: never. The menu world is built there (CPU-bound multi-second
+        // hitches), so resizing only produced a burst of eye-target rebuilds - the window in which
+        // the whole-view purple flash was reported - without making anything faster.
+        return false;
     }
 
     /** True when a resize is worth the render-target rebuild (dimension moved > CHANGE_THRESHOLD). */

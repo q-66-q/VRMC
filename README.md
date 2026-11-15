@@ -11,9 +11,15 @@ and ARKit hand tracking as the controller.
   headset's 90 Hz.
 - **Hands as controllers:** pinch, fist and hand-motion gestures drive Vivecraft's actions (see
   [Hand controls](#hand-controls)); actions release safely when tracking drops.
-- **Launcher:** a branded build of the Amethyst launcher with a VRMC shell for accounts, the game
-  instance, mod setup, comfort settings and diagnostics.
-- **Comfort:** vignette, snap or smooth turn, seated mode and recenter are always reachable.
+- **Hand model:** a simple blocky arm, palm and fingers built from the hand-tracking joints; its
+  colours show what the gesture engine reads (pinch, break, fist, shortcut-menu hold).
+- **Launcher:** a branded build of the Amethyst launcher with a VRMC shell (Play, Mods, Comfort,
+  Controls and Help tabs) for accounts, the game instance, one-tap setup, comfort settings and
+  diagnostics.
+- **Mod browser:** search and install Fabric mods for Minecraft 26.2 from Modrinth (no account) or
+  CurseForge (your own API key); every download is hash-checked.
+- **Comfort:** vignette, snap or smooth turn, standing or seated play and recenter are always
+  reachable.
 
 | Component | Version |
 |---|---|
@@ -36,7 +42,8 @@ Store product, and it is not affiliated with Mojang, Microsoft, Vivecraft, Valve
   app must be re-signed).
 - [StikDebug](https://github.com/StephenDev0/StikDebug) on the headset to enable JIT.
 - A Minecraft: Java Edition account (you must own the game).
-- The official `vivecraft-26.2-1.3.15-fabric.jar`, downloaded by you (VRMC does not redistribute it).
+- Vivecraft 26.2-1.3.15 (Fabric). VRMC does not redistribute it; the launcher downloads the official
+  build from Modrinth for you, or you can import a copy you downloaded yourself.
 
 ### Install and run
 
@@ -56,14 +63,16 @@ Store product, and it is not affiliated with Mojang, Microsoft, Vivecraft, Valve
 
 3. **Enable JIT:** open StikDebug, enable JIT for VRMC, then launch VRMC.
 4. **Sign in** with your Microsoft account; the launcher creates the Minecraft/Fabric instance.
-5. **Add Vivecraft:** save the official Vivecraft jar to *Files › On My Apple Vision Pro › VRMC* (or
-   AirDrop it to the headset) and tap **Re-check mods** in the launcher's **Mods** panel. VRMC
-   installs it only if its SHA-256 matches the pin in `versions.env`
-   (`e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb`); any other file is rejected
-   and left in place. The VRMC provider mod ships inside the app and is installed automatically.
-6. **Play:** launch the Fabric instance, create or load a world, and choose **Enter VR**.
+5. **Add Vivecraft:** on the **Play** tab's **Setup** card, tap **Download (6.7 MB)** to fetch the
+   official build from Modrinth, or **Import from Files** to pick a jar you downloaded. VRMC installs
+   it only if its SHA-256 matches the pin in `versions.env`
+   (`e63aeed1a6b36a55fc38c7633acbbac2cdf8b46f546382c6a2cd9348440b58bb`); any other file is rejected.
+   The VRMC provider mod ships inside the app and is reinstalled at every launch (**Reinstall VRMC
+   mod** repairs it by hand).
+6. **Play:** tap **Play**; Minecraft starts and VRMC enters VR automatically once the game shows its
+   first frame (**Enter VR now** skips the wait).
 
-If the Mods panel reports a problem, the manual fallback is to copy both jars into
+If setup still reports a problem, the manual fallback is to copy both jars into
 `Documents/instances/default/mods/` (`vrmc-provider.jar` and the Vivecraft jar).
 
 ### Hand controls
@@ -82,6 +91,11 @@ If the Mods panel reports a problem, the manual fallback is to copy both jars in
 | Hands apart with a bow | Draw; open the back fist or bring hands together to fire |
 | Right hand near head | Eat or drink |
 | Alternating closed hands | Climb |
+| Hold right fist still (0.65 s) | Open the shortcut (radial) menu; look at an entry and open the hand to choose |
+| Both middle-finger pinches, double tap | Recenter |
+
+In **Seated** play (Comfort tab) the head no longer jumps or sneaks: a right middle-finger pinch tap
+jumps and a hold sneaks, and a left middle-finger pinch tap turns left, a double tap turns right.
 
 ### Build from source
 
@@ -106,7 +120,7 @@ Host test suites (no headset needed):
 ```bash
 provider/tests/run_tests.sh              # provider mod (runs a pure-Java subset without the MC jar)
 bridge/tests/run_tests.sh                # native bridge
-runtime/native-shell/tests/run_tests.sh  # shell: mod provisioning policy
+runtime/native-shell/tests/run_tests.sh  # shell: Vivecraft pin matches versions.env
 scripts/m6_release_check.sh              # licensing, source and release checks
 ```
 
@@ -123,8 +137,9 @@ Host tests are not device evidence; device results are recorded in [`VERIFY.md`]
 - **Hand tracking range:** tracking drops when hands leave the headset cameras' view; held actions
   release safely.
 - **Teleport** is not part of the hand control scheme.
-- **Automatic mod setup** has passed host tests only; the fresh-install flow has not yet been re-run
-  on a headset. Vivecraft must always be downloaded by the user.
+- **Recent builds are host-tested only:** the 1.4.x changes (hand model, mod browser, VR off/on
+  recovery, shortcut-menu head-ray selection) have not all been re-checked on a headset; see
+  [`VERIFY.md`](VERIFY.md).
 - **Sideloading:** JIT must be enabled through StikDebug for each launch, and free developer profiles
   expire after 7 days.
 

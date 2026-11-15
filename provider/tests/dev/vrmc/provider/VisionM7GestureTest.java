@@ -118,10 +118,72 @@ public final class VisionM7GestureTest {
         testAttack();
         testClimb();
         testGuiAndSafety();
+        testRadialHold();
 
         System.out.println("[m7-gesture-test] " + checks + " checks, " + failures + " failed");
         System.out.println(failures == 0 ? "[m7-gesture-test] PASS" : "[m7-gesture-test] FAIL");
         if (failures != 0) System.exit(1);
+    }
+
+    // ---- right fist hold = Vivecraft radial menu ----------------------------------------------
+
+    private static void testRadialHold() {
+        float[] l = leftHand(false);
+        float[] rOpen = rightHand(false, 0.0F);
+        float[] rFist = rightHand(true, 0.0F);
+
+        // Hold the right fist still: opens after RADIAL_HOLD_NS, opening the fist chooses.
+        VisionM7Gesture g = new VisionM7Gesture();
+        long[] t = {9_000_000_000L};
+        for (int i = 0; i < 10; i++) step(g, t, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        for (int i = 0; i < 40; i++) step(g, t, l, rFist, true, true, 0.20F, 0.20F, false, false); // 440 ms
+        check("radial not open before the hold time", !g.radialHeld());
+        boolean opened = false;
+        for (int i = 0; i < 30; i++) { // +330 ms
+            step(g, t, l, rFist, true, true, 0.20F, 0.20F, false, false);
+            opened |= g.radialHeld();
+        }
+        check("right fist hold opens the radial menu", opened && g.radialHeld());
+        step(g, t, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        check("opening the fist ends the hold (choose)", !g.radialHeld() && !g.radialCancelled());
+        check("a radial hold is never a right-fist tap", !g.rightFistTap());
+
+        // A short right-fist tap never opens it.
+        VisionM7Gesture tap = new VisionM7Gesture();
+        long[] tt = {9_500_000_000L};
+        for (int i = 0; i < 10; i++) step(tap, tt, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        boolean tapOpened = false;
+        for (int i = 0; i < 20; i++) {
+            step(tap, tt, l, rFist, true, true, 0.20F, 0.20F, false, false);
+            tapOpened |= tap.radialHeld();
+        }
+        step(tap, tt, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        check("short right-fist tap does not open the radial", !tapOpened);
+
+        // A second (left) fist cancels without a choice and blocks re-opening until the fist opens.
+        VisionM7Gesture chord = new VisionM7Gesture();
+        long[] ct = {10_000_000_000L};
+        for (int i = 0; i < 10; i++) step(chord, ct, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        for (int i = 0; i < 70; i++) step(chord, ct, l, rFist, true, true, 0.20F, 0.20F, false, false);
+        check("chord test: radial open", chord.radialHeld());
+        step(chord, ct, leftHand(true), rFist, true, true, 0.20F, 0.20F, false, false);
+        check("left fist cancels the radial", !chord.radialHeld() && chord.radialCancelled());
+        for (int i = 0; i < 70; i++) step(chord, ct, l, rFist, true, true, 0.20F, 0.20F, false, false);
+        check("cancelled radial does not reopen while the fist stays closed", !chord.radialHeld());
+
+        // Tracking loss cancels.
+        VisionM7Gesture lost = new VisionM7Gesture();
+        long[] lt = {10_500_000_000L};
+        for (int i = 0; i < 10; i++) step(lost, lt, l, rOpen, true, true, 0.20F, 0.20F, false, false);
+        for (int i = 0; i < 70; i++) step(lost, lt, l, rFist, true, true, 0.20F, 0.20F, false, false);
+        step(lost, lt, l, rFist, true, false, 0.20F, Float.NaN, false, false);
+        check("right-hand tracking loss cancels the radial", !lost.radialHeld() && lost.radialCancelled());
+
+        // Never in a GUI.
+        VisionM7Gesture gui = new VisionM7Gesture();
+        long[] gt = {11_000_000_000L};
+        for (int i = 0; i < 80; i++) step(gui, gt, l, rFist, true, true, 0.20F, 0.20F, true, false);
+        check("no radial while a screen is open", !gui.radialHeld());
     }
 
     // ---- place / break -----------------------------------------------------------------------
@@ -170,12 +232,42 @@ public final class VisionM7GestureTest {
         check("held right pinch release does not place", !h.place());
         check("held right pinch release clears break", !h.breakHeld());
 
-        // 349 ms places; 351 ms breaks (boundary regression, with a fresh engine each time).
+        // Past PLACE_MAX_NS (380 ms) a release does not place (boundary regression, fresh engine).
         VisionM7Gesture b349 = new VisionM7Gesture();
         long[] b1 = {1_400_000_000L};
-        for (int i = 0; i < 32; i++) step(b349, b1, l, r, true, true, 0.20F, 0.02F, false, false); // 352 ms
+        for (int i = 0; i < 37; i++) step(b349, b1, l, r, true, true, 0.20F, 0.02F, false, false); // 396 ms
         step(b349, b1, l, r, true, true, 0.20F, 0.20F, false, false);
         check("held pinch does not place after threshold", !b349.place());
+
+        // 1.3.6 device report: a short place pinch turned into a break with the fingers already apart.
+        // Relaxed fingers rest 2-4 cm apart - inside the fixed 4.5 cm release - so the pinch stayed
+        // held. The relative release ends it once the fingers open 1.5 cm past the closest point.
+        VisionM7Gesture rel = new VisionM7Gesture();
+        long[] rt = {1_600_000_000L};
+        for (int i = 0; i < 12; i++) step(rel, rt, l, r, true, true, 0.20F, 0.008F, false, false); // ~130 ms
+        step(rel, rt, l, r, true, true, 0.20F, 0.034F, false, false); // fingers apart, still < 0.045
+        check("opened fingers below the fixed release still release the pinch", rel.place());
+        for (int i = 0; i < 40; i++) step(rel, rt, l, r, true, true, 0.20F, 0.034F, false, false);
+        check("resting fingers after a place never become a break", !rel.breakHeld());
+
+        // A firm pinch with small tracking noise (+/- 4 mm) stays held and breaks.
+        VisionM7Gesture noisy = new VisionM7Gesture();
+        long[] nt = {1_700_000_000L};
+        for (int i = 0; i < 40; i++) {
+            step(noisy, nt, l, r, true, true, 0.20F, (i % 2 == 0) ? 0.008F : 0.016F, false, false);
+        }
+        check("noisy firm pinch stays held and breaks", noisy.breakHeld());
+        check("noisy firm pinch does not place", !noisy.place());
+
+        // Release threshold math: never below on + band, never above the fixed off threshold.
+        VisionM7Gesture th = new VisionM7Gesture();
+        check("release min band", Math.abs(th.pinchReleaseDistance(0.002F)
+            - (VisionM7Gesture.PINCH_ON + VisionM7Gesture.PINCH_RELEASE_MIN_BAND)) < 1e-6F);
+        check("release relative", Math.abs(th.pinchReleaseDistance(0.020F) - 0.035F) < 1e-6F);
+        check("release capped at off", Math.abs(th.pinchReleaseDistance(0.040F)
+            - VisionM7Gesture.PINCH_OFF) < 1e-6F);
+        check("release without a minimum uses off", Math.abs(th.pinchReleaseDistance(Float.NaN)
+            - VisionM7Gesture.PINCH_OFF) < 1e-6F);
 
         // Single-frame pinch jitter is rejected by the debounce.
         VisionM7Gesture jitter = new VisionM7Gesture();
@@ -360,15 +452,47 @@ public final class VisionM7GestureTest {
                 VisionM7Gesture.CTX_BOW_HELD);
         }
         check("bow draw with a bow held", g.bowDraw());
-        // Holding a bow does not require both hands to be fists: open hands held apart draw too.
+        check("left hand in front is the bow hand", g.bowFrontIsLeft());
+        // Operator plan (M7_GESTURES.md #9): the draw needs BOTH FISTS; open hands apart do nothing.
         VisionM7Gesture open = new VisionM7Gesture();
         long[] ot = {6_050_000_000L};
+        boolean openDraw = false;
         for (int i = 0; i < 40; i++) {
             stepCtx(open, ot, joints(false, -0.15F, 1.35F, -0.55F),
                 joints(false, 0.15F, 1.40F, -0.05F), true, true, 0.20F, 0.20F,
                 VisionM7Gesture.CTX_BOW_HELD);
+            openDraw |= open.bowDraw();
         }
-        check("bow draw with open hands and a bow held", open.bowDraw());
+        check("open hands held apart do not draw the bow (plan: both fists)", !openDraw);
+        // Opening the FRONT (bow) hand alone does not fire: only the back fist releases the arrow.
+        VisionM7Gesture front = new VisionM7Gesture();
+        long[] frt = {6_060_000_000L};
+        for (int i = 0; i < 40; i++) {
+            stepCtx(front, frt, bowFront(), bowBack(), true, true, 0.20F, 0.20F,
+                VisionM7Gesture.CTX_BOW_HELD);
+        }
+        boolean frontFired = false;
+        for (int i = 0; i < 10; i++) {
+            stepCtx(front, frt, joints(false, -0.15F, 1.35F, -0.55F), bowBack(), true, true, 0.20F, 0.20F,
+                VisionM7Gesture.CTX_BOW_HELD);
+            frontFired |= front.bowFire();
+        }
+        check("opening the front hand keeps the draw (no fire)", !frontFired && front.bowDraw());
+        // Mirrored draw: right hand in front.
+        VisionM7Gesture mirror = new VisionM7Gesture();
+        long[] mt = {6_070_000_000L};
+        for (int i = 0; i < 40; i++) {
+            stepCtx(mirror, mt, joints(true, -0.15F, 1.40F, -0.05F), joints(true, 0.15F, 1.35F, -0.55F),
+                true, true, 0.20F, 0.20F, VisionM7Gesture.CTX_BOW_HELD);
+        }
+        check("right hand in front draws too and is the bow hand", mirror.bowDraw() && !mirror.bowFrontIsLeft());
+        boolean mirrorFire = false;
+        for (int i = 0; i < 3; i++) {
+            stepCtx(mirror, mt, joints(false, -0.15F, 1.40F, -0.05F), joints(true, 0.15F, 1.35F, -0.55F),
+                true, true, 0.20F, 0.20F, VisionM7Gesture.CTX_BOW_HELD);
+            mirrorFire |= mirror.bowFire();
+        }
+        check("opening the back (left) fist fires the mirrored draw", mirrorFire);
         // Back hand = the one pulled towards the body (+Z, smaller forward offset): open it -> fire.
         stepCtx(g, t, bowFront(), joints(false, 0.15F, 1.40F, -0.05F), true, true, 0.20F, 0.20F,
             VisionM7Gesture.CTX_BOW_HELD);

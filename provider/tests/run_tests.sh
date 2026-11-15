@@ -147,10 +147,15 @@ step "vkreflect-smoke"
 # + Vulkan struct classes. Used ONLY for the reflection smoke test; the provider jar stays LWJGL-free.
 LWJGL_CP="${LWJGL_CP:-}"
 if [ -z "$LWJGL_CP" ]; then
-  GC="$HOME/.gradle/caches/modules-2"
-  LJ_CORE=$(find "$GC" -path '*org.lwjgl/lwjgl/3.4.1*' -name 'lwjgl-3.4.1.jar' -not -name '*sources*' 2>/dev/null | head -1 || true)
-  LJ_NAT=$(find "$GC" -path '*org.lwjgl/lwjgl/3.4.1*' -name 'lwjgl-3.4.1-natives-macos-arm64.jar' -not -name '*sources*' 2>/dev/null | head -1 || true)
-  LJ_VK=$(find "$GC" -path '*org.lwjgl/lwjgl-vulkan/3.4.1*' -name 'lwjgl-vulkan-3.4.1.jar' -not -name '*sources*' 2>/dev/null | head -1 || true)
+  # Search the Gradle cache first, then the Minecraft launcher's library tree. A missing search root
+  # must not abort the suite (set -e + pipefail): the with-LWJGL half is an explicit SKIP instead.
+  LJ_CORE=""; LJ_NAT=""; LJ_VK=""
+  for GC in "$HOME/.gradle/caches/modules-2" "$HOME/Library/Application Support/minecraft/libraries"; do
+    [ -d "$GC" ] || continue
+    [ -n "$LJ_CORE" ] || LJ_CORE=$(find "$GC" -name 'lwjgl-3.4.1.jar' 2>/dev/null | head -1 || true)
+    [ -n "$LJ_NAT" ] || LJ_NAT=$(find "$GC" -name 'lwjgl-3.4.1-natives-macos-arm64.jar' 2>/dev/null | head -1 || true)
+    [ -n "$LJ_VK" ] || LJ_VK=$(find "$GC" -name 'lwjgl-vulkan-3.4.1.jar' 2>/dev/null | head -1 || true)
+  done
   [ -n "$LJ_CORE" ] && [ -n "$LJ_VK" ] && LWJGL_CP="$LJ_CORE:$LJ_VK${LJ_NAT:+:$LJ_NAT}"
 fi
 mkdir -p "$T/smokeclasses"
@@ -279,16 +284,21 @@ step "m4-input-tests"
 M4_DIR="$T/m4classes"
 mkdir -p "$M4_DIR"
 M4_CP="$CP:$CLASSES:$M4_DIR"
-# Tests whose subjects (hand pose, smoother, gaze math, locomotion) are built on JOML/game types.
+# Tests whose subjects (hand pose, smoother, gaze math, locomotion) are built on JOML/game types, or
+# that load game classes at run time (the quick-menu reflection contract checks Minecraft's Screen).
 GAME_TESTS=(VisionHandPoseTest VisionPoseSmootherTest VisionGazeMathTest VisionLocomotionTest
-            VisionHandPoseFuzzTest VisionPoseSmootherFuzzTest VisionGazeMathFuzzTest)
+            VisionHandPoseFuzzTest VisionPoseSmootherFuzzTest VisionGazeMathFuzzTest
+            VisionQuickMenuReflectionTest)
 M4_TESTS=(VisionInputLayoutTest VisionInputTest VisionHandPoseTest VisionPoseSmootherTest
           VisionGazeMathTest VisionMiddleGestureTest VisionLocomotionTest VisionSwipeGestureTest
           VisionRuntimeSettingsTest VisionCommandFileTest VisionFrameStatsTest VisionInputFuzzTest
           VisionHotbarWheelTest VisionRingChordTest VisionThermalStateTest VisionStatusJsonTest
           VisionHandPoseFuzzTest VisionPoseSmootherFuzzTest VisionStatusJsonFuzzTest
           VisionRuntimeSettingsFuzzTest VisionGazeMathFuzzTest VisionHandCalibrationTest
-          VisionLogFormatTest VisionM7GestureTest VisionM7GestureFuzzTest TestJson VisionInputFixtureTest)
+          VisionLogFormatTest VisionM7GestureTest VisionM7GestureFuzzTest VisionM7RegressionTest
+          VisionHandMeshTest SeatedTurnGestureTest PinchCarryGuardTest VisionSettingsFileTest
+          VisionQuickMenuReflectionTest QuickMenuPlacementTest QuickMenuInjectionRetryTest
+          TestJson VisionInputFixtureTest)
 is_game_test() { local t; for t in "${GAME_TESTS[@]}"; do [ "$t" = "$1" ] && return 0; done; return 1; }
 M4_SOURCES=()
 for t in "${M4_TESTS[@]}"; do
@@ -332,6 +342,22 @@ if "$JAVAC" -cp "$CP:$CLASSES" -d "$M4_DIR" "${M4_SOURCES[@]}"; then
     "synthetic mapping/thresholds/priorities/context/release" "\[m7-gesture-test\] [0-9]+ checks"
   m4_check m7-fuzz VisionM7GestureFuzzTest "[m7-fuzz-test] PASS" \
     "random frames: no stuck hand actions, releaseAll complete" "\[m7-fuzz-test\] frames="
+  m4_check m7-regression VisionM7RegressionTest "[m7-regression-test] PASS" \
+    "posture recovery, seated play, fist-tap vs pinch" "\[m7-regression-test\] [0-9]+ checks"
+  m4_check hand-mesh VisionHandMeshTest "[hand-mesh-test] PASS" \
+    "arm/palm/fingers geometry, feedback colours, fallbacks, fuzz" "\[hand-mesh-test\] [0-9]+ checks"
+  m4_check m7-seated-turn SeatedTurnGestureTest "[m7-seated-turn-test] PASS" \
+    "deferred single tap; a double tap nets one right turn" "\[m7-seated-turn-test\] [0-9]+ checks"
+  m4_check m7-pinch-carry PinchCarryGuardTest "[m7-pinch-carry-test] PASS" \
+    "GUI-transition pinch carry incl. release-on-transition-frame" "\[m7-pinch-carry-test\] [0-9]+ checks"
+  m4_check m5-settings-file VisionSettingsFileTest "[m5-settings-file-test] PASS" \
+    "quick-menu settings persistence, turn/vignette steps" "\[m5-settings-file-test\] [0-9]+ checks"
+  m4_check m5-quick-menu-reflection VisionQuickMenuReflectionTest "[m5-quick-menu-reflection-test] PASS" \
+    "pause-screen injection reflection contract" "\[m5-quick-menu-reflection-test\] [0-9]+ checks"
+  m4_check m5-quick-menu-placement QuickMenuPlacementTest "[m5-quick-menu-placement-test] PASS" \
+    "button placed around the vanilla/Vivecraft pause rows" "\[m5-quick-menu-placement-test\] [0-9]+ checks"
+  m4_check m5-quick-menu-retry QuickMenuInjectionRetryTest "[m5-quick-menu-retry-test] PASS" \
+    "transient injection failure retried, never permanently disabled" "\[m5-quick-menu-retry-test\] [0-9]+ checks"
   m4_check m4-log-format VisionLogFormatTest "[m4-log-format-test] PASS" \
     "startup locomotion printf types/no exception" "\[m4-log-format-test\] [0-9]+ checks"
   m4_check m4-hand-calibration VisionHandCalibrationTest "[m4-hand-calibration-test] PASS" \

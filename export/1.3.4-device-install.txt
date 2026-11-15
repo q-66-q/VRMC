@@ -1,0 +1,60 @@
+# VRMC 1.3.4 device install - 2026-11-11
+
+device=Apple Vision Pro (D1) udid=<D1-UDID>
+bundle_id=dev.vrmc.vrmc
+version=1.3.4 build=1.3.4 (in-place upgrade; app data preserved)
+installed_at=2026-11-11T19:52Z (approx; devicectl databaseSequenceNumber 2900)
+installation_url=file:///private/var/containers/Bundle/Application/33C5B9B2-BB5F-4B6C-B55A-5B4E8466C41F/VRMC-1.3.4.app/
+
+## What this build is
+Bug-fix release on top of 1.3.3: fixes the duplicate-window-scene regression found in the live 1.3.3
+headset run (8 restored scenes / 16 UIWindows), the Play-tab UX that invited a manual Enter VR during
+the automatic entry, misleading teardown logs, and the REVIEW_1.3 report-only findings R1/R2/R3/R5/
+R6/R12 (pinch carry, vignette ladder, quick-menu placement/retry, M4 snap turn) + NEW-4 (status
+platform), plus ShellSetup robustness R7/R8/R9/R10 (buffered download, safe Vivecraft replace,
+main-actor hash cache, zip/fabric.mod.json import validation). Adds release-neutral compositor
+instrumentation for the purple menu/pause flash (diagnosis in docs/plan/RENDER_BUGFIX.md).
+
+## Artifact identity (/tmp/VRMC-1.3.4.app)
+framework_binary_sha256 (pre-sign frozen build)=718b7f198cfb1b40aa1bc936f956bb185165bb94689ff15acb3b28e22dd78c2d (2907168 B)
+framework_binary_sha256 (staged, re-signed)=df14048be44ae626bdcd86c32f7def7d716eb42f9296436f39710b4e98c2c13c (2931312 B)
+framework_tree_sha256 (staged)=33bff205d3583e97e8d932f977685527f7ebf549b258bf89c27727d52e327154
+app_binary_sha256=01c39b7fbe6cb1f7bcbcf81324cddebea2960da3ee5ad359ca0cd2943951d47c (2063520 B)
+bridge_dylib_sha256=a3c3262769313054661181fadf328f13f6bbac9179d1fb79a05493f741b0a14b (89568 B)
+provider_jar_sha256=02e3eca9bb250d1f8ef5d857ef7f439accca3a815b0d78c714f4fe042532452d (161999 B)
+app_cdhash=f55e257885e9638017a01a8016b12803007ff864
+codesign --verify --deep --strict=PASS (169 Mach-O + 6 nested frameworks re-signed)
+
+## Signing / certificate
+Identity: Apple Development: <apple-id> (<cert-id>)
+Provisioning profile UUID 3e7ca60a-aed6-4deb-80aa-d668f1d924a4, expires 2026-11-15T03:21:06Z, provisions D1
+entitlements get-task-allow=true (JIT attach)
+Profile renewal attempted 2026-11-11 (scripts/m8_renew_profile.sh --keep): Xcode re-issued the same
+profile (byte-identical), so no extension is possible before expiry - re-sign after 2026-11-15T03:21Z.
+
+## Verification state
+- Host: provider suite ALL PASS (47 PASS steps, 944 checks, 0 failed), provider jar 3-build
+  reproducible (02e3eca9..., 161999 B), shell BUILD SUCCEEDED (framework 718b7f19...), release check
+  PASS (settings keys 14, status fields 3).
+- Device: previous build 1.3.3 ran on D1 (single-window UI confirmed visually, Play started Minecraft
+  with no UI switch, auto setup installed provider 89be397f, 19,517 immersive frames, clean quit);
+  1.3.4 installed in place, app data preserved (shell log 08fde2b0... identical before/after install).
+- 1.3.4 on-headset run verified PASS 2026-11-11 19:57-19:58 HST (Home View tap): single window scene
+  (1 scene/2 windows, was 16), automatic VR entry (no manual Enter VR), provider auto-updated in mods/ to
+  02e3eca9... (161,999 B), status runningOnVisionOS=visionOS, compositor instrumentation live/clean,
+  crash-count 0, no new crash report. App was backgrounded rather than quit, so the game-stop logging path
+  was not exercised; pause-screen quick-menu placement (R2/R3) and long-session stability remain device
+  follow-ups. Evidence: evidence/device-1.3/logs/1.3.4-release-run/ (VERIFICATION.md, sha256sums.txt).
+
+## Evidence
+evidence/device-1.3/REPORT.md, evidence/device-1.3/builds/1.3.4-release/,
+evidence/device-1.3/logs/1.3.3-release-run/, docs/release/1.3.4-notes.md, VERIFY.md EV-0299.
+
+## Rollback
+Previous builds /tmp/VRMC-1.3.3.app (and 1.3.2/1.3.1) are on the host.
+Reinstall with: xcrun devicectl device install app --device <D1-UDID> <app>
+
+## Notes
+- devicectl process launch is broken for all apps on this host/device pairing; launch from the
+  headset Home View.
+- devicectl install transport is flaky (first attempt CoreDeviceError 3002, immediate retry OK).

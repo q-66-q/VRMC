@@ -4,10 +4,18 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-SHELL_SRC="runtime/native-shell/Sources/Shell.swift"
-[ -f "$SHELL_SRC" ] || { echo "[settings-keys] ERROR: $SHELL_SRC missing" >&2; exit 2; }
-KEYS=$(grep -oE '"(comfort|performance|diagnostics|pinch|fist|middle|ring|swipe|hotbar|move|tracking|hands)\.[A-Za-z0-9.]+"' "$SHELL_SRC" \
-       | tr -d '"' | LC_ALL=C sort -u)
+# The window UI moved from Shell.swift to ShellUI.swift in 1.3; scan every shell source so the
+# guard keeps working across file splits instead of silently checking nothing.
+SHELL_SRCS=(runtime/native-shell/Sources/*.swift)
+[ "${#SHELL_SRCS[@]}" -gt 0 ] && [ -f "${SHELL_SRCS[0]}" ] || { echo "[settings-keys] ERROR: no runtime/native-shell/Sources/*.swift found" >&2; exit 2; }
+# Settings keys are written through subscript dictionaries (values["comfort.seated"], tune["m7.pinch.on"]),
+# so extract exactly those instead of guessing at quoted dotted strings.
+KEYS=$(grep -hoE '(values|tune|settings|runtime)\["[A-Za-z0-9_.]+"\]' "${SHELL_SRCS[@]}" \
+       | sed -E 's/^[A-Za-z]+\["([A-Za-z0-9_.]+)"\]$/\1/' | grep -v '^vrmc-' | LC_ALL=C sort -u)
+if [ -z "$KEYS" ]; then
+  echo "[settings-keys] FAIL: could not extract any settings keys from ${SHELL_SRCS[*]} (guard would be vacuous)" >&2
+  exit 1
+fi
 fail=0
 count=0
 for key in $KEYS; do

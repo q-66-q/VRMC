@@ -196,6 +196,44 @@ int main(void) {
         fail("final render settings publication", (long)rs.valid, (long)rs.frame_index);
     }
 
+    // Pose stamp (head-turn judder fix): an eye publish carries the pose time of the tracking state
+    // last served to the provider; an explicit provider value wins; the fallback stub path does not
+    // leak the caller's timestamp into the shared state.
+    {
+        vrmc_tracking_state served;
+        memset(&served, 0, sizeof(served));
+        served.presentation_time_ns = 123456789ull;
+        served.head.orientation.w = 1.0f;
+        served.ipd_m = 0.063f;
+        if (vrmc_shared_set_tracking(&served) != 0) fail("pose stamp: set tracking", 0, 0);
+        vrmc_tracking_state got;
+        if (vrmc_get_tracking(&got, 7) != 0 || got.presentation_time_ns != 123456789ull) {
+            fail("pose stamp: served pose time", (long)got.presentation_time_ns, 0);
+        }
+        vrmc_eye_targets e;
+        memset(&e, 0, sizeof(e));
+        e.left_texture = 0x111; e.right_texture = 0x222;
+        e.left_width = e.right_width = 64; e.left_height = e.right_height = 64;
+        vrmc_shared_eye_frame f;
+        if (vrmc_submit_eyes(&e) != 0 || vrmc_shared_acquire_eyes(&f) != 0 ||
+            f.eyes.presentation_deadline_ns != 123456789) {
+            fail("pose stamp: eye frame not stamped", (long)f.eyes.presentation_deadline_ns, 0);
+        }
+        e.presentation_deadline_ns = 42;
+        if (vrmc_submit_eyes(&e) != 0 || vrmc_shared_acquire_eyes(&f) != 0 ||
+            f.eyes.presentation_deadline_ns != 42) {
+            fail("pose stamp: explicit provider value overwritten", (long)f.eyes.presentation_deadline_ns, 0);
+        }
+        vrmc_shared_clear_tracking();
+        vrmc_tracking_state stub1, stub2;
+        if (vrmc_get_tracking(&stub1, 999) != 0 || stub1.presentation_time_ns != 999) {
+            fail("stub tracking timestamp", (long)stub1.presentation_time_ns, 0);
+        }
+        if (vrmc_get_tracking(&stub2, 5) != 0 || stub2.presentation_time_ns != 5) {
+            fail("stub tracking timestamp leaked", (long)stub2.presentation_time_ns, 0);
+        }
+    }
+
     int failures = atomic_load(&g_failures);
     printf("[bridge-shared-test] publishes=%d gazeConsumed=%d failures=%d\n",
            PUBLISHES, atomic_load(&g_gaze_consumed), failures);

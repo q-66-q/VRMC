@@ -4,6 +4,7 @@ import UIKit
 import Observation
 import Foundation
 import AudioToolbox
+import AVFAudio
 import CryptoKit
 
 /// Entry point called from the Amethyst C main() (iOS-compat binary) via dlopen/dlsym.
@@ -22,20 +23,20 @@ func shellLog(_ message: String) {
     }
 }
 
-private func shellDocumentsURL() -> URL {
+func shellDocumentsURL() -> URL {
     return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
 }
 
 /// M6/M5 in-headset acceptance checklist persisted to Documents and included in diagnostics exports.
-private struct ShellAcceptanceItem: Identifiable, Codable {
+struct ShellAcceptanceItem: Identifiable, Codable {
     var id: String
     var title: String
     var status: String
 }
 
-private let shellAcceptanceStatuses = ["NOT RUN", "PARTIAL", "PASS", "FAIL"]
+let shellAcceptanceStatuses = ["NOT RUN", "PARTIAL", "PASS", "FAIL"]
 
-private func shellAcceptanceDefaults() -> [ShellAcceptanceItem] {
+func shellAcceptanceDefaults() -> [ShellAcceptanceItem] {
     [
         .init(id: "H1", title: "Menu/continue/new world", status: "NOT RUN"),
         .init(id: "H2", title: "Move/turn/teleport/jump/sneak", status: "NOT RUN"),
@@ -56,7 +57,7 @@ private func shellAcceptanceDefaults() -> [ShellAcceptanceItem] {
     ]
 }
 
-private func shellLoadAcceptanceChecklist() -> [ShellAcceptanceItem] {
+func shellLoadAcceptanceChecklist() -> [ShellAcceptanceItem] {
     let url = shellDocumentsURL().appendingPathComponent("vrmc-acceptance-checklist.json")
     guard let data = try? Data(contentsOf: url),
           let items = try? JSONDecoder().decode([ShellAcceptanceItem].self, from: data),
@@ -66,7 +67,7 @@ private func shellLoadAcceptanceChecklist() -> [ShellAcceptanceItem] {
     return items
 }
 
-private func shellChecklistMarkdown(_ items: [ShellAcceptanceItem]) -> String {
+func shellChecklistMarkdown(_ items: [ShellAcceptanceItem]) -> String {
     var text = "# VRMC device acceptance checklist\n\n"
     text += "generated: \(Date())\n\n"
     text += "| ID | Check | Status |\n|---|---|---|\n"
@@ -78,7 +79,7 @@ private func shellChecklistMarkdown(_ items: [ShellAcceptanceItem]) -> String {
 }
 
 @discardableResult
-private func shellSaveAcceptanceChecklist(_ items: [ShellAcceptanceItem]) -> Bool {
+func shellSaveAcceptanceChecklist(_ items: [ShellAcceptanceItem]) -> Bool {
     let docs = shellDocumentsURL()
     let url = docs.appendingPathComponent("vrmc-acceptance-checklist.json")
     do {
@@ -94,11 +95,11 @@ private func shellSaveAcceptanceChecklist(_ items: [ShellAcceptanceItem]) -> Boo
     }
 }
 
-private func shellDocumentFlag(_ name: String) -> Bool {
+func shellDocumentFlag(_ name: String) -> Bool {
     return FileManager.default.fileExists(atPath: shellDocumentsURL().appendingPathComponent(name).path)
 }
 
-private func shellDocumentString(_ name: String) -> String? {
+func shellDocumentString(_ name: String) -> String? {
     let url = shellDocumentsURL().appendingPathComponent(name)
     guard let data = try? Data(contentsOf: url) else { return nil }
     return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -106,7 +107,7 @@ private func shellDocumentString(_ name: String) -> String? {
 
 // M5 launcher settings: the provider reads vrmc-runtime.properties from the default game directory at
 // the next launch. The shell panel edits only the keys it owns and preserves any other user keys.
-private func shellRuntimeSettingsURL() -> URL {
+func shellRuntimeSettingsURL() -> URL {
     return shellDocumentsURL()
         .appendingPathComponent("instances/default")
         .appendingPathComponent("vrmc-runtime.properties")
@@ -128,13 +129,13 @@ private func shellReadProperties(_ url: URL) -> [String: String] {
     return values
 }
 
-private func shellReadRuntimeSettings() -> [String: String] {
+func shellReadRuntimeSettings() -> [String: String] {
     return shellReadProperties(shellRuntimeSettingsURL())
 }
 
 /// Queue an M5 provider command (recenter / calibrate-height / reload-settings / diag / status).
 /// The provider consumes it while the game runs; queued commands are harmless if consumed early.
-private func shellQueueGameCommand(_ command: String) -> Bool {
+func shellQueueGameCommand(_ command: String) -> Bool {
     let url = shellDocumentsURL()
         .appendingPathComponent("instances/default")
         .appendingPathComponent("vrmc-command.txt")
@@ -151,7 +152,7 @@ private func shellQueueGameCommand(_ command: String) -> Bool {
 }
 
 /// M5 diagnostics export: one local text bundle the user can AirDrop/share. No network, no telemetry.
-private func shellBuildDiagnosticsBundle() -> URL? {
+func shellBuildDiagnosticsBundle() -> URL? {
     let docs = shellDocumentsURL()
     let game = docs.appendingPathComponent("instances/default")
     var entries: [(String, URL, Int)] = [
@@ -199,8 +200,6 @@ private func shellBuildDiagnosticsBundle() -> URL? {
     let providerJar = game.appendingPathComponent("mods/vrmc-provider.jar")
     let providerHash = shellFileSHA256(providerJar).map { String($0.prefix(32)) } ?? "missing"
     text += "providerJarSha256Prefix=\(providerHash) path=\(providerJar.path)\n"
-    let provisioning = ShellProvisioning.lastReport ?? ShellProvisioning.run()
-    for line in provisioning.lines { text += "provisioning: \(line)\n" }
     text += "note=fully local; contains logs and runtime settings only, no telemetry\n\n"
     for (name, url, cap) in entries {
         text += "===== \(name): \(url.lastPathComponent) =====\n"
@@ -227,17 +226,17 @@ private func shellBuildDiagnosticsBundle() -> URL? {
     }
 }
 
-private func shellFileSHA256(_ url: URL) -> String? {
+func shellFileSHA256(_ url: URL) -> String? {
     guard let data = try? Data(contentsOf: url) else { return nil }
     let digest = SHA256.hash(data: data)
     return digest.map { String(format: "%02x", $0) }.joined()
 }
 
-private func shellVignetteURL() -> URL {
+func shellVignetteURL() -> URL {
     return shellDocumentsURL().appendingPathComponent("vrmc-vignette.flag")
 }
 
-private func shellReadVignette() -> (enabled: Bool, strength: Double) {
+func shellReadVignette() -> (enabled: Bool, strength: Double) {
     let url = shellVignetteURL()
     guard FileManager.default.fileExists(atPath: url.path) else { return (false, 0.5) }
     let raw = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
@@ -247,7 +246,7 @@ private func shellReadVignette() -> (enabled: Bool, strength: Double) {
 }
 
 @discardableResult
-private func shellWriteVignette(enabled: Bool, strength: Double) -> Bool {
+func shellWriteVignette(enabled: Bool, strength: Double) -> Bool {
     let url = shellVignetteURL()
     do {
         if enabled {
@@ -263,18 +262,18 @@ private func shellWriteVignette(enabled: Bool, strength: Double) -> Bool {
     }
 }
 
-private func shellInputTuneURL() -> URL {
+func shellInputTuneURL() -> URL {
     return shellDocumentsURL()
         .appendingPathComponent("instances/default")
         .appendingPathComponent("vrmc-input-tune.properties")
 }
 
-private func shellReadInputTune() -> [String: String] {
+func shellReadInputTune() -> [String: String] {
     return shellReadProperties(shellInputTuneURL())
 }
 
 @discardableResult
-private func shellWriteInputTune(_ values: [String: String]) -> Bool {
+func shellWriteInputTune(_ values: [String: String]) -> Bool {
     let url = shellInputTuneURL()
     do {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
@@ -291,7 +290,7 @@ private func shellWriteInputTune(_ values: [String: String]) -> Bool {
 }
 
 @discardableResult
-private func shellWriteRuntimeSettings(_ values: [String: String]) -> Bool {
+func shellWriteRuntimeSettings(_ values: [String: String]) -> Bool {
     let url = shellRuntimeSettingsURL()
     do {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
@@ -366,6 +365,7 @@ private func neutralizeDiagnosticFlagsIfRequested() {
 
 /// Diagnostic open flags captured BEFORE vrmc-clear-diagnostics deletes them, so pushing
 /// clear-diagnostics + selftest/open-on-launch together still opens the immersive space this launch.
+@MainActor
 private enum ShellStartupFlags {
     static var selftest = false
     static var openOnLaunch = false
@@ -385,44 +385,40 @@ private func rotateSessionLog(_ name: String, prev: String) {
     }
 }
 
-/// Launcher mod auto-provisioning (ModProvisioner.swift): bundled provider install/upgrade and
-/// hash-verified Vivecraft import. The latest report feeds the launcher's Mods panel and diagnostics.
-enum ShellProvisioning {
-    private(set) static var lastReport: ModProvisionReport?
-    private(set) static var vivecraftFileName = ModProvisioningManifest.builtIn.vivecraftFileName
-
-    static func makeProvisioner() -> ModProvisioner {
-        let docs = shellDocumentsURL()
-        let bundleDir = Bundle.main.bundleURL.appendingPathComponent("vrmc")
-        return ModProvisioner(
-            documentsDir: docs,
-            modsDir: docs.appendingPathComponent("instances/default/mods"),
-            bundledProvider: bundleDir.appendingPathComponent(ModProvisioner.providerFileName),
-            manifest: ModProvisioningManifest.load(from: bundleDir.appendingPathComponent("provisioning.json")),
-            log: shellLog)
-    }
-
-    @discardableResult
-    static func run() -> ModProvisionReport {
-        let provisioner = makeProvisioner()
-        let report = provisioner.run()
-        lastReport = report
-        vivecraftFileName = provisioner.manifest.vivecraftFileName
-        return report
-    }
+/// Keep an append-only log bounded: when it grows past maxBytes only its newest half is kept.
+/// (vrmc-thermal.log gained a line every 30 s of use and was never rotated.)
+private func trimAppendOnlyLog(_ name: String, maxBytes: Int) {
+    let url = shellDocumentsURL().appendingPathComponent(name)
+    guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+          let size = attrs[.size] as? Int, size > maxBytes,
+          let data = try? Data(contentsOf: url) else { return }
+    var tail = data.suffix(maxBytes / 2)
+    if let newline = tail.firstIndex(of: 0x0A) { tail = tail.suffix(from: tail.index(after: newline)) }
+    try? Data(tail).write(to: url, options: .atomic)
 }
 
 @_cdecl("vrmc_shell_start")
 public func vrmcShellStart() -> Int32 {
     rotateSessionLog("vrmc-shell.log", prev: "vrmc-shell.prev.log")
-    ShellStartupFlags.selftest = shellDocumentFlag("vrmc-immersive-selftest.flag")
-    ShellStartupFlags.openOnLaunch = shellDocumentFlag("vrmc-open-on-launch.flag")
+    // Read these before vrmc-clear-diagnostics deletes the diagnostic flags.
+    let selftestRequested = shellDocumentFlag("vrmc-immersive-selftest.flag")
+    let openOnLaunchRequested = shellDocumentFlag("vrmc-open-on-launch.flag")
     shellLog("vrmc_shell_start invoked")
     // Must run before VRMCShellApp.main() so no autolaunch/on-launch flag survives this process.
     neutralizeDiagnosticFlagsIfRequested()
-    // Before the launcher UI exists, so the first game launch already sees a provisioned mods/ dir.
-    ShellProvisioning.run()
-    VRMCShellApp.main()
+    trimAppendOnlyLog("vrmc-thermal.log", maxBytes: 512 * 1024)
+    // vrmc_shell_start runs on the main thread (called from the Amethyst C main() before
+    // UIApplicationMain), so the main-actor state below can be touched synchronously. Keeping the
+    // entry point nonisolated preserves its C-callable signature.
+    MainActor.assumeIsolated {
+        ShellStartupFlags.selftest = selftestRequested
+        ShellStartupFlags.openOnLaunch = openOnLaunchRequested
+        LauncherBridge.suppressLegacyWelcome()
+        // Automatic setup: the bundled provider mod is installed/updated before the launcher can
+        // start a game, so a fresh install never needs a manual jar copy.
+        SetupManager.shared.installBundledProviderAtStartup()
+        VRMCShellApp.main()
+    }
     return 0
 }
 
@@ -431,7 +427,7 @@ public func vrmcShellStart() -> Int32 {
 /// 1.0 = the highest render quality the device supports (native per-eye panel resolution, i.e. the
 /// "4K in both eyes" target); Documents/vrmc-max-render-quality.txt can pin a lower value for A/B
 /// without rebuilding. An absent/unparsable file falls back to 1.0, never fails the immersive open.
-private func shellMaxRenderQuality() -> LayerRenderer.RenderQuality {
+func shellMaxRenderQuality() -> LayerRenderer.RenderQuality {
     let fallback = LayerRenderer.RenderQuality(rawValue: 1.0)
     let path = shellDocumentsURL().appendingPathComponent("vrmc-max-render-quality.txt")
     guard let raw = try? String(contentsOf: path, encoding: .utf8) else { return fallback }
@@ -516,16 +512,39 @@ struct ShellLayerConfiguration: CompositorLayerConfiguration {
     }
 }
 
-struct LauncherHostView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        if let cls = NSClassFromString("LauncherSplitViewController") as? UIViewController.Type {
-            return cls.init()
-        }
-        let fallback = UIViewController()
-        fallback.view.backgroundColor = .systemBackground
-        return fallback
+/// SwiftUI-owned container that hosts the single launcher view controller.
+///
+/// SwiftUI only ever manages this plain container; `LauncherBridge` moves the one launcher controller
+/// into whichever container is currently active (the hidden 1×1 Play host or the Minecraft setup
+/// sheet). That indirection is what keeps the launcher usable from the hidden host without a SwiftUI
+/// teardown ever pulling it out of the other host.
+final class LauncherHostContainer: UIViewController {
+    override func loadView() {
+        let view = UIView()
+        view.backgroundColor = .clear
+        self.view = view
     }
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        children.first?.view.frame = view.bounds
+    }
+}
+
+struct LauncherHostView: UIViewControllerRepresentable {
+    /// The hidden host turns itself off while the Minecraft setup sheet owns the launcher.
+    var isActive: Bool = true
+
+    func makeUIViewController(context: Context) -> LauncherHostContainer {
+        let container = LauncherHostContainer()
+        if isActive { LauncherBridge.attachLauncher(to: container) }
+        return container
+    }
+
+    func updateUIViewController(_ container: LauncherHostContainer, context: Context) {
+        guard isActive else { return }
+        LauncherBridge.attachLauncher(to: container)
+    }
 }
 
 /// App-level owner of the immersive lifecycle.
@@ -555,9 +574,20 @@ final class ShellCoordinator {
     /// True once the compositor has presented at least one frame for the current session.
     private(set) var presenting = false
 
-    @ObservationIgnored private var gameStarted = false
+    /// True between the launcher starting the game and the provider/compositor reporting it stopped.
+    private(set) var gameRunning = false
+    @ObservationIgnored private var gameStarted = false {
+        didSet { if gameRunning != gameStarted { gameRunning = gameStarted } }
+    }
+    /// Cancels the wait-for-first-game-frame task when the game stops or a new one starts.
+    @ObservationIgnored private var gameOpenTask: Task<Void, Never>?
+    /// VR was turned off from inside the game (game still running): waits for the provider's next
+    /// frame after VR is turned back on and re-enters VR.
+    @ObservationIgnored private var vrResumeTask: Task<Void, Never>?
     /// Set when the immersive session was ended by backgrounding/resigning; cleared once reopened.
     @ObservationIgnored private var reopenOnActive = false
+    /// The app went to the background since the last activation (headset sleep / removed).
+    @ObservationIgnored private var sawBackground = false
     /// True once an immersive session has been opened in this process (any reason: game, manual, selftest,
     /// open-on-launch). Used so background/foreground re-entry also works for the manual/diagnostic paths.
     @ObservationIgnored private var wantsImmersive = false
@@ -568,6 +598,11 @@ final class ShellCoordinator {
     @ObservationIgnored private var windowSceneActive = false
     /// Generation of the most recent successful immersive open (0 = never opened).
     @ObservationIgnored private var lastOpenGeneration: Int32 = 0
+    /// Generation of the most recent session that actually presented at least one compositor frame.
+    /// gameDidStop() clears `presenting` before the compositor's VRMCImmersiveEnded notification
+    /// arrives, so compositorDidEnd() must not mistake that reset for "never presented" (the 1.3.3
+    /// run logged "presentation never confirmed" after presenting 19,517 frames).
+    @ObservationIgnored private var lastPresentedGeneration: Int32 = 0
     @ObservationIgnored private var lastOpenAt: Date = .distantPast
     @ObservationIgnored private var autoRetries = 0
     /// True while a previous immersive space still needs an explicit dismiss before a reopen.
@@ -609,9 +644,47 @@ final class ShellCoordinator {
     private(set) var crashGuardMessage = ""
 
     /// User-facing status for the window overlay (manual "Enter VR" control, Option 2 staging).
-    private(set) var statusMessage = "Preparing VR"
+    private(set) var statusMessage = "Ready"
     /// Last failure to open the immersive space, shown in the window so errors stay actionable.
     private(set) var lastOpenError: String?
+
+    /// Automatic VR entry state for the Play tab (release 1.3.4, bug B). The 1.3.3 device run shows
+    /// the user pressing "Enter VR" at +14 s while the automatic open was still waiting for the first
+    /// game frame: the button must not be offered while the automatic attempt is expected to win.
+    private(set) var autoOpenPending = false
+    /// Human-readable automatic-open stage ("Waiting for the game picture…" -> "Entering VR…").
+    private(set) var autoOpenStage = ""
+    /// After a bounded wait the manual fallback is offered next to the status (a cold start took
+    /// 14 s in 1.3.3; the automatic wait can legitimately take longer, but never indefinitely quiet).
+    private(set) var autoOpenFallbackAvailable = false
+    @ObservationIgnored private var autoOpenFallbackTask: Task<Void, Never>?
+
+    private func beginAutoOpenPending() {
+        autoOpenPending = true
+        autoOpenStage = "Waiting for the game picture…"
+        autoOpenFallbackAvailable = false
+        autoOpenFallbackTask?.cancel()
+        autoOpenFallbackTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(25))
+            guard let self, !Task.isCancelled, self.autoOpenPending else { return }
+            self.autoOpenFallbackAvailable = true
+            self.shellLogSafe("auto open still pending after 25 s; offering the manual Enter VR fallback")
+        }
+    }
+
+    private func clearAutoOpenPending() {
+        autoOpenPending = false
+        autoOpenStage = ""
+        autoOpenFallbackAvailable = false
+        autoOpenFallbackTask?.cancel()
+        autoOpenFallbackTask = nil
+    }
+
+    /// Advances the pending stage; ignored once the automatic attempt was superseded/cleared.
+    private func setAutoOpenStage(_ stage: String) {
+        guard autoOpenPending else { return }
+        autoOpenStage = stage
+    }
 
     /// Manual "Enter VR" (staged immersive entry): open the immersive space on demand, independent of
     /// the game/JIT path, so the CompositorServices renderer can be validated on its own. The automatic
@@ -619,6 +692,8 @@ final class ShellCoordinator {
     /// recovery path when the automatic open fails.
     func enterVRManually() {
         shellLog("MANUAL: Enter VR pressed (immersive=\(immersiveOpen) opening=\(opening) appActive=\(appActive) windowActive=\(windowSceneActive) presenting=\(presenting))")
+        // A deliberate press supersedes the automatic attempt; the UI shows the manual path from here.
+        clearAutoOpenPending()
         guard openAction != nil else {
             lastOpenError = "Immersive space is not bound yet; try again in a moment."
             statusMessage = "VR unavailable"
@@ -638,23 +713,47 @@ final class ShellCoordinator {
         noParking = shellDocumentFlag("vrmc-no-parking.flag")
         hideWindowsOptIn = shellDocumentFlag("vrmc-hide-windows.flag")
         observe(Notification.Name("VRMCGameStarted")) { $0.gameDidStart() }
-        observe(Notification.Name("VRMCGameStopped")) { coordinator, note in
-            coordinator.gameDidStop(reason: note.userInfo?["reason"] as? String ?? "unknown")
+        observe(Notification.Name("VRMCGameStopped")) { coordinator, event in
+            coordinator.gameDidStop(reason: event.reason ?? "unknown")
         }
-        observe(Notification.Name("VRMCImmersiveEnded")) { coordinator, note in
-            coordinator.compositorDidEnd(generation: note.userInfo?["generation"] as? Int32)
+        observe(Notification.Name("VRMCImmersiveEnded")) { coordinator, event in
+            coordinator.compositorDidEnd(generation: event.generation)
         }
-        observe(Notification.Name("VRMCCompositorRunning")) { coordinator, note in
-            coordinator.compositorDidStartPresenting(generation: note.userInfo?["generation"] as? Int32)
+        observe(Notification.Name("VRMCCompositorRunning")) { coordinator, event in
+            coordinator.compositorDidStartPresenting(generation: event.generation)
         }
         observe(UIApplication.willResignActiveNotification) { $0.willResignActive() }
         observe(UIApplication.didEnterBackgroundNotification) { $0.didEnterBackground() }
         observe(UIApplication.didBecomeActiveNotification) { $0.appDidBecomeActive() }
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { note in
+            let raw = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? NSNumber)?.uintValue
+            guard raw == AVAudioSession.InterruptionType.ended.rawValue else { return }
+            Task { @MainActor in
+                let shell = ShellCoordinator.shared
+                if shell.gameStarted { shell.requestAudioReset(reason: "audio interruption ended") }
+            }
+        })
+        // visionOS 27 replacement for the interruption notification: the system recommends resuming.
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVAudioSession.resumptionRecommendationNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in
+                let shell = ShellCoordinator.shared
+                if shell.gameStarted { shell.requestAudioReset(reason: "audio resumption recommended") }
+            }
+        })
         observe(UIApplication.didFinishLaunchingNotification) { $0.refreshActivityStates("didFinishLaunching") }
-        observe(UIScene.didActivateNotification) { $0.refreshActivityStates("UIScene.didActivate") }
+        observe(UIScene.didActivateNotification) {
+            $0.refreshActivityStates("UIScene.didActivate")
+            $0.noteWindowSceneActivation()
+        }
         observe(UIScene.willDeactivateNotification) { $0.refreshActivityStates("UIScene.willDeactivate") }
+        observeSceneConnect(UIScene.willConnectNotification)
         observe(ProcessInfo.thermalStateDidChangeNotification) { $0.logThermal("thermal-state-changed") }
         refreshActivityStates("init")
+        // Startup pass: the single-window guard also runs without waiting for a lifecycle callback
+        // (covers a restored duplicate that never posts UIScene.didActivate).
+        scheduleWindowScenePrune()
         shellLog("coordinator ready chromeMode=\(chromeMode) selftest=\(selftestMode) noParking=\(noParking) hideWindowsOptIn=\(hideWindowsOptIn)")
         startThermalMonitor()
         startHeartbeatWatchdog()
@@ -667,14 +766,37 @@ final class ShellCoordinator {
         }
     }
 
-    private func observe(_ name: Notification.Name, _ handler: @escaping (ShellCoordinator) -> Void) {
+    /// Only the values the coordinator needs, so nothing non-Sendable crosses an isolation boundary.
+    private struct ShellNotificationEvent: Sendable {
+        var reason: String?
+        var generation: Int32?
+    }
+
+    private func observe(_ name: Notification.Name,
+                         _ handler: @escaping @MainActor @Sendable (ShellCoordinator) -> Void) {
         observe(name) { coordinator, _ in handler(coordinator) }
     }
 
     private func observe(_ name: Notification.Name,
-                         _ handler: @escaping (ShellCoordinator, Notification) -> Void) {
+                         _ handler: @escaping @MainActor @Sendable (ShellCoordinator, ShellNotificationEvent) -> Void) {
         observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { note in
-            MainActor.assumeIsolated { handler(ShellCoordinator.shared, note) }
+            // The block runs on the main queue; extract Sendable values before hopping actors.
+            let userInfo = note.userInfo
+            let event = ShellNotificationEvent(
+                reason: userInfo?["reason"] as? String,
+                generation: (userInfo?["generation"] as? NSNumber)?.int32Value
+            )
+            Task { @MainActor in handler(ShellCoordinator.shared, event) }
+        })
+    }
+
+    /// UIScene.willConnect carries the attaching scene in the notification object, which the generic
+    /// observers drop. The scene guard only needs to know that a window scene may be attaching; the
+    /// prune inspects UIApplication.shared.connectedScenes itself (nothing non-Sendable crosses into
+    /// the main-actor task).
+    private func observeSceneConnect(_ name: Notification.Name) {
+        observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+            Task { @MainActor in ShellCoordinator.shared.noteWindowSceneConnect() }
         })
     }
 
@@ -686,19 +808,37 @@ final class ShellCoordinator {
 
     // MARK: - Activity state
 
+    /// Every connected window scene. Only .windowApplication scenes are the shell's 2D window(s);
+    /// CPSceneSessionRoleImmersiveSpaceApplication is the immersive space and must never be pruned
+    /// or parked.
+    private func connectedWindowScenes() -> [UIWindowScene] {
+        UIApplication.shared.connectedScenes.compactMap { scene in
+            guard scene.session.role == .windowApplication else { return nil }
+            return scene as? UIWindowScene
+        }
+    }
+
+    /// Compact window listing for the logs. The 1.3.3 device run had 8 restored scenes / 16 windows
+    /// and every state line repeated the whole list (making logs unreadable and huge); cap the
+    /// detailed part at two scenes with two windows each and keep the totals.
     private func windowStateDescription() -> String {
+        let scenes = connectedWindowScenes()
+        let windowCount = scenes.reduce(0) { $0 + $1.windows.count }
         var parts: [String] = []
-        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes
-            where scene.session.role == .windowApplication {
+        for scene in scenes.prefix(2) {
             var desc = "scene(\(scene.windows.count))"
-            for (index, window) in scene.windows.enumerated() {
+            for (index, window) in scene.windows.prefix(2).enumerated() {
                 desc += String(format: " w%d[hidden=%@ alpha=%.2f level=%.1f]",
                                index, window.isHidden ? "true" : "false",
                                window.alpha, window.windowLevel.rawValue)
             }
+            if scene.windows.count > 2 { desc += " +\(scene.windows.count - 2) more windows" }
             parts.append(desc)
         }
-        return parts.isEmpty ? "windows=no-window-scenes" : "windows=" + parts.joined(separator: " ")
+        if scenes.count > 2 { parts.append("+\(scenes.count - 2) more scenes") }
+        guard !parts.isEmpty else { return "windows=no-window-scenes" }
+        return "windows=" + parts.joined(separator: " ")
+            + " (total \(scenes.count) scenes/\(windowCount) windows)"
     }
 
     /// Re-reads app and window-scene activation from UIKit (the notifications alone are not reliable on
@@ -717,8 +857,9 @@ final class ShellCoordinator {
     /// whether the immersive-space scene (CPSceneSessionRoleImmersiveSpaceApplication) is actually active
     /// and therefore whether the system should be displaying our CompositorServices layer.
     private func sceneStateDescription() -> String {
+        let scenes = UIApplication.shared.connectedScenes
         var parts: [String] = []
-        for scene in UIApplication.shared.connectedScenes {
+        for scene in scenes.prefix(2) {
             let role = scene.session.role.rawValue
             let state: String
             switch scene.activationState {
@@ -730,7 +871,135 @@ final class ShellCoordinator {
             }
             parts.append("\(role):\(state)")
         }
+        if scenes.count > 2 { parts.append("+\(scenes.count - 2) more scenes") }
         return parts.joined(separator: ",")
+    }
+
+    // MARK: - Single window scene guard (release 1.3.4, bug A)
+
+    /// The 1.3.3 device run restored EIGHT .windowApplication scenes: the app plist allows multiple
+    /// scenes and every window session left behind by earlier launches is restored and reconnected,
+    /// each one mounting its own RootView (8 duplicate UIs, 16 windows, log lines repeating the whole
+    /// scene list). The guard keeps exactly one window scene and destroys the extras through the
+    /// public requestSceneSessionDestruction API. The immersive space is a separate scene role
+    /// (CPSceneSessionRoleImmersiveSpaceApplication) and is never touched - the shipped plist must
+    /// keep UIApplicationSupportsMultipleScenes=true for it.
+    @ObservationIgnored private var primaryWindowClaimed = false
+    @ObservationIgnored private var primaryWindowScene: UIWindowScene?
+    @ObservationIgnored private var firstActivatedWindowScene: UIWindowScene?
+    @ObservationIgnored private var windowScenePruneTask: Task<Void, Never>?
+    @ObservationIgnored private var windowScenePruneAttempts = 0
+    @ObservationIgnored private var windowScenePruneInFlight = false
+
+    /// Called once by the first RootView to appear: it owns the single UI (hidden launcher host and
+    /// the setup refresh loop). Later restored scenes still render but stay inert until the guard
+    /// prunes them, so the user always has one working window.
+    func claimPrimaryWindow() -> Bool {
+        guard !primaryWindowClaimed else { return false }
+        primaryWindowClaimed = true
+        return true
+    }
+
+    /// The primary RootView's window scene (reported by a 0x0 UIViewRepresentable probe). The guard
+    /// keeps this scene, so the survivor is the one that actually owns the UI/launcher host, never a
+    /// restored duplicate. Ignored once a scene has been recorded.
+    func notePrimaryWindowScene(_ scene: UIWindowScene) {
+        guard primaryWindowClaimed, primaryWindowScene == nil else { return }
+        primaryWindowScene = scene
+        shellLog("window-scene guard: primary window scene id=\(scene.session.persistentIdentifier.prefix(8)) connected=\(connectedWindowScenes().count)")
+        scheduleWindowScenePrune()
+    }
+
+    /// A UIScene.willConnect notification: re-arm the debounced prune. Never prune synchronously from
+    /// a lifecycle callback - the launch restore burst connects several scenes in a row.
+    private func noteWindowSceneConnect() {
+        scheduleWindowScenePrune()
+    }
+
+    private func noteWindowSceneActivation() {
+        let scenes = connectedWindowScenes()
+        if firstActivatedWindowScene == nil,
+           let scene = scenes.first(where: { $0.activationState == .foregroundActive }) {
+            firstActivatedWindowScene = scene
+        }
+        scheduleWindowScenePrune()
+    }
+
+    /// One debounced pass at a time: wait for the restore burst to settle, then prune. Destruction is
+    /// asynchronous, so a single verification pass follows; later activations trigger further passes
+    /// instead of a tight loop.
+    private func scheduleWindowScenePrune() {
+        guard windowScenePruneTask == nil, !windowScenePruneInFlight else { return }
+        windowScenePruneTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else { return }
+            self.windowScenePruneTask = nil
+            self.pruneExtraWindowScenes()
+        }
+    }
+
+    private func choosePrimaryWindowScene(_ scenes: [UIWindowScene]) -> UIWindowScene? {
+        if let claimed = primaryWindowScene, scenes.contains(where: { $0 === claimed }) { return claimed }
+        if let key = scenes.first(where: { $0.windows.contains(where: { $0.isKeyWindow }) }) { return key }
+        if let first = firstActivatedWindowScene, scenes.contains(where: { $0 === first }) { return first }
+        return scenes.first
+    }
+
+    private func pruneExtraWindowScenes() {
+        let scenes = connectedWindowScenes()
+        guard scenes.count > 1, let keeper = choosePrimaryWindowScene(scenes) else { return }
+        // Never restructure scenes while the immersive session is live; re-check after it ends.
+        guard !immersiveOpen, !presenting else {
+            shellLog("window-scene guard: deferred while immersive is open/presenting (windowScenes=\(scenes.count))")
+            deferWindowScenePrune(after: 3)
+            return
+        }
+        guard appActive else {
+            shellLog("window-scene guard: deferred until the app is active (windowScenes=\(scenes.count))")
+            deferWindowScenePrune(after: 2)
+            return
+        }
+        windowScenePruneAttempts += 1
+        let keeperID = keeper.session.persistentIdentifier
+        var requested = 0
+        for scene in scenes where scene !== keeper {
+            let session = scene.session
+            // Belt and braces: only .windowApplication scenes are duplicates of our 2D UI.
+            guard session.role == .windowApplication else { continue }
+            requested += 1
+            let id = session.persistentIdentifier
+            shellLog("window-scene guard: destroying duplicate window scene id=\(id.prefix(8)) windows=\(scene.windows.count)")
+            UIApplication.shared.requestSceneSessionDestruction(session, options: nil) { error in
+                shellLog("window-scene guard: destruction of scene id=\(id.prefix(8)) failed (ignored): \(error.localizedDescription)")
+            }
+        }
+        shellLog("window-scene guard: keeping session \(keeperID.prefix(8)), destroying \(requested) duplicate window scene(s) (before=\(scenes.count), after-request=\(scenes.count - requested), attempt=\(windowScenePruneAttempts))")
+        scheduleWindowScenePruneVerification()
+    }
+
+    private func deferWindowScenePrune(after seconds: Int) {
+        windowScenePruneInFlight = true
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard let self else { return }
+            self.windowScenePruneInFlight = false
+            self.scheduleWindowScenePrune()
+        }
+    }
+
+    private func scheduleWindowScenePruneVerification() {
+        guard windowScenePruneAttempts < 3 else { return }
+        windowScenePruneInFlight = true
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self else { return }
+            self.windowScenePruneInFlight = false
+            let remaining = self.connectedWindowScenes().count
+            if remaining > 1 {
+                shellLog("window-scene guard: \(remaining) window scene(s) still connected after the prune attempt; retrying once")
+            }
+            self.scheduleWindowScenePrune()
+        }
     }
 
     /// Periodic scene/immersion state while the immersive session is live (objective display evidence).
@@ -750,12 +1019,40 @@ final class ShellCoordinator {
 
     private func gameDidStart() {
         shellLog("VRMCGameStarted received")
+        vrResumeTask?.cancel(); vrResumeTask = nil
         gameStarted = true
-        Task {
-            // Let the game create its renderer/provider first (provider init + first frames).
-            try? await Task.sleep(for: .seconds(15))
-            openVR(reason: "auto")
+        writeSessionState("running")
+        statusMessage = "Starting Minecraft…"
+        // Automatic VR entry is the expected path, but it waits for the provider's first game frame
+        // (14 s in the 1.3.3 cold start, up to 90 s by design). Publish that state so the Play tab can
+        // show progress instead of inviting a manual "Enter VR" press while the auto attempt runs.
+        clearAutoOpenPending()
+        if !safeMode { beginAutoOpenPending() }
+        gameOpenTask?.cancel()
+        gameOpenTask = Task { [weak self] in
+            // Open the immersive space when the game has a picture to show. The old fixed 15 s wait
+            // was too long on a warm start and too short on a cold one (the space then opened onto
+            // an empty scene). Minimum 3 s so the provider/renderer exist; give up waiting after
+            // 90 s and open anyway so a slow start still ends up in VR.
+            try? await Task.sleep(for: .seconds(3))
+            var waited = 3.0
+            while !Task.isCancelled, waited < 90.0 {
+                if VRMCCompositor_ProviderEyesReady() != 0 { break }
+                try? await Task.sleep(for: .milliseconds(500))
+                waited += 0.5
+            }
+            guard let self, !Task.isCancelled, self.gameStarted else { return }
+            self.setAutoOpenStage("Entering VR…")
+            self.shellLogSafe("game frame \(VRMCCompositor_ProviderEyesReady() != 0 ? "ready" : "NOT ready") after \(String(format: "%.1f", waited)) s; opening immersive space")
+            self.openVR(reason: "auto")
         }
+    }
+
+    /// One-word session marker used by the crash guard at the next launch: "running" while a game
+    /// is up, "background" once the app left the foreground, "ended" after a normal game stop.
+    private func writeSessionState(_ state: String) {
+        let url = shellDocumentsURL().appendingPathComponent("vrmc-session-state.txt")
+        try? state.write(to: url, atomically: true, encoding: .utf8)
     }
 
     /// Self-test: every second for up to 15 s, try to open the immersive space even though
@@ -844,7 +1141,7 @@ final class ShellCoordinator {
                 } else if self.heartbeatStaleLogged {
                     self.heartbeatStaleLogged = false
                     shellLog("WATCHDOG: compositor heartbeat recovered (age \(Int(age))s)")
-                    self.statusMessage = "VR presenting"
+                    self.statusMessage = "Playing in VR"
                 }
             }
         }
@@ -875,17 +1172,29 @@ final class ShellCoordinator {
                 if last.contains("destroy-complete") {
                     count = 0
                 } else {
-                    unclean = true
-                    count += 1
+                    // No clean provider teardown. That is the normal result of closing the app from
+                    // the system while the game runs (the only way to quit on the headset), so it
+                    // only counts as a crash when the app was still in the foreground with a game
+                    // running when the process died.
+                    let stateURL = docs.appendingPathComponent("vrmc-session-state.txt")
+                    let state = (try? String(contentsOf: stateURL, encoding: .utf8))?
+                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? "running"
+                    if state == "running" {
+                        unclean = true
+                        count += 1
+                    } else {
+                        shellLog("CRASH-GUARD: previous session ended without teardown while state=\(state); treated as a normal quit")
+                        count = 0
+                    }
                 }
             }
         }
+        try? FileManager.default.removeItem(at: docs.appendingPathComponent("vrmc-session-state.txt"))
         try? String(count).write(to: countURL, atomically: true, encoding: .utf8)
         if unclean {
-            crashGuardMessage = "Previous VR session ended unexpectedly (no clean shutdown)."
-            lastOpenError = count >= 2
-                ? "Two recent sessions ended unexpectedly; automatic VR is disabled. Use Enter VR after exporting diagnostics."
-                : "Previous session ended unexpectedly; diagnostics are available from Export diagnostics."
+            crashGuardMessage = count >= 2
+                ? "The last two sessions ended unexpectedly. VR will not open by itself until you clear safe mode."
+                : "The last session ended unexpectedly."
             shellLog("CRASH-GUARD: \(crashGuardMessage) count=\(count)")
         } else {
             crashGuardMessage = ""
@@ -965,12 +1274,14 @@ final class ShellCoordinator {
         let generationText = generation.map(String.init) ?? "nil"
         shellLog("VRMCCompositorRunning generation=\(generationText) immersive=\(immersiveOpen) selftest=\(selftestMode) \(windowStateDescription())")
         presenting = true
-        statusMessage = "VR presenting"
+        statusMessage = "Playing in VR"
         lastOpenError = nil
+        clearAutoOpenPending()
         // The auto-retry after a layer that dies right after opening compares generations. The open
         // request happens before the compositor thread exists (generation 0), so the real generation is
         // only known here, at the first presented frame.
         lastOpenGeneration = VRMCCompositor_CurrentGeneration()
+        lastPresentedGeneration = lastOpenGeneration
         // Audible canary: the operator can confirm the first presented frame even if they are not
         // looking at the centre of the field of view (diagnostic only; system sound, no asset).
         if shellDocumentFlag("vrmc-audible-canary.flag") { AudioServicesPlaySystemSound(1057) }
@@ -999,8 +1310,21 @@ final class ShellCoordinator {
     /// Game provider teardown (or the compositor's eyes-lost fallback): stop presenting the immersive
     /// space and return to the launcher instead of leaving a stale test-pattern scene and beeping.
     private func gameDidStop(reason: String) {
-        shellLog("VRMCGameStopped received reason=\(reason) gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
-        gameStarted = false
+        let vrState = Self.providerVRState()
+        shellLog("VRMCGameStopped received reason=\(reason) vrState=\(vrState ?? "none") gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
+        gameOpenTask?.cancel(); gameOpenTask = nil
+        clearAutoOpenPending()
+        // VR turned off from inside the game (Vivecraft's VR toggle): the game keeps running, so do
+        // not treat it as ended; close the immersive space and come back by itself when VR is
+        // turned on again (1.4.0 report: re-enabling VR looked like a crash).
+        let vrOffOnly = vrState == "off" && (gameStarted || vrResumeTask != nil)
+        if vrOffOnly {
+            startVRResumeWatch()
+        } else {
+            vrResumeTask?.cancel(); vrResumeTask = nil
+            gameStarted = false
+            writeSessionState("ended")
+        }
         wantsImmersive = false
         reopenOnActive = false
         autoRetries = 0
@@ -1017,18 +1341,53 @@ final class ShellCoordinator {
         needsDismiss = true
         immersiveOpen = false
         presenting = false
-        statusMessage = "Game ended — window restored"
-        setGameWindowsVisible(true, log: "window restored after game stop")
+        statusMessage = vrOffOnly ? "VR is off — turn VR on in Minecraft to come back" : "Game ended"
+        setGameWindowsVisible(true, log: vrOffOnly ? "window restored (VR turned off in game)" : "window restored after game stop")
         Task { [weak self] in
             guard let self else { return }
-            await self.dismissIfCurrent(myEpoch: myEpoch)
-            self.shellLogSafe("immersive space dismissed after game stop epoch=\(myEpoch)")
+            if await self.dismissIfCurrent(myEpoch: myEpoch) {
+                self.shellLogSafe("immersive space dismissed after game stop epoch=\(myEpoch)")
+            }
+        }
+    }
+
+    /// The provider's VR state hand-off ("on", "off" = VR toggled off mid-game, "exit" = quitting).
+    nonisolated static func providerVRState() -> String? {
+        let url = SetupManager.gameDirectory().appendingPathComponent("vrmc-vr-state.txt")
+        return (try? String(contentsOf: url, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// While VR is off in a running game: re-enter VR once the provider publishes eye frames again
+    /// (VisionVR.destroy clears them; VisionVR.init + first frame publishes new ones).
+    private func startVRResumeWatch() {
+        vrResumeTask?.cancel()
+        statusMessage = "VR is off — turn VR on in Minecraft to come back"
+        shellLog("VR turned off in game; watching for VR to be turned back on")
+        vrResumeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            while !Task.isCancelled {
+                guard let self, self.gameStarted else { return }
+                if self.immersiveOpen || self.opening { self.vrResumeTask = nil; return }
+                if Self.providerVRState() == "exit" { return }
+                if Self.providerVRState() == "on" && VRMCCompositor_ProviderEyesReady() != 0 {
+                    self.shellLogSafe("VR turned back on in game; game frame ready, re-entering VR")
+                    self.vrResumeTask = nil
+                    self.openVR(reason: "vr-resumed")
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
         }
     }
 
     private func compositorDidEnd(generation: Int32?) {
         let current = VRMCCompositor_CurrentGeneration()
-        shellLog("VRMCImmersiveEnded generation=\(generation.map(String.init) ?? "nil") current=\(current) presenting=\(presenting) \(windowStateDescription())")
+        let generationText = generation.map(String.init) ?? "nil"
+        // gameDidStop() clears `presenting` before this notification arrives (teardown requests the
+        // compositor stop first), so "did this session ever present?" comes from the snapshot taken
+        // at the first presented frame, not from the already-reset presentation flag.
+        let hadPresentedFrame = presenting || (generation != nil && generation == lastPresentedGeneration)
+        shellLog("VRMCImmersiveEnded generation=\(generationText) current=\(current) presenting=\(presenting) hadPresentedFrame=\(hadPresentedFrame) \(windowStateDescription())")
         // A session that ended after a newer one was opened must not close the newer one.
         if let generation, generation != current {
             shellLog("ignoring stale generation=\(generation) current=\(current)")
@@ -1036,9 +1395,8 @@ final class ShellCoordinator {
         }
         epoch += 1
         let myEpoch = epoch
-        let hadPresentedFrame = presenting
         presenting = false
-        statusMessage = "VR ended — window restored"
+        statusMessage = gameStarted ? "VR paused — game still running" : "VR ended"
         if shellDocumentFlag("vrmc-audible-canary.flag") { AudioServicesPlaySystemSound(1073) }
         noFrameTask?.cancel()
         noFrameTask = nil
@@ -1066,14 +1424,17 @@ final class ShellCoordinator {
         Task { [weak self] in
             guard let self else { return }
             // The compositor may have exited on a stop request while SwiftUI still has the space open;
-            // dismiss so a later openImmersiveSpace is not rejected.
-            await self.dismissIfCurrent(myEpoch: myEpoch)
-            self.shellLogSafe("immersive space dismissed epoch=\(myEpoch)")
+            // dismiss so a later openImmersiveSpace is not rejected. Log only a dismissal that this
+            // path actually performed (game stop may have dismissed it a moment earlier).
+            if await self.dismissIfCurrent(myEpoch: myEpoch) {
+                self.shellLogSafe("immersive space dismissed epoch=\(myEpoch)")
+            }
             if self.epoch != myEpoch { return }
             if shouldAutoRetry {
                 try? await Task.sleep(for: .seconds(2))
                 if self.epoch != myEpoch { return }
-                if (self.gameStarted || self.selftestMode) && !self.immersiveOpen && self.appActive {
+                let wantsReopen = self.gameStarted || self.selftestMode || self.openOnLaunch || self.wantsImmersive
+                if wantsReopen && !self.immersiveOpen && self.appActive {
                     self.openVR(reason: "auto-retry")
                 }
             } else if self.reopenOnActive && self.appActive && !self.immersiveOpen {
@@ -1082,14 +1443,19 @@ final class ShellCoordinator {
         }
     }
 
-    /// Dismisses the SwiftUI immersive space only if no newer open/close happened since `myEpoch` was
-    /// captured, so a late dismiss from an old session can never close a freshly reopened one.
-    private func dismissIfCurrent(myEpoch: Int) async {
-        guard epoch == myEpoch, needsDismiss else { return }
-        if let dismissAction {
-            await dismissAction()
+    /// Dismisses the immersive space when this task is still the current epoch and a dismiss is
+    /// pending. Returns true only when a dismiss call was actually made, so the two teardown paths
+    /// (game stop and compositor end) do not both log "immersive space dismissed" for one dismissal.
+    @discardableResult
+    private func dismissIfCurrent(myEpoch: Int) async -> Bool {
+        guard epoch == myEpoch, needsDismiss else { return false }
+        guard let dismissAction else {
+            if epoch == myEpoch { needsDismiss = false }
+            return false
         }
+        await dismissAction()
         if epoch == myEpoch { needsDismiss = false }
+        return true
     }
 
     /// Real backgrounding: remember whether VR should come back, invalidate in-flight tasks (epoch) and
@@ -1101,6 +1467,8 @@ final class ShellCoordinator {
         shellLog("\(reason) gameStarted=\(gameStarted) immersive=\(immersiveOpen) presenting=\(presenting) \(windowStateDescription())")
         appActive = false
         windowSceneActive = false
+        // Backgrounding cancels the pending automatic open (the reopen-on-activation path takes over).
+        clearAutoOpenPending()
         // Reopen on return whenever VR was active in this process. The immersive session may already
         // have been invalidated by the system just before didEnterBackground (observed: layer ended a
         // beat before willResignActive), so immersiveOpen can be false here while the user still expects
@@ -1141,7 +1509,25 @@ final class ShellCoordinator {
     private func didEnterBackground() {
         resignGraceTask?.cancel()
         resignGraceTask = nil
+        sawBackground = true
+        if gameStarted { writeSessionState("background") }
         stopForBackground("didEnterBackground")
+    }
+
+    /// Headset sleep interrupts audio. The audio session gets re-activated, but Minecraft's OpenAL
+    /// output stays stopped (1.3.8 device log: muted after reopening). Re-activate the session and
+    /// ask the provider to restart the sound engine on the new session.
+    private func requestAudioReset(reason: String) {
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            shellLog("audio session re-activation failed (\(reason)): \(error)")
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            _ = shellQueueGameCommand("audio-reset")
+            shellLog("audio reset requested (\(reason))")
+        }
     }
 
     private func appDidBecomeActive() {
@@ -1151,7 +1537,12 @@ final class ShellCoordinator {
             shellLog("willResignActive cancelled by didBecomeActive (compositor not stopped, grace 1.8 s)")
         }
         appActive = true
+        if gameStarted { writeSessionState("running") }
         refreshActivityStates("didBecomeActive")
+        if gameStarted && sawBackground {
+            sawBackground = false
+            requestAudioReset(reason: "didBecomeActive after background")
+        }
         shellLog("didBecomeActive gameStarted=\(gameStarted) immersive=\(immersiveOpen) reopen=\(reopenOnActive) windowActive=\(windowSceneActive)")
         if selftestMode && !immersiveOpen && !opening {
             openVR(reason: "selftest")
@@ -1168,11 +1559,17 @@ final class ShellCoordinator {
         guard !immersiveOpen, !opening else { return }
         if safeMode && (reason == "auto" || reason == "onlaunch") {
             shellLog("SAFE MODE: automatic VR open suppressed (previous sessions did not shut down cleanly); use Enter VR")
-            statusMessage = "Crash safe mode: automatic VR disabled — use Enter VR"
+            statusMessage = "Safe mode: tap Enter VR to continue"
+            clearAutoOpenPending()
             return
         }
         guard let openAction else {
             shellLog("\(reason): openImmersiveSpace action not bound yet")
+            if reason == "auto" {
+                clearAutoOpenPending()
+                lastOpenError = "VR is not available yet. Tap Enter VR to retry."
+                statusMessage = "VR unavailable"
+            }
             return
         }
         let startEpoch = epoch
@@ -1195,34 +1592,51 @@ final class ShellCoordinator {
                 if reason == "manual" {
                     self.lastOpenError = "The VRMC window must be in front. Look at the app and tap Enter VR again."
                 }
+                // The deferred case is a real outcome: stop showing "auto open pending" and let the
+                // fallback button come back (the automatic retry still happens on the next activation).
+                if reason == "auto" { self.clearAutoOpenPending() }
                 return
             }
             // Give the scene time to finish activating/transitioning; auto/selftest run immediately.
             if reason != "auto" && reason != "selftest" {
                 try? await Task.sleep(for: .seconds(2))
             }
-            if self.epoch != startEpoch { self.shellLogSafe("\(reason): aborted before open (epoch changed)"); return }
+            if self.epoch != startEpoch {
+                self.shellLogSafe("\(reason): aborted before open (epoch changed)")
+                if reason == "auto" { self.clearAutoOpenPending() }
+                return
+            }
             // A previous space may still be registered with SwiftUI; dismiss it first and settle.
             if self.needsDismiss {
                 if let dismissAction = self.dismissAction { await dismissAction() }
-                if self.epoch != startEpoch { self.shellLogSafe("\(reason): aborted after dismiss (epoch changed)"); return }
+                if self.epoch != startEpoch {
+                    self.shellLogSafe("\(reason): aborted after dismiss (epoch changed)")
+                    if reason == "auto" { self.clearAutoOpenPending() }
+                    return
+                }
                 self.needsDismiss = false
                 try? await Task.sleep(for: .milliseconds(500))
             }
             for attempt in 1...4 {
-                if self.epoch != startEpoch { self.shellLogSafe("\(reason): aborted attempt \(attempt) (epoch changed)"); return }
+                if self.epoch != startEpoch {
+                    self.shellLogSafe("\(reason): aborted attempt \(attempt) (epoch changed)")
+                    if reason == "auto" { self.clearAutoOpenPending() }
+                    return
+                }
                 guard self.appActive, self.windowSceneActive else {
                     self.shellLogSafe("\(reason): app no longer foreground-active; deferring open")
+                    if reason == "auto" { self.clearAutoOpenPending() }
                     return
                 }
                 let result = await openAction(id: "vr")
                 self.shellLogSafe("\(reason) attempt \(attempt) openImmersiveSpace result=\(result) epoch=\(self.epoch) \(self.windowStateDescription())")
                 if case .opened = result {
                     self.opening = false
+                    self.clearAutoOpenPending()
                     self.immersiveOpen = true
                     self.wantsImmersive = true
                     self.presenting = false
-                    self.statusMessage = "VR opened — waiting for first presented frame"
+                    self.statusMessage = "Entering VR…"
                     self.lastOpenError = nil
                     self.reopenOnActive = false
                     self.autoRetries = 0
@@ -1234,6 +1648,7 @@ final class ShellCoordinator {
                 }
                 if case .userCancelled = result {
                     self.statusMessage = "VR open cancelled"
+                    self.clearAutoOpenPending()
                     if reason == "manual" { self.lastOpenError = "Immersive space open was cancelled by the system." }
                     return
                 }
@@ -1243,6 +1658,7 @@ final class ShellCoordinator {
                 try? await Task.sleep(for: .seconds(2))
             }
             if reason == "manual" || reason == "auto" || reason == "selftest" {
+                self.clearAutoOpenPending()
                 self.lastOpenError = "Could not open the immersive space (4 attempts). The window stays usable; tap Enter VR to retry."
                 self.statusMessage = "VR open failed"
             }
@@ -1272,7 +1688,7 @@ final class ShellCoordinator {
         }
     }
 
-    private func shellLogSafe(_ message: String) {
+    func shellLogSafe(_ message: String) {
         shellLog(message)
     }
 
@@ -1339,672 +1755,6 @@ final class ShellCoordinator {
     }
 }
 
-/// Minimal window control surface for the staged immersive entry (Option 2): the launcher stays in
-/// the window while this overlay adds an explicit "Enter VR" trigger, the current immersive status and
-/// any actionable error. It lets the CompositorServices path be validated manually, independently of
-/// the JIT/game timing; the automatic open after the game starts stays enabled.
-struct VRControlOverlay: View {
-    @Bindable var shell: ShellCoordinator
-    @State private var showSettings = false
-    @State private var seated = false
-    @State private var seatedFreeMove = false
-    @State private var snapAngle = 45
-    @State private var seatedHmdPointer = false
-    @State private var autoSprint = true
-    @State private var autoSprintThreshold = 0.9
-    @State private var preset = "none"
-    @State private var renderDistance = 12
-    @State private var frameLimit = 90
-    @State private var worldScale = 1.0
-    @State private var autoHeight = true
-    @State private var manualHeight = 1.70
-    @State private var diagPeriod = 30
-    @State private var thermalResponse = "notify"
-    @State private var adaptiveFramerate = false
-    @State private var middleGestures = true
-    @State private var swipeGestures = false
-    @State private var vignetteEnabled = false
-    @State private var vignetteStrength = 0.5
-    // Advanced gesture tuning (metres for distance thresholds; hotbar range in metres).
-    @State private var pinchOnMm = 30.0
-    @State private var pinchOffMm = 45.0
-    @State private var fistOn = 1.25
-    @State private var fistOff = 1.55
-    @State private var middleOnMm = 35.0
-    @State private var middleOffMm = 50.0
-    @State private var ringOnMm = 32.0
-    @State private var ringOffMm = 46.0
-    @State private var swipeSpeed = 1.2
-    @State private var hotbarRange = 0.18
-    @State private var moveForwardScale = 3.0
-    @State private var moveStrafeScale = 3.0
-    @State private var moveDeadzone = 0.10
-    @State private var moveOriginZ = 0.05
-    @State private var rotatePulseMs = 120.0
-    @State private var holdLastPoseMs = 250.0
-    @State private var handComponentJoints = false
-    @State private var settingsStatus = ""
-    @State private var commandStatus = ""
-    @State private var lastCommandResult = ""
-    @State private var providerStatusLine = ""
-    @State private var confirmResetSettings = false
-    @State private var confirmResetInput = false
-    @State private var acceptanceItems = shellLoadAcceptanceChecklist()
-    @State private var exportURL: URL?
-    @State private var exportStatus = ""
-    @State private var statusLine = ""
-    @State private var diagnosticTail: [String] = []
-    @State private var modsReport: ModProvisionReport? = ShellProvisioning.lastReport
-
-    private var acceptanceSummary: String {
-        let pass = acceptanceItems.filter { $0.status == "PASS" }.count
-        let fail = acceptanceItems.filter { $0.status == "FAIL" }.count
-        let partial = acceptanceItems.filter { $0.status == "PARTIAL" }.count
-        let notRun = acceptanceItems.filter { $0.status == "NOT RUN" }.count
-        return "PASS=\(pass) PARTIAL=\(partial) FAIL=\(fail) NOT RUN=\(notRun)"
-    }
-
-    /// Required-mods status: a green "ready" or orange "action needed" summary; expanding it shows the
-    /// per-mod lines and, when Vivecraft is absent/rejected, exactly what a fresh install must do.
-    @ViewBuilder private var modsPanel: some View {
-        if let report = modsReport {
-            DisclosureGroup {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(report.lines.enumerated()), id: \.offset) { _, line in
-                        Text(line).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
-                            .lineLimit(3)
-                    }
-                    if !report.vivecraftPresent {
-                        Text("Vivecraft is not redistributed. Download \(ShellProvisioning.vivecraftFileName) from the Vivecraft project, save it to On My Apple Vision Pro > VRMC in the Files app (or AirDrop it), then tap Re-check.")
-                            .font(.caption2).foregroundStyle(.orange)
-                    }
-                    Button("Re-check mods") { modsReport = ShellProvisioning.run() }
-                        .font(.caption2).buttonStyle(.bordered)
-                }
-            } label: {
-                Text(report.ready ? "Mods: ready" : "Mods: action needed")
-                    .font(.caption).foregroundStyle(report.ready ? Color.green : Color.orange)
-            }
-            .font(.caption)
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Button {
-                    shell.enterVRManually()
-                } label: {
-                    Text(shell.immersiveOpen ? "VR active" : "Enter VR")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 16)
-                        .background(shell.immersiveOpen ? Color.green.opacity(0.25) : Color.accentColor.opacity(0.30))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
-                .disabled(shell.immersiveOpen)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(shell.immersiveOpen ? "Immersive active" : "Immersive off")
-                        .font(.caption).bold()
-                    Text(shell.presenting ? "presenting" : (shell.immersiveOpen ? "waiting for frame" : "not presenting"))
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-            }
-
-            Text(shell.statusMessage).font(.caption).foregroundStyle(.secondary)
-            if let error = shell.lastOpenError {
-                Text(error).font(.caption).foregroundStyle(.red)
-            }
-            if !statusLine.isEmpty {
-                Text(statusLine).font(.caption2).foregroundStyle(.secondary)
-            }
-            if !providerStatusLine.isEmpty {
-                Text(providerStatusLine).font(.caption2).foregroundStyle(.secondary)
-            }
-            modsPanel
-            if !diagnosticTail.isEmpty {
-                DisclosureGroup("Recent diagnostics") {
-                    VStack(alignment: .leading, spacing: 1) {
-                        ForEach(Array(diagnosticTail.enumerated()), id: \.offset) { _, line in
-                            Text(line).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
-                        Button("Refresh") { refreshDiagnosticTail() }.font(.caption2).buttonStyle(.bordered)
-                    }
-                }
-                .font(.caption)
-            }
-            DisclosureGroup("Acceptance checklist") {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(acceptanceSummary).font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                    ForEach($acceptanceItems) { $item in
-                        HStack(spacing: 6) {
-                            Text(item.id).font(.system(size: 9, design: .monospaced))
-                                .frame(width: 34, alignment: .leading)
-                            Text(item.title).font(.system(size: 10)).lineLimit(1)
-                            Spacer(minLength: 4)
-                            Picker("", selection: $item.status) {
-                                ForEach(shellAcceptanceStatuses, id: \.self) { status in
-                                    Text(status).tag(status)
-                                }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .font(.system(size: 10))
-                        }
-                    }
-                    HStack {
-                        Button("Save checklist") {
-                            settingsStatus = shellSaveAcceptanceChecklist(acceptanceItems)
-                                ? "Acceptance checklist saved." : "Checklist save failed."
-                        }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
-                        Button("Reset checklist") {
-                            acceptanceItems = shellAcceptanceDefaults()
-                            _ = shellSaveAcceptanceChecklist(acceptanceItems)
-                            settingsStatus = "Acceptance checklist reset."
-                        }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
-                    }
-                }
-                .padding(.top, 4)
-            }
-            .font(.caption)
-
-            if !shell.crashGuardMessage.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(shell.crashGuardMessage).font(.caption2).foregroundStyle(.orange)
-                    if shell.safeMode {
-                        Button("Clear crash safe mode") { shell.clearCrashGuard() }
-                            .font(.caption2)
-                            .buttonStyle(.bordered)
-                    }
-                }
-            }
-
-            DisclosureGroup("VRMC settings (next game launch)", isExpanded: $showSettings) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Seated mode", isOn: $seated)
-                    Toggle("Seated free move", isOn: $seatedFreeMove)
-                    Toggle("Seated HMD pointer (head-aim GUI cursor)", isOn: $seatedHmdPointer)
-                    Toggle("Auto-sprint at full stick", isOn: $autoSprint)
-                    if autoSprint {
-                        HStack {
-                            Text("Auto-sprint threshold: \(String(format: "%.2f", autoSprintThreshold))").font(.caption2)
-                            Slider(value: $autoSprintThreshold, in: 0.5...1.0, step: 0.01)
-                        }
-                    }
-                    HStack {
-                        Text("Turn").font(.caption)
-                        Spacer()
-                        Picker("Turn", selection: $snapAngle) {
-                            Text("Smooth").tag(0)
-                            Text("15°").tag(15)
-                            Text("30°").tag(30)
-                            Text("45°").tag(45)
-                            Text("90°").tag(90)
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                    }
-                    Toggle("Middle-pinch gestures (locomotion/jump/sneak/radial)", isOn: $middleGestures)
-                    Toggle("Open-hand swipe gestures (hotbar/chat/keyboard/swap/drop)", isOn: $swipeGestures)
-                    Toggle("Comfort vignette", isOn: $vignetteEnabled)
-                    if vignetteEnabled {
-                        HStack {
-                            Text("Vignette strength: \(String(format: "%.2f", vignetteStrength))").font(.caption)
-                            Slider(value: $vignetteStrength, in: 0.1...0.9, step: 0.05)
-                        }
-                    }
-                    HStack {
-                        Text("Performance").font(.caption)
-                        Spacer()
-                        Picker("Performance", selection: $preset) {
-                            Text("None").tag("none")
-                            Text("Performance").tag("performance")
-                            Text("Balanced").tag("balanced")
-                            Text("Quality").tag("quality")
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                    }
-                    Stepper("Render distance: \(renderDistance)", value: $renderDistance, in: 6...24)
-                    DisclosureGroup("Input tuning (advanced)") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("Pinch on/off: \(Int(pinchOnMm))/\(Int(pinchOffMm)) mm").font(.caption2)
-                                Slider(value: $pinchOnMm, in: 15...45, step: 1)
-                                Slider(value: $pinchOffMm, in: 25...70, step: 1)
-                            }
-                            HStack {
-                                Text("Fist on/off: \(String(format: "%.2f", fistOn))/\(String(format: "%.2f", fistOff))").font(.caption2)
-                                Slider(value: $fistOn, in: 0.9...1.5, step: 0.01)
-                                Slider(value: $fistOff, in: 1.2...2.0, step: 0.01)
-                            }
-                            HStack {
-                                Text("Middle pinch on/off: \(Int(middleOnMm))/\(Int(middleOffMm)) mm").font(.caption2)
-                                Slider(value: $middleOnMm, in: 20...50, step: 1)
-                                Slider(value: $middleOffMm, in: 35...70, step: 1)
-                            }
-                            HStack {
-                                Text("Ring pinch on/off: \(Int(ringOnMm))/\(Int(ringOffMm)) mm").font(.caption2)
-                                Slider(value: $ringOnMm, in: 15...45, step: 1)
-                                Slider(value: $ringOffMm, in: 30...60, step: 1)
-                            }
-                            HStack {
-                                Text("Swipe speed: \(String(format: "%.1f", swipeSpeed)) m/s").font(.caption2)
-                                Slider(value: $swipeSpeed, in: 0.5...3.0, step: 0.1)
-                            }
-                            HStack {
-                                Text("Hotbar range: \(String(format: "%.2f", hotbarRange)) m").font(.caption2)
-                                Slider(value: $hotbarRange, in: 0.10...0.30, step: 0.01)
-                            }
-                            HStack {
-                                Text("Move forward/strafe: \(String(format: "%.1f", moveForwardScale))/\(String(format: "%.1f", moveStrafeScale))").font(.caption2)
-                                Slider(value: $moveForwardScale, in: 1.0...6.0, step: 0.1)
-                                Slider(value: $moveStrafeScale, in: 1.0...6.0, step: 0.1)
-                            }
-                            HStack {
-                                Text("Move deadzone: \(String(format: "%.2f", moveDeadzone)) · originZ: \(String(format: "%.2f", moveOriginZ))").font(.caption2)
-                                Slider(value: $moveDeadzone, in: 0.02...0.40, step: 0.01)
-                                Slider(value: $moveOriginZ, in: -0.30...0.30, step: 0.01)
-                            }
-                            HStack {
-                                Text("Snap-turn pulse: \(Int(rotatePulseMs)) ms").font(.caption2)
-                                Slider(value: $rotatePulseMs, in: 60...300, step: 10)
-                            }
-                            HStack {
-                                Text("Tracking-dropout pose hold: \(Int(holdLastPoseMs)) ms").font(.caption2)
-                                Slider(value: $holdLastPoseMs, in: 0...1000, step: 50)
-                            }
-                            Toggle("Fingertip held-item component (experimental)", isOn: $handComponentJoints)
-                            Text("Press Reload input to apply while the game runs; otherwise next launch. Keep off > on.").font(.caption2).foregroundStyle(.tertiary)
-                        }
-                        .padding(.top, 4)
-                    }
-                    Stepper("Frame limit: \(frameLimit)", value: $frameLimit, in: 60...120, step: 30)
-                    HStack {
-                        Text("World scale: \(String(format: "%.2f", worldScale))×").font(.caption)
-                        Slider(value: $worldScale, in: 0.8...1.5, step: 0.05)
-                    }
-                    Toggle("Auto height", isOn: $autoHeight)
-                    if !autoHeight {
-                        HStack {
-                            Text("Height: \(String(format: "%.2f", manualHeight)) m").font(.caption)
-                            Slider(value: $manualHeight, in: 1.30...2.10, step: 0.01)
-                        }
-                    }
-                    HStack {
-                        Text("Thermal response").font(.caption)
-                        Spacer()
-                        Picker("Thermal response", selection: $thermalResponse) {
-                            Text("Notify").tag("notify")
-                            Text("Reduce quality").tag("reduce")
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                    }
-                    Toggle("Adaptive framerate (cap after 2 over-budget windows)", isOn: $adaptiveFramerate)
-                    Stepper("Diagnostics period: \(diagPeriod)s", value: $diagPeriod, in: 10...120, step: 10)
-                    Button {
-                        applySettings()
-                    } label: {
-                        Text("Save for next launch")
-                            .font(.caption).bold()
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    if !settingsStatus.isEmpty {
-                        Text(settingsStatus).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 8) {
-                        Button("Recenter") {
-                            commandStatus = shellQueueGameCommand("recenter") ? "Recenter queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Calibrate height") {
-                            commandStatus = shellQueueGameCommand("calibrate-height") ? "Height calibration queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    HStack(spacing: 8) {
-                        Button("Reload settings") {
-                            commandStatus = shellQueueGameCommand("reload-settings") ? "Reload queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Diagnostics") {
-                            commandStatus = shellQueueGameCommand("diag") ? "Diagnostics queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Reload input") {
-                            commandStatus = shellQueueGameCommand("reload-input") ? "Input reload queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Controls help") {
-                            commandStatus = shellQueueGameCommand("controls") ? "Controls help queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Status") {
-                            commandStatus = shellQueueGameCommand("status") ? "Status write queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Restore performance") {
-                            commandStatus = shellQueueGameCommand("restore-performance") ? "Performance restore queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Calibrate hands") {
-                            commandStatus = shellQueueGameCommand("calibrate-hands") ? "Hand calibration started (follow action-bar prompts)." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Apply hand calibration") {
-                            commandStatus = shellQueueGameCommand("apply-hand-calibration") ? "Apply calibration queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Release stuck input") {
-                            commandStatus = shellQueueGameCommand("release-input") ? "Input release queued." : "Queue failed."
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    if !commandStatus.isEmpty {
-                        Text(commandStatus).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    if !lastCommandResult.isEmpty {
-                        Text("Last result: \(lastCommandResult)").font(.caption2).foregroundStyle(.tertiary)
-                            .lineLimit(2)
-                    }
-                    HStack(spacing: 8) {
-                        Button("Export diagnostics") {
-                            if let url = shellBuildDiagnosticsBundle() {
-                                exportURL = url
-                                exportStatus = "Bundle ready — use Share to save/AirDrop."
-                            } else {
-                                exportStatus = "Export failed — see shell log."
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        if let exportURL {
-                            ShareLink(item: exportURL) {
-                                Label("Share", systemImage: "square.and.arrow.up")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
-                    if !exportStatus.isEmpty {
-                        Text(exportStatus).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    Button("Reset input tuning") { confirmResetInput = true }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
-                        .confirmationDialog("Reset input tuning?", isPresented: $confirmResetInput,
-                                            titleVisibility: .visible) {
-                            Button("Reset input tuning", role: .destructive) {
-                                try? FileManager.default.removeItem(at: shellInputTuneURL())
-                                loadSettings()
-                                _ = shellQueueGameCommand("reload-input")
-                                settingsStatus = "Input tuning reset to defaults (reload queued)."
-                            }
-                            Button("Cancel", role: .cancel) {}
-                        } message: {
-                            Text("Removes vrmc-input-tune.properties only. Runtime/comfort settings, saves and logs are kept.")
-                        }
-                    Button("Reset VRMC settings") { confirmResetSettings = true }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
-                        .confirmationDialog("Reset VRMC settings?", isPresented: $confirmResetSettings,
-                                            titleVisibility: .visible) {
-                            Button("Reset settings", role: .destructive) {
-                                try? FileManager.default.removeItem(at: shellRuntimeSettingsURL())
-                                try? FileManager.default.removeItem(at: shellInputTuneURL())
-                                try? FileManager.default.removeItem(at: shellVignetteURL())
-                                loadSettings()
-                                settingsStatus = "VRMC settings reset to defaults."
-                            }
-                            Button("Cancel", role: .cancel) {}
-                        } message: {
-                            Text("Removes runtime, input-tune and vignette settings only. Saves, logs and the crash guard are kept.")
-                        }
-                    DisclosureGroup("Gesture reference") {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Pinch (thumb+index): attack / GUI click; left hold = teleport").font(.caption2)
-                            Text("Fist: use hold (right, bow draw) / GUI right-click tap / menu (left tap)").font(.caption2)
-                            Text("Both fists tap: inventory menu; both middle taps: climb jump; both middle double-tap: recenter").font(.caption2)
-                            Text("Middle pinch (thumb+middle): left hold + move hand = walk/strafe; right hold = sneak; right tap = jump; left tap/double = snap turn; right double = radial; both tap = climb jump; both double = recenter").font(.caption2)
-                            Text("Open-hand swipes (opt-in): right horizontal = hotbar ±; right vertical = scroll; left up/down = keyboard/chat; left horizontal = swap/drop").font(.caption2)
-                            Text("Both thumb-ring pinches: hold, move left hand left/right to choose hotbar slot 1–9, release to select").font(.caption2)
-                        }
-                        .padding(.top, 2)
-                    }
-                    Text("Provider reads settings/input at game start; the compositor reads the vignette at the next immersive open. Invalid values are ignored/logged. Diagnostics: vrmc-shell.log, vrmc-thermal.log.")
-                        .font(.caption2).foregroundStyle(.tertiary)
-                }
-                .padding(.top, 4)
-            }
-            .font(.caption)
-        }
-        .padding(12)
-        .frame(width: 340)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .padding(20)
-        .onAppear { loadSettings() }
-        .task {
-            while !Task.isCancelled {
-                refreshStatus()
-                try? await Task.sleep(for: .seconds(5))
-            }
-        }
-    }
-
-    private func refreshStatus() {
-        let docs = shellDocumentsURL()
-        let game = docs.appendingPathComponent("instances/default")
-        var parts: [String] = []
-        if let data = try? Data(contentsOf: game.appendingPathComponent("vrmc-status.json")),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            let bridge = obj["bridgeReady"] as? Bool ?? false
-            let gen = obj["displayViewsGen"] as? Int ?? 0
-            let left = obj["handLeftTracked"] as? Bool ?? false
-            let right = obj["handRightTracked"] as? Bool ?? false
-            let seated = obj["seated"] as? Bool ?? false
-            parts.append("bridge=\(bridge ? "ready" : "not ready")")
-            parts.append("displayGen=\(gen)")
-            parts.append("hands=\(left ? "L" : "-")\(right ? "R" : "-")")
-            parts.append("seated=\(seated)")
-            let providerJar = game.appendingPathComponent("mods/vrmc-provider.jar")
-            if FileManager.default.fileExists(atPath: providerJar.path) {
-                let hash = shellFileSHA256(providerJar).map { String($0.prefix(12)) } ?? "?"
-                parts.append("providerJar=\(hash)")
-            } else {
-                parts.append("providerJar=MISSING")
-            }
-        } else {
-            parts.append("provider status: no session yet")
-        }
-        let thermal: String
-        switch ProcessInfo.processInfo.thermalState {
-        case .nominal: thermal = "nominal"
-        case .fair: thermal = "fair"
-        case .serious: thermal = "serious"
-        case .critical: thermal = "critical"
-        @unknown default: thermal = "unknown"
-        }
-        parts.append("thermal=\(thermal)")
-        parts.append("lowPower=\(ProcessInfo.processInfo.isLowPowerModeEnabled ? "on" : "off")")
-        statusLine = parts.joined(separator: " · ")
-        if diagnosticTail.isEmpty { refreshDiagnosticTail() }
-        let statusURL = game.appendingPathComponent("vrmc-status.json")
-        if let data = try? Data(contentsOf: statusURL),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            let abi = obj["abi"].map { "\($0)" } ?? "?"
-            let bridge = (obj["bridgeReady"] as? Bool).map { $0 ? "ok" : "no" } ?? "?"
-            let tracked = obj["trackedFrames"].map { "\($0)" } ?? "?"
-            let left = (obj["handLeftTracked"] as? Bool) == true ? "L" : "-"
-            let right = (obj["handRightTracked"] as? Bool) == true ? "R" : "-"
-            let thermal = obj["thermalState"] as? String ?? "?"
-            let adaptive = (obj["adaptiveFramerateApplied"] as? Bool) == true ? "capped" : "off"
-            let p95 = (obj["frameP95Ms"] as? Double).map { String(format: "%.1f", $0) } ?? "?"
-            let missed = obj["missed90Frames"].map { "\($0)" } ?? "?"
-            var bow = ""
-            if (obj["bowActive"] as? Bool) == true {
-                let pct = (obj["bowDrawPercent"] as? Double).map { Int(($0 * 100).rounded()) } ?? 0
-                let notched = (obj["bowNotched"] as? Bool) == true ? "notched " : ""
-                bow = " bow=\(notched)\(pct)%"
-            }
-            var climb = ""
-            let grabbing = (obj["climbGrabbing"] as? Bool) == true
-            let climbey = (obj["climbeyClimb"] as? Bool) == true
-            let climbActive = (obj["climbActive"] as? Bool) == true
-            if grabbing || climbey || climbActive {
-                climb = " climb=\(grabbing ? "grab" : "-")/\(climbey ? "climbey" : "-")/\(climbActive ? "active" : "-")"
-            }
-            let gestures = obj["gestures"] as? String ?? ""
-            let gestureText = gestures.isEmpty ? "" : " gestures=\(gestures)"
-            providerStatusLine = "provider: abi=\(abi) bridge=\(bridge) tracked=\(tracked) hands=\(left)\(right) thermal=\(thermal) adaptive=\(adaptive) p95=\(p95)ms missed90=\(missed)\(bow)\(climb)\(gestureText)"
-        } else {
-            providerStatusLine = ""
-        }
-        let resultURL = game.appendingPathComponent("vrmc-command-result.txt")
-        if let text = try? String(contentsOf: resultURL, encoding: .utf8) {
-            let lines = text.split(whereSeparator: \.isNewline)
-            if let last = lines.last { lastCommandResult = String(last.suffix(200)) }
-        }
-    }
-
-    private func refreshDiagnosticTail() {
-        let docs = shellDocumentsURL()
-        let game = docs.appendingPathComponent("instances/default")
-        let files = [
-            docs.appendingPathComponent("vrmc-compositor.log"),
-            docs.appendingPathComponent("vrmc-shell.log"),
-            docs.appendingPathComponent("latestlog.txt"),
-            game.appendingPathComponent("vrmc-status.json"),
-        ]
-        var lines: [String] = []
-        for url in files {
-            guard let data = try? Data(contentsOf: url) else { continue }
-            let slice = data.count > 131_072 ? data.suffix(131_072) : data
-            guard let text = String(data: slice, encoding: .utf8) else { continue }
-            for line in text.split(whereSeparator: \.isNewline).suffix(2000) {
-                let s = String(line)
-                if s.contains("[VRMC-") || s.contains("WARN") || s.contains("ERROR")
-                    || s.contains("FAIL") || s.contains("CRASH") {
-                    lines.append("\(url.lastPathComponent): \(s.prefix(220))")
-                }
-            }
-        }
-        diagnosticTail = Array(lines.suffix(8))
-    }
-
-    private func loadSettings() {
-        let values = shellReadRuntimeSettings()
-        seated = values["comfort.seated"] == "true"
-        seatedFreeMove = values["comfort.seatedFreeMove"] == "true"
-        seatedHmdPointer = values["comfort.seatedHmdPointer"] == "true"
-        autoSprint = values["comfort.autoSprint"] != "false"
-        if let raw = values["comfort.autoSprintThreshold"], let v = Double(raw) {
-            autoSprintThreshold = min(1.0, max(0.5, v))
-        }
-        if let raw = values["comfort.worldRotationIncrement"], let angle = Float(raw) {
-            let allowed = [0, 15, 30, 45, 90]
-            snapAngle = allowed.min(by: { abs(Double($0) - Double(angle)) < abs(Double($1) - Double(angle)) }) ?? 0
-        }
-        preset = values["performance.preset"] ?? "none"
-        if let raw = values["performance.renderDistance"], let n = Int(raw) { renderDistance = min(24, max(6, n)) }
-        if let raw = values["performance.framerateLimit"], let n = Int(raw) { frameLimit = min(120, max(60, (n / 30) * 30)) }
-        if let raw = values["comfort.worldScale"], let v = Float(raw), v >= 0.8, v <= 1.5 { worldScale = Double(v) }
-        if let raw = values["comfort.manualHeight"], let v = Float(raw), v != -1.0 {
-            autoHeight = false
-            manualHeight = min(2.10, max(1.30, Double(v)))
-        } else {
-            autoHeight = true
-        }
-        if let raw = values["diagnostics.periodSeconds"], let n = Int(raw) { diagPeriod = min(120, max(10, (n / 10) * 10)) }
-        thermalResponse = values["performance.thermalResponse"] == "reduce" ? "reduce" : "notify"
-        adaptiveFramerate = values["performance.adaptiveFramerate"] == "true"
-        let input = shellReadInputTune()
-        middleGestures = input["middle.enabled"]?.lowercased() != "false"
-        swipeGestures = ["true", "1"].contains(input["swipe.enabled"]?.lowercased() ?? "")
-        let vignette = shellReadVignette()
-        vignetteEnabled = vignette.enabled
-        vignetteStrength = vignette.strength
-        pinchOnMm = (Double(input["pinch.on"] ?? "") ?? 0.030) * 1000.0
-        pinchOffMm = (Double(input["pinch.off"] ?? "") ?? 0.045) * 1000.0
-        fistOn = Double(input["fist.on"] ?? "") ?? 1.25
-        fistOff = Double(input["fist.off"] ?? "") ?? 1.55
-        middleOnMm = (Double(input["middle.on"] ?? "") ?? 0.035) * 1000.0
-        middleOffMm = (Double(input["middle.off"] ?? "") ?? 0.050) * 1000.0
-        ringOnMm = (Double(input["ring.on"] ?? "") ?? 0.032) * 1000.0
-        ringOffMm = (Double(input["ring.off"] ?? "") ?? 0.046) * 1000.0
-        swipeSpeed = Double(input["swipe.speed"] ?? "") ?? 1.2
-        hotbarRange = Double(input["hotbar.range"] ?? "") ?? 0.18
-        moveForwardScale = Double(input["move.forwardScale"] ?? "") ?? 3.0
-        moveStrafeScale = Double(input["move.strafeScale"] ?? "") ?? 3.0
-        moveDeadzone = Double(input["move.deadzone"] ?? "") ?? 0.10
-        moveOriginZ = Double(input["move.originZ"] ?? "") ?? 0.05
-        rotatePulseMs = Double(input["move.rotatePulseMs"] ?? "") ?? 120.0
-        holdLastPoseMs = Double(input["tracking.holdLastPoseMs"] ?? "") ?? 250.0
-        handComponentJoints = input["hands.componentMode"]?.lowercased() == "joints"
-    }
-
-    private func applySettings() {
-        var values = shellReadRuntimeSettings()
-        values["comfort.seated"] = seated ? "true" : "false"
-        values["comfort.seatedFreeMove"] = seatedFreeMove ? "true" : "false"
-        values["comfort.seatedHmdPointer"] = seatedHmdPointer ? "true" : "false"
-        values["comfort.autoSprint"] = autoSprint ? "true" : "false"
-        values["comfort.autoSprintThreshold"] = String(format: "%.2f", autoSprintThreshold)
-        values["comfort.worldRotationIncrement"] = String(snapAngle)
-        values["performance.preset"] = preset
-        values["performance.renderDistance"] = String(renderDistance)
-        values["performance.framerateLimit"] = String(frameLimit)
-        values["comfort.worldScale"] = String(format: "%.2f", worldScale)
-        values["comfort.manualHeight"] = autoHeight ? "-1" : String(format: "%.2f", manualHeight)
-        values["diagnostics.periodSeconds"] = String(diagPeriod)
-        values["performance.thermalResponse"] = thermalResponse
-        values["performance.adaptiveFramerate"] = adaptiveFramerate ? "true" : "false"
-        var input = shellReadInputTune()
-        input["middle.enabled"] = middleGestures ? "true" : "false"
-        input["swipe.enabled"] = swipeGestures ? "true" : "false"
-        let pOn = min(pinchOnMm, pinchOffMm - 1.0) / 1000.0
-        let pOff = max(pinchOffMm, pinchOnMm + 1.0) / 1000.0
-        let fOn = min(fistOn, fistOff - 0.01)
-        let fOff = max(fistOff, fistOn + 0.01)
-        input["pinch.on"] = String(format: "%.3f", pOn)
-        input["pinch.off"] = String(format: "%.3f", pOff)
-        input["fist.on"] = String(format: "%.2f", fOn)
-        input["fist.off"] = String(format: "%.2f", fOff)
-        let mOn = min(middleOnMm, middleOffMm - 1.0) / 1000.0
-        let mOff = max(middleOffMm, middleOnMm + 1.0) / 1000.0
-        let rOn = min(ringOnMm, ringOffMm - 1.0) / 1000.0
-        let rOff = max(ringOffMm, ringOnMm + 1.0) / 1000.0
-        input["middle.on"] = String(format: "%.3f", mOn)
-        input["middle.off"] = String(format: "%.3f", mOff)
-        input["ring.on"] = String(format: "%.3f", rOn)
-        input["ring.off"] = String(format: "%.3f", rOff)
-        input["swipe.speed"] = String(format: "%.2f", swipeSpeed)
-        input["hotbar.range"] = String(format: "%.2f", hotbarRange)
-        input["move.forwardScale"] = String(format: "%.2f", moveForwardScale)
-        input["move.strafeScale"] = String(format: "%.2f", moveStrafeScale)
-        input["move.deadzone"] = String(format: "%.2f", moveDeadzone)
-        input["move.originZ"] = String(format: "%.2f", moveOriginZ)
-        input["move.rotatePulseMs"] = String(format: "%.0f", rotatePulseMs)
-        input["tracking.holdLastPoseMs"] = String(format: "%.0f", holdLastPoseMs)
-        input["hands.componentMode"] = handComponentJoints ? "joints" : "identity"
-        let runtimeOK = shellWriteRuntimeSettings(values)
-        let inputOK = shellWriteInputTune(input)
-        let vignetteOK = shellWriteVignette(enabled: vignetteEnabled, strength: vignetteStrength)
-        settingsStatus = (runtimeOK && inputOK && vignetteOK)
-            ? "Saved — applies at next game start (vignette at next immersive open)."
-            : "Save failed — see shell log."
-    }
-}
-
 @main
 struct VRMCShellApp: App {
     @State private var shell = ShellCoordinator.shared
@@ -2018,12 +1768,9 @@ struct VRMCShellApp: App {
 
     @SceneBuilder private var scenes: some Scene {
         WindowGroup {
-            ZStack(alignment: .topLeading) {
-                LauncherHostView()
-                    .onAppear { shellLog("launcher host appeared") }
-                VRControlOverlay(shell: shell)
-            }
+            RootView(shell: shell)
         }
+        .defaultSize(width: 1180, height: 780)
         // For a WindowGroup this controls the window chrome (bottom bar / ornaments). Scene-level so it
         // applies to the whole game session; with the M3b modal game-surface presentation the SwiftUI
         // scene stays alive, so this preference survives the game launch (EV-0086 regression).

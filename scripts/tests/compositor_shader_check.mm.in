@@ -1,0 +1,92 @@
+#import <Foundation/Foundation.h>
+#import <Metal/Metal.h>
+@@SHADER@@
+
+
+typedef struct { float strength, vignette, texelW, texelH, aa; } FX;
+static double runCase(id<MTLDevice> d, id<MTLLibrary> lib, float aa, float strength, double *mixFrac) {
+  const int SW = 128, SH = 128, DW = 512, DH = 512;
+  // Aliased input: a shallow dark/bright edge (slope 0.23) + a steep one, hard 0/1 pixels.
+  uint8_t *src = (uint8_t *)calloc(SW * SH * 4, 1);
+  for (int y = 0; y < SH; y++) for (int x = 0; x < SW; x++) {
+    BOOL bright = (y > 30 + 0.23 * x) || (x > 90 + 0.1 * y);
+    uint8_t v = bright ? 230 : 25;
+    uint8_t *px = src + (y * SW + x) * 4; px[0] = px[1] = px[2] = v; px[3] = 255;
+  }
+  MTLTextureDescriptor *td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:SW height:SH mipmapped:NO];
+  id<MTLTexture> in = [d newTextureWithDescriptor:td];
+  [in replaceRegion:MTLRegionMake2D(0, 0, SW, SH) mipmapLevel:0 withBytes:src bytesPerRow:SW * 4];
+  MTLTextureDescriptor *od = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:DW height:DH mipmapped:NO];
+  od.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead; od.storageMode = MTLStorageModeShared;
+  id<MTLTexture> out = [d newTextureWithDescriptor:od];
+  MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
+  pd.vertexFunction = [lib newFunctionWithName:@"vmain"]; pd.fragmentFunction = [lib newFunctionWithName:@"fmain_flat_sharp"];
+  pd.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm;
+  NSError *e = nil; id<MTLRenderPipelineState> ps = [d newRenderPipelineStateWithDescriptor:pd error:&e];
+  if (!ps) { printf("pipeline fail %s\n", e.description.UTF8String); exit(2); }
+  MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new]; sd.minFilter = sd.magFilter = MTLSamplerMinMagFilterLinear;
+  sd.sAddressMode = sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
+  id<MTLSamplerState> ss = [d newSamplerStateWithDescriptor:sd];
+  id<MTLCommandQueue> q = [d newCommandQueue]; id<MTLCommandBuffer> cb = [q commandBuffer];
+  id<MTLTexture> aaTex = nil;
+  if (aa > 0.5f) {
+    MTLTextureDescriptor *ad = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:SW height:SH mipmapped:NO];
+    ad.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead; ad.storageMode = MTLStorageModePrivate;
+    aaTex = [d newTextureWithDescriptor:ad];
+    MTLRenderPipelineDescriptor *fd = [MTLRenderPipelineDescriptor new];
+    fd.vertexFunction = [lib newFunctionWithName:@"vmain"]; fd.fragmentFunction = [lib newFunctionWithName:@"fmain_fxaa"];
+    fd.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA16Float;
+    id<MTLRenderPipelineState> fps = [d newRenderPipelineStateWithDescriptor:fd error:nil];
+    MTLRenderPassDescriptor *arp = [MTLRenderPassDescriptor renderPassDescriptor];
+    arp.colorAttachments[0].texture = aaTex; arp.colorAttachments[0].loadAction = MTLLoadActionDontCare; arp.colorAttachments[0].storeAction = MTLStoreActionStore;
+    id<MTLRenderCommandEncoder> ae = [cb renderCommandEncoderWithDescriptor:arp];
+    [ae setRenderPipelineState:fps]; [ae setFragmentTexture:in atIndex:0]; [ae setFragmentSamplerState:ss atIndex:0];
+    float tpx[2] = { 1.0f / SW, 1.0f / SH }; [ae setFragmentBytes:tpx length:sizeof(tpx) atIndex:4];
+    [ae drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4]; [ae endEncoding];
+  }
+  MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
+  rp.colorAttachments[0].texture = out; rp.colorAttachments[0].loadAction = MTLLoadActionClear; rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+  id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rp];
+  [enc setRenderPipelineState:ps]; [enc setFragmentTexture:in atIndex:0]; [enc setFragmentSamplerState:ss atIndex:0];
+  FX fx = { strength, 0.0f, 1.0f / SW, 1.0f / SH, aa }; [enc setFragmentBytes:&fx length:sizeof(fx) atIndex:3];
+  if (aaTex) [enc setFragmentTexture:aaTex atIndex:0];
+  [enc drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4]; [enc endEncoding];
+  [cb commit]; [cb waitUntilCompleted];
+  uint8_t *o = (uint8_t *)malloc(DW * DH * 4);
+  [out getBytes:o bytesPerRow:DW * 4 fromRegion:MTLRegionMake2D(0, 0, DW, DH) mipmapLevel:0];
+  // Stair-step error: per column, the output edge crossing (sub-pixel, from the 50% level of the
+  // shallow edge) vs the ideal line; jaggies show as a sawtooth around the ideal position.
+  double err = 0, sum = 0; int n = 0; long mix = 0, edgePx = 0;
+  for (int x = 8; x < 300; x++) {
+    double crossing = -1;
+    for (int y = 1; y < DH; y++) {
+      double a = o[((y - 1) * DW + x) * 4] / 255.0, b = o[(y * DW + x) * 4] / 255.0;
+      if (a < 0.5 && b >= 0.5) { crossing = (y - 1) + (0.5 - a) / (b - a); break; }
+    }
+    if (crossing < 0) continue;
+    double ideal = (30 + 0.23 * (x + 0.5) / 4.0) * 4.0 - 0.5;
+    err += (crossing - ideal) * (crossing - ideal); sum += crossing - ideal; n++;
+    for (int y = (int)crossing - 6; y <= (int)crossing + 6; y++) {
+      if (y < 0 || y >= DH) continue; double v = o[(y * DW + x) * 4] / 255.0; edgePx++;
+      if (v > 0.15 && v < 0.85) mix++;
+    }
+  }
+  *mixFrac = edgePx ? (double)mix / edgePx : 0;
+  free(src); free(o);
+  double mean = sum / n; return sqrt(err / n - mean * mean);
+}
+int main(void) { @autoreleasepool {
+  id<MTLDevice> d = MTLCreateSystemDefaultDevice();
+  NSString *src = [NSString stringWithFormat:@"#define VRMC_BADGE 0\n%@", kShaderBody];
+  NSError *e = nil; id<MTLLibrary> lib = [d newLibraryWithSource:src options:nil error:&e];
+  if (!lib) { printf("compile FAIL %s\n", e.description.UTF8String); return 1; }
+  double m0, m1, m2;
+  double off = runCase(d, lib, 0.0f, 0.0f, &m0);
+  double sharp = runCase(d, lib, 0.0f, 0.43f, &m1);
+  double on = runCase(d, lib, 1.0f, 0.43f, &m2);
+  printf("stair-step (edge position std dev around the ideal line) (output px): bilinear=%.3f sharpened(old default)=%.3f aa+sharpen(new)=%.3f\n", off, sharp, on);
+  printf("anti-aliased edge pixels: bilinear=%.1f%% sharpened=%.1f%% aa+sharpen=%.1f%%\n", m0 * 100, m1 * 100, m2 * 100);
+  BOOL pass = on < sharp && on < off;
+  printf(pass ? "AA CHECK PASS\n" : "AA CHECK FAIL\n");
+  return pass ? 0 : 1;
+}}

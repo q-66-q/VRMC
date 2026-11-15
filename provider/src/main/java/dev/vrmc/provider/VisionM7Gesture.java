@@ -10,7 +10,7 @@ package dev.vrmc.provider;
  *
  * <p>Operator mapping (docs/mvp/M7_GESTURES.md):
  * <ul>
- *   <li>short right pinch (&lt;350 ms) = place/select; held right pinch (&ge;350 ms) = break/mine;</li>
+ *   <li>short right pinch (&lt;380 ms) = place/select; held right pinch (&ge;380 ms) = break/mine;</li>
  *   <li>left pinch hold = teleport aim, release commits; left fist tap = Escape/menu (also in GUI);</li>
  *   <li>right fist tap = use/interact (mount boat, doors, buttons) without the attack path;</li>
  *   <li>both-fist short tap (&lt;450 ms) = inventory; both fists + alternating swing = walk forward;</li>
@@ -73,12 +73,27 @@ public final class VisionM7Gesture {
     public static final int CTX_EDIBLE_HELD = 8;
     /** Vivecraft reports a climbable / ladder interaction context this frame (informational). */
     public static final int CTX_CLIMBABLE = 16;
+    /**
+     * Seated play: the operator is sitting, so head rise/drop cannot mean jump/sneak. Only the head
+     * gestures are disabled; every hand gesture keeps working (unlike {@link #CTX_SEATED}, which is
+     * Vivecraft's keyboard/mouse seated mode and releases everything).
+     */
+    public static final int CTX_NO_HEAD_GESTURES = 32;
 
     // ---- data-fitted defaults (override via vrmc-input-tune.properties, see M7_ENGINE.md) ----
     /** Thumb-index pinch entry distance (m). Recorded intentional pinches: p05 0.006-0.007 m. */
     public static final float PINCH_ON = 0.025F;
-    /** Pinch release distance (m); Schmitt hysteresis to stop threshold chatter. */
+    /** Pinch release distance (m); Schmitt hysteresis to stop threshold chatter (upper bound). */
     public static final float PINCH_OFF = 0.045F;
+    /**
+     * Relative release: a pinch also ends once the fingers open this far past the closest distance
+     * reached during the pinch (but never below PINCH_ON + PINCH_RELEASE_MIN_BAND). 1.3.6 device
+     * report: "short pinch to place starts breaking even with my fingers apart" - relaxed fingers
+     * after a pinch rest 2-4 cm apart, inside the old fixed 4.5 cm release, so the pinch stayed held
+     * past PLACE_MAX_NS and became a break.
+     */
+    public static final float PINCH_RELEASE_RISE = 0.015F;
+    public static final float PINCH_RELEASE_MIN_BAND = 0.005F;
     public static final long PINCH_DEBOUNCE_NS = 20_000_000L;
     public static final long PINCH_ARM_NS = 60_000_000L;
     /**
@@ -100,12 +115,16 @@ public final class VisionM7Gesture {
      */
     public static final float FIST_OFF = 0.65F;
     /** Short right pinch below this duration places/selects; at or above it breaks/mines. */
-    public static final long PLACE_MAX_NS = 320_000_000L;
+    public static final long PLACE_MAX_NS = 380_000_000L;
     public static final long INVENTORY_TAP_MAX_NS = 450_000_000L;
     public static final long LEFT_FIST_TAP_MIN_NS = 60_000_000L;
     /** Recorded left-fist taps (Escape) ran 0.11-0.56 s; other left holds are longer and cannot fire. */
     public static final long LEFT_FIST_TAP_MAX_NS = 550_000_000L;
     public static final float INVENTORY_MAX_HAND_SEP = 0.50F;
+    /** Right fist held this long (still hand, no left fist) opens Vivecraft's radial menu. */
+    public static final long RADIAL_HOLD_NS = 650_000_000L;
+    /** A punch/swing is not a menu hold. */
+    public static final float RADIAL_MAX_SPEED = 0.60F;
     /** A teleport pinch must be a deliberate hold, not a resting thumb-index touch. */
     public static final long TELEPORT_MIN_HOLD_NS = 120_000_000L;
 
@@ -181,6 +200,30 @@ public final class VisionM7Gesture {
     public static final float HEAD_MIN_FORWARD_Y = -0.72F;
     /** Jump landing/crouch suppression after a fired jump. */
     public static final long HEAD_JUMP_SNEAK_SUPPRESS_NS = 600_000_000L;
+    /**
+     * Posture recovery. The baseline is frozen outside the deadband so a deliberate crouch cannot
+     * adapt away within seconds, but a frozen baseline also never recovers when the operator's
+     * resting height really changes (sits down, stands up, slouches): the engine then reports a
+     * permanent sneak. Two recovery paths, both only while the head is quiet:
+     *  - a large shift (sit/stand, >= 0.30 m) held still for 1.5 s re-baselines at once;
+     *  - any other out-of-band offset drifts back with a slow 12 s time constant, so a deliberate
+     *    0.25 m crouch still holds for ~19 s (recorded crouches last a few seconds).
+     */
+    public static final float HEAD_POSTURE_SHIFT = 0.30F;
+    public static final long HEAD_POSTURE_SETTLE_NS = 1_500_000_000L;
+    public static final float HEAD_POSTURE_QUIET_VELOCITY = 0.15F;
+    public static final float HEAD_SLOW_TAU_S = 12.0F;
+    /**
+     * The baseline may only adapt while the head is within ~20 deg of level (|forward.y| <= this).
+     * Looking down changes the tracked HMD height by ~0.10-0.13 m; if that pitch-induced offset is
+     * learned as a resting height, looking back up reads as a head-rise jump (host-reproduced: hold a
+     * steep look-down for 5 s, look up = jump on the old slow-drift path). Posture changes that are
+     * worth learning even while looking down (sitting, lying back) are >= {@link #HEAD_POSTURE_SHIFT}
+     * and still re-baseline without this gate.
+     */
+    public static final float HEAD_POSTURE_LEVEL_PITCH = 0.35F;
+    /** A confirmed pinch of the same hand within this window is not a fist tap (curled pinch hands). */
+    public static final long FIST_TAP_PINCH_QUIET_NS = 500_000_000L;
 
     // Hotbar: index-fingertip tap with a quiet wrist. Recorded taps: tip window speed p50 1.55 m/s,
     // wrist max 0.65 m/s; attack/jump arm motion moves the wrist far more.
@@ -268,6 +311,8 @@ public final class VisionM7Gesture {
 
     // ---- pinch (debounced + armed, Schmitt trigger) ----
     private boolean rawPinchL, rawPinchR;
+    /** Closest thumb-index distance of the current raw pinch (relative release reference). */
+    private float pinchMinL = Float.NaN, pinchMinR = Float.NaN;
     private boolean pinchPressedL, pinchPressedR;
     private boolean pinchArmedL = true, pinchArmedR = true;
     private long pinchRawSinceL, pinchRawSinceR;
@@ -292,6 +337,11 @@ public final class VisionM7Gesture {
     private long leftFistTapPulseUntilNs;
     /** Right-fist tap pulse: discrete use/interact (mount boat, doors, buttons; not attack). */
     private long rightFistTapPulseUntilNs;
+    // ---- right-fist hold radial menu ----
+    private boolean radialHeld;
+    private boolean radialCancelThisFrame;
+    /** After a cancel, the fist must open once before the menu can open again. */
+    private boolean radialBlockedUntilOpen;
     private boolean bothFistPrev;
     private long bothFistStartNs;
     private float bothMaxSep;
@@ -310,6 +360,8 @@ public final class VisionM7Gesture {
     // ---- bow ----
     private boolean bowActive;
     private boolean bowDrawnFromFists;
+    /** Which hand was in front when the draw started (the bow hand); fixed for the whole draw. */
+    private boolean bowFrontLeft;
     private long bowSepSinceNs;
     private long bowStartNs;
     private long bowFireUntilNs;
@@ -327,6 +379,7 @@ public final class VisionM7Gesture {
     private long lastFistRTrueNs;
     private long lastWalkNs;
     private long lastPinchActivityRNs;
+    private long lastPinchActivityLNs;
     private long lastAttackFireNs;
     private boolean attackArmed = true;
     private final float[] histWinSpeedR = new float[HIST];
@@ -368,6 +421,16 @@ public final class VisionM7Gesture {
     private long headSneakSinceNs;
     private long headSneakReleaseSinceNs;
     private float headBaseline;
+    /** Start of the current quiet out-of-band head offset (0 = inside the band or moving). */
+    private long headShiftSinceNs;
+    /**
+     * True while the operator rests at a posture well below the last standing baseline (sat down,
+     * knelt, lay back) after posture recovery re-baselined there. Rising out of that posture is a
+     * stand-up, not a head-rise jump, so the jump stays off until a later large rise re-baselines at
+     * standing height. Without this, the posture-recovery fix turns "stand up from a chair" into a
+     * jump (host-reproduced: sit 0.40 m, wait for re-baseline, stand up = jump).
+     */
+    private boolean headPostureLow;
 
     private final StringBuilder summaryBuilder = new StringBuilder(200);
     private String summary = "M7 idle";
@@ -513,11 +576,42 @@ public final class VisionM7Gesture {
         boolean headPitchOk = this.pitchY > HEAD_MIN_FORWARD_Y;
         if (this.prevNs == 0L) this.headBaseline = headY;
         float deviation = headY - this.headBaseline;
+        boolean headGesturesOff = (context & CTX_NO_HEAD_GESTURES) != 0;
+        // Pitch lever: a tilted head sits lower/higher than the same body posture looking level, so
+        // height adaptation is only meaningful within ~20 deg of level (see HEAD_POSTURE_LEVEL_PITCH).
+        boolean headLevelForPosture = Math.abs(this.pitchY) <= HEAD_POSTURE_LEVEL_PITCH;
         if (Math.abs(deviation) <= HEAD_BASELINE_DEADBAND) {
-            float alpha = 1.0F - (float) Math.exp(-dt / HEAD_BASELINE_TAU_S);
-            this.headBaseline += deviation * alpha;
+            if (headLevelForPosture) {
+                float alpha = 1.0F - (float) Math.exp(-dt / HEAD_BASELINE_TAU_S);
+                this.headBaseline += deviation * alpha;
+            }
+            this.headShiftSinceNs = 0L;
+        } else if (Math.abs(headVel) < HEAD_POSTURE_QUIET_VELOCITY) {
+            // Quiet head outside the band: posture change or a held crouch (see HEAD_POSTURE_SHIFT).
+            if (this.headShiftSinceNs == 0L) this.headShiftSinceNs = nowNs;
+            if (Math.abs(deviation) >= HEAD_POSTURE_SHIFT
+                && nowNs - this.headShiftSinceNs >= HEAD_POSTURE_SETTLE_NS) {
+                // Settling into a new resting posture is not a gesture. Remember which side of the
+                // old baseline we settled on: a low posture disables the head-rise jump until the
+                // operator rises back out of it (a jump-sized rise is only 0.10-0.25 m, a stand-up
+                // is >= HEAD_POSTURE_SHIFT).
+                this.headPostureLow = deviation < 0.0F;
+                this.headBaseline = headY;
+                this.headShiftSinceNs = 0L;
+                this.headJumpUntilNs = Math.max(this.headJumpUntilNs,
+                    nowNs + HEAD_JUMP_COOLDOWN_NS);
+                this.sneakBlockUntilNs = Math.max(this.sneakBlockUntilNs,
+                    nowNs + HEAD_JUMP_SNEAK_SUPPRESS_NS);
+            } else if (headLevelForPosture) {
+                float alpha = 1.0F - (float) Math.exp(-dt / HEAD_SLOW_TAU_S);
+                this.headBaseline += deviation * alpha;
+            }
+            deviation = headY - this.headBaseline;
+        } else {
+            this.headShiftSinceNs = 0L;
         }
-        if (!gui && !seated && headPitchOk && nowNs >= this.headJumpUntilNs
+        if (!gui && !seated && !headGesturesOff && headPitchOk && nowNs >= this.headJumpUntilNs
+            && !this.headPostureLow
             && deviation > HEAD_JUMP_RISE && headVel > HEAD_JUMP_VELOCITY) {
             this.jumpPulseUntilNs = nowNs + 80_000_000L;
             this.headJumpUntilNs = nowNs + HEAD_JUMP_COOLDOWN_NS;
@@ -530,7 +624,7 @@ public final class VisionM7Gesture {
         // downward transition itself is fast (physical crouch), so it must NOT reset the timer; a
         // rapid rise (standing up / landing bounce) does. Landing-from-jump is excluded separately by
         // the jump sneak-block above.
-        if (!gui && !seated && headPitchOk && nowNs >= this.sneakBlockUntilNs
+        if (!gui && !seated && !headGesturesOff && headPitchOk && nowNs >= this.sneakBlockUntilNs
             && drop > HEAD_SNEAK_DROP && headVel < 0.35F) {
             if (this.headSneakSinceNs == 0L) this.headSneakSinceNs = nowNs;
             if (nowNs - this.headSneakSinceNs >= HEAD_SNEAK_LATCH_NS) this.sneaking = true;
@@ -550,7 +644,7 @@ public final class VisionM7Gesture {
         } else {
             this.headSneakReleaseSinceNs = 0L;
         }
-        if (gui || seated) {
+        if (gui || seated || headGesturesOff) {
             this.sneaking = false;
             this.headSneakSinceNs = 0L;
             this.headSneakReleaseSinceNs = 0L;
@@ -584,13 +678,17 @@ public final class VisionM7Gesture {
         float absSepFwd = Math.abs(sepFwd);
         float maxUp = Math.max(this.relL[1], this.relR[1]);
         if (this.bowActive) {
-            // Draw hysteresis: keep while projected separation stays above the off threshold and the
-            // hands stay in front at chest height. Releasing the held use (any exit) fires the arrow,
-            // matching Minecraft's hold-to-draw semantics and all 16 recorded draw cycles.
-            boolean handsOk = this.bowDrawnFromFists ? both : bothTrackedGrace;
-            boolean drawStillHeld = bowAllowed && !gui && !seated && handsOk
-                && absSepFwd > BOW_SEPARATION_OFF
-                && maxUp > BOW_MIN_MAX_UP - 0.10F;
+            // Operator plan (M7_GESTURES.md #9): both fists, one hand in front and the other behind;
+            // pulling the back hand back draws, OPENING THE BACK FIST fires. The draw is held while
+            // the back fist stays closed and the hands stay apart in front at chest height; short
+            // tracking dropouts are bridged (the recorded draws lose a hand for up to ~150 ms).
+            // Releasing the held use (any exit) fires the arrow (Minecraft hold-to-draw semantics).
+            boolean backFist = this.bowFrontLeft ? this.fistR : this.fistL;
+            boolean backTracked = this.bowFrontLeft ? trackedR : trackedL;
+            boolean dropout = !bothTracked && bothTrackedGrace;
+            boolean backHeld = backFist || (!backTracked && bothTrackedGrace);
+            boolean apart = dropout || (absSepFwd > BOW_SEPARATION_OFF && maxUp > BOW_MIN_MAX_UP - 0.10F);
+            boolean drawStillHeld = bowAllowed && !gui && !seated && backHeld && apart;
             if (!drawStillHeld) {
                 // A draw must have been armed for at least half the arm time before an exit fires;
                 // one-frame tracking flicker at the start must not release the bow.
@@ -601,15 +699,17 @@ public final class VisionM7Gesture {
                     this.lastBowFireNs = nowNs;
                 }
                 this.bowActive = false;
-        this.bowDrawnFromFists = false;
+                this.bowDrawnFromFists = false;
                 this.lastBowExitNs = nowNs;
             }
-        } else if (bowAllowed && !gui && !seated && bothTracked
+        } else if (bowAllowed && !gui && !seated && bothTracked && both
             && absSepFwd > BOW_SEPARATION && maxUp > BOW_MIN_MAX_UP) {
+            // Draw start needs BOTH FISTS (plan), hands apart along the head-forward axis.
             if (this.bowSepSinceNs == 0L) this.bowSepSinceNs = nowNs;
             if (nowNs - this.bowSepSinceNs >= BOW_ARM_NS) {
                 this.bowActive = true;
-                this.bowDrawnFromFists = both;
+                this.bowDrawnFromFists = true;
+                this.bowFrontLeft = sepFwd > 0.0F;
                 this.bowStartNs = nowNs;
             }
         } else if (!this.bowActive
@@ -749,7 +849,16 @@ public final class VisionM7Gesture {
 
         // ---- left fist tap = Escape/menu (also closes a GUI); plus generic GUI-close pulse ----
         long leftFistTapDuration = this.leftFistPressNs == 0L ? -1L : nowNs - this.leftFistPressNs;
-        boolean leftFistTap = this.prevFistL && !this.fistL && !this.fistR
+        // A pinching hand curls the other fingers to 0.55-0.70, right at the fist threshold, so a
+        // short pinch (move stick / place) can read as a fist tap of the same hand. A confirmed pinch
+        // of that hand shortly before the "tap" means it was the pinch: no menu / close / use.
+        boolean leftPinchQuiet = !this.pinchPressedL
+            && (this.lastPinchActivityLNs == 0L
+                || nowNs - this.lastPinchActivityLNs > FIST_TAP_PINCH_QUIET_NS);
+        boolean rightPinchQuiet = !this.pinchPressedR
+            && (this.lastPinchActivityRNs == 0L
+                || nowNs - this.lastPinchActivityRNs > FIST_TAP_PINCH_QUIET_NS);
+        boolean leftFistTap = this.prevFistL && !this.fistL && !this.fistR && leftPinchQuiet
             && leftFistTapDuration >= LEFT_FIST_TAP_MIN_NS
             && leftFistTapDuration <= LEFT_FIST_TAP_MAX_NS;
         if (gui && leftFistTap && nowNs - this.lastBothFistReleaseNs > 200_000_000L) {
@@ -776,7 +885,7 @@ public final class VisionM7Gesture {
         // triggering break). Boats/interactive entities hit by a short right pinch were classified as
         // "entity" and sent key.attack; this explicit gesture sends key.use instead. ----
         long rightFistTapDuration = this.rightFistPressNs == 0L ? -1L : nowNs - this.rightFistPressNs;
-        boolean rightFistTap = this.prevFistR && !this.fistR && !this.fistL
+        boolean rightFistTap = this.prevFistR && !this.fistR && !this.fistL && rightPinchQuiet
             && rightFistTapDuration >= LEFT_FIST_TAP_MIN_NS
             && rightFistTapDuration <= LEFT_FIST_TAP_MAX_NS
             && !gui && !this.bowActive && !seated
@@ -784,6 +893,31 @@ public final class VisionM7Gesture {
             && nowNs - this.lastInventoryNs > 200_000_000L;
         if (rightFistTap) {
             this.rightFistTapPulseUntilNs = nowNs + 120_000_000L;
+        }
+
+        // ---- right fist hold = Vivecraft radial (shortcut) menu: hold, point, open to choose ----
+        // Longer than any right-fist tap (LEFT_FIST_TAP_MAX_NS), so a tap never opens it and a hold
+        // never taps. A second (left) fist means a bow draw / inventory chord: cancel, never select.
+        this.radialCancelThisFrame = false;
+        if (this.radialHeld) {
+            boolean chord = this.fistL;
+            if (!trackedR || gui || seated || chord) {
+                this.radialHeld = false;
+                this.radialCancelThisFrame = true;
+                this.radialBlockedUntilOpen = true;
+            } else if (!this.fistR) {
+                this.radialHeld = false; // opened fist = choose the pointed item
+            }
+        } else if (!this.fistR) {
+            this.radialBlockedUntilOpen = false;
+        } else if (!this.radialBlockedUntilOpen && trackedR && !gui && !seated && !this.fistL
+            && !this.bowActive && !walkingNow && !this.climbGrabR
+            && (context & CTX_CLIMBABLE) == 0
+            && this.rightFistPressNs != 0L && nowNs - this.rightFistPressNs >= RADIAL_HOLD_NS
+            && winSpeedR < RADIAL_MAX_SPEED
+            && nowNs - this.lastAttackFireNs > 500_000_000L
+            && nowNs - this.lastBothFistReleaseNs > 300_000_000L) {
+            this.radialHeld = true;
         }
 
         // ---- both-fist inventory: short tap, hands together, never walk/bow/climb ----
@@ -930,7 +1064,20 @@ public final class VisionM7Gesture {
             raw = false;
         } else {
             boolean wasRaw = left ? this.rawPinchL : this.rawPinchR;
-            raw = wasRaw ? distance < this.pinchOff : distance < this.pinchOn;
+            if (wasRaw) {
+                float min = left ? this.pinchMinL : this.pinchMinR;
+                raw = distance < pinchReleaseDistance(min);
+            } else {
+                raw = distance < this.pinchOn;
+            }
+        }
+        if (raw) {
+            boolean wasRaw = left ? this.rawPinchL : this.rawPinchR;
+            float min = left ? this.pinchMinL : this.pinchMinR;
+            float next = wasRaw && Float.isFinite(min) ? Math.min(min, distance) : distance;
+            if (left) this.pinchMinL = next; else this.pinchMinR = next;
+        } else {
+            if (left) this.pinchMinL = Float.NaN; else this.pinchMinR = Float.NaN;
         }
         boolean pressed = left ? this.pinchPressedL : this.pinchPressedR;
         boolean armed = left ? this.pinchArmedL : this.pinchArmedR;
@@ -964,6 +1111,7 @@ public final class VisionM7Gesture {
                     this.leftPinchPressNs = pressNs;
                     this.pinchRaisedL = handReady;
                     this.pinchPressedThisFrameL = true;
+                    this.lastPinchActivityLNs = now;
                 } else {
                     this.rightPinchPressNs = pressNs;
                     this.pinchRaisedR = handReady;
@@ -977,6 +1125,7 @@ public final class VisionM7Gesture {
                 if (left) {
                     this.pinchReleasedThisFrameL = true;
                     this.lastPinchReleaseL = now;
+                    this.lastPinchActivityLNs = now;
                 } else {
                     this.pinchLastDurationR = duration;
                     this.pinchReleasedThisFrameR = true;
@@ -1008,6 +1157,16 @@ public final class VisionM7Gesture {
             if (lost) this.pinchLostR = true;
         }
         return pressed && (handReady || guiOpen);
+    }
+
+    /**
+     * Release distance for a pinch whose closest point so far was {@code minDistance}: the fixed
+     * Schmitt upper bound, or earlier once the fingers clearly opened (see PINCH_RELEASE_RISE).
+     */
+    float pinchReleaseDistance(float minDistance) {
+        if (!Float.isFinite(minDistance)) return this.pinchOff;
+        float relative = Math.max(this.pinchOn + PINCH_RELEASE_MIN_BAND, minDistance + PINCH_RELEASE_RISE);
+        return Math.min(this.pinchOff, relative);
     }
 
     private void normalizeHeadBasis(float rx, float ry, float rz, float fx, float fy, float fz) {
@@ -1156,12 +1315,32 @@ public final class VisionM7Gesture {
     public boolean leftFistTap() { return this.nowNs < this.leftFistTapPulseUntilNs; }
     /** Right-fist tap pulse: discrete use/interact (boat, door, button); never attack. */
     public boolean rightFistTap() { return this.nowNs < this.rightFistTapPulseUntilNs; }
+    /** Right fist held: Vivecraft radial menu open; false again = choose (unless cancelled). */
+    public boolean radialHeld() { return this.radialHeld; }
+    /** The radial hold ended without a choice this frame (tracking loss, screen, second fist). */
+    public boolean radialCancelled() { return this.radialCancelThisFrame; }
     public boolean inventory() { return this.inventory; }
     public boolean hotbarNext() { return this.hotbarNext; }
     public boolean hotbarPrev() { return this.hotbarPrev; }
     public boolean bowDraw() { return this.bowDraw; }
     public boolean bowFire() { return this.bowFire; }
+    /** True when the LEFT hand was the front (bow) hand of the current/last draw. */
+    public boolean bowFrontIsLeft() { return this.bowFrontLeft; }
     public boolean guiClick() { return this.guiClick; }
+    /** Fist closed on that hand (hand-model feedback). */
+    public boolean fist(boolean left) { return left ? this.fistL : this.fistR; }
+    /**
+     * Charge of the right-fist radial hold for the hand model: 0 until a hold is clearly longer
+     * than a tap could be, rising to 1 at {@link #RADIAL_HOLD_NS}; 1 while the menu is open.
+     */
+    public float radialHoldProgress() {
+        if (this.radialHeld) return 1.0F;
+        if (!this.fistR || this.fistL || this.radialBlockedUntilOpen || this.rightFistPressNs == 0L) return 0.0F;
+        long held = this.nowNs - this.rightFistPressNs;
+        long start = 250_000_000L;
+        if (held <= start) return 0.0F;
+        return Math.min(1.0F, (float) (held - start) / (float) (RADIAL_HOLD_NS - start));
+    }
     public boolean leftPinchHeld() { return this.pinchEngagedL; }
     public boolean rightPinchHeld() { return this.pinchEngagedR; }
     public boolean rightPinchPressedFrame() { return this.pinchPressedThisFrameR; }
@@ -1213,12 +1392,35 @@ public final class VisionM7Gesture {
             this.sneaking);
     }
 
+    /**
+     * Re-baseline the head height at the next frame and drop any head-derived sneak. Call after a
+     * recenter, a height calibration or a standing/seated switch: the old baseline no longer
+     * describes the operator's resting height.
+     */
+    public void resetHeadBaseline() {
+        this.headBaseline = this.headY;
+        this.headShiftSinceNs = 0L;
+        // An explicit recenter/height calibration declares the current posture the new normal, so a
+        // later stand-up from a low rest pose cannot be turned into a jump by this re-baseline.
+        this.headPostureLow = false;
+        this.sneaking = false;
+        this.sneak = false;
+        this.headSneakSinceNs = 0L;
+        this.headSneakReleaseSinceNs = 0L;
+        this.sneakBlockUntilNs = this.nowNs + HEAD_JUMP_SNEAK_SUPPRESS_NS;
+        this.headJumpUntilNs = this.nowNs + HEAD_JUMP_COOLDOWN_NS;
+    }
+
+    /** Current head-height baseline (host diagnostics/tests). */
+    public float headBaseline() { return this.headBaseline; }
+
     /** Release every action immediately (tracking loss, stale input, mode change, destroy). */
     public void releaseAll() {
         this.trackedL = false; this.trackedR = false;
         this.fistL = false; this.fistR = false;
         this.prevFistL = false; this.prevFistR = false;
         this.rawPinchL = false; this.rawPinchR = false;
+        this.pinchMinL = Float.NaN; this.pinchMinR = Float.NaN;
         this.pinchPressedL = false; this.pinchPressedR = false;
         this.pinchArmedL = true; this.pinchArmedR = true;
         this.pinchRawSinceL = 0L; this.pinchRawSinceR = 0L;
@@ -1233,6 +1435,9 @@ public final class VisionM7Gesture {
         this.leftPinchPressNs = 0L; this.rightPinchPressNs = 0L;
         this.leftFistPressNs = 0L; this.rightFistPressNs = 0L;
         this.leftFistTapPulseUntilNs = 0L; this.rightFistTapPulseUntilNs = 0L;
+        if (this.radialHeld) this.radialCancelThisFrame = true;
+        this.radialHeld = false;
+        this.radialBlockedUntilOpen = false;
         this.bothFistPrev = false;
         this.bothFistStartNs = 0L;
         this.bothMaxSep = 0.0F;
@@ -1247,6 +1452,8 @@ public final class VisionM7Gesture {
         this.lastBothTrackedNs = 0L;
         this.lastWalkNs = 0L;
         this.lastPinchActivityRNs = 0L;
+        this.lastPinchActivityLNs = 0L;
+        this.headShiftSinceNs = 0L;
         this.lastAttackFireNs = 0L;
         this.bowActive = false;
         this.bowSepSinceNs = 0L;
@@ -1315,6 +1522,7 @@ public final class VisionM7Gesture {
             .append(" tele=").append(this.teleportHold ? 1 : 0)
             .append(" bow=").append(this.bowDraw ? 1 : 0)
             .append(" eat=").append(this.eat ? 1 : 0)
+            .append(" radial=").append(this.radialHeld ? 1 : 0)
             .append(" climb=").append(this.climbGrabL ? 'L' : '-').append(this.climbGrabR ? 'R' : '-');
         return b.toString();
     }

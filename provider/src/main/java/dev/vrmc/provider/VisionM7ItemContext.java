@@ -94,6 +94,52 @@ final class VisionM7ItemContext {
         return item != null && item == bowItem;
     }
 
+    private static java.lang.reflect.Method playerGetProjectile;
+    private static boolean projectileAttempted;
+
+    /** True when {@code stack} is the vanilla bow (same identity check as the bow-hand mask). */
+    static boolean isBowStack(Object player, Object stack) {
+        if (player == null || stack == null || !init(player.getClass())) return false;
+        try {
+            return isBow(stack);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** The player's main-hand stack (null when unavailable). */
+    static Object mainHandStack(Object player) {
+        if (player == null || !init(player.getClass())) return null;
+        try {
+            return playerMainHand.invoke(player);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** The ammunition {@code weapon} would shoot (vanilla Player.getProjectile; null when none/unavailable). */
+    static Object projectileFor(Object player, Object weapon) {
+        if (player == null || weapon == null || !init(player.getClass())) return null;
+        try {
+            if (!projectileAttempted) {
+                projectileAttempted = true;
+                for (Class<?> c = player.getClass(); c != null && playerGetProjectile == null; c = c.getSuperclass()) {
+                    for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+                        if (m.getName().equals("getProjectile") && m.getParameterCount() == 1
+                            && m.getParameterTypes()[0].isInstance(weapon)) {
+                            m.setAccessible(true);
+                            playerGetProjectile = m;
+                            break;
+                        }
+                    }
+                }
+            }
+            return playerGetProjectile == null ? null : playerGetProjectile.invoke(player, weapon);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     /** 1 = bow in main hand, 2 = bow in off hand, 3 = both (bitmask used for bow render roll). */
     static int bowHands(Object player) {
         if (player == null || !init(player.getClass())) return 0;

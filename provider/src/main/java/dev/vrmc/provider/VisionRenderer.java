@@ -71,6 +71,14 @@ public class VisionRenderer extends VRRenderer {
     private final java.nio.ByteBuffer renderSettingsBuffer =
         java.nio.ByteBuffer.allocateDirect(VrmcBridge.RENDER_SETTINGS_BYTES).order(java.nio.ByteOrder.LITTLE_ENDIAN);
     private final VisionFrameStats renderFrameStats = new VisionFrameStats(240);
+    /** Render work time per frame (VR poll -> endFrame), excluding the display-pacing wait. */
+    private final VisionFrameStats renderBusyStats = new VisionFrameStats(240);
+    private long polledNanos;
+    private double lastBusyP50Ms;
+    private double lastBusyP95Ms;
+    /** Scale ceiling after a struggling window (see VisionRenderSettings.STRUGGLE_CEILING_WINDOWS). */
+    private float struggleCeiling = VisionRenderSettings.MAX_SCALE;
+    private int struggleCeilingWindows;
     private long lastFrameNanos;
     private VisionRenderSettings renderSettings = VisionRenderSettings.none();
     private boolean loggedRenderSettings;
@@ -112,6 +120,22 @@ public class VisionRenderer extends VRRenderer {
     private long frameIndex;
     private boolean polled;
     private boolean loggedNoHandle;
+
+    // ---- Export ring (tearing / unrendered-frame fix) -------------------------------------------
+    // Vivecraft renders every frame into the same framebufferEye[0/1] textures. Publishing those to
+    // the compositor meant it sampled a texture the game was drawing into (torn frames while turning
+    // the head) and, right after an eye-target resize, a brand-new texture nothing had been drawn
+    // into yet (a whole-view flash of undefined memory - the purple flash at the title screen, where
+    // the auto resolution resizes several times). Each frame is now GPU-copied into the next of
+    // EXPORT_RING textures per eye and that copy is published; a published texture is not written
+    // again for EXPORT_RING-1 frames, and the compositor only shows a frame once a newer one exists.
+    private static final int EXPORT_RING = 3;
+    private final VRTextureTarget[][] exportRing = new VRTextureTarget[EXPORT_RING][2];
+    private final long[][] exportHandles = new long[EXPORT_RING][2];
+    private int exportWidth;
+    private int exportHeight;
+    private int exportSlot;
+    private boolean exportRingDisabled;
     /** Latest headset per-eye frustum tangents {left,right,up,down} (signed; left/down negative). */
     private final float[][] eyeFovTan = new float[2][4];
     private volatile boolean hasDisplayViews;
@@ -230,7 +254,13 @@ public class VisionRenderer extends VRRenderer {
     @Override
     public void endFrame() {
         final long frameNanos = System.nanoTime();
-        if (this.lastFrameNanos != 0L) this.renderFrameStats.record(frameNanos - this.lastFrameNanos);
+        if (this.lastFrameNanos != 0L) {
+            this.renderFrameStats.record(frameNanos - this.lastFrameNanos);
+            // Only a poll inside this frame is a valid start point for the work time.
+            if (this.polledNanos > this.lastFrameNanos) {
+                this.renderBusyStats.record(frameNanos - this.polledNanos);
+            }
+        }
         this.lastFrameNanos = frameNanos;
         // Track when a world level first becomes available; eye-target resizes are held back until the
         // world has been stable for a moment (see VisionRenderSettings.canResizeNow).
@@ -242,13 +272,21 @@ public class VisionRenderer extends VRRenderer {
         if (this.framebufferEye[0] == null || this.framebufferEye[1] == null) {
             return;
         }
-        long lt = textureHandle(this.framebufferEye[0]);
-        long rt = textureHandle(this.framebufferEye[1]);
+        long lt;
+        long rt;
+        int slot = exportFrame();
+        if (slot >= 0) {
+            lt = this.exportHandles[slot][0];
+            rt = this.exportHandles[slot][1];
+        } else {
+            lt = textureHandle(this.framebufferEye[0]);
+            rt = textureHandle(this.framebufferEye[1]);
+        }
         if (lt != 0 && rt != 0) {
             // A framebuffer reinit replaces both VkImages; the bridge keeps the previous (now destroyed)
             // handles until this submit, so the compositor may sample a stale/freed texture for a frame.
             // Log the transition so a device log proves/disproves that window.
-            if (this.lastLeftHandle != -1L &&
+            if (slot < 0 && this.lastLeftHandle != -1L &&
                 (lt != this.lastLeftHandle || rt != this.lastRightHandle)) {
                 System.out.printf(
                     "[VRMC-DIAG] eye target handles changed L=0x%x->0x%x R=0x%x->0x%x (framebuffer reinit)%n",
@@ -361,13 +399,15 @@ public class VisionRenderer extends VRRenderer {
             System.out.println(String.format(java.util.Locale.ROOT,
                 "[VRMC-M8] render state frame=%d eyeTarget=%dx%d logical=%dx%d drawable=%dx%d "
                     + "foveation=%d rateMaps=%d displayHz=%.1f target=%d(%s) quality=%.2f/%.2f "
-                    + "scale=%.2f(%s) resizes=%d contentFirst=%d(%d)",
+                    + "scale=%.2f(%s) resizes=%d contentFirst=%d(%d) busyP50=%.2fms busyP95=%.2fms "
+                    + "ceiling=%.2f",
                 this.frameIndex, this.currentEyeWidth, this.currentEyeHeight,
                 rs.leftLogicalWidth, rs.leftLogicalHeight, rs.drawableWidth, rs.drawableHeight,
                 rs.foveationEnabled ? 1 : 0, rs.rateMapCount, rs.displayHz, this.targetHzOverride,
                 this.targetHzSource, rs.renderQuality, rs.maxRenderQuality, this.eyeScale,
                 this.eyeScaleSource, this.eyeResizeCount,
-                this.contentGovernor.enabled() ? 1 : 0, this.contentGovernor.reductions()));
+                this.contentGovernor.enabled() ? 1 : 0, this.contentGovernor.reductions(),
+                this.lastBusyP50Ms, this.lastBusyP95Ms, this.struggleCeiling));
         } else if (!this.loggedM8State) {
             this.loggedM8State = true;
             System.out.println("[VRMC-M8] render state: no display feedback yet (compositor immersive "
@@ -778,10 +818,24 @@ public class VisionRenderer extends VRRenderer {
         final double targetMs = VisionRenderSettings.targetIntervalMsFor(settings.displayHz,
             this.targetHzOverride);
         VisionFrameStats.Snapshot stats = this.renderFrameStats.snapshotAndReset(targetMs);
+        VisionFrameStats.Snapshot busy = this.renderBusyStats.snapshotAndReset(targetMs);
+        this.lastBusyP50Ms = busy.p50Ms;
+        this.lastBusyP95Ms = busy.p95Ms;
         if (stats.samples <= 0) return;
+        final boolean levelLoadedNow = this.levelLoadedFrame >= 0L;
+        if (!VisionRenderSettings.adaptAllowed(levelLoadedNow,
+            levelLoadedNow ? this.frameIndex - this.levelLoadedFrame : -1L)) {
+            // Loading / menu room / fresh world: frames are IO/CPU bound and not representative of the
+            // resolution cost. Record the window for the trace but never adapt from it.
+            appendTraceRow(settings, stats);
+            this.headroomWindows = 0;
+            return;
+        }
         final boolean struggling = stats.missedTargetFrames >= Math.max(3, stats.samples / 10)
             || stats.p50Ms > targetMs * 1.25;
-        final boolean headroom = stats.missedTargetFrames <= 1 && stats.p50Ms <= targetMs * 1.05;
+        final double headroomMs = VisionRenderSettings.headroomMs(stats.missedTargetFrames, stats.p50Ms,
+            busy.samples > 0 ? busy.p95Ms : Double.NaN, targetMs);
+        final boolean headroom = !Double.isNaN(headroomMs);
         // Content-first pressure: broader than the resolution policy's "struggling" (any window
         // materially over budget counts), so scene cost is cut before resolution when frames drift
         // above the target; the governor also decays pressure instead of hard-resetting, so an
@@ -846,18 +900,25 @@ public class VisionRenderer extends VRRenderer {
             this.raiseHoldWindows = 3;
             return;
         }
+        if (this.struggleCeilingWindows > 0 && --this.struggleCeilingWindows == 0) {
+            this.struggleCeiling = VisionRenderSettings.MAX_SCALE;
+        }
         if (struggling) {
             this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale,
                 stats.missedTargetFrames, stats.samples, stats.p50Ms, targetMs);
+            // Do not climb straight back into the level that just struggled (resize oscillation).
+            this.struggleCeiling = Math.max(VisionRenderSettings.AUTO_MIN_SCALE,
+                previous - VisionRenderSettings.AUTO_STEP_UP);
+            this.struggleCeilingWindows = VisionRenderSettings.STRUGGLE_CEILING_WINDOWS;
             this.headroomWindows = 0;
             this.raiseHoldWindows = 3;
         } else if (this.raiseHoldWindows > 0) {
             this.raiseHoldWindows--;
-        } else if (headroom) {
+        } else if (headroom && this.eyeScale < this.struggleCeiling - 1.0e-3f) {
             this.headroomWindows++;
             if (this.headroomWindows >= 2) {
-                this.eyeScale = VisionRenderSettings.nextAutoScale(this.eyeScale, 0, stats.samples,
-                    stats.p50Ms, targetMs);
+                this.eyeScale = Math.min(this.struggleCeiling, VisionRenderSettings.nextAutoScale(
+                    this.eyeScale, 0, stats.samples, headroomMs, targetMs));
                 this.headroomWindows = 0;
                 this.raiseHoldWindows = 1;
             }
@@ -867,9 +928,10 @@ public class VisionRenderer extends VRRenderer {
         if (Math.abs(this.eyeScale - previous) > 1.0e-3f) {
             System.out.println(String.format(java.util.Locale.ROOT,
                 "[VRMC-M8] eye scale auto: %.2f -> %.2f (displayHz=%.1f target=%.2fms %s p50=%.2fms "
-                    + "p95=%.2fms missed=%d/%d)", previous, this.eyeScale, settings.displayHz,
-                targetMs, this.targetHzSource, stats.p50Ms, stats.p95Ms,
-                stats.missed90HzFrames, stats.samples));
+                    + "p95=%.2fms busyP50=%.2fms busyP95=%.2fms missed=%d/%d ceiling=%.2f)", previous,
+                this.eyeScale, settings.displayHz, targetMs, this.targetHzSource, stats.p50Ms,
+                stats.p95Ms, busy.p50Ms, busy.p95Ms, stats.missed90HzFrames, stats.samples,
+                this.struggleCeiling));
         }
     }
 
@@ -947,8 +1009,81 @@ public class VisionRenderer extends VRRenderer {
         reinitFrameBuffers("VRMC M8 eye target " + target[0] + "x" + target[1]);
     }
 
+    /**
+     * Copy this frame's eye images into the next export-ring slot and return the slot, or -1 to
+     * publish framebufferEye directly (ring disabled after a failure, e.g. a backend that cannot copy
+     * textures; that is the pre-1.3.5 behaviour and logs once).
+     */
+    private int exportFrame() {
+        if (this.exportRingDisabled) return -1;
+        try {
+            int w = this.framebufferEye[0].width;
+            int h = this.framebufferEye[0].height;
+            if (w <= 0 || h <= 0) return -1;
+            var device = RenderSystem.getDevice();
+            var encoder = device.createCommandEncoder();
+            if (w != this.exportWidth || h != this.exportHeight || this.exportRing[0][0] == null) {
+                closeExportRing();
+                Vector4f black = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
+                for (int s = 0; s < EXPORT_RING; s++) {
+                    for (int eye = 0; eye < 2; eye++) {
+                        VRTextureTarget t = VRTextureTarget.builder("VRMC export " + (eye == 0 ? "L" : "R") + s)
+                            .withSize(w, h)
+                            .withFormat(GpuFormat.RGBA8_UNORM)
+                            .build();
+                        // Never expose undefined memory: every slot starts opaque black.
+                        encoder.clearColorTexture(t.getColorTexture(), black);
+                        this.exportRing[s][eye] = t;
+                        this.exportHandles[s][eye] = textureHandle(t);
+                        if (this.exportHandles[s][eye] == 0L) {
+                            throw new IllegalStateException("export slot " + s + " has no texture handle");
+                        }
+                    }
+                }
+                this.exportWidth = w;
+                this.exportHeight = h;
+                this.exportSlot = 0;
+                System.out.println("[VRMC-M8] export ring: " + EXPORT_RING + " x 2 eye textures " + w + "x" + h
+                    + " (game never draws into a texture the compositor may be showing)");
+            }
+            int slot = this.exportSlot;
+            for (int eye = 0; eye < 2; eye++) {
+                encoder.copyTextureToTexture(this.framebufferEye[eye].getColorTexture(),
+                    this.exportRing[slot][eye].getColorTexture(), 0, 0, 0, 0, 0, w, h);
+            }
+            this.exportSlot = (slot + 1) % EXPORT_RING;
+            return slot;
+        } catch (Throwable t) {
+            this.exportRingDisabled = true;
+            closeExportRing();
+            System.out.println("[VRMC-M8][WARN] export ring unavailable (" + t
+                + "); publishing the eye targets directly");
+            return -1;
+        }
+    }
+
+    private void closeExportRing() {
+        for (int s = 0; s < EXPORT_RING; s++) {
+            for (int eye = 0; eye < 2; eye++) {
+                VRTextureTarget t = this.exportRing[s][eye];
+                this.exportRing[s][eye] = null;
+                this.exportHandles[s][eye] = 0L;
+                if (t != null) {
+                    try {
+                        t.destroyBuffers();
+                    } catch (Throwable ignored) {
+                        // best effort: the compositor retains what it still shows
+                    }
+                }
+            }
+        }
+        this.exportWidth = 0;
+        this.exportHeight = 0;
+    }
+
     @Override
     public void destroy() {
+        closeExportRing();
         GpuEyeSync sync = this.gpuSync;
         this.gpuSync = null;
         if (sync != null) {
@@ -959,6 +1094,7 @@ public class VisionRenderer extends VRRenderer {
 
     void markPolled() {
         this.polled = true;
+        this.polledNanos = System.nanoTime();
     }
 
     @Override public boolean providesStencilMask() { return false; }

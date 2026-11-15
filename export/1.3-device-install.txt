@@ -1,0 +1,49 @@
+# VRMC 1.3.3 device install - 2026-11-11
+
+device=Apple Vision Pro (D1) udid=<D1-UDID>
+bundle_id=dev.vrmc.vrmc
+version=1.3.3 build=1.3.3 (in-place upgrade; app data preserved)
+installed_at=2026-11-11T18:32Z (approx; devicectl databaseSequenceNumber 2888)
+installation_url=file:///private/var/containers/Bundle/Application/66FC9FA6-D20D-45ED-9E79-3A6903A74959/VRMC-1.3.3.app/
+
+## What this build is
+Single native visionOS window UI: Play, Comfort, Controls, Help. Pressing Play starts Minecraft in
+place through a hidden in-window launcher host (no second UI is shown; the Amethyst launcher's own
+Play button is driven programmatically). Minecraft setup (Microsoft sign-in, Fabric profile, JIT
+prompt) is a deliberate sheet from the Play setup card or Help, never opened by Play. Automatic
+setup installs/updates the bundled VRMC provider mod (hash-verified) and downloads or imports the
+pinned Vivecraft build. The in-VR quick menu adds comfort/recovery controls reachable from the game
+menu. Provider fixes: look-down false-JUMP regression and seated double-tap snap turn.
+
+## Artifact identity (/tmp/VRMC-1.3.3.app)
+framework_binary_sha256 (pre-sign source build)=8c517f6aa06fad2c95acadcac28db7eb080df389bcf1f95b6efb44011adfa528 (2617280 B)
+framework_tree_sha256 (scripts/app_tree_sha256.sh, pre-sign source build)=0f4aab5e52589dc778c142f933b31b6f414d687eb1ba347ba8909e7c2359a462
+framework_binary_sha256 (staged, re-signed)=bb243f2441549fbc3017e5d75ce368360e664d50989537e4deb24215b4aea2d9 (2640848 B)
+app_binary_sha256=047e6d1e9fb1e9062bf09a47fdf93e8654d7196ce795e4fc50c8de4934a19215 (2063520 B)
+bridge_dylib_sha256=729ffe466a3219e4b6c7b0f2cfc644511966291694924bf9b4cef6fbe58d811c (89568 B)
+provider_jar_sha256=89be397f57d2c765e61e90afad1705bc07719eb71d91e1aec94c946541dc5e1d (158742 B)
+app_cdhash=69f95afb815d3412b6716df29074a1f7d21e94c3
+codesign --verify --deep --strict=PASS
+
+## Signing / certificate
+Identity: Apple Development: <apple-id> (<cert-id>)
+Provisioning profile UUID 3e7ca60a-aed6-4deb-80aa-d668f1d924a4, expires 2026-11-15T03:21:06Z, provisions D1
+entitlements get-task-allow=true (JIT attach)
+
+## Verification state
+- Host: provider suite ALL PASS (jar 3-build reproducible), shell BUILD SUCCEEDED, m6_release_check PASS.
+- Device: install PASS; the previously installed 1.3.0 build ran the new UI and an in-world immersive
+  session on D1 (EV-0298). The 1.3.3 launch itself is NOT YET VERIFIED on the headset: the host's
+  devicectl process-launch transport is broken for all apps on this pairing (control test: StikDebug
+  fails identically), so launch must be done from the headset Home View.
+- Evidence: evidence/device-1.3/REPORT.md, evidence/device-1.3/builds/1.3.3-release/, VERIFY.md EV-0298.
+
+## Rollback
+Previous build /tmp/VRMC-1.3.2.app (single-UI intermediate) and /tmp/VRMC-1.3.1.app are on the host.
+Reinstall with: xcrun devicectl device install app --device <D1-UDID> <app>
+
+## Notes
+- Profile expires 2026-11-15T03:21Z: re-sign before that date or the app will stop launching.
+- StikDebug 3.2.2 (com.stik.stikdebug.<TEAM_ID>) is installed with amethyst.js pushed; keep it for JIT.
+- devicectl cannot capture screenshots on visionOS; the visual single-UI check is operator-observed.
+

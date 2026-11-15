@@ -6,7 +6,7 @@ import java.time.Instant;
  * M5 diagnostics status document (pure builder, host-tested). The launcher/diagnostics parse
  * {@code vrmc-status.json}; keeping generation in one tested place prevents invalid JSON regressions.
  *
- * <p>Contract with the launcher: every key the shell reads ({@code obj["…"]} in Shell.swift) must be
+ * <p>Contract with the launcher: every key the shell reads ({@code obj["…"]} / {@code status["…"]} in runtime/native-shell/Sources) must be
  * written here; {@code scripts/check_status_fields.sh} fails the release check on drift. Prefer
  * adding keys to renaming them, so an older launcher can still read a newer provider's status.
  */
@@ -29,7 +29,7 @@ public final class VisionStatusJson {
         public final boolean handLeftTracked;
         public final boolean handRightTracked;
         public final boolean playerPresent;
-        /** The JVM's {@code os.name} (key name kept for launcher compatibility). */
+        /** Platform name from {@link #platformName} ("visionOS" on the headset; key name kept for launcher compatibility). */
         public final String runningOnVisionOS;
         /** One-line summary of the parsed vrmc-runtime.properties. */
         public final String runtimeSettings;
@@ -98,6 +98,20 @@ public final class VisionStatusJson {
             this.gestures = gestures;
             this.render = render;
         }
+    }
+
+    /**
+     * Value for the status document's {@code runningOnVisionOS} field. The provider only ships inside
+     * the visionOS app; on the headset Java reports {@code os.name=Mac OS X} (Darwin kernel), which
+     * made the diagnostic field say "Mac OS X" and look like a desktop run. Report visionOS for the
+     * Apple platforms and keep the raw OS name as a safe fallback if this code ever runs elsewhere.
+     */
+    public static String platformName(String osName) {
+        if (osName == null) return "visionOS";
+        String trimmed = osName.trim();
+        if (trimmed.isEmpty()) return "visionOS";
+        if (trimmed.startsWith("Mac") || trimmed.startsWith("Darwin")) return "visionOS";
+        return trimmed;
     }
 
     /** Pretty-printed, always-valid JSON; key order is stable so diffs of pulled status files stay readable. */

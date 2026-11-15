@@ -111,6 +111,38 @@ static id<MTLTexture> gSrgbColorViewL = nil;
 static id<MTLTexture> gSrgbColorViewR = nil;
 static uint64_t gSrgbColorHandleL = 0;
 static uint64_t gSrgbColorHandleR = 0;
+
+// Pose-matched presentation (head-turn judder fix). Every compositor frame queries the device
+// anchor at its presentation time and publishes that pose to the provider; the provider renders a
+// frame from the pose it read and the bridge stamps the frame with that pose's time. The anchor
+// that belongs to the frame being shown is looked up here and set on the drawable, so visionOS
+// reprojects the picture from the pose it was really rendered with. Before, the newest anchor was
+// set on every drawable, so a game frame rendered 1-3 display frames earlier (or repeated while the
+// game ran below 90 fps) was presented as if it matched the current head pose: the world swam with
+// the head and snapped back - the judder during head rotation.
+static const int kAnchorRingSize = 64;
+static __strong ar_device_anchor_t gAnchorRing[kAnchorRingSize];
+static uint64_t gAnchorRingNs[kAnchorRingSize];
+static int gAnchorRingNext = 0;
+
+static void rememberAnchor(uint64_t poseNs, ar_device_anchor_t anchor) {
+    gAnchorRing[gAnchorRingNext] = anchor;
+    gAnchorRingNs[gAnchorRingNext] = poseNs;
+    gAnchorRingNext = (gAnchorRingNext + 1) % kAnchorRingSize;
+}
+
+static ar_device_anchor_t anchorForPose(uint64_t poseNs) {
+    if (poseNs == 0) return nil;
+    for (int i = 0; i < kAnchorRingSize; i++) {
+        if (gAnchorRingNs[i] == poseNs && gAnchorRing[i] != nil) return gAnchorRing[i];
+    }
+    return nil;
+}
+
+static void clearAnchorRing(void) {
+    for (int i = 0; i < kAnchorRingSize; i++) { gAnchorRing[i] = nil; gAnchorRingNs[i] = 0; }
+    gAnchorRingNext = 0;
+}
 static set_tracking_fn gTrackFn;
 static set_display_views_fn gDisplayViewsFn;
 static input_publish_fn gInputPublishFn;
@@ -164,6 +196,19 @@ extern "C" void VRMCInput_PublishGazeEvent(uint64_t tileId, int32_t phase, int32
           (unsigned long long)tileId, phase, kind, rc);
 }
 
+static void resolveBridge(void);
+
+/// 1 when the provider has published a usable stereo eye frame. The shell polls this after the game
+/// starts and opens the immersive space only once there is a real picture to show, instead of after
+/// a fixed delay. Pure read: vrmc_shared_acquire_eyes copies the latest frame under the bridge mutex.
+extern "C" int32_t VRMCCompositor_ProviderEyesReady(void) {
+    resolveBridge();
+    if (gAcquireFn == NULL) return 0;
+    vrmc_shared_eye_frame frame;
+    memset(&frame, 0, sizeof(frame));
+    return (gAcquireFn(&frame) == 0 && frame.eyes.left_texture != 0 && frame.eyes.right_texture != 0) ? 1 : 0;
+}
+
 /// Provider teardown notification: post on the main queue so the SwiftUI shell can dismiss the
 /// immersive space. The bridge calls this directly from nativeSignalGameStopping, and the frame loop
 /// also polls the shared flag as a fallback.
@@ -210,6 +255,9 @@ static void openLog(void) {
 /// compositor and provider share a single copy of the eye/tracking/input state. Any symbol missing
 /// from an older bridge stays NULL and its feature is skipped (logged below), never a crash.
 static void resolveBridge(void) {
+    // Called from the compositor thread and (VRMCCompositor_ProviderEyesReady) from the main thread.
+    static std::mutex resolveMutex;
+    std::lock_guard<std::mutex> resolveLock(resolveMutex);
     if (gEyeFn != NULL) return;
     NSString *path = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/libvrmc_bridge.dylib"];
     void *h = dlopen(path.UTF8String, RTLD_NOW);
@@ -285,6 +333,27 @@ static BOOL documentFlag(NSString *name) {
     NSArray<NSString *> *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *path = [docs.firstObject stringByAppendingPathComponent:name];
     return [[NSFileManager defaultManager] fileExistsAtPath:path] ? YES : NO;
+}
+
+// Release behaviour: every developer surface is OPT-IN. A player must never see the procedural test
+// pattern, the coloured mode badge, the red/green clear colours or pay for periodic GPU readbacks
+// because the game has not published a frame yet or because a stale flag file was left in Documents
+// (device evidence 2026-11-07: two immersive opens showed the test pattern for 715 and 320 frames;
+// a leftover vrmc-drawable-dump.flag was still in the container).
+// Documents/vrmc-diagnostics.flag turns the diagnostics back on; the simulator/self-test harness
+// flags imply it so the existing self-check scripts keep working unchanged.
+static BOOL diagnosticsEnabled(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        cached = (documentFlag(@"vrmc-diagnostics.flag") || documentFlag(@"vrmc-immersive-selftest.flag") ||
+                  documentFlag(@"vrmc-open-on-launch.flag") || documentFlag(@"vrmc-input-sim.flag")) ? 1 : 0;
+    }
+    return cached == 1;
+}
+
+/// A diagnostic flag file only counts while diagnostics are enabled.
+static BOOL diagFlag(NSString *name) {
+    return diagnosticsEnabled() && documentFlag(name);
 }
 
 // -------------------------------------------------------------------------------------------
@@ -852,7 +921,7 @@ static VRMCRayDiag evaluateRay(simd_float4x4 invProjection, simd_float4x4 viewTo
 // so stretching the eye image over the drawable puts the provider's "straight ahead" at the drawable
 // centre, which on Vision Pro lies temporally of the optical axis -> both eyes diverge (exotropia).
 // Instead, every drawable pixel is turned into a device-space ray and looked up in the provider's frustum.
-static NSString *const kShaderSource =
+static NSString *const kShaderBody =
     @"#include <metal_stdlib>\n"
      "using namespace metal;\n"
      "struct ViewParams { float4x4 invProjection; float4x4 viewToDevice; float4 sourceTangents; float4 misc; };\n"
@@ -865,7 +934,9 @@ static NSString *const kShaderSource =
      // red = reprojection, green = flat sampling, blue = test pattern.
      "fragment float4 fmain_flat(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                           sampler s [[sampler(0)]]) {\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.8,0.1), 1.0);\n"
+     "#endif\n"
      "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
      "  return float4(tex.sample(s, uv).rgb, 1.0);\n"
      "}\n"
@@ -885,10 +956,72 @@ static NSString *const kShaderSource =
      // (the fovea) and tapers off in the periphery, where the hardware foveation already gives fewer
      // physical pixels. Edge protection (soft clamp to the local neighbourhood + small headroom)
      // limits halos. Optional comfort vignette is folded into the same pass.
-     "struct FlatFx { float strength; float vignette; float texelW; float texelH; };\n"
+     "struct FlatFx { float strength; float vignette; float texelW; float texelH; float aa; };\n"
+     "// Perceptual luma of the linear (sRGB-decoded) sample, for edge detection.\n"
+     "static inline float vrmcLuma(float3 c) { return sqrt(max(dot(c, float3(0.299, 0.587, 0.114)), 0.0)); }\n"
+     "static inline float vrmcL(texture2d<float> t, sampler s, float2 uv) { return vrmcLuma(t.sample(s, uv).rgb); }\n"
+     "// Edge anti-aliasing at the GAME's resolution (FXAA-style), run once per new game frame into a\n"
+     "// compositor-owned texture that the upscale pass then samples. Minecraft has no MSAA and the image\n"
+     "// is upscaled ~2x to the display, so every block edge was a magnified stair-step. Fragment centres\n"
+     "// are source texel centres here, so the edge search is exact.\n"
+     "fragment float4 fmain_fxaa(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
+     "                           sampler s [[sampler(0)]], constant float2 &px [[buffer(4)]]) {\n"
+     "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
+     "  float3 c = tex.sample(s, uv).rgb;\n"
+     "  float lM = vrmcLuma(c);\n"
+     "  float lN = vrmcL(tex, s, uv + float2(0.0, -px.y)), lS = vrmcL(tex, s, uv + float2(0.0, px.y));\n"
+     "  float lW = vrmcL(tex, s, uv + float2(-px.x, 0.0)), lE = vrmcL(tex, s, uv + float2(px.x, 0.0));\n"
+     "  float lMin = min(lM, min(min(lN, lS), min(lW, lE)));\n"
+     "  float lMax = max(lM, max(max(lN, lS), max(lW, lE)));\n"
+     "  float range = lMax - lMin;\n"
+     "  if (range < max(0.0312, lMax * 0.125)) return float4(c, 1.0);\n"
+     "  float lNW = vrmcL(tex, s, uv + float2(-px.x, -px.y)), lNE = vrmcL(tex, s, uv + float2(px.x, -px.y));\n"
+     "  float lSW = vrmcL(tex, s, uv + float2(-px.x, px.y)), lSE = vrmcL(tex, s, uv + float2(px.x, px.y));\n"
+     "  float edgeH = abs(lNW + lNE - 2.0 * lN) + 2.0 * abs(lW + lE - 2.0 * lM) + abs(lSW + lSE - 2.0 * lS);\n"
+     "  float edgeV = abs(lNW + lSW - 2.0 * lW) + 2.0 * abs(lN + lS - 2.0 * lM) + abs(lNE + lSE - 2.0 * lE);\n"
+     "  bool horz = edgeH >= edgeV;\n"
+     "  float l1 = horz ? lN : lW;\n"
+     "  float l2 = horz ? lS : lE;\n"
+     "  float g1 = l1 - lM, g2 = l2 - lM;\n"
+     "  bool steep1 = abs(g1) >= abs(g2);\n"
+     "  float gradScaled = 0.25 * max(abs(g1), abs(g2));\n"
+     "  float stepLen = horz ? px.y : px.x;\n"
+     "  float lLocal;\n"
+     "  if (steep1) { stepLen = -stepLen; lLocal = 0.5 * (l1 + lM); } else { lLocal = 0.5 * (l2 + lM); }\n"
+     "  float2 cuv = uv;\n"
+     "  if (horz) cuv.y += stepLen * 0.5; else cuv.x += stepLen * 0.5;\n"
+     "  float2 off = horz ? float2(px.x, 0.0) : float2(0.0, px.y);\n"
+     "  float2 uv1 = cuv - off, uv2 = cuv + off;\n"
+     "  float le1 = vrmcL(tex, s, uv1) - lLocal, le2 = vrmcL(tex, s, uv2) - lLocal;\n"
+     "  bool d1 = abs(le1) >= gradScaled, d2 = abs(le2) >= gradScaled;\n"
+     "  const float steps[10] = {1.0, 1.0, 1.0, 1.5, 2.0, 2.0, 2.0, 2.0, 4.0, 8.0};\n"
+     "  for (int i = 0; i < 10 && !(d1 && d2); i++) {\n"
+     "    if (!d1) { uv1 -= off * steps[i]; le1 = vrmcL(tex, s, uv1) - lLocal; d1 = abs(le1) >= gradScaled; }\n"
+     "    if (!d2) { uv2 += off * steps[i]; le2 = vrmcL(tex, s, uv2) - lLocal; d2 = abs(le2) >= gradScaled; }\n"
+     "  }\n"
+     "  float dist1 = horz ? (uv.x - uv1.x) : (uv.y - uv1.y);\n"
+     "  float dist2 = horz ? (uv2.x - uv.x) : (uv2.y - uv.y);\n"
+     "  bool dir1 = dist1 < dist2;\n"
+     "  float edgeLen = max(dist1 + dist2, 1e-6);\n"
+     "  float pixOff = -min(dist1, dist2) / edgeLen + 0.5;\n"
+     "  bool correct = ((dir1 ? le1 : le2) < 0.0) != (lM < lLocal);\n"
+     "  float finalOff = correct ? pixOff : 0.0;\n"
+     "  float lAvg = (2.0 * (lN + lS + lW + lE) + lNW + lNE + lSW + lSE) / 12.0;\n"
+     "  float sub1 = clamp(abs(lAvg - lM) / max(range, 1e-4), 0.0, 1.0);\n"
+     "  float sub2 = (-2.0 * sub1 + 3.0) * sub1 * sub1;\n"
+     "  finalOff = max(finalOff, sub2 * sub2 * 0.75);\n"
+     "  float2 fuv = uv;\n"
+     "  if (horz) fuv.y += finalOff * stepLen; else fuv.x += finalOff * stepLen;\n"
+     "  return float4(tex.sample(s, fuv).rgb, 1.0);\n"
+     "}\n"
+     "// Upscale pass: bilinear + fovea-weighted CAS-lite sharpening + optional comfort vignette.\n"
+     "// fx.aa > 0.5 means the input was anti-aliased above: strong edges are then not sharpened again\n"
+     "// (sharpening a stair-step is what made the jaggies stand out).\n"
      "fragment float4 fmain_flat_sharp(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                                 sampler s [[sampler(0)]], constant FlatFx &fx [[buffer(3)]]) {\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.8,0.1), 1.0);\n"
+     "#endif\n"
      "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
      "  float3 c = tex.sample(s, uv).rgb;\n"
      "  float3 n = tex.sample(s, uv + float2(0.0, -fx.texelH)).rgb;\n"
@@ -900,14 +1033,21 @@ static NSString *const kShaderSource =
      "  float3 hi = max(max(c, n), max(sN, max(w, e)));\n"
      "  float r = length(in.ndc);\n"
      "  float foveal = 1.0 - smoothstep(0.50, 1.10, r);\n"
-     "  float3 sharp = c + (c - blur) * (fx.strength * foveal);\n"
+     "  float strength = fx.strength * foveal;\n"
+     "  if (fx.aa > 0.5) {\n"
+     "    float contrast = vrmcLuma(hi) - vrmcLuma(lo);\n"
+     "    strength *= 1.0 - smoothstep(0.10, 0.30, contrast);\n"
+     "  }\n"
+     "  float3 sharp = c + (c - blur) * strength;\n"
      "  sharp = clamp(sharp, lo - 0.06, hi + 0.06);\n"
      "  float vig = 1.0 - clamp(fx.vignette, 0.0, 0.95) * smoothstep(0.55, 1.0, r);\n"
      "  return float4(clamp(sharp, 0.0, 1.0) * vig, 1.0);\n"
      "}\n"
      "fragment float4 fmain_reproj(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]],\n"
      "                             sampler s [[sampler(0)]], constant ViewParams &vp [[buffer(0)]]) {\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.9,0.1,0.1), 1.0);\n"
+     "#endif\n"
      "  float flatU = (in.ndc.x + 1.0) * 0.5;\n"
      "  float flatV = (1.0 - in.ndc.y) * 0.5;\n"
      "  float4 v = vp.invProjection * float4(in.ndc, 0.5, 1.0);\n"
@@ -949,7 +1089,9 @@ static NSString *const kShaderSource =
      "    bool edge = (m.x < 4.0 || m.y < 4.0 || m.x > 86.0 || m.y > 86.0);\n"
      "    col = edge ? float3(1.0, 1.0, 1.0) : (isLeft ? float3(1.0, 0.1, 0.1) : float3(0.1, 1.0, 0.1));\n"
      "  }\n"
+     "#if VRMC_BADGE\n"
      "  if (in.ndc.y > 0.985) return float4(float3(0.1,0.3,1.0), 1.0);\n"
+     "#endif\n"
      "  return float4(col, 1.0);\n"
      "}\n"
      // Present-proof overlay (vrmc-present-proof.flag / vrmc-immersive-selftest.flag): an 8 px
@@ -976,6 +1118,11 @@ static NSString *const kShaderSource =
      "  float2 uv = float2((in.ndc.x + 1.0) * 0.5, (1.0 - in.ndc.y) * 0.5);\n"
      "  return (ushort)mask.sample(s, uv).r;\n"
      "}\n";
+
+/// Shader source with the developer mode badge compiled in only while diagnostics are enabled.
+static NSString *shaderSource(void) {
+    return [NSString stringWithFormat:@"#define VRMC_BADGE %d\n%@", diagnosticsEnabled() ? 1 : 0, kShaderBody];
+}
 
 // Provider FOV is reported as half-angles in radians, OpenXR-style signs (left/down negative).
 static simd_float4 sourceTangentsFromFov(const float fov[4]) {
@@ -1109,7 +1256,15 @@ typedef struct {
     float vignette;
     float texelW;
     float texelH;
+    float aa;        /* > 0.5: FXAA-style edge anti-aliasing in the upscale pass */
 } VRMCFlatFx;
+
+/// Edge anti-aliasing (on by default; Documents/vrmc-aa.txt = "off" disables it for A/B).
+static BOOL readAAEnabled(void) {
+    NSString *text = readDocumentText(@"vrmc-aa.txt");
+    if (text == nil || text.length == 0) return YES;
+    return !([text caseInsensitiveCompare:@"off"] == NSOrderedSame || [text isEqualToString:@"0"]);
+}
 
 typedef struct {
     id<MTLRenderPipelineState> reproj;
@@ -1135,7 +1290,7 @@ static BOOL buildPipelines(id<MTLDevice> device, VRMCPipelines *out, MTLPixelFor
     out->colorFormat = colorFormat;
     out->depthFormat = depthFormat;
     NSError *err = nil;
-    id<MTLLibrary> library = [device newLibraryWithSource:kShaderSource options:nil error:&err];
+    id<MTLLibrary> library = [device newLibraryWithSource:shaderSource() options:nil error:&err];
     if (library == nil) {
         compLog("shader library failed: %s", err.description.UTF8String);
         return NO;
@@ -1231,7 +1386,7 @@ static BOOL buildGazeRenderer(id<MTLDevice> device, cp_layer_renderer_t lr, VRMC
         return NO;
     }
     NSError *err = nil;
-    id<MTLLibrary> library = [device newLibraryWithSource:kShaderSource options:nil error:&err];
+    id<MTLLibrary> library = [device newLibraryWithSource:shaderSource() options:nil error:&err];
     if (library == nil) {
         compLog("gaze: shader library failed: %s", err.description.UTF8String);
         return NO;
@@ -1658,38 +1813,42 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
 
     // Diagnostic modes: flag files in Documents/ (see file header). Logged so a device log names them.
     const int reprojMode = readReprojMode();
-    const BOOL debugShading = documentFlag(@"vrmc-reproj-debug.flag");
-    const BOOL forceTestPattern = documentFlag(@"vrmc-test-pattern.flag");
+    const BOOL debugShading = diagFlag(@"vrmc-reproj-debug.flag");
+    const BOOL forceTestPattern = diagFlag(@"vrmc-test-pattern.flag");
     // Diagnostic A/B: skip cp_drawable_set_device_anchor entirely (EV-0073 saw passthrough without an
     // anchor; this isolates whether the anchor/reprojection path is what keeps the content off-screen).
-    const BOOL noDeviceAnchor = documentFlag(@"vrmc-no-anchor.flag");
+    const BOOL noDeviceAnchor = diagFlag(@"vrmc-no-anchor.flag");
     // A/B: use the visionOS-26-deprecated singular cp_frame_query_drawable instead of the array API.
     // The known-good M3A probe (EV-0074, displays on D1) uses the deprecated call; this isolates
     // whether the array-API drawable handling is what keeps our layer off-screen.
-    const BOOL legacySingleDrawable = documentFlag(@"vrmc-legacy-single-drawable.flag");
+    const BOOL legacySingleDrawable = diagFlag(@"vrmc-legacy-single-drawable.flag");
     // ROOT CAUSE (EV-0093): clearing the drawable depth attachment to 0.0 (reverse-Z "infinitely
     // far") makes visionOS 27.2 present the whole layer BLACK even though the colour texture is
     // provably bright and the command buffer completes. The known-good M3A probe (EV-0074) clears to
     // 1.0 (near) and displays. The flat sampled image carries no meaningful per-pixel depth, so 1.0 is
     // both safe and the empirically required value on D1. vrmc-depth-zero.flag restores the old 0.0
     // value for A/B only.
-    const BOOL depthZero = documentFlag(@"vrmc-depth-zero.flag");
-    const BOOL presentProof = documentFlag(@"vrmc-present-proof.flag");
-    const BOOL clearProbe = documentFlag(@"vrmc-clear-probe.flag");
-    const BOOL dumpRawAlways = documentFlag(@"vrmc-drawable-dump.flag");
-    const BOOL presentWait = documentFlag(@"vrmc-present-wait.flag");
-    const BOOL selfTest = documentFlag(@"vrmc-immersive-selftest.flag");
-    const float vignetteStrength = readVignetteStrength();
+    const BOOL depthZero = diagFlag(@"vrmc-depth-zero.flag");
+    const BOOL presentProof = diagFlag(@"vrmc-present-proof.flag");
+    const BOOL clearProbe = diagFlag(@"vrmc-clear-probe.flag");
+    const BOOL dumpRawAlways = diagFlag(@"vrmc-drawable-dump.flag");
+    const BOOL presentWait = diagFlag(@"vrmc-present-wait.flag");
+    const BOOL selfTest = diagFlag(@"vrmc-immersive-selftest.flag");
+    // Re-read while presenting (see the frame loop) so the in-VR quick menu applies it live.
+    float vignetteStrength = readVignetteStrength();
+    const BOOL diagnostics = diagnosticsEnabled();
     static int samplingDisabled = -1;
     if (samplingDisabled < 0) {
-        samplingDisabled = documentFlag(@"vrmc-no-sampling.flag") ? 1 : 0;
+        samplingDisabled = diagFlag(@"vrmc-no-sampling.flag") ? 1 : 0;
     }
     compLog("diagnostics: reprojMode=%d debugShading=%d samplingDisabled=%d forceTestPattern=%d "
             "presentProof=%d clearProbe=%d dumpRaw=%d presentWait=%d selfTest=%d noDeviceAnchor=%d "
-            "legacySingleDrawable=%d depthZero=%d vignette=%.2f",
+            "legacySingleDrawable=%d depthZero=%d vignette=%.2f diagnosticsEnabled=%d "
+            "(release default 0: no test pattern/badge/readbacks; Documents/vrmc-diagnostics.flag enables)",
             reprojMode, (int)debugShading, samplingDisabled, (int)forceTestPattern,
             (int)presentProof, (int)clearProbe, (int)dumpRawAlways, (int)presentWait, (int)selfTest,
-            (int)noDeviceAnchor, (int)legacySingleDrawable, (int)depthZero, (double)vignetteStrength);
+            (int)noDeviceAnchor, (int)legacySingleDrawable, (int)depthZero, (double)vignetteStrength,
+            (int)diagnostics);
 
     // Query the layer's real configuration instead of hardcoding the colour format: the pipeline
     // must match what the drawable actually hands out.
@@ -1823,6 +1982,20 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
     BOOL loggedLogicalSizes = NO;
     // M8 foveated sharpening state (see readSharpenControl): re-read periodically for live A/B.
     VRMCSharpenControl sharpenControl = readSharpenControl();
+    BOOL aaEnabled = readAAEnabled();
+    // Native-resolution anti-aliasing targets (one per eye) + the frame they were computed from.
+    id<MTLRenderPipelineState> fxaaPipe = nil;
+    BOOL fxaaPipeFailed = NO;
+    id<MTLTexture> aaTex[2] = {nil, nil};
+    uint64_t aaSrcHandle[2] = {0, 0};
+    BOOL aaLinearize = YES;
+    {
+        NSString *lin = readDocumentText(@"vrmc-linearize-color.txt");
+        if (lin.length > 0 && ([lin caseInsensitiveCompare:@"off"] == NSOrderedSame || lin.floatValue == 0.0f)) {
+            aaLinearize = NO;
+        }
+    }
+    compLog("edge anti-aliasing: %s (Documents/vrmc-aa.txt)", aaEnabled ? "ON" : "OFF");
     {
         NSString *sharpText = readDocumentText(@"vrmc-sharpening.txt");
         compLog("sharpen control: enabled=%d auto=%d strength=%.2f (Documents/vrmc-sharpening.txt=%s)",
@@ -1874,6 +2047,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             // periodically so it can be A/B'd on device without a rebuild.
             if ((frameCount % 300) == 0) {
                 sharpenControl = readSharpenControl();
+                aaEnabled = readAAEnabled();
             }
             cp_frame_start_update(frame);
             cp_frame_end_update(frame);
@@ -2396,6 +2570,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                 memset(&ts, 0, sizeof(ts));
                 simd_quatf q = simd_quaternion(anchorTransform);
                 ts.presentation_time_ns = (uint64_t)(queryTime * 1e9);
+                rememberAnchor(ts.presentation_time_ns, anchor);
                 ts.head.position.x = anchorTransform.columns[3].x;
                 ts.head.position.y = anchorTransform.columns[3].y;
                 ts.head.position.z = anchorTransform.columns[3].z;
@@ -2567,6 +2742,80 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     }
                 }
             }
+            // Settled-frame selection (tearing / unrendered-frame fix). The provider publishes a texture
+            // pair right after recording the GPU copy into it, so the newest publish may still be in
+            // flight on the game's GPU queue. Show a publish only once it is settled: a newer one has
+            // been published (the game's next frame started after it was submitted), its GPU sync
+            // event has signalled, or it has been the newest for 2 compositor frames (game paused or
+            // slower than 45 fps). Together with the provider's 3-texture export ring the compositor
+            // never samples a texture that is still being written or was never written.
+            static __strong id<MTLTexture> pendingL = nil, pendingR = nil, settledL = nil, settledR = nil;
+            static vrmc_eye_targets pendingEyes, settledEyes;
+            static vrmc_shared_frame_sync pendingSync, settledSync;
+            static uint64_t pendingSeq = 0;
+            static int pendingSinceFrame = 0;
+            static uint64_t settledCount = 0;
+            static uint64_t lastShownPoseNs = 0;
+            if (frameCount == 0) {
+                // New immersive session: nothing from the previous session may be shown or matched.
+                pendingL = nil; pendingR = nil; settledL = nil; settledR = nil;
+                pendingSeq = 0; settledCount = 0; lastShownPoseNs = 0;
+                clearAnchorRing();
+            }
+            const BOOL rawHaveEyes = haveEyes;
+            if (rawHaveEyes) {
+                const BOOL newPublish = (pendingL == nil) || eyeFrame.publish_sequence != pendingSeq ||
+                    (uint64_t)(uintptr_t)(__bridge void *)pendingL != eyeFrame.eyes.left_texture ||
+                    (uint64_t)(uintptr_t)(__bridge void *)pendingR != eyeFrame.eyes.right_texture;
+                if (newPublish) {
+                    if (pendingL != nil && pendingR != nil) {
+                        settledL = pendingL; settledR = pendingR; settledEyes = pendingEyes;
+                        settledSync = pendingSync; settledCount++;
+                    }
+                    pendingL = (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.left_texture;
+                    pendingR = (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.right_texture;
+                    pendingEyes = eyeFrame.eyes;
+                    pendingSync = eyeFrame.sync;
+                    pendingSeq = eyeFrame.publish_sequence;
+                    pendingSinceFrame = frameCount;
+                } else if (pendingL != nil && settledL != pendingL) {
+                    BOOL syncDone = NO;
+                    if (eyeFrame.sync.valid != 0 && eyeFrame.sync.shared_event != 0) {
+                        id<MTLSharedEvent> ev = (__bridge id<MTLSharedEvent>)(void *)(uintptr_t)eyeFrame.sync.shared_event;
+                        syncDone = ev.signaledValue >= eyeFrame.sync.signal_value;
+                    }
+                    if (syncDone || frameCount - pendingSinceFrame >= 2) {
+                        settledL = pendingL; settledR = pendingR; settledEyes = pendingEyes;
+                        settledSync = pendingSync; settledCount++;
+                    }
+                }
+                if (settledCount == 1 && settledL != nil) {
+                    static BOOL loggedSettle = NO;
+                    if (!loggedSettle) {
+                        loggedSettle = YES;
+                        compLog("eye frames: showing settled frames only (newest publish shown once a newer "
+                                "one exists, its GPU event signalled, or it aged 2 frames); pose-matched "
+                                "anchors %s", pendingEyes.presentation_deadline_ns != 0 ? "ON" : "OFF (no pose stamp)");
+                    }
+                }
+                haveEyes = (settledL != nil && settledR != nil);
+                if (haveEyes) {
+                    eyeFrame.eyes = settledEyes;
+                    eyeFrame.eyes.left_texture = (uint64_t)(uintptr_t)(__bridge void *)settledL;
+                    eyeFrame.eyes.right_texture = (uint64_t)(uintptr_t)(__bridge void *)settledR;
+                    // GPU wait (when the provider publishes a timeline) must target the frame shown.
+                    eyeFrame.sync = settledSync;
+                }
+            } else if (pendingL != nil) {
+                // The provider cleared the shared frame (resize / teardown): forget the in-flight
+                // publish; the last settled pair stays available to the hold-last-frame grace below.
+                pendingL = nil; pendingR = nil; pendingSeq = 0;
+            }
+            if (gGameStoppedPosted.load() != 0) {
+                pendingL = nil; pendingR = nil; settledL = nil; settledR = nil; settledCount = 0;
+            }
+            if (haveEyes) lastShownPoseNs = (uint64_t)eyeFrame.eyes.presentation_deadline_ns;
+
             // M8 resize grace (see the state comment above): when the provider has just cleared the
             // shared eye frame for a render-target rebuild, keep sampling the last good pair for a few
             // frames. Only for the flat path (the reprojection path needs the provider FOV per frame),
@@ -2574,20 +2823,27 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             BOOL usingCachedEyes = NO;
             if (!haveEyes) {
                 eyesMissingFrames++;
+                // Release: hold the last picture for up to ~3 s (pause/menu transitions make the
+                // provider rebuild its eye targets, which used to flash the test pattern for a
+                // fraction of a second), then go to black. Diagnostics keep the short 30-frame grace.
+                const int eyeGraceFrames = diagnostics ? 30 : 270;
                 if (!forceTestPattern && !samplingDisabled && !selfTest && useFlat &&
-                    lastLeftEye != nil && lastRightEye != nil && eyesMissingFrames <= 30) {
+                    lastLeftEye != nil && lastRightEye != nil && eyesMissingFrames <= eyeGraceFrames) {
                     usingCachedEyes = YES;
                     if (!loggedEyeCacheReuse) {
                         loggedEyeCacheReuse = YES;
-                        compLog("eyes absent: reusing the last sampled eye frame for up to 30 frames "
+                        compLog("eyes absent: reusing the last sampled eye frame for up to %d frames "
                                 "(age=%llu frames; provider render-target rebuild; retained MTLTextures "
-                                "stay alive)",
+                                "stay alive)", eyeGraceFrames,
                                 (unsigned long long)(lastEyesFrame != 0 ? frameCount - lastEyesFrame : 0));
                     }
                 } else if (loggedEyeCacheReuse) {
                     loggedEyeCacheReuse = NO;
-                    compLog("eyes absent for %d frames: last-frame grace expired; "
-                            "falling back to the test pattern until eyes return", eyesMissingFrames);
+                    // Do not keep the (large) cached pair once the grace is over.
+                    lastLeftEye = nil;
+                    lastRightEye = nil;
+                    compLog("eyes absent for %d frames: last-frame grace expired; %s until eyes return",
+                            eyesMissingFrames, diagnostics ? "falling back to the test pattern" : "presenting black");
                 }
             } else {
                 if (eyesMissingFrames > 0) {
@@ -2614,18 +2870,37 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
             uint32_t drawRightHeight = haveEyes ? eyeFrame.eyes.right_height
                 : (usingCachedEyes ? (uint32_t)lastRightEye.height : 0);
             const vrmc_eye_targets *eyesPtr = &eyeFrame.eyes;
-            static uint32_t loggedTextureGeneration = 0;
+            // Log every provider eye-texture swap by comparing the per-eye handles.
+            //
+            // NOT the bridge texture generation: vrmc_shared_clear_eye_textures() zeroes
+            // texture_generation before each provider eye-target rebuild and the next publish sets it
+            // back to 1, so a "generation != lastGeneration" test only fires on the first frame and
+            // hides every later swap (the 2026-11-07 M8 device run rebuilt 15 times but logged one
+            // generation line). The handle is what actually changes on a rebuild, and it is also the
+            // key of the cached sRGB texture view, so this line gives the purple-menu-flash
+            // investigation an exact "which texture was sampled after which swap" timeline.
+            static uint64_t loggedEyeHandleL = 0;
+            static uint64_t loggedEyeHandleR = 0;
             static int loggedEyeTextureUsage = 0;
-            if (haveEyes && eyeFrame.texture_generation != loggedTextureGeneration) {
-                id<MTLTexture> generationLeft =
-                    (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.left_texture;
-                id<MTLTexture> generationRight =
-                    (__bridge id<MTLTexture>)(void *)(uintptr_t)eyeFrame.eyes.right_texture;
-                compLog("provider eye textures changed: generation=%u publish=%llu L=%p R=%p "
-                        "(handles are re-acquired every frame, never cached)",
+            // Frame of the most recent swap; the diagnostics Probe below reads the drawn drawable for
+            // the first frames after it (the suspected flash window) without waiting for the 300-frame
+            // cadence.
+            static uint64_t eyeTextureChangeFrame = 0;
+            if (haveEyes && (eyeFrame.eyes.left_texture != loggedEyeHandleL ||
+                             eyeFrame.eyes.right_texture != loggedEyeHandleR)) {
+                compLog("provider eye textures changed: generation=%u publish=%llu "
+                        "L=0x%llx->0x%llx R=0x%llx->0x%llx size=%ux%u "
+                        "(handles are re-acquired every frame, never cached; "
+                        "generation is reset to 1 by the bridge clear)",
                         eyeFrame.texture_generation, (unsigned long long)eyeFrame.publish_sequence,
-                        (__bridge void *)generationLeft, (__bridge void *)generationRight);
-                loggedTextureGeneration = eyeFrame.texture_generation;
+                        (unsigned long long)loggedEyeHandleL,
+                        (unsigned long long)eyeFrame.eyes.left_texture,
+                        (unsigned long long)loggedEyeHandleR,
+                        (unsigned long long)eyeFrame.eyes.right_texture,
+                        eyeFrame.eyes.left_width, eyeFrame.eyes.left_height);
+                loggedEyeHandleL = eyeFrame.eyes.left_texture;
+                loggedEyeHandleR = eyeFrame.eyes.right_texture;
+                eyeTextureChangeFrame = frameCount;
             }
             if (haveEyes && !loggedEyeTextureUsage) {
                 loggedEyeTextureUsage = 1;
@@ -2650,12 +2925,18 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                             (__bridge void *)rightTex, (unsigned long)rightTex.pixelFormat,
                             (unsigned long)rightTex.width, (unsigned long)rightTex.height);
                 }
-                scheduleProviderTextureStats(queue, leftTex, "L", frameCount);
-                scheduleProviderTextureStats(queue, rightTex, "R", frameCount);
+                // GPU->CPU readback: once at the start for the log, periodically only in diagnostics
+                // (a blit + completion handler every 300 frames is a needless hitch in normal play).
+                if (frameCount == 1 || diagnostics) {
+                    scheduleProviderTextureStats(queue, leftTex, "L", frameCount);
+                    scheduleProviderTextureStats(queue, rightTex, "R", frameCount);
+                }
             }
             // If the provider image is measurably black, show the test pattern instead of sampling so a
             // black screen is never ambiguous: pattern visible => presentation alive, provider image black.
-            if (haveEyes && !autoTestPattern &&
+            // Diagnostics only: in normal play a dark cave or a black loading screen measures "black"
+            // too, and this latch never resets - the pattern would replace the game for the session.
+            if (diagnostics && haveEyes && !autoTestPattern &&
                 gTexBlackStreakL.load() >= 2 && gTexBlackStreakR.load() >= 2) {
                 autoTestPattern = YES;
                 compLog("AUTO TEST-PATTERN: provider eye textures measured black twice in a row "
@@ -2663,8 +2944,14 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         (double)gTexMeanL.load(), (double)gTexMeanR.load());
             }
 
-            BOOL testPatternNow = ((!haveEyes && !usingCachedEyes) || samplingDisabled ||
+            // Release: never a test pattern. Without eyes (and past the hold-last-frame grace) the
+            // views are cleared to black and nothing is drawn until the game publishes a frame.
+            BOOL testPatternNow = diagnostics &&
+                                  ((!haveEyes && !usingCachedEyes) || samplingDisabled ||
                                    forceTestPattern || autoTestPattern || selfTest);
+            if ((frameCount % 90) == 0) {
+                vignetteStrength = readVignetteStrength();
+            }
             if (testPatternNow != lastTestPatternState) {
                 lastTestPatternState = testPatternNow;
                 compLog("TEST PATTERN state changed: active=%d haveEyes=%d samplingDisabled=%d "
@@ -2715,6 +3002,72 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     }
                 }
             }
+            // Edge anti-aliasing pre-pass at the game's resolution, once per new game frame and eye
+            // (the result is reused for every display frame that shows the same game frame).
+            BOOL aaReady[2] = {NO, NO};
+            if (aaEnabled && useFlat && !testPatternNow && (haveEyes || usingCachedEyes) && !fxaaPipeFailed) {
+                if (fxaaPipe == nil) {
+                    NSError *aaErr = nil;
+                    id<MTLLibrary> aaLib = [device newLibraryWithSource:shaderSource() options:nil error:&aaErr];
+                    MTLRenderPipelineDescriptor *apd = [MTLRenderPipelineDescriptor new];
+                    apd.vertexFunction = [aaLib newFunctionWithName:@"vmain"];
+                    apd.fragmentFunction = [aaLib newFunctionWithName:@"fmain_fxaa"];
+                    apd.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA16Float;
+                    fxaaPipe = (aaLib != nil && apd.fragmentFunction != nil)
+                        ? [device newRenderPipelineStateWithDescriptor:apd error:&aaErr] : nil;
+                    if (fxaaPipe == nil) {
+                        fxaaPipeFailed = YES;
+                        compLog("edge anti-aliasing pipeline FAILED (%s); upscaling without AA",
+                                aaErr.description.UTF8String ?: "unknown");
+                    }
+                }
+                for (int eye = 0; eye < 2 && fxaaPipe != nil; eye++) {
+                    const uint64_t srcHandle = eye == 0 ? drawLeftHandle : drawRightHandle;
+                    if (srcHandle == 0) continue;
+                    id<MTLTexture> src = (__bridge id<MTLTexture>)(void *)(uintptr_t)srcHandle;
+                    if (src.device != device) continue;
+                    if (aaTex[eye] != nil && aaSrcHandle[eye] == srcHandle &&
+                        aaTex[eye].width == src.width && aaTex[eye].height == src.height) {
+                        aaReady[eye] = YES; // same game frame as last time: reuse
+                        continue;
+                    }
+                    if (aaTex[eye] == nil || aaTex[eye].width != src.width || aaTex[eye].height != src.height) {
+                        MTLTextureDescriptor *ad = [MTLTextureDescriptor
+                            texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float
+                                                         width:src.width height:src.height mipmapped:NO];
+                        ad.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+                        ad.storageMode = MTLStorageModePrivate;
+                        aaTex[eye] = [device newTextureWithDescriptor:ad];
+                        compLog("edge anti-aliasing: %s target %lux%lu", eye == 0 ? "L" : "R",
+                                (unsigned long)src.width, (unsigned long)src.height);
+                    }
+                    if (aaTex[eye] == nil) continue;
+                    id<MTLTexture> srcView = src;
+                    MTLPixelFormat sf = src.pixelFormat == MTLPixelFormatRGBA8Unorm ? MTLPixelFormatRGBA8Unorm_sRGB
+                        : (src.pixelFormat == MTLPixelFormatBGRA8Unorm ? MTLPixelFormatBGRA8Unorm_sRGB
+                                                                       : MTLPixelFormatInvalid);
+                    if (aaLinearize && sf != MTLPixelFormatInvalid) {
+                        id<MTLTexture> v = [src newTextureViewWithPixelFormat:sf];
+                        if (v != nil) srcView = v;
+                    }
+                    MTLRenderPassDescriptor *arp = [MTLRenderPassDescriptor renderPassDescriptor];
+                    arp.colorAttachments[0].texture = aaTex[eye];
+                    arp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+                    arp.colorAttachments[0].storeAction = MTLStoreActionStore;
+                    id<MTLRenderCommandEncoder> ae = [cb renderCommandEncoderWithDescriptor:arp];
+                    if (ae == nil) continue;
+                    [ae setRenderPipelineState:fxaaPipe];
+                    [ae setFragmentTexture:srcView atIndex:0];
+                    [ae setFragmentSamplerState:sampler atIndex:0];
+                    float aaPx[2] = {1.0f / (float)src.width, 1.0f / (float)src.height};
+                    [ae setFragmentBytes:aaPx length:sizeof(aaPx) atIndex:4];
+                    [ae drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+                    [ae endEncoding];
+                    aaSrcHandle[eye] = srcHandle;
+                    aaReady[eye] = YES;
+                }
+            }
+
             size_t presented = 0;
             size_t encodedViews = 0;
             for (size_t d = 0; d < drawableCount; d++) {
@@ -2728,7 +3081,19 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     drawableLeftView = (p0.x <= p1.x) ? 0 : 1;
                 }
                 if (anchorOK && !noDeviceAnchor) {
-                    cp_drawable_set_device_anchor(drawable, anchor);
+                    // The anchor the shown picture was rendered from (see anchorForPose); the newest
+                    // anchor only when no stamped pose is available (no game frame yet, old bridge).
+                    ar_device_anchor_t renderAnchor = (haveEyes || usingCachedEyes)
+                        ? anchorForPose(lastShownPoseNs) : nil;
+                    static uint64_t poseMatched = 0, poseUnmatched = 0;
+                    if (renderAnchor != nil) poseMatched++; else if (haveEyes) poseUnmatched++;
+                    if (d == 0 && (frameCount % 900) == 0 && (poseMatched + poseUnmatched) > 0) {
+                        compLog("pose-matched anchors: matched=%llu unmatched=%llu (unmatched = frame pose "
+                                "older than %d display frames or not stamped)",
+                                (unsigned long long)poseMatched, (unsigned long long)poseUnmatched,
+                                kAnchorRingSize);
+                    }
+                    cp_drawable_set_device_anchor(drawable, renderAnchor != nil ? renderAnchor : anchor);
                 }
                 size_t textureCount = cp_drawable_get_texture_count(drawable);
                 size_t rateMapCount = cp_drawable_get_rasterization_rate_map_count(drawable);
@@ -2771,10 +3136,13 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         rp.colorAttachments[0].clearColor = isLeftEye
                             ? MTLClearColorMake(1.0, 0.0, 1.0, 1.0)
                             : MTLClearColorMake(0.0, 1.0, 1.0, 1.0);
-                    } else {
+                    } else if (diagnostics) {
+                        // Bright per-eye clears prove an invalid pass in diagnostics (red left, green right).
                         rp.colorAttachments[0].clearColor = isLeftEye
                             ? MTLClearColorMake(0.8, 0.05, 0.05, 1.0)
                             : MTLClearColorMake(0.05, 0.7, 0.1, 1.0);
+                    } else {
+                        rp.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
                     }
                     if (colorTexture.textureType == MTLTextureType2DArray) {
                         rp.colorAttachments[0].slice = sliceIndex;
@@ -2839,6 +3207,15 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                     viewport.width, viewport.height,
                                     sharpenControl.autoMode ? "auto" : "fixed");
                         }
+                        if (useFlat && !testPatternNow && pipes.flatSharp != nil &&
+                            (haveEyes || usingCachedEyes)) {
+                            const uint32_t aaW = isLeftEye ? drawLeftWidth : drawRightWidth;
+                            const uint32_t aaH = isLeftEye ? drawLeftHeight : drawRightHeight;
+                            if (aaW > 0 && aaH > 0) {
+                                sharpenTexelW = (float)(1.0 / (double)aaW);
+                                sharpenTexelH = (float)(1.0 / (double)aaH);
+                            }
+                        }
                         if (useFlat && !testPatternNow && sharpenControl.enabled &&
                             pipes.flatSharp != nil && haveEyes && eyesPtr != NULL) {
                             const uint32_t eyeW = isLeftEye ? drawLeftWidth : drawRightWidth;
@@ -2885,7 +3262,10 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                         id<MTLRenderPipelineState> chosen = nil;
                         if (testPatternNow) chosen = pipes.test;
                         else if (useFlat) {
-                            if (sharpenStrength > 0.001f) chosen = pipes.flatSharp;
+                            if (sharpenStrength > 0.001f ||
+                                (aaEnabled && sharpenTexelW > 0.0f && sharpenTexelH > 0.0f)) {
+                                chosen = pipes.flatSharp;
+                            }
                             else chosen = (vignetteStrength > 0.0f && pipes.flatVignette != nil)
                                 ? pipes.flatVignette : pipes.flat;
                         } else chosen = pipes.reproj;
@@ -2921,28 +3301,73 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                 } else if (tex.pixelFormat == MTLPixelFormatBGRA8Unorm) {
                                     srgbViewFormat = MTLPixelFormatBGRA8Unorm_sRGB;
                                 }
-                                static uint32_t gSrgbColorGeneration = 0;
-                                const uint32_t viewGeneration = haveEyes ? eyeFrame.texture_generation : gSrgbColorGeneration;
+                                // Per-eye generation: with one shared counter the left eye's refresh marked
+                                // the generation as current, so the right eye kept a stale view of the old
+                                // texture whenever a rebuilt texture reused the same address.
+                                static uint32_t gSrgbColorGenerationL = 0;
+                                static uint32_t gSrgbColorGenerationR = 0;
+                                uint32_t *generationCache = isLeftEye ? &gSrgbColorGenerationL : &gSrgbColorGenerationR;
+                                const uint32_t viewGeneration = haveEyes ? eyeFrame.texture_generation : *generationCache;
                                 if (linearizeColorEnabled && srgbViewFormat != MTLPixelFormatInvalid) {
                                     __strong id<MTLTexture> *viewCache = isLeftEye ? &gSrgbColorViewL : &gSrgbColorViewR;
                                     uint64_t *handleCache = isLeftEye ? &gSrgbColorHandleL : &gSrgbColorHandleR;
+                                    // A cached view is only valid for the exact texture it was created from:
+                                    // same provider handle, same pixel format, same extent. The bridge
+                                    // generation cannot be relied on for this - vrmc_shared_clear_eye_textures()
+                                    // resets texture_generation to 0 and the next publish makes it 1 again,
+                                    // so it usually looks unchanged across an eye-target rebuild. Requiring
+                                    // format+extent as well as the handle means a stale view can never be
+                                    // sampled even if a provider texture address were reused.
+                                    const BOOL cachedViewStale =
+                                        (*viewCache != nil) &&
+                                        (*handleCache != handle ||
+                                         (*viewCache).pixelFormat != srgbViewFormat ||
+                                         (*viewCache).width != tex.width ||
+                                         (*viewCache).height != tex.height);
                                     if (*handleCache != handle || *viewCache == nil ||
-                                        gSrgbColorGeneration != viewGeneration) {
+                                        *generationCache != viewGeneration || cachedViewStale) {
                                         id<MTLTexture> srgbView = [tex newTextureViewWithPixelFormat:srgbViewFormat];
                                         if (srgbView != nil) {
+                                            static int loggedSrgbView = 0;
+                                            static int loggedSrgbRebuilds = 0;
+                                            const uint64_t previousHandle = *handleCache;
+                                            const BOOL previousViewWasOtherTexture =
+                                                (previousHandle != handle && *viewCache != nil);
                                             *viewCache = srgbView;
                                             *handleCache = handle;
-                                            gSrgbColorGeneration = viewGeneration;
-                                            static int loggedSrgbView = 0;
+                                            *generationCache = viewGeneration;
                                             if (!loggedSrgbView) {
                                                 loggedSrgbView = 1;
                                                 compLog("color: sRGB->linear applied via texture view (provider fmt=%lu -> view fmt=%lu %lux%lu)",
                                                         (unsigned long)tex.pixelFormat, (unsigned long)srgbView.pixelFormat,
                                                         (unsigned long)srgbView.width, (unsigned long)srgbView.height);
                                             }
+                                            // Per-swap line (bounded to 64): a device log can now prove which
+                                            // texture/view the compositor sampled after each eye-target
+                                            // rebuild, and whether the previous view belonged to a different
+                                            // texture. This is the confirmation hook for the "purple flash
+                                            // appeared after the colour correction" report.
+                                            if (loggedSrgbRebuilds < 64) {
+                                                loggedSrgbRebuilds++;
+                                                compLog("color: sRGB view rebuilt %s handle=0x%llx fmt=%lu %lux%lu gen=%u previousHandle=0x%llx previousViewOtherTexture=%d",
+                                                        isLeftEye ? "L" : "R",
+                                                        (unsigned long long)handle,
+                                                        (unsigned long)tex.pixelFormat,
+                                                        (unsigned long)srgbView.width, (unsigned long)srgbView.height,
+                                                        viewGeneration, (unsigned long long)previousHandle,
+                                                        (int)previousViewWasOtherTexture);
+                                            }
+                                        } else {
+                                            static int loggedSrgbViewFailure = 0;
+                                            if (!loggedSrgbViewFailure) {
+                                                loggedSrgbViewFailure = 1;
+                                                compLog("color: sRGB view creation FAILED (handle=0x%llx fmt=%lu); sampling the raw provider texture (no gamma decode)",
+                                                        (unsigned long long)handle, (unsigned long)tex.pixelFormat);
+                                            }
                                         }
                                     }
-                                    if (*viewCache != nil) tex = *viewCache;
+                                    // Never sample a cached view that belongs to another texture.
+                                    if (*viewCache != nil && *handleCache == handle) tex = *viewCache;
                                 }
                                 if (tex != nil && tex.device != device) {
                                     static int loggedDeviceMismatch = 0;
@@ -2953,9 +3378,19 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                     }
                                     tex = nil;
                                 }
+                                const int aaEye = isLeftEye ? 0 : 1;
+                                const BOOL aaApplied = tex != nil && chosen == pipes.flatSharp &&
+                                    aaReady[aaEye] && aaTex[aaEye] != nil && aaSrcHandle[aaEye] == handle;
+                                if (aaApplied) tex = aaTex[aaEye]; // already linear (decoded in the pre-pass)
                                 if (tex != nil) {
                                     [enc setFragmentTexture:tex atIndex:0];
                                     [enc setFragmentSamplerState:sampler atIndex:0];
+                                    if (chosen == pipes.flatVignette) {
+                                        // fmain_flat_vignette reads buffer(1); it was never bound, so the
+                                        // vignette path sampled an unbound buffer whenever sharpening was off.
+                                        float vig = vignetteStrength;
+                                        [enc setFragmentBytes:&vig length:sizeof(vig) atIndex:1];
+                                    }
                                     if (chosen == pipes.flatSharp) {
                                         // Fovea-weighted CAS-lite parameters (buffer 3 matches the
                                         // FlatFx struct in kShaderSource).
@@ -2964,6 +3399,7 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                                         fx.vignette = vignetteStrength;
                                         fx.texelW = sharpenTexelW;
                                         fx.texelH = sharpenTexelH;
+                                        fx.aa = aaApplied ? 1.0f : 0.0f;
                                         [enc setFragmentBytes:&fx length:sizeof(fx) atIndex:3];
                                     }
                                     if (!useFlat) {
@@ -3000,7 +3436,16 @@ static BOOL encodeDrawableProbe(id<MTLCommandBuffer> cb, id<MTLTexture> tex, MTL
                     encodedViews++;
 
                     // Ground truth of what is being presented: read back the DRAWN drawable texture.
-                    BOOL shouldProbe = !clearProbe && (frameCount < 3 || (frameCount % 300) == 0);
+                    // In diagnostics, also probe the first 3 drawn frames after an eye-texture swap:
+                    // that is exactly where a texture-view/format switch would flash (the 2026-11-07 M8
+                    // purple menu/pause flash was reported after the sRGB texture-view colour fix).
+                    // Release is unchanged: diagnostics is false, so the periodic cadence still governs.
+                    const BOOL afterEyeTextureSwap = (eyeTextureChangeFrame > 0) &&
+                        frameCount >= eyeTextureChangeFrame &&
+                        (frameCount - eyeTextureChangeFrame) <= 2;
+                    BOOL shouldProbe = diagnostics && !clearProbe &&
+                                       (frameCount < 3 || (frameCount % 300) == 0 ||
+                                        afterEyeTextureSwap);
                     if (shouldProbe && target == (int)cp_drawable_target_built_in) {
                         BOOL dumpRaw = dumpRawAlways || selfTest || (frameCount < 3);
                         NSUInteger probeSlice = (colorTexture.textureType == MTLTextureType2DArray)
